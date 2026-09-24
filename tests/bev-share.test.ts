@@ -184,3 +184,4 @@ if (failed > 0) {
 } else {
   console.log('🎉 All BEV share validation & candidate selection regression tests passed!\n');
 }
+

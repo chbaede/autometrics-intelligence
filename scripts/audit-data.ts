@@ -17,11 +17,11 @@ import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 import {
   validateMarginScopeCompatibility,
+  selectCompatibleMarginTriplets,
+  validateMarginTriplet,
   selectCompatibleBevShareTriplets,
   validateBEVShare,
 } from '../src/utils/metricCalculations';
-import { MetricObservation } from '../src/types/metrics';
-
 const isStrict = process.argv.includes('--strict');
 
 interface AuditFinding {
@@ -199,96 +199,83 @@ let missingPairCount = 0;
 companyPeriods.forEach((cp) => {
   const [companyId, period] = cp.split('|');
 
-  // Collect candidate observations
-  const revCandidates = METRIC_OBSERVATIONS.filter(
-    (o) => o.companyId === companyId && o.period === period && o.metricId === 'revenue' && o.value !== null
-  );
-  const ebitCandidates = METRIC_OBSERVATIONS.filter(
-    (o) =>
-      o.companyId === companyId &&
-      o.period === period &&
-      (o.metricId === 'operating_income' || o.metricId === 'ebit' || o.metricId === 'adjusted_ebit') &&
-      o.value !== null
-  );
-  const marginCandidates = METRIC_OBSERVATIONS.filter(
-    (o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin' && o.value !== null
-  );
+  const selection = selectCompatibleMarginTriplets(METRIC_OBSERVATIONS, companyId, period);
 
-  if (marginCandidates.length > 0 && (revCandidates.length === 0 || ebitCandidates.length === 0)) {
-    missingPairCount++;
-    findings.push({
-      severity: 'WARNING',
-      category: 'SCOPE_MISMATCH',
-      item: `${companyId} (${period})`,
-      detail: `Reported margin exists but missing compatible revenue (${revCandidates.length}) or EBIT (${ebitCandidates.length}) candidate.`,
-    });
-    return;
-  }
-
-  if (revCandidates.length > 0 && ebitCandidates.length > 0 && marginCandidates.length > 0) {
+  if (selection.status === 'matched') {
     scopeAwareChecks++;
+    const validation = validateMarginTriplet(selection.revenue, selection.profit, selection.margin);
 
-    // Look for fully compatible triplets
-    const compatibleTriplets: { rev: MetricObservation; ebit: MetricObservation; margin: MetricObservation }[] = [];
-
-    for (const rev of revCandidates) {
-      for (const ebit of ebitCandidates) {
-        for (const margin of marginCandidates) {
-          if (
-            rev.reportingScope === ebit.reportingScope &&
-            ebit.reportingScope === margin.reportingScope &&
-            rev.accountingBasis === ebit.accountingBasis &&
-            ebit.accountingBasis === margin.accountingBasis &&
-            rev.currency === ebit.currency &&
-            rev.unit === ebit.unit
-          ) {
-            compatibleTriplets.push({ rev, ebit, margin });
-          }
-        }
-      }
-    }
-
-    if (compatibleTriplets.length > 1) {
-      ambiguousCombinationsCount++;
+    if (validation.status === 'verified') {
+      // Cleanly verified
+    } else if (validation.status === 'invalid') {
+      mathMismatchCount++;
+      findings.push({
+        severity: 'ERROR',
+        category: 'MATH_MISMATCH',
+        item: `${companyId} (${period})`,
+        detail: validation.diagnostic,
+      });
+    } else if (validation.status === 'needs_review') {
       findings.push({
         severity: 'WARNING',
         category: 'SCOPE_MISMATCH',
         item: `${companyId} (${period})`,
-        detail: `Ambiguous candidates: found ${compatibleTriplets.length} compatible candidate triplets.`,
+        detail: validation.diagnostic,
       });
-    } else if (compatibleTriplets.length === 1) {
-      const { rev, ebit, margin } = compatibleTriplets[0];
-      const validation = validateMarginScopeCompatibility(rev, ebit, margin);
+    }
+  } else if (selection.status === 'ambiguous') {
+    ambiguousCombinationsCount++;
+    findings.push({
+      severity: 'WARNING',
+      category: 'SCOPE_MISMATCH',
+      item: `${companyId} (${period})`,
+      detail: selection.reasons.join('; '),
+    });
+  } else if (selection.status === 'incompatible') {
+    // Check if exactly 1 candidate for each metric exists (e.g. BMW/Mercedes segment margins, GM/Ford/Stellantis adjusted EBIT)
+    const revCands = METRIC_OBSERVATIONS.filter(
+      (o) => o.companyId === companyId && o.period === period && o.metricId === 'revenue' && o.value !== null
+    );
+    const profitCands = METRIC_OBSERVATIONS.filter(
+      (o) =>
+        o.companyId === companyId &&
+        o.period === period &&
+        (o.metricId === 'operating_income' || o.metricId === 'ebit' || o.metricId === 'adjusted_ebit') &&
+        o.value !== null
+    );
+    const marginCands = METRIC_OBSERVATIONS.filter(
+      (o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin' && o.value !== null
+    );
 
-      if (validation.validationStatus === 'needs_review') {
-        mathMismatchCount++;
-        findings.push({
-          severity: 'WARNING',
-          category: 'MATH_MISMATCH',
-          item: `${companyId} (${period})`,
-          detail: validation.diagnostic,
-        });
-      }
+    if (revCands.length === 1 && profitCands.length === 1 && marginCands.length === 1) {
+      scopeWarningsCount++;
+      const validation = validateMarginScopeCompatibility(revCands[0], profitCands[0], marginCands[0]);
+      findings.push({
+        severity: 'WARNING',
+        category: 'SCOPE_MISMATCH',
+        item: `${companyId} (${period})`,
+        detail: validation.diagnostic,
+      });
     } else {
-      // No fully compatible triplet exists across scopes/bases (e.g. BMW / Mercedes-Benz segment margins)
-      const validation = validateMarginScopeCompatibility(revCandidates[0], ebitCandidates[0], marginCandidates[0]);
-      if (validation.validationStatus === 'scope_warning') {
-        scopeWarningsCount++;
-        findings.push({
-          severity: 'WARNING',
-          category: 'SCOPE_MISMATCH',
-          item: `${companyId} (${period})`,
-          detail: validation.diagnostic,
-        });
-      } else if (validation.validationStatus === 'needs_review') {
-        mathMismatchCount++;
-        findings.push({
-          severity: 'WARNING',
-          category: 'MATH_MISMATCH',
-          item: `${companyId} (${period})`,
-          detail: validation.diagnostic,
-        });
-      }
+      findings.push({
+        severity: 'WARNING',
+        category: 'SCOPE_MISMATCH',
+        item: `${companyId} (${period})`,
+        detail: `Incompatible candidates with multiple options for ${companyId} (${period}): ${selection.reasons.join('; ')}`,
+      });
+    }
+  } else if (selection.status === 'missing') {
+    const marginCands = METRIC_OBSERVATIONS.filter(
+      (o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin' && o.value !== null
+    );
+    if (marginCands.length > 0) {
+      missingPairCount++;
+      findings.push({
+        severity: 'WARNING',
+        category: 'SCOPE_MISMATCH',
+        item: `${companyId} (${period})`,
+        detail: selection.reasons.join('; '),
+      });
     }
   }
 });

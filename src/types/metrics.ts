@@ -129,6 +129,47 @@ export interface BevShareValidationResult {
   matchedObservationIds: string[];
 }
 
+export interface DerivedMetricDefinition {
+  metricId: string;
+  numeratorMetricIds: string[];
+  denominatorMetricIds: string[];
+  allowedAccountingBases?: AccountingBasis[];
+}
+
+export interface MarginCandidateResult {
+  status: CandidateSelectionStatus;
+  revenue?: MetricObservation;
+  profit?: MetricObservation;
+  margin?: MetricObservation;
+  candidatesChecked: number;
+  reasons: string[];
+}
+
+export interface MarginValidationChecks {
+  period: boolean;
+  periodType: boolean;
+  scope: boolean;
+  accountingBasis: boolean;
+  currency: boolean;
+  unit: boolean;
+  metricDefinition: boolean;
+}
+
+export interface MarginValidationResult {
+  status: 'verified' | 'needs_review' | 'ambiguous' | 'invalid';
+  calculatedMargin: number | null;
+  reportedMargin: number | null;
+  difference: number | null;
+  selectedObservationIds: {
+    revenue?: string;
+    profit?: string;
+    margin?: string;
+  };
+  checks: MarginValidationChecks;
+  diagnostic: string;
+  reasons: string[];
+}
+
 export interface Company {
   id: string;
   name: string;

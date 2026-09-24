@@ -15,6 +15,10 @@ import {
   VerificationStatus,
   BevShareCandidateResult,
   BevShareValidationResult,
+  DerivedMetricDefinition,
+  MarginCandidateResult,
+  MarginValidationChecks,
+  MarginValidationResult,
 } from '../types/metrics';
 
 export function calculateYoYGrowth(
@@ -324,6 +328,283 @@ export function checkObservationComparability(
     level,
     reasons,
     checks,
+  };
+}
+
+export const OPERATING_MARGIN_RELATIONSHIP: DerivedMetricDefinition = {
+  metricId: 'operating_margin',
+  numeratorMetricIds: ['operating_income', 'ebit', 'adjusted_ebit'],
+  denominatorMetricIds: ['revenue'],
+  allowedAccountingBases: ['reported', 'adjusted', 'non_gaap', 'management_defined'],
+};
+
+/**
+ * Selects compatible margin candidate triplets from an observation pool.
+ * Identifies the correct numerator (operating_income/ebit vs adjusted_ebit),
+ * denominator (revenue), and margin without arbitrary candidate[0] selection.
+ */
+export function selectCompatibleMarginTriplets(
+  observations: MetricObservation[],
+  companyId: string,
+  period: string
+): MarginCandidateResult {
+  const revCandidates = observations.filter(
+    (o) => o.companyId === companyId && o.period === period && o.metricId === 'revenue' && o.value !== null
+  );
+  const profitCandidates = observations.filter(
+    (o) =>
+      o.companyId === companyId &&
+      o.period === period &&
+      (o.metricId === 'operating_income' || o.metricId === 'ebit' || o.metricId === 'adjusted_ebit') &&
+      o.value !== null
+  );
+  const marginCandidates = observations.filter(
+    (o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin' && o.value !== null
+  );
+
+  const candidatesChecked = revCandidates.length + profitCandidates.length + marginCandidates.length;
+  const reasons: string[] = [];
+
+  if (revCandidates.length === 0 || profitCandidates.length === 0 || marginCandidates.length === 0) {
+    if (revCandidates.length === 0) reasons.push('Missing revenue denominator candidate observation.');
+    if (profitCandidates.length === 0) reasons.push('Missing operating profit numerator candidate observation.');
+    if (marginCandidates.length === 0) reasons.push('Missing operating margin candidate observation.');
+    return {
+      status: 'missing',
+      candidatesChecked,
+      reasons,
+    };
+  }
+
+  const compatibleTriplets: {
+    rev: MetricObservation;
+    profit: MetricObservation;
+    margin: MetricObservation;
+  }[] = [];
+
+  for (const rev of revCandidates) {
+    for (const profit of profitCandidates) {
+      for (const margin of marginCandidates) {
+        const periodMatch = rev.period === profit.period && profit.period === margin.period;
+        const periodTypeMatch = rev.periodType === profit.periodType && profit.periodType === margin.periodType;
+        const scopeMatch =
+          !!rev.reportingScope &&
+          !!profit.reportingScope &&
+          !!margin.reportingScope &&
+          rev.reportingScope !== 'unknown' &&
+          rev.reportingScope === profit.reportingScope &&
+          profit.reportingScope === margin.reportingScope;
+        const basisMatch =
+          !!rev.accountingBasis &&
+          !!profit.accountingBasis &&
+          !!margin.accountingBasis &&
+          rev.accountingBasis !== 'unknown' &&
+          rev.accountingBasis === profit.accountingBasis &&
+          profit.accountingBasis === margin.accountingBasis;
+        const currencyMatch =
+          !!rev.currency && !!profit.currency && rev.currency === profit.currency;
+        const unitMatch = rev.unit === profit.unit && margin.unit === 'percentage';
+
+        if (periodMatch && periodTypeMatch && scopeMatch && basisMatch && currencyMatch && unitMatch) {
+          compatibleTriplets.push({ rev, profit, margin });
+        }
+      }
+    }
+  }
+
+  if (compatibleTriplets.length === 1) {
+    return {
+      status: 'matched',
+      revenue: compatibleTriplets[0].rev,
+      profit: compatibleTriplets[0].profit,
+      margin: compatibleTriplets[0].margin,
+      candidatesChecked,
+      reasons: ['Compatible margin triplet successfully matched across all metadata dimensions.'],
+    };
+  }
+
+  if (compatibleTriplets.length > 1) {
+    return {
+      status: 'ambiguous',
+      candidatesChecked,
+      reasons: [
+        `Ambiguous candidate observations: found ${compatibleTriplets.length} valid compatible candidate triplets.`,
+      ],
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    candidatesChecked,
+    reasons: [
+      'Incompatible candidate triplet: candidates exist but have mismatched reportingScope, accountingBasis, currency, or unit.',
+    ],
+  };
+}
+
+/**
+ * Validates semantic and mathematical compatibility among revenue, operating profit, and reported margin.
+ */
+export function validateMarginTriplet(
+  revObs?: MetricObservation | null,
+  profitObs?: MetricObservation | null,
+  marginObs?: MetricObservation | null
+): MarginValidationResult {
+  const selectedObservationIds = {
+    revenue: revObs?.id,
+    profit: profitObs?.id,
+    margin: marginObs?.id,
+  };
+
+  const checks: MarginValidationChecks = {
+    period: false,
+    periodType: false,
+    scope: false,
+    accountingBasis: false,
+    currency: false,
+    unit: false,
+    metricDefinition: false,
+  };
+
+  const reasons: string[] = [];
+
+  if (!revObs || !profitObs || !marginObs || revObs.value === null || profitObs.value === null || marginObs.value === null) {
+    if (!revObs) reasons.push('Missing revenue observation.');
+    if (!profitObs) reasons.push('Missing operating profit observation.');
+    if (!marginObs) reasons.push('Missing operating margin observation.');
+    return {
+      status: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: marginObs?.value ?? null,
+      difference: null,
+      selectedObservationIds,
+      checks,
+      diagnostic: 'Incomplete observation triplet: missing revenue, profit, or margin observation.',
+      reasons,
+    };
+  }
+
+  // 1. Metric definition checks
+  const validNumerator = OPERATING_MARGIN_RELATIONSHIP.numeratorMetricIds.includes(profitObs.metricId);
+  const validDenominator = OPERATING_MARGIN_RELATIONSHIP.denominatorMetricIds.includes(revObs.metricId);
+  const validMargin = marginObs.metricId === OPERATING_MARGIN_RELATIONSHIP.metricId;
+  checks.metricDefinition = validNumerator && validDenominator && validMargin;
+  if (!checks.metricDefinition) {
+    reasons.push(
+      `Metric definition mismatch: Revenue (${revObs.metricId}), Profit (${profitObs.metricId}), Margin (${marginObs.metricId}).`
+    );
+  }
+
+  // 2. Period and periodType
+  checks.period = revObs.period === profitObs.period && revObs.period === marginObs.period;
+  if (!checks.period) {
+    reasons.push(`Period mismatch: Revenue (${revObs.period}), Profit (${profitObs.period}), Margin (${marginObs.period}).`);
+  }
+
+  checks.periodType = revObs.periodType === profitObs.periodType && revObs.periodType === marginObs.periodType;
+  if (!checks.periodType) {
+    reasons.push(
+      `Period type mismatch: Revenue (${revObs.periodType}), Profit (${profitObs.periodType}), Margin (${marginObs.periodType}).`
+    );
+  }
+
+  // 3. Reporting scope
+  const scopeRev = revObs.reportingScope;
+  const scopeProfit = profitObs.reportingScope;
+  const scopeMargin = marginObs.reportingScope;
+  checks.scope =
+    !!scopeRev &&
+    !!scopeProfit &&
+    !!scopeMargin &&
+    scopeRev !== 'unknown' &&
+    scopeRev === scopeProfit &&
+    scopeProfit === scopeMargin;
+  if (!checks.scope) {
+    reasons.push(`Scope mismatch: Revenue (${scopeRev}), Profit (${scopeProfit}), Margin (${scopeMargin}).`);
+  }
+
+  // 4. Accounting basis
+  const basisRev = revObs.accountingBasis;
+  const basisProfit = profitObs.accountingBasis;
+  const basisMargin = marginObs.accountingBasis;
+  checks.accountingBasis =
+    !!basisRev &&
+    !!basisProfit &&
+    !!basisMargin &&
+    basisRev !== 'unknown' &&
+    basisRev === basisProfit &&
+    basisProfit === basisMargin;
+  if (!checks.accountingBasis) {
+    reasons.push(`Accounting basis mismatch: Revenue (${basisRev}), Profit (${basisProfit}), Margin (${basisMargin}).`);
+  }
+
+  // 5. Currency
+  checks.currency = !!revObs.currency && !!profitObs.currency && revObs.currency === profitObs.currency;
+  if (!checks.currency) {
+    reasons.push(`Currency mismatch: Revenue (${revObs.currency}), Profit (${profitObs.currency}).`);
+  }
+
+  // 6. Unit
+  checks.unit = revObs.unit === profitObs.unit && marginObs.unit === 'percentage';
+  if (!checks.unit) {
+    reasons.push(`Unit scale mismatch: Revenue (${revObs.unit}), Profit (${profitObs.unit}), Margin (${marginObs.unit}).`);
+  }
+
+  // Value checks
+  if (revObs.value <= 0) {
+    return {
+      status: 'invalid',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      selectedObservationIds,
+      checks,
+      diagnostic: `Revenue denominator is non-positive (${revObs.value}); margin calculation is undefined.`,
+      reasons: [...reasons, 'Non-positive revenue denominator.'],
+    };
+  }
+
+  const calculatedMargin = Math.round(((profitObs.value / revObs.value) * 100) * 100) / 100;
+  const reportedMargin = marginObs.value;
+  const difference = Math.round(Math.abs(calculatedMargin - reportedMargin) * 100) / 100;
+
+  const allChecksPass = Object.values(checks).every((c) => c === true);
+
+  if (!allChecksPass) {
+    return {
+      status: 'invalid',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      selectedObservationIds,
+      checks,
+      diagnostic: reasons.join('; '),
+      reasons,
+    };
+  }
+
+  if (difference > 0.35) {
+    return {
+      status: 'invalid',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      selectedObservationIds,
+      checks,
+      diagnostic: `Mathematical deviation of ${difference}%p exceeds 0.35%p threshold (reported: ${reportedMargin}%, calculated: ${calculatedMargin}%).`,
+      reasons: ['Mathematical deviation exceeds 0.35%p tolerance.'],
+    };
+  }
+
+  return {
+    status: 'verified',
+    calculatedMargin,
+    reportedMargin,
+    difference,
+    selectedObservationIds,
+    checks,
+    diagnostic: 'Revenue, operating profit, and reported margin are semantically and mathematically verified.',
+    reasons: [],
   };
 }
 
