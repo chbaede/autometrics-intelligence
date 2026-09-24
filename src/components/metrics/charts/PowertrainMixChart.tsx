@@ -2,6 +2,7 @@ import React from 'react';
 import { Company } from '../../../types/metrics';
 import { formatMetricValue } from '../../../utils/metricCalculations';
 import { TermBadge } from '../TermBadge';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface PowertrainMixItem {
   company: Company;
@@ -21,6 +22,7 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
   subtitle,
   data,
 }) => {
+  const { language } = useLanguage();
   if (!data || data.length === 0) return null;
 
   return (
@@ -38,15 +40,15 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
         <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
           <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-            <TermBadge term="BEV" showIcon={false} /> (100% Electric)
+            <TermBadge term="BEV" showIcon={false} /> {language === 'ko' ? '(100% 전기차)' : '(100% Electric)'}
           </div>
           <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-semibold">
             <span className="w-2.5 h-2.5 rounded-sm bg-sky-500" />
-            <TermBadge term="PHEV" showIcon={false} /> (Plug-in)
+            <TermBadge term="PHEV" showIcon={false} /> {language === 'ko' ? '(플러그인)' : '(Plug-in)'}
           </div>
           <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-semibold">
             <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 dark:bg-slate-700" />
-            <span>ICE / <TermBadge term="HEV" showIcon={false} /></span>
+            <span>{language === 'ko' ? '내연기관' : 'ICE'} / <TermBadge term="HEV" showIcon={false} /></span>
           </div>
         </div>
       </div>
@@ -66,7 +68,7 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
                   {item.company.name}
                 </span>
                 <span className="font-mono text-slate-500 dark:text-slate-400 text-[11px]">
-                  Total: {formatMetricValue(item.totalDeliveries, 'thousand_units')} • BEV Share:{' '}
+                  {language === 'ko' ? '총 인도량' : 'Total'}: {formatMetricValue(item.totalDeliveries, 'thousand_units')} • {language === 'ko' ? 'BEV 비중' : 'BEV Share'}:{' '}
                   <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bevPct.toFixed(1)}%</strong>
                 </span>
               </div>

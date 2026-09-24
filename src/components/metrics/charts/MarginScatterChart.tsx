@@ -202,7 +202,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
               {title}
             </h3>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold">
-              4-Quadrant Strategic Matrix
+              {language === 'ko' ? '4분면 전략 매트릭스' : '4-Quadrant Strategic Matrix'}
             </span>
           </div>
           {subtitle && (
@@ -533,9 +533,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                       isHovered ? 'fill-slate-300' : 'fill-slate-500 dark:fill-slate-400'
                     }`}
                   >
-                    Vol: {pt.volumeThousand >= 1000 ? `${(pt.volumeThousand / 1000).toFixed(2)}M` : `${pt.volumeThousand}k`}
+                    {language === 'ko' ? '인도:' : 'Vol:'} {pt.volumeThousand >= 1000 ? `${(pt.volumeThousand / 1000).toFixed(2)}M` : `${pt.volumeThousand}k`}
                     <tspan className="font-sans font-semibold text-[8px] fill-slate-400 dark:fill-slate-500" dx="4">
-                      • {pt.marginPercent >= midMargin && pt.volumeThousand >= midVol ? 'Leader' : pt.marginPercent >= midMargin ? 'Premium' : 'Volume'}
+                      • {pt.marginPercent >= midMargin && pt.volumeThousand >= midVol ? (language === 'ko' ? '수익 리더' : 'Leader') : pt.marginPercent >= midMargin ? (language === 'ko' ? '프리미엄' : 'Premium') : (language === 'ko' ? '양산 볼륨' : 'Volume')}
                     </tspan>
                   </text>
                 </g>

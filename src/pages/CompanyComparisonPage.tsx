@@ -96,7 +96,7 @@ export const CompanyComparisonPage: React.FC = () => {
       {/* Header */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
-          <BarChart2 className="w-4 h-4" /> Multi-OEM Quantitative Comparison Engine
+          <BarChart2 className="w-4 h-4" /> {language === 'ko' ? '글로벌 OEM 정량 실적 비교 엔진' : 'Multi-OEM Quantitative Comparison Engine'}
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {language === 'ko' ? '글로벌 완성차 다자간 실적 비교 벤치마크' : 'Cross-Company OEM Benchmark'}

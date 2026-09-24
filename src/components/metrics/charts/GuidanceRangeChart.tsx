@@ -87,16 +87,16 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
             <Compass className="w-5 h-5 text-brand-600 dark:text-brand-400" />
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
               {language === 'ko'
-                ? 'FY2026 연간 영업이익률 목표 가이던스 코리더 (Guidance Corridors)'
+                ? 'FY2026 완성차 OEM 연간 재무 가이던스 목표 밴드 (Guidance Corridors)'
                 : 'FY2026 Operating / EBIT Margin Target Guidance Corridors'}
             </h3>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold">
-              Unified Corridor Chart
+              {language === 'ko' ? '통합 가이던스 코리더' : 'Unified Corridor Chart'}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {language === 'ko'
-              ? '완성차 제조사별 연간 수익성 목표 밴드(Min ~ Max) 및 중앙값(Midpoint) 통합 비교'
+              ? '완성차 제조사 경영진이 공식 발표한 연간 수익성 목표 밴드(최소 ~ 최대) 및 중간값 통합 비교'
               : 'Unified comparative corridor bands across all global automakers'}
           </p>
         </div>
