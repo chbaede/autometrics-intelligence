@@ -83,15 +83,24 @@ export type VerificationMethod =
 
 export type ComparabilityLevel = 'direct' | 'limited' | 'not_comparable';
 
-export interface ComparabilityResult {
-  comparable: boolean;
-  level: ComparabilityLevel;
-  reasons: string[];
+export interface ComparabilityChecks {
+  definitionMatched: boolean;
   scopeMatched: boolean;
   accountingBasisMatched: boolean;
-  definitionMatched: boolean;
+  volumeDefinitionMatched: boolean;
   periodMatched: boolean;
+  periodTypeMatched: boolean;
+  fiscalCalendarMatched: boolean;
   currencyMatched: boolean;
+  unitMatched: boolean;
+}
+
+export interface ComparabilityResult {
+  directlyComparable: boolean;
+  limitedComparisonAllowed: boolean;
+  level: ComparabilityLevel;
+  reasons: string[];
+  checks: ComparabilityChecks;
 }
 
 export interface Company {

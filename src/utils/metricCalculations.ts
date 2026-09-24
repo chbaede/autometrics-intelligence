@@ -184,9 +184,12 @@ export function formatPeriodLabel(period: string, lang: 'ko' | 'en' = 'ko'): str
   return period;
 }
 
+import { COMPANIES_MAP } from '../data/companies';
+
 /**
  * Reusable comparison validation engine.
- * Checks definition, scope, accounting basis, volume definition, period, and currency.
+ * Checks definition, scope, accounting basis, volume definition, period, period type,
+ * fiscal calendar alignment, currency, and unit scale.
  */
 export function checkObservationComparability(
   obsA: MetricObservation,
@@ -194,77 +197,130 @@ export function checkObservationComparability(
 ): ComparabilityResult {
   const reasons: string[] = [];
 
+  // 1. Metric definition check
   const definitionMatched = obsA.metricId === obsB.metricId;
   if (!definitionMatched) {
-    reasons.push(`Metric definitions differ: "${obsA.metricId}" vs "${obsB.metricId}"`);
+    reasons.push(`Metric definition mismatch: "${obsA.metricId}" vs "${obsB.metricId}"`);
   }
 
-  // Scope check
-  const scopeA = obsA.reportingScope || 'unknown';
-  const scopeB = obsB.reportingScope || 'unknown';
-  const scopeMatched = scopeA === scopeB && scopeA !== 'unknown';
+  // 2. Reporting Scope check (must exist, not be 'unknown', and match)
+  const scopeA = obsA.reportingScope;
+  const scopeB = obsB.reportingScope;
+  const scopeMatched =
+    !!scopeA && !!scopeB && scopeA !== 'unknown' && scopeB !== 'unknown' && scopeA === scopeB;
   if (!scopeMatched) {
-    reasons.push(`Reporting scope mismatch: "${scopeA}" vs "${scopeB}"`);
+    reasons.push(`Reporting scope mismatch: "${scopeA || 'unknown'}" vs "${scopeB || 'unknown'}"`);
   }
 
-  // Accounting basis check
-  const basisA = obsA.accountingBasis || 'unknown';
-  const basisB = obsB.accountingBasis || 'unknown';
-  const accountingBasisMatched = basisA === basisB && basisA !== 'unknown';
+  // 3. Accounting Basis check (must exist, not be 'unknown', and match)
+  const basisA = obsA.accountingBasis;
+  const basisB = obsB.accountingBasis;
+  const accountingBasisMatched =
+    !!basisA && !!basisB && basisA !== 'unknown' && basisB !== 'unknown' && basisA === basisB;
   if (!accountingBasisMatched) {
-    reasons.push(`Accounting basis mismatch: "${basisA}" vs "${basisB}"`);
+    reasons.push(`Accounting basis mismatch: "${basisA || 'unknown'}" vs "${basisB || 'unknown'}"`);
   }
 
-  // Volume definition check
-  let definitionVolumeMatched = true;
-  if (obsA.volumeDefinition || obsB.volumeDefinition) {
-    const volA = obsA.volumeDefinition || 'unknown';
-    const volB = obsB.volumeDefinition || 'unknown';
-    definitionVolumeMatched = volA === volB && volA !== 'unknown';
-    if (!definitionVolumeMatched) {
-      reasons.push(`Volume perimeter mismatch: "${volA}" vs "${volB}"`);
+  // 4. Volume Definition check (for volume/delivery metrics)
+  let volumeDefinitionMatched = true;
+  const isVolumeMetric =
+    obsA.unit === 'units' ||
+    obsA.unit === 'thousand_units' ||
+    !!obsA.volumeDefinition ||
+    !!obsB.volumeDefinition ||
+    obsA.metricId.includes('deliveries') ||
+    obsB.metricId.includes('deliveries');
+
+  if (isVolumeMetric) {
+    const volA = obsA.volumeDefinition;
+    const volB = obsB.volumeDefinition;
+    volumeDefinitionMatched =
+      !!volA && !!volB && volA !== 'unknown' && volB !== 'unknown' && volA === volB;
+    if (!volumeDefinitionMatched) {
+      reasons.push(`Volume perimeter mismatch: "${volA || 'unknown'}" vs "${volB || 'unknown'}"`);
     }
   }
 
-  // Period match
-  const periodMatched = obsA.period === obsB.period && obsA.periodType === obsB.periodType;
+  // 5. Period match
+  const periodMatched = obsA.period === obsB.period;
   if (!periodMatched) {
     reasons.push(`Reporting period mismatch: "${obsA.period}" vs "${obsB.period}"`);
   }
 
-  // Currency match for financial metrics
+  // 6. Period Type match
+  const periodTypeMatched = obsA.periodType === obsB.periodType;
+  if (!periodTypeMatched) {
+    reasons.push(`Period type mismatch: "${obsA.periodType}" vs "${obsB.periodType}"`);
+  }
+
+  // 7. Fiscal Calendar match
+  let fiscalCalendarMatched = true;
+  const compA = COMPANIES_MAP[obsA.companyId];
+  const compB = COMPANIES_MAP[obsB.companyId];
+  if (compA && compB && compA.fiscalYearEnd !== compB.fiscalYearEnd) {
+    fiscalCalendarMatched = false;
+    reasons.push(
+      `Fiscal calendar misalignment: ${compA.name} (${compA.fiscalYearEnd}) vs ${compB.name} (${compB.fiscalYearEnd})`
+    );
+  }
+
+  // 8. Currency match
   let currencyMatched = true;
-  if (obsA.unit.startsWith('currency') || obsB.unit.startsWith('currency')) {
-    currencyMatched = obsA.currency === obsB.currency && !!obsA.currency;
+  const isCurrencyMetric =
+    obsA.unit.startsWith('currency') ||
+    obsB.unit.startsWith('currency') ||
+    !!obsA.currency ||
+    !!obsB.currency;
+  if (isCurrencyMetric) {
+    currencyMatched = !!obsA.currency && !!obsB.currency && obsA.currency === obsB.currency;
     if (!currencyMatched) {
-      reasons.push(`Functional currency difference: "${obsA.currency}" vs "${obsB.currency}"`);
+      reasons.push(`Functional currency difference: "${obsA.currency || 'unspecified'}" vs "${obsB.currency || 'unspecified'}"`);
     }
   }
 
-  // Determine Level
-  let level: ComparabilityLevel = 'direct';
-  let comparable = true;
+  // 9. Unit match
+  const unitMatched = obsA.unit === obsB.unit;
+  if (!unitMatched) {
+    reasons.push(`Unit scale mismatch: "${obsA.unit}" vs "${obsB.unit}"`);
+  }
 
-  if (!definitionMatched || !periodMatched) {
+  // Evaluation of comparability levels
+  let level: ComparabilityLevel = 'direct';
+  let directlyComparable = false;
+  let limitedComparisonAllowed = false;
+
+  const checks = {
+    definitionMatched,
+    scopeMatched,
+    accountingBasisMatched,
+    volumeDefinitionMatched,
+    periodMatched,
+    periodTypeMatched,
+    fiscalCalendarMatched,
+    currencyMatched,
+    unitMatched,
+  };
+
+  if (!definitionMatched || !periodMatched || !periodTypeMatched || !fiscalCalendarMatched) {
     level = 'not_comparable';
-    comparable = false;
-  } else if (!scopeMatched || !accountingBasisMatched || !definitionVolumeMatched || !currencyMatched) {
+    directlyComparable = false;
+    limitedComparisonAllowed = false;
+  } else if (!scopeMatched || !accountingBasisMatched || !volumeDefinitionMatched || !currencyMatched || !unitMatched) {
     level = 'limited';
-    comparable = true;
+    directlyComparable = false;
+    limitedComparisonAllowed = true;
   } else {
     level = 'direct';
-    comparable = true;
+    directlyComparable = true;
+    limitedComparisonAllowed = true;
   }
 
   return {
-    comparable,
+    directlyComparable,
+    limitedComparisonAllowed,
     level,
     reasons,
-    scopeMatched,
-    accountingBasisMatched,
-    definitionMatched,
-    periodMatched,
-    currencyMatched,
+    checks,
   };
 }
 
@@ -279,7 +335,9 @@ export interface ScopeMarginValidation {
 
 /**
  * Scope-aware margin validator.
- * Ensures that numerator and denominator scopes & bases match before calculating and asserting margin.
+ * Validates revenue, EBIT, and margin period, period type, reporting scope,
+ * accounting basis for all observations, currency, unit scale, positive revenue,
+ * and mathematical difference threshold.
  */
 export function validateMarginScopeCompatibility(
   revObs?: MetricObservation | null,
@@ -291,12 +349,36 @@ export function validateMarginScopeCompatibility(
       isScopeCompatible: false,
       validationStatus: 'needs_review',
       calculatedMargin: null,
-      reportedMargin: null,
+      reportedMargin: marginObs?.value ?? null,
       difference: null,
-      diagnostic: 'Incomplete observation triplet for revenue, EBIT, and margin.',
+      diagnostic: 'Incomplete observation triplet: missing revenue, EBIT, or margin observation.',
     };
   }
 
+  // 1. Period and PeriodType checks
+  if (revObs.period !== ebitObs.period || revObs.period !== marginObs.period) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      diagnostic: `Period mismatch among revenue (${revObs.period}), EBIT (${ebitObs.period}), and margin (${marginObs.period}).`,
+    };
+  }
+
+  if (revObs.periodType !== ebitObs.periodType || revObs.periodType !== marginObs.periodType) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      diagnostic: `Period type mismatch among revenue (${revObs.periodType}), EBIT (${ebitObs.periodType}), and margin (${marginObs.periodType}).`,
+    };
+  }
+
+  // 2. Revenue denominator check
   if (revObs.value <= 0) {
     return {
       isScopeCompatible: false,
@@ -304,20 +386,65 @@ export function validateMarginScopeCompatibility(
       calculatedMargin: null,
       reportedMargin: marginObs.value,
       difference: null,
-      diagnostic: 'Revenue is non-positive; margin calculation undefined.',
+      diagnostic: `Revenue denominator is non-positive (${revObs.value}); margin calculation is undefined.`,
     };
   }
 
+  // 3. Metric unit checks
+  if (marginObs.unit !== 'percentage') {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      diagnostic: `Margin metric unit must be "percentage" (found "${marginObs.unit}").`,
+    };
+  }
+
+  if (revObs.unit !== ebitObs.unit) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      diagnostic: `Unit scale mismatch between Revenue (${revObs.unit}) and EBIT (${ebitObs.unit}).`,
+    };
+  }
+
+  // 4. Currency checks
+  if (!revObs.currency || !ebitObs.currency || revObs.currency !== ebitObs.currency) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      diagnostic: `Currency mismatch or missing currency: Revenue is "${revObs.currency || 'missing'}", EBIT is "${ebitObs.currency || 'missing'}".`,
+    };
+  }
+
+  // Calculate mathematical margin and difference
   const calculatedMargin = Math.round(((ebitObs.value / revObs.value) * 100) * 100) / 100;
   const reportedMargin = marginObs.value;
   const difference = Math.round(Math.abs(calculatedMargin - reportedMargin) * 100) / 100;
 
-  const scopeRev = revObs.reportingScope || 'unknown';
-  const scopeEbit = ebitObs.reportingScope || 'unknown';
-  const scopeMargin = marginObs.reportingScope || 'unknown';
+  // 5. Reporting Scope check
+  const scopeRev = revObs.reportingScope;
+  const scopeEbit = ebitObs.reportingScope;
+  const scopeMargin = marginObs.reportingScope;
 
-  const basisEbit = ebitObs.accountingBasis || 'unknown';
-  const basisMargin = marginObs.accountingBasis || 'unknown';
+  if (!scopeRev || !scopeEbit || !scopeMargin || scopeRev === 'unknown' || scopeEbit === 'unknown' || scopeMargin === 'unknown') {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      diagnostic: `Missing or unknown reporting scope: Revenue (${scopeRev || 'missing'}), EBIT (${scopeEbit || 'missing'}), Margin (${scopeMargin || 'missing'}).`,
+    };
+  }
 
   if (scopeRev !== scopeEbit || scopeRev !== scopeMargin || scopeEbit !== scopeMargin) {
     return {
@@ -330,6 +457,33 @@ export function validateMarginScopeCompatibility(
     };
   }
 
+  // 6. Accounting Basis check (check revenue vs EBIT, and EBIT vs Margin)
+  const basisRev = revObs.accountingBasis;
+  const basisEbit = ebitObs.accountingBasis;
+  const basisMargin = marginObs.accountingBasis;
+
+  if (!basisRev || !basisEbit || !basisMargin || basisRev === 'unknown' || basisEbit === 'unknown' || basisMargin === 'unknown') {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      diagnostic: `Missing or unknown accounting basis: Revenue (${basisRev || 'missing'}), EBIT (${basisEbit || 'missing'}), Margin (${basisMargin || 'missing'}).`,
+    };
+  }
+
+  if (basisRev !== basisEbit) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'scope_warning',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      diagnostic: `Accounting basis mismatch between Revenue (${basisRev}) and EBIT (${basisEbit}).`,
+    };
+  }
+
   if (basisEbit !== basisMargin) {
     return {
       isScopeCompatible: false,
@@ -337,10 +491,11 @@ export function validateMarginScopeCompatibility(
       calculatedMargin,
       reportedMargin,
       difference,
-      diagnostic: `Accounting basis mismatch: EBIT is ${basisEbit}, Margin is ${basisMargin}.`,
+      diagnostic: `Accounting basis mismatch between EBIT (${basisEbit}) and Margin (${basisMargin}).`,
     };
   }
 
+  // 7. Mathematical deviation check
   if (difference > 0.35) {
     return {
       isScopeCompatible: true,
@@ -358,6 +513,6 @@ export function validateMarginScopeCompatibility(
     calculatedMargin,
     reportedMargin,
     difference,
-    diagnostic: 'Scope, accounting basis, and mathematical margin calculation fully reconciled.',
+    diagnostic: 'Scope, accounting basis, currency, unit, and mathematical margin calculation fully reconciled.',
   };
 }
