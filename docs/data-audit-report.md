@@ -64,22 +64,19 @@ Pairwise comparability between any two observations $A$ and $B$ produces one of 
 | Command | Exit Code | Result | Key Summary Output |
 | :--- | :---: | :---: | :--- |
 | `npm run typecheck` | 0 | **PASS** | 0 TypeScript errors across the entire codebase |
-| `npm test` | 0 | **PASS** | 7 / 7 test suites passed (87 assertions passed) |
+| `npm test` | 0 | **PASS** | 7 / 7 test suites passed (95 assertions passed) |
 | `npm run validate-data` | 0 | **PASS** | Strict schema & integrity validation passed with 0 errors |
-| `npm run audit-data` | 0 | **PASS** | Scope-safe audit passed with 0 blocking errors (20 documented segment warnings) |
+| `npm run audit-data` | 0 | **PASS** | Hardened semantic audit passed with 0 blocking errors (8 documented segment warnings) |
 | `npm run audit-data -- --strict` | 0 | **PASS** | Strict mode audit passed with 0 unconfigured errors |
 | `npm run build` | 0 | **PASS** | Vite production build generated clean distribution artifacts |
 
 ---
 
-## 4. Documented Segment Scope Warnings (20 Items)
+## 4. Documented Segment Scope Warnings (8 Items)
 
-The 20 documented warnings correspond to legitimate automotive reporting disclosures where:
+The 8 documented warnings correspond to legitimate automotive reporting disclosures where headline margins diverge in scope:
 1. **BMW Group (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Headline RoS disclosure corresponds to the *Automotive Segment* rather than *Consolidated Group*.
 2. **Mercedes-Benz Group (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Headline RoS disclosure corresponds to *Mercedes-Benz Cars Segment (Adjusted)* rather than *Consolidated Group*.
-3. **General Motors (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Revenue is reported on GAAP basis, while operating profit is disclosed as *Adjusted EBIT*.
-4. **Stellantis (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Revenue is reported on IFRS basis, while operating profit is disclosed as *Adjusted Operating Income (AOI)*.
-5. **Ford Motor Company (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Revenue is reported on GAAP basis, while operating profit is disclosed as *Company Adjusted EBIT*.
 
 ---
 

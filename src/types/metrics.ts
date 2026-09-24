@@ -136,12 +136,28 @@ export interface DerivedMetricDefinition {
   allowedAccountingBases?: AccountingBasis[];
 }
 
+export interface MarginRelationshipRule {
+  id: string;
+  name: string;
+  marginMetricId: string;
+  numeratorMetricId: string;
+  denominatorMetricId: string;
+  numeratorAccountingBases: AccountingBasis[];
+  denominatorAccountingBases: AccountingBasis[];
+  marginAccountingBases: AccountingBasis[];
+  allowedScopeRelationships: ('same_scope' | 'segment_over_group')[];
+}
+
+export type MarginSelectionStatus = CandidateSelectionStatus;
+
 export interface MarginCandidateResult {
-  status: CandidateSelectionStatus;
+  status: MarginSelectionStatus;
+  ruleId?: string;
   revenue?: MetricObservation;
   profit?: MetricObservation;
   margin?: MetricObservation;
   candidatesChecked: number;
+  failedChecks?: string[];
   reasons: string[];
 }
 

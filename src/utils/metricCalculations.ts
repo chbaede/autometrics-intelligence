@@ -16,6 +16,7 @@ import {
   BevShareCandidateResult,
   BevShareValidationResult,
   DerivedMetricDefinition,
+  MarginRelationshipRule,
   MarginCandidateResult,
   MarginValidationChecks,
   MarginValidationResult,
@@ -344,6 +345,64 @@ export function checkObservationComparability(
   };
 }
 
+export const MARGIN_RELATIONSHIP_RULES: MarginRelationshipRule[] = [
+  {
+    id: 'reported_operating_margin',
+    name: 'Reported Operating Margin (GAAP / IFRS)',
+    marginMetricId: 'operating_margin',
+    numeratorMetricId: 'operating_income',
+    denominatorMetricId: 'revenue',
+    numeratorAccountingBases: ['reported'],
+    denominatorAccountingBases: ['reported'],
+    marginAccountingBases: ['reported'],
+    allowedScopeRelationships: ['same_scope'],
+  },
+  {
+    id: 'reported_ebit_margin',
+    name: 'Reported EBIT Margin',
+    marginMetricId: 'operating_margin',
+    numeratorMetricId: 'ebit',
+    denominatorMetricId: 'revenue',
+    numeratorAccountingBases: ['reported'],
+    denominatorAccountingBases: ['reported'],
+    marginAccountingBases: ['reported'],
+    allowedScopeRelationships: ['same_scope'],
+  },
+  {
+    id: 'adjusted_operating_margin',
+    name: 'Adjusted Operating Margin (Non-GAAP / Adjusted)',
+    marginMetricId: 'operating_margin',
+    numeratorMetricId: 'operating_income',
+    denominatorMetricId: 'revenue',
+    numeratorAccountingBases: ['adjusted', 'non_gaap'],
+    denominatorAccountingBases: ['reported', 'adjusted', 'non_gaap'],
+    marginAccountingBases: ['adjusted', 'non_gaap'],
+    allowedScopeRelationships: ['same_scope'],
+  },
+  {
+    id: 'adjusted_ebit_margin',
+    name: 'Adjusted EBIT Margin',
+    marginMetricId: 'operating_margin',
+    numeratorMetricId: 'adjusted_ebit',
+    denominatorMetricId: 'revenue',
+    numeratorAccountingBases: ['adjusted', 'non_gaap'],
+    denominatorAccountingBases: ['reported', 'adjusted', 'non_gaap'],
+    marginAccountingBases: ['adjusted', 'non_gaap'],
+    allowedScopeRelationships: ['same_scope'],
+  },
+  {
+    id: 'management_defined_margin',
+    name: 'Management-Defined Return on Sales',
+    marginMetricId: 'operating_margin',
+    numeratorMetricId: 'operating_income',
+    denominatorMetricId: 'revenue',
+    numeratorAccountingBases: ['management_defined'],
+    denominatorAccountingBases: ['reported', 'management_defined'],
+    marginAccountingBases: ['management_defined'],
+    allowedScopeRelationships: ['same_scope'],
+  },
+];
+
 export const OPERATING_MARGIN_RELATIONSHIP: DerivedMetricDefinition = {
   metricId: 'operating_margin',
   numeratorMetricIds: ['operating_income', 'ebit', 'adjusted_ebit'],
@@ -359,67 +418,89 @@ export const OPERATING_MARGIN_RELATIONSHIP: DerivedMetricDefinition = {
 export function selectCompatibleMarginTriplets(
   observations: MetricObservation[],
   companyId: string,
-  period: string
+  period: string,
+  rules: MarginRelationshipRule[] = MARGIN_RELATIONSHIP_RULES
 ): MarginCandidateResult {
-  const revCandidates = observations.filter(
+  const allRev = observations.filter(
     (o) => o.companyId === companyId && o.period === period && o.metricId === 'revenue' && o.value !== null
   );
-  const profitCandidates = observations.filter(
+  const allProfit = observations.filter(
     (o) =>
       o.companyId === companyId &&
       o.period === period &&
       (o.metricId === 'operating_income' || o.metricId === 'ebit' || o.metricId === 'adjusted_ebit') &&
       o.value !== null
   );
-  const marginCandidates = observations.filter(
+  const allMargin = observations.filter(
     (o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin' && o.value !== null
   );
 
-  const candidatesChecked = revCandidates.length + profitCandidates.length + marginCandidates.length;
+  const candidatesChecked = allRev.length + allProfit.length + allMargin.length;
   const reasons: string[] = [];
 
-  if (revCandidates.length === 0 || profitCandidates.length === 0 || marginCandidates.length === 0) {
-    if (revCandidates.length === 0) reasons.push('Missing revenue denominator candidate observation.');
-    if (profitCandidates.length === 0) reasons.push('Missing operating profit numerator candidate observation.');
-    if (marginCandidates.length === 0) reasons.push('Missing operating margin candidate observation.');
+  if (allRev.length === 0 || allProfit.length === 0 || allMargin.length === 0) {
+    if (allRev.length === 0) reasons.push('Missing revenue denominator candidate observation.');
+    if (allProfit.length === 0) reasons.push('Missing operating profit numerator candidate observation.');
+    if (allMargin.length === 0) reasons.push('Missing operating margin candidate observation.');
     return {
       status: 'missing',
       candidatesChecked,
+      failedChecks: ['missing_candidates'],
       reasons,
     };
   }
 
   const compatibleTriplets: {
+    rule: MarginRelationshipRule;
     rev: MetricObservation;
     profit: MetricObservation;
     margin: MetricObservation;
   }[] = [];
 
-  for (const rev of revCandidates) {
-    for (const profit of profitCandidates) {
-      for (const margin of marginCandidates) {
-        const periodMatch = rev.period === profit.period && profit.period === margin.period;
-        const periodTypeMatch = rev.periodType === profit.periodType && profit.periodType === margin.periodType;
-        const scopeMatch =
-          !!rev.reportingScope &&
-          !!profit.reportingScope &&
-          !!margin.reportingScope &&
-          rev.reportingScope !== 'unknown' &&
-          rev.reportingScope === profit.reportingScope &&
-          profit.reportingScope === margin.reportingScope;
-        const basisMatch =
-          !!rev.accountingBasis &&
-          !!profit.accountingBasis &&
-          !!margin.accountingBasis &&
-          rev.accountingBasis !== 'unknown' &&
-          rev.accountingBasis === profit.accountingBasis &&
-          profit.accountingBasis === margin.accountingBasis;
-        const currencyMatch =
-          !!rev.currency && !!profit.currency && rev.currency === profit.currency;
-        const unitMatch = rev.unit === profit.unit && margin.unit === 'percentage';
+  const failedChecksSet = new Set<string>();
 
-        if (periodMatch && periodTypeMatch && scopeMatch && basisMatch && currencyMatch && unitMatch) {
-          compatibleTriplets.push({ rev, profit, margin });
+  for (const rule of rules) {
+    const revCandidates = allRev.filter(
+      (o) => o.metricId === rule.denominatorMetricId && rule.denominatorAccountingBases.includes(o.accountingBasis || 'unknown')
+    );
+    const profitCandidates = allProfit.filter(
+      (o) => o.metricId === rule.numeratorMetricId && rule.numeratorAccountingBases.includes(o.accountingBasis || 'unknown')
+    );
+    const marginCandidates = allMargin.filter(
+      (o) => o.metricId === rule.marginMetricId && rule.marginAccountingBases.includes(o.accountingBasis || 'unknown')
+    );
+
+    for (const rev of revCandidates) {
+      for (const profit of profitCandidates) {
+        for (const margin of marginCandidates) {
+          const periodMatch = rev.period === profit.period && profit.period === margin.period;
+          if (!periodMatch) failedChecksSet.add('period');
+
+          const periodTypeMatch = rev.periodType === profit.periodType && profit.periodType === margin.periodType;
+          if (!periodTypeMatch) failedChecksSet.add('periodType');
+
+          let scopeMatch = false;
+          if (rule.allowedScopeRelationships.includes('same_scope')) {
+            scopeMatch =
+              !!rev.reportingScope &&
+              !!profit.reportingScope &&
+              !!margin.reportingScope &&
+              rev.reportingScope !== 'unknown' &&
+              rev.reportingScope === profit.reportingScope &&
+              profit.reportingScope === margin.reportingScope;
+          }
+          if (!scopeMatch) failedChecksSet.add('reportingScope');
+
+          const currencyMatch =
+            !!rev.currency && !!profit.currency && rev.currency === profit.currency;
+          if (!currencyMatch) failedChecksSet.add('currency');
+
+          const unitMatch = rev.unit === profit.unit && margin.unit === 'percentage';
+          if (!unitMatch) failedChecksSet.add('unit');
+
+          if (periodMatch && periodTypeMatch && scopeMatch && currencyMatch && unitMatch) {
+            compatibleTriplets.push({ rule, rev, profit, margin });
+          }
         }
       }
     }
@@ -428,11 +509,12 @@ export function selectCompatibleMarginTriplets(
   if (compatibleTriplets.length === 1) {
     return {
       status: 'matched',
+      ruleId: compatibleTriplets[0].rule.id,
       revenue: compatibleTriplets[0].rev,
       profit: compatibleTriplets[0].profit,
       margin: compatibleTriplets[0].margin,
       candidatesChecked,
-      reasons: ['Compatible margin triplet successfully matched across all metadata dimensions.'],
+      reasons: [`Compatible margin triplet successfully matched under rule "${compatibleTriplets[0].rule.name}".`],
     };
   }
 
@@ -440,18 +522,27 @@ export function selectCompatibleMarginTriplets(
     return {
       status: 'ambiguous',
       candidatesChecked,
+      failedChecks: ['multiple_compatible_triplets'],
       reasons: [
-        `Ambiguous candidate observations: found ${compatibleTriplets.length} valid compatible candidate triplets.`,
+        `Ambiguous candidate observations: found ${compatibleTriplets.length} valid compatible candidate triplets across rules.`,
       ],
     };
   }
 
+  const failedChecks = Array.from(failedChecksSet);
+  if (failedChecks.length === 0) {
+    failedChecks.push('accountingBasis', 'metricDefinition');
+  }
+
+  const incompatibleReasons: string[] = [
+    `Incompatible candidate triplet: candidates exist (${allRev.length} rev, ${allProfit.length} profit, ${allMargin.length} margin) but no semantic relationship rule was satisfied. Failed checks: ${failedChecks.join(', ')}.`,
+  ];
+
   return {
     status: 'incompatible',
     candidatesChecked,
-    reasons: [
-      'Incompatible candidate triplet: candidates exist but have mismatched reportingScope, accountingBasis, currency, or unit.',
-    ],
+    failedChecks,
+    reasons: incompatibleReasons,
   };
 }
 
@@ -461,7 +552,8 @@ export function selectCompatibleMarginTriplets(
 export function validateMarginTriplet(
   revObs?: MetricObservation | null,
   profitObs?: MetricObservation | null,
-  marginObs?: MetricObservation | null
+  marginObs?: MetricObservation | null,
+  rules: MarginRelationshipRule[] = MARGIN_RELATIONSHIP_RULES
 ): MarginValidationResult {
   const selectedObservationIds = {
     revenue: revObs?.id,
@@ -481,7 +573,17 @@ export function validateMarginTriplet(
 
   const reasons: string[] = [];
 
-  if (!revObs || !profitObs || !marginObs || revObs.value === null || profitObs.value === null || marginObs.value === null) {
+  if (
+    !revObs ||
+    !profitObs ||
+    !marginObs ||
+    revObs.value === null ||
+    profitObs.value === null ||
+    marginObs.value === null ||
+    !Number.isFinite(revObs.value) ||
+    !Number.isFinite(profitObs.value) ||
+    !Number.isFinite(marginObs.value)
+  ) {
     if (!revObs) reasons.push('Missing revenue observation.');
     if (!profitObs) reasons.push('Missing operating profit observation.');
     if (!marginObs) reasons.push('Missing operating margin observation.');
@@ -492,19 +594,26 @@ export function validateMarginTriplet(
       difference: null,
       selectedObservationIds,
       checks,
-      diagnostic: 'Incomplete observation triplet: missing revenue, profit, or margin observation.',
+      diagnostic: 'Incomplete observation triplet: missing or non-finite revenue, profit, or margin observation.',
       reasons,
     };
   }
 
-  // 1. Metric definition checks
-  const validNumerator = OPERATING_MARGIN_RELATIONSHIP.numeratorMetricIds.includes(profitObs.metricId);
-  const validDenominator = OPERATING_MARGIN_RELATIONSHIP.denominatorMetricIds.includes(revObs.metricId);
-  const validMargin = marginObs.metricId === OPERATING_MARGIN_RELATIONSHIP.metricId;
-  checks.metricDefinition = validNumerator && validDenominator && validMargin;
+  // 1. Semantic relationship & metric definition check
+  const matchingRule = rules.find(
+    (r) =>
+      r.denominatorMetricId === revObs.metricId &&
+      r.numeratorMetricId === profitObs.metricId &&
+      r.marginMetricId === marginObs.metricId &&
+      r.denominatorAccountingBases.includes(revObs.accountingBasis || 'unknown') &&
+      r.numeratorAccountingBases.includes(profitObs.accountingBasis || 'unknown') &&
+      r.marginAccountingBases.includes(marginObs.accountingBasis || 'unknown')
+  );
+
+  checks.metricDefinition = !!matchingRule;
   if (!checks.metricDefinition) {
     reasons.push(
-      `Metric definition mismatch: Revenue (${revObs.metricId}), Profit (${profitObs.metricId}), Margin (${marginObs.metricId}).`
+      `No semantic relationship rule satisfied for numerator "${profitObs.metricId}" (${profitObs.accountingBasis}), denominator "${revObs.metricId}" (${revObs.accountingBasis}), and margin "${marginObs.metricId}" (${marginObs.accountingBasis}).`
     );
   }
 
@@ -537,18 +646,20 @@ export function validateMarginTriplet(
   }
 
   // 4. Accounting basis
-  const basisRev = revObs.accountingBasis;
-  const basisProfit = profitObs.accountingBasis;
-  const basisMargin = marginObs.accountingBasis;
   checks.accountingBasis =
-    !!basisRev &&
-    !!basisProfit &&
-    !!basisMargin &&
-    basisRev !== 'unknown' &&
-    basisRev === basisProfit &&
-    basisProfit === basisMargin;
+    !!revObs.accountingBasis &&
+    !!profitObs.accountingBasis &&
+    !!marginObs.accountingBasis &&
+    revObs.accountingBasis !== 'unknown' &&
+    profitObs.accountingBasis !== 'unknown' &&
+    marginObs.accountingBasis !== 'unknown' &&
+    (matchingRule
+      ? matchingRule.denominatorAccountingBases.includes(revObs.accountingBasis) &&
+        matchingRule.numeratorAccountingBases.includes(profitObs.accountingBasis) &&
+        matchingRule.marginAccountingBases.includes(marginObs.accountingBasis)
+      : false);
   if (!checks.accountingBasis) {
-    reasons.push(`Accounting basis mismatch: Revenue (${basisRev}), Profit (${basisProfit}), Margin (${basisMargin}).`);
+    reasons.push(`Accounting basis mismatch: Revenue (${revObs.accountingBasis}), Profit (${profitObs.accountingBasis}), Margin (${marginObs.accountingBasis}).`);
   }
 
   // 5. Currency
@@ -616,8 +727,8 @@ export function validateMarginTriplet(
     difference,
     selectedObservationIds,
     checks,
-    diagnostic: 'Revenue, operating profit, and reported margin are semantically and mathematically verified.',
-    reasons: [],
+    diagnostic: `Margin verified under rule "${matchingRule?.name}". Calculated: ${calculatedMargin}%, Reported: ${reportedMargin}% (diff: ${difference}%p).`,
+    reasons: ['Semantic margin triplet matched and verified within 0.35%p tolerance.'],
   };
 }
 

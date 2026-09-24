@@ -16,7 +16,6 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 import {
-  validateMarginScopeCompatibility,
   selectCompatibleMarginTriplets,
   validateMarginTriplet,
   selectCompatibleBevShareTriplets,
@@ -229,38 +228,13 @@ companyPeriods.forEach((cp) => {
       detail: selection.reasons.join('; '),
     });
   } else if (selection.status === 'incompatible') {
-    // Check if exactly 1 candidate for each metric exists (e.g. BMW/Mercedes segment margins, GM/Ford/Stellantis adjusted EBIT)
-    const revCands = METRIC_OBSERVATIONS.filter(
-      (o) => o.companyId === companyId && o.period === period && o.metricId === 'revenue' && o.value !== null
-    );
-    const profitCands = METRIC_OBSERVATIONS.filter(
-      (o) =>
-        o.companyId === companyId &&
-        o.period === period &&
-        (o.metricId === 'operating_income' || o.metricId === 'ebit' || o.metricId === 'adjusted_ebit') &&
-        o.value !== null
-    );
-    const marginCands = METRIC_OBSERVATIONS.filter(
-      (o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin' && o.value !== null
-    );
-
-    if (revCands.length === 1 && profitCands.length === 1 && marginCands.length === 1) {
-      scopeWarningsCount++;
-      const validation = validateMarginScopeCompatibility(revCands[0], profitCands[0], marginCands[0]);
-      findings.push({
-        severity: 'WARNING',
-        category: 'SCOPE_MISMATCH',
-        item: `${companyId} (${period})`,
-        detail: validation.diagnostic,
-      });
-    } else {
-      findings.push({
-        severity: 'WARNING',
-        category: 'SCOPE_MISMATCH',
-        item: `${companyId} (${period})`,
-        detail: `Incompatible candidates with multiple options for ${companyId} (${period}): ${selection.reasons.join('; ')}`,
-      });
-    }
+    scopeWarningsCount++;
+    findings.push({
+      severity: 'WARNING',
+      category: 'SCOPE_MISMATCH',
+      item: `${companyId} (${period})`,
+      detail: selection.reasons.join('; '),
+    });
   } else if (selection.status === 'missing') {
     const marginCands = METRIC_OBSERVATIONS.filter(
       (o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin' && o.value !== null
