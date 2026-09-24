@@ -98,23 +98,74 @@ export function getDataQualityReport(): DataQualityReport {
 }
 
 export function getCoverageMatrix(): {
-  companies: { id: string; name: string }[];
+  companies: { id: string; name: string; irUrl: string }[];
   periods: string[];
-  matrix: Record<string, Record<string, 'available' | 'non_comparable' | 'missing'>>;
+  matrix: Record<
+    string,
+    Record<
+      string,
+      {
+        status: 'available' | 'non_comparable' | 'missing';
+        sourceUrl?: string;
+        sourceTitle?: string;
+        docType?: string;
+        observationCount: number;
+      }
+    >
+  >;
 } {
-  const companies = COMPANIES_REGISTRY.slice(0, 10).map((c) => ({ id: c.id, name: c.shortName }));
+  const companies = COMPANIES_REGISTRY.slice(0, 10).map((c) => ({
+    id: c.id,
+    name: c.shortName,
+    irUrl: c.financialResultsUrl || c.irUrl,
+  }));
   const periods = getDistinctPeriods();
-  const matrix: Record<string, Record<string, 'available' | 'non_comparable' | 'missing'>> = {};
+  const matrix: Record<
+    string,
+    Record<
+      string,
+      {
+        status: 'available' | 'non_comparable' | 'missing';
+        sourceUrl?: string;
+        sourceTitle?: string;
+        docType?: string;
+        observationCount: number;
+      }
+    >
+  > = {};
 
   companies.forEach((comp) => {
     matrix[comp.id] = {};
     periods.forEach((p) => {
       const obsList = METRIC_OBSERVATIONS.filter((o) => o.companyId === comp.id && o.period === p);
       if (obsList.length === 0) {
-        matrix[comp.id][p] = 'missing';
+        matrix[comp.id][p] = {
+          status: 'missing',
+          observationCount: 0,
+        };
       } else {
         const hasNonComparable = obsList.some((o) => !o.isComparable);
-        matrix[comp.id][p] = hasNonComparable ? 'non_comparable' : 'available';
+        const status = hasNonComparable ? 'non_comparable' : 'available';
+
+        // Direct lookup for primary source document
+        let sourceDoc = SOURCE_DOCUMENTS.find(
+          (s) => s.companyId === comp.id && s.period === p
+        );
+        if (!sourceDoc && obsList[0]?.sourceDocId) {
+          sourceDoc = SOURCES_MAP[obsList[0].sourceDocId];
+        }
+
+        const sourceUrl = sourceDoc?.officialUrl || comp.irUrl;
+        const sourceTitle = sourceDoc?.title || `${comp.name} ${p} Official IR Report`;
+        const docType = sourceDoc?.docType;
+
+        matrix[comp.id][p] = {
+          status,
+          sourceUrl,
+          sourceTitle,
+          docType,
+          observationCount: obsList.length,
+        };
       }
     });
   });

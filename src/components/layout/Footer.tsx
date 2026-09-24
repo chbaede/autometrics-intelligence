@@ -76,8 +76,8 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/sources" className="hover:text-brand-400 transition">
-                  {t.nav.sources}
+                <Link to="/coverage" className="hover:text-brand-400 transition">
+                  {t.nav.coverage}
                 </Link>
               </li>
             </ul>
@@ -112,8 +112,8 @@ export const Footer: React.FC = () => {
               <ExternalLink className="w-3 h-3" />
             </a>
             <span>•</span>
-            <Link to="/sources" className="hover:text-slate-300 transition">
-              {language === 'ko' ? '검증된 출처 (100%)' : 'Verified Sources (100%)'}
+            <Link to="/coverage" className="hover:text-slate-300 transition">
+              {language === 'ko' ? '데이터 수집 및 IR 출처 (100%)' : 'Data Coverage & Verified IR (100%)'}
             </Link>
             <span>•</span>
             <Link to="/coverage" className="hover:text-slate-300 transition">

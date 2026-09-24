@@ -5,7 +5,6 @@ import {
   BarChart2,
   Globe2,
   Compass,
-  FileText,
   TableProperties,
   Menu,
   X,
@@ -30,7 +29,6 @@ export const Navbar: React.FC = () => {
     { to: '/compare', label: t.nav.comparison, icon: BarChart2 },
     { to: '/regions', label: t.nav.regional, icon: Globe2 },
     { to: '/guidance', label: t.nav.guidance, icon: Compass },
-    { to: '/sources', label: t.nav.sources, icon: FileText },
     { to: '/coverage', label: t.nav.coverage, icon: TableProperties },
   ];
 

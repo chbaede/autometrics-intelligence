@@ -9,7 +9,6 @@ import { CompanyDashboardPage } from './pages/CompanyDashboardPage';
 import { CompanyComparisonPage } from './pages/CompanyComparisonPage';
 import { RegionalAnalysisPage } from './pages/RegionalAnalysisPage';
 import { GuidanceOutlookPage } from './pages/GuidanceOutlookPage';
-import { SourceExplorerPage } from './pages/SourceExplorerPage';
 import { DataCoveragePage } from './pages/DataCoveragePage';
 
 export const App: React.FC = () => {
@@ -28,7 +27,7 @@ export const App: React.FC = () => {
                 <Route path="/compare" element={<CompanyComparisonPage />} />
                 <Route path="/regions" element={<RegionalAnalysisPage />} />
                 <Route path="/guidance" element={<GuidanceOutlookPage />} />
-                <Route path="/sources" element={<SourceExplorerPage />} />
+                <Route path="/sources" element={<Navigate to="/coverage" replace />} />
                 <Route path="/coverage" element={<DataCoveragePage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
