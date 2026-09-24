@@ -17,7 +17,7 @@ export const App: React.FC = () => {
     <ThemeProvider>
       <LanguageProvider>
         <BrowserRouter>
-          <div className="min-h-screen flex flex-col bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900 selection:bg-brand-500/30 selection:text-brand-200 transition-colors duration-200">
+          <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-150">
             <Navbar />
             <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
               <Routes>

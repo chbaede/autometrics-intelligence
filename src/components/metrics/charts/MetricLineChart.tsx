@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Company, MetricObservation } from '../../../types/metrics';
 import { formatMetricValue } from '../../../utils/metricCalculations';
 import { HelpCircle } from 'lucide-react';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface MetricLineChartProps {
   title: string;
@@ -26,6 +27,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   unit,
   onSelectObservation,
 }) => {
+  const { language } = useLanguage();
   const [hoveredPoint, setHoveredPoint] = useState<{
     companyName: string;
     period: string;
@@ -54,10 +56,10 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   const range = maxVal - minVal || 1;
 
   // Chart dimensions
-  const width = 640;
-  const height = 220;
-  const paddingX = 50;
-  const paddingY = 30;
+  const width = 800;
+  const height = 280;
+  const paddingX = 60;
+  const paddingY = 35;
   const chartW = width - paddingX * 2;
   const chartH = height - paddingY * 2;
 
@@ -72,87 +74,107 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   };
 
   return (
-    <div className="p-5 bg-slate-900 rounded-xl border border-slate-800 shadow-md flex flex-col space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             {title}
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">
               {unit.replace('_', ' ')}
             </span>
           </h3>
-          {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
 
         {/* Legend */}
         <div className="flex items-center gap-3 flex-wrap">
           {series.map((s) => (
-            <div key={s.company.id} className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-              <span className="font-medium">{s.company.shortName}</span>
+            <div key={s.company.id} className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+              <span className="w-2.5 h-2.5 rounded-full shadow-xs" style={{ backgroundColor: s.color }} />
+              <span className="font-semibold">{s.company.shortName}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* SVG Canvas */}
-      <div className="relative w-full overflow-x-auto">
+      <div className="relative w-full overflow-x-auto bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800/80 p-2">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-auto min-w-[500px]"
+          className="w-full h-auto min-w-[640px]"
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Horizontal Grid lines */}
-          {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
-            const y = height - paddingY - pct * chartH;
-            const gridVal = minVal + pct * range;
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+            const y = height - paddingY - ratio * chartH;
+            const val = minVal + ratio * range;
             return (
-              <g key={idx}>
+              <g key={ratio}>
                 <line
                   x1={paddingX}
                   y1={y}
                   x2={width - paddingX}
                   y2={y}
-                  stroke="#334155"
+                  stroke="#cbd5e1"
+                  className="dark:stroke-slate-800/80"
                   strokeDasharray="3 3"
-                  strokeWidth="0.8"
+                  strokeWidth="1"
                 />
                 <text
-                  x={paddingX - 8}
-                  y={y + 3}
+                  x={paddingX - 10}
+                  y={y + 4}
                   textAnchor="end"
-                  className="fill-slate-500 text-[9px] font-mono"
+                  className="fill-slate-500 dark:fill-slate-400 text-[10px] font-mono"
                 >
-                  {gridVal >= 1000 ? `${(gridVal / 1000).toFixed(1)}k` : gridVal.toFixed(1)}
+                  {val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(1)}
                 </text>
               </g>
             );
           })}
 
-          {/* Lines and points */}
+          {/* X Axis Labels */}
+          {allPeriods.map((p, idx) => {
+            const x = getX(idx);
+            return (
+              <g key={p}>
+                <line
+                  x1={x}
+                  y1={height - paddingY}
+                  x2={x}
+                  y2={height - paddingY + 5}
+                  stroke="#94a3b8"
+                  strokeWidth="1.5"
+                />
+                <text
+                  x={x}
+                  y={height - paddingY + 20}
+                  textAnchor="middle"
+                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
+                >
+                  {p}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Series Lines and Points */}
           {series.map((s) => {
-            const validPoints = s.data
-              .map((d) => {
-                const pIdx = allPeriods.indexOf(d.period);
-                return {
-                  period: d.period,
-                  value: d.value,
-                  obs: d.observation,
-                  x: getX(pIdx),
-                  y: getY(d.value),
-                };
-              })
-              .filter((p) => p.value !== null);
+            const points = allPeriods.map((p, idx) => {
+              const item = s.data.find((d) => d.period === p);
+              const x = getX(idx);
+              const y = getY(item?.value ?? null);
+              return { x, y, value: item?.value ?? null, obs: item?.observation };
+            });
 
-            if (validPoints.length === 0) return null;
-
-            const pathD = validPoints.reduce((acc, pt, idx) => {
-              return `${acc} ${idx === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`;
+            // Path generator
+            const pathD = points.reduce((acc, pt) => {
+              if (pt.value === null) return acc;
+              return acc === '' ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
             }, '');
 
             return (
               <g key={s.company.id}>
-                {/* Connecting Line */}
                 <path
                   d={pathD}
                   fill="none"
@@ -160,76 +182,65 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className="drop-shadow-xs"
                 />
 
                 {/* Data Points */}
-                {validPoints.map((pt, pIdx) => (
-                  <circle
-                    key={pIdx}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r="4.5"
-                    fill="#0f172a"
-                    stroke={s.color}
-                    strokeWidth="2"
-                    className="cursor-pointer hover:r-6 transition-all"
-                    onMouseEnter={() =>
-                      setHoveredPoint({
-                        companyName: s.company.shortName,
-                        period: pt.period,
-                        value: pt.value,
-                        currency: pt.obs?.currency || s.company.reportingCurrency,
-                        x: pt.x,
-                        y: pt.y,
-                      })
-                    }
-                    onMouseLeave={() => setHoveredPoint(null)}
-                    onClick={() => pt.obs && onSelectObservation?.(pt.obs)}
-                  />
-                ))}
+                {points.map((pt, idx) => {
+                  if (pt.value === null) return null;
+                  return (
+                    <circle
+                      key={idx}
+                      cx={pt.x}
+                      cy={pt.y}
+                      r="4.5"
+                      fill={s.color}
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                      className="cursor-pointer hover:r-7 transition-all duration-150"
+                      onMouseEnter={() =>
+                        setHoveredPoint({
+                          companyName: s.company.shortName,
+                          period: allPeriods[idx],
+                          value: pt.value,
+                          currency: pt.obs?.currency,
+                          x: pt.x,
+                          y: pt.y,
+                        })
+                      }
+                      onMouseLeave={() => setHoveredPoint(null)}
+                      onClick={() => pt.obs && onSelectObservation?.(pt.obs)}
+                    />
+                  );
+                })}
               </g>
             );
           })}
-
-          {/* X Axis Period Labels */}
-          {allPeriods.map((p, idx) => (
-            <text
-              key={p}
-              x={getX(idx)}
-              y={height - 8}
-              textAnchor="middle"
-              className="fill-slate-400 text-[10px] font-mono font-medium"
-            >
-              {p}
-            </text>
-          ))}
         </svg>
 
-        {/* Hover Tooltip Overlay */}
+        {/* Hover tooltip card */}
         {hoveredPoint && (
           <div
-            className="absolute z-20 px-2.5 py-1.5 bg-slate-800 text-slate-100 rounded-lg shadow-xl text-xs font-mono border border-slate-700 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2"
+            className="absolute z-20 px-3 py-1.5 bg-slate-900 text-white dark:bg-slate-800 dark:text-slate-100 rounded-lg shadow-xl text-xs font-mono border border-slate-700 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2"
             style={{
               left: `${(hoveredPoint.x / width) * 100}%`,
               top: `${(hoveredPoint.y / height) * 100}%`,
             }}
           >
-            <div className="font-semibold text-brand-300">{hoveredPoint.companyName} ({hoveredPoint.period})</div>
-            <div className="font-bold text-white">
+            <span className="font-bold text-brand-400">{hoveredPoint.companyName}</span> ({hoveredPoint.period}):{' '}
+            <span className="font-semibold text-white">
               {formatMetricValue(hoveredPoint.value, unit, hoveredPoint.currency)}
-            </div>
+            </span>
           </div>
         )}
       </div>
 
-      <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-        <span className="flex items-center gap-1">
-          <HelpCircle className="w-3 h-3 text-slate-400" />
-          Click data points to inspect raw filing disclosures
-        </span>
-        <span className="font-mono text-[10px]">AutoMetrics Intelligence Engine</span>
+      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="flex items-center gap-1.5">
+          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+          <span>{language === 'ko' ? '포인트를 클릭하면 해당 분기 공식 IR 원문 확인' : 'Click data points to inspect quarter disclosures'}</span>
+        </div>
       </div>
     </div>
   );
 };
-

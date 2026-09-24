@@ -69,7 +69,7 @@ export const CompanyComparisonPage: React.FC = () => {
 
   // Multi-Company Line Series
   const lineChartColors = ['#0c93e7', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7'];
-  const trendPeriods = ['2024-Q1', '2024-Q2', '2024-Q3', '2024-Q4', '2024-FY'];
+  const trendPeriods = periods.slice(0, 5).reverse();
 
   const lineSeries = selectedCompanies.slice(0, 5).map((cid, idx) => {
     const comp = getCompanyById(cid)!;
@@ -94,14 +94,14 @@ export const CompanyComparisonPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
-      <div className="bg-slate-900 dark:bg-slate-900 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
           <BarChart2 className="w-4 h-4" /> Multi-OEM Quantitative Comparison Engine
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {language === 'ko' ? '글로벌 완성차 다자간 실적 비교 벤치마크' : 'Cross-Company OEM Benchmark'}
         </h1>
-        <p className="text-slate-300 dark:text-slate-300 light:text-slate-600 text-sm max-w-3xl leading-relaxed">
+        <p className="text-slate-600 dark:text-slate-300 text-sm max-w-3xl leading-relaxed">
           {language === 'ko'
             ? '2개에서 최대 8개 완성차 기업을 선택하여 판매량, 순수전기차 비중, 매출액, 영업이익률을 다각도로 비교 분석합니다. 회계 기준 차이에 따른 비교 한계 경고를 명확히 표시합니다.'
             : 'Compare between 2 and 8 global automakers side-by-side. View reported volumes, electric vehicle mix, operating margins, and accounting provenance with strict comparability warnings.'}
@@ -109,15 +109,15 @@ export const CompanyComparisonPage: React.FC = () => {
       </div>
 
       {/* Comparison Controls */}
-      <div className="bg-slate-900 dark:bg-slate-900 light:bg-white rounded-xl border border-slate-800 dark:border-slate-800 light:border-slate-200 p-5 space-y-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-5 shadow-md">
         {/* 1. Company Multi-Select (2-8) */}
         <div>
           <div className="flex items-center justify-between mb-2.5">
-            <label className="text-xs font-bold text-slate-300 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <Filter className="w-4 h-4 text-brand-400" />
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Filter className="w-4 h-4 text-brand-600 dark:text-brand-400" />
               {language === 'ko' ? '비교 대상 기업 선택' : 'Select Automakers'} ({selectedCompanies.length} / 8)
             </label>
-            <span className="text-[11px] text-slate-400 font-mono">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
               2 ~ 8 <TermBadge term="OEM" />
             </span>
           </div>
@@ -128,15 +128,15 @@ export const CompanyComparisonPage: React.FC = () => {
                 <button
                   key={c.id}
                   onClick={() => toggleCompany(c.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition flex items-center gap-1.5 ${
                     isSelected
-                      ? 'bg-brand-600/20 text-brand-300 dark:text-brand-300 light:text-brand-700 border-brand-500/50 shadow-xs'
-                      : 'bg-slate-950 dark:bg-slate-950 light:bg-slate-100 text-slate-400 border-slate-800 dark:border-slate-800 light:border-slate-300 hover:border-slate-700'
+                      ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300 border-brand-500/50 shadow-xs font-bold'
+                      : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
                   }`}
                 >
-                  {isSelected && <Check className="w-3.5 h-3.5 text-brand-400" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />}
                   <span>{c.name}</span>
-                  <span className="text-[10px] text-slate-500 font-mono">({c.hqCountry})</span>
+                  <span className="text-[10px] text-slate-400 font-mono">({c.hqCountry})</span>
                 </button>
               );
             })}
@@ -144,16 +144,16 @@ export const CompanyComparisonPage: React.FC = () => {
         </div>
 
         {/* 2. Metric & Period Selectors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-800 dark:border-slate-800 light:border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
           <div>
-            <label className="text-xs font-bold text-slate-300 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider block mb-2">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-2">
               {language === 'ko' ? '비교 지표 선택' : 'Comparison Metric'}
             </label>
             <select
               value={selectedMetricId}
               onChange={(e) => setSelectedMetricId(e.target.value)}
               aria-label="Select comparison metric"
-              className="w-full bg-slate-950 dark:bg-slate-950 light:bg-slate-50 border border-slate-800 dark:border-slate-800 light:border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-200 dark:text-slate-200 light:text-slate-800 focus:outline-none focus:border-brand-500"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500"
             >
               {allMetrics.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -164,14 +164,14 @@ export const CompanyComparisonPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-300 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider block mb-2">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-2">
               {language === 'ko' ? '공시 기준 기간' : 'Reporting Period'}
             </label>
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
               aria-label="Select reporting period"
-              className="w-full bg-slate-950 dark:bg-slate-950 light:bg-slate-50 border border-slate-800 dark:border-slate-800 light:border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-200 dark:text-slate-200 light:text-slate-800 focus:outline-none focus:border-brand-500 font-mono"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500 font-mono"
             >
               {periods.map((p) => (
                 <option key={p} value={p}>
@@ -185,15 +185,15 @@ export const CompanyComparisonPage: React.FC = () => {
 
       {/* Comparability Warning Banner */}
       {nonComparableItems.length > 0 && (
-        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 space-y-1.5">
-          <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-amber-300">
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 space-y-1.5">
+          <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
             <span>Comparability Notice for {selectedMetricDef?.name}</span>
           </div>
           <p className="text-xs leading-relaxed">
             Certain selected companies report metrics under differing regulatory definitions or accounting scopes:
           </p>
-          <ul className="list-disc list-inside text-xs text-amber-200/90 pl-1 space-y-0.5">
+          <ul className="list-disc list-inside text-xs text-amber-700/90 dark:text-amber-200/90 pl-1 space-y-0.5">
             {nonComparableItems.map((item) => (
               <li key={item.company.id}>
                 <strong>{item.company.name}:</strong> {item.observation.nonComparableReason}
@@ -222,38 +222,38 @@ export const CompanyComparisonPage: React.FC = () => {
       />
 
       {/* Multi-Metric Side-by-Side Matrix Table */}
-      <div className="bg-slate-900 dark:bg-slate-900 light:bg-white rounded-xl border border-slate-800 dark:border-slate-800 light:border-slate-200 p-5 space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-md">
         <div>
-          <h3 className="text-sm font-bold text-slate-100 dark:text-slate-100 light:text-slate-900 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-brand-400" />
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" />
             {language === 'ko' ? '다변수 비교 매트릭스 테이블' : 'Side-by-Side Multi-Metric Matrix'} ({selectedPeriod})
           </h3>
-          <p className="text-xs text-slate-400 light:text-slate-600 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Comprehensive side-by-side view across sales, electrification, and operating profitability
           </p>
         </div>
 
-        <div className="overflow-x-auto border border-slate-800 dark:border-slate-800 light:border-slate-200 rounded-lg">
+        <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl shadow-inner">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 dark:bg-slate-950 light:bg-slate-100 text-slate-400 light:text-slate-600 uppercase font-mono text-[10px] tracking-wider border-b border-slate-800 dark:border-slate-800 light:border-slate-200">
+            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase font-mono text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-4 py-3">{language === 'ko' ? '비교 지표' : 'Metric'}</th>
                 {selectedCompanies.map((cid) => {
                   const comp = getCompanyById(cid);
                   return (
-                    <th key={cid} className="px-4 py-3 text-right">
+                    <th key={cid} className="px-4 py-3 text-right font-bold">
                       {comp?.shortName || cid}
                     </th>
                   );
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-850 dark:divide-slate-850 light:divide-slate-200">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-slate-900">
               {metricsToCompare.map((mId) => {
                 const metricDef = getMetricById(mId);
                 return (
-                  <tr key={mId} className="hover:bg-slate-850/40 dark:hover:bg-slate-850/40 light:hover:bg-slate-50">
-                    <td className="px-4 py-3 font-semibold text-slate-200 dark:text-slate-200 light:text-slate-800">
+                  <tr key={mId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
                       <div>{metricDef?.name}</div>
                       <span className="text-[10px] font-mono text-slate-500">
                         {metricDef?.unit.replace('_', ' ')}
@@ -266,14 +266,14 @@ export const CompanyComparisonPage: React.FC = () => {
                         <td
                           key={cid}
                           onClick={() => obs && setActiveProvenanceObs(obs)}
-                          className="px-4 py-3 text-right font-mono text-slate-100 dark:text-slate-100 light:text-slate-900 cursor-pointer hover:text-brand-400"
+                          className="px-4 py-3 text-right font-mono text-slate-900 dark:text-slate-100 cursor-pointer hover:text-brand-600 dark:hover:text-brand-400"
                         >
                           {obs ? (
                             <span className="font-bold">
                               {formatMetricValue(obs.value, obs.unit, obs.currency || comp?.reportingCurrency)}
                             </span>
                           ) : (
-                            <span className="text-slate-600 font-normal">N/R</span>
+                            <span className="text-slate-400 font-normal">N/R</span>
                           )}
                         </td>
                       );

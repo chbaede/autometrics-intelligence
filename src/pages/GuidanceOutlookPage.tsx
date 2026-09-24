@@ -18,14 +18,14 @@ export const GuidanceOutlookPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-12">
       {/* Banner */}
-      <div className="bg-slate-900 dark:bg-slate-900 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
           <Compass className="w-4 h-4" /> {language === 'ko' ? '경영진 공식 가이던스 및 전망' : 'Forward-Looking Guidance & Management Outlook'}
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {language === 'ko' ? '완성차 OEM 연간 재무 가이던스 목표 밴드' : 'OEM Financial Guidance & Target Corridors'}
         </h1>
-        <p className="text-slate-300 dark:text-slate-300 light:text-slate-600 text-sm max-w-3xl leading-relaxed">
+        <p className="text-slate-600 dark:text-slate-300 text-sm max-w-3xl leading-relaxed">
           {language === 'ko'
             ? '연간 사업보고서 및 실적발표회(Earnings Call)에서 공식 발표된 경영진의 목표 범위입니다. 영업이익률(RoS), 판매량 목표치, 전제조건 및 리스크 요인을 추적합니다.'
             : 'Official management projections published in annual results and earnings conferences. Tracks target corridors, operating return on sales (RoS) assumptions, and revision histories.'}
@@ -33,10 +33,10 @@ export const GuidanceOutlookPage: React.FC = () => {
       </div>
 
       {/* Forward-Looking Disclaimer Notice */}
-      <div className="p-4 rounded-xl bg-slate-900 dark:bg-slate-900 light:bg-slate-50 border border-slate-800 dark:border-slate-800 light:border-slate-200 flex items-start gap-3 text-xs text-slate-400 light:text-slate-600">
-        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+      <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-start gap-3 text-xs text-slate-600 dark:text-slate-400">
+        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
         <div>
-          <strong className="text-slate-200 dark:text-slate-200 light:text-slate-800 block mb-0.5">
+          <strong className="text-slate-900 dark:text-slate-200 block mb-0.5">
             {language === 'ko' ? '미래 예측 진술(Forward-Looking Statement) 면책 공시' : 'Forward-Looking Information Safe Harbor'}
           </strong>
           <span>
@@ -51,13 +51,13 @@ export const GuidanceOutlookPage: React.FC = () => {
       <GuidanceRangeChart guidanceList={guidanceList} />
 
       {/* Comprehensive Guidance Records Table */}
-      <div className="bg-slate-900 dark:bg-slate-900 light:bg-white rounded-2xl border border-slate-800 dark:border-slate-800 light:border-slate-200 p-6 shadow-md space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-md space-y-4">
         <div>
-          <h2 className="text-base font-bold text-slate-100 dark:text-slate-100 light:text-slate-900 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-brand-400" />
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-brand-600 dark:text-brand-400" />
             {language === 'ko' ? '경영진 공식 공시 원문 및 목표 범위' : 'Official Management Statements & Target Ranges'}
           </h2>
-          <p className="text-xs text-slate-400 light:text-slate-600 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {language === 'ko' ? '공시 원문 전문, 발표 일자, 핵심 사업 전제조건' : 'Verbatim guidance text, publication dates, and key operational assumptions'}
           </p>
         </div>
@@ -70,27 +70,27 @@ export const GuidanceOutlookPage: React.FC = () => {
             return (
               <div
                 key={g.id}
-                className="p-5 bg-slate-950 dark:bg-slate-950 light:bg-slate-50 rounded-xl border border-slate-800 dark:border-slate-800 light:border-slate-200 space-y-3"
+                className="p-5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-900 dark:border-slate-900 light:border-slate-200 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-100 dark:text-slate-100 light:text-slate-900 text-sm">{comp?.name}</span>
-                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-900 dark:bg-slate-900 light:bg-slate-200 text-brand-400 dark:text-brand-400 light:text-brand-700 border border-slate-800 dark:border-slate-800 light:border-slate-300">
+                    <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{comp?.name}</span>
+                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-brand-700 dark:text-brand-400 font-semibold">
                       FY{g.reportingYear} Outlook
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs font-mono text-slate-400 light:text-slate-600">
+                  <div className="flex items-center gap-3 text-xs font-mono text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" /> Published: {g.publicationDate}
                     </span>
-                    <span className="px-2 py-0.5 rounded bg-slate-850 dark:bg-slate-850 light:bg-slate-200 text-slate-300 dark:text-slate-300 light:text-slate-800 font-semibold">
+                    <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold">
                       Target: {g.min}% – {g.max}% (<TermBadge term="RoS" />)
                     </span>
                   </div>
                 </div>
 
                 {/* Quoted Statement */}
-                <div className="p-3 bg-slate-900 dark:bg-slate-900 light:bg-white rounded-lg border border-slate-850 dark:border-slate-850 light:border-slate-200 text-xs text-slate-300 dark:text-slate-300 light:text-slate-800 italic font-mono">
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 italic font-mono">
                   "{g.originalText}"
                 </div>
 
@@ -98,10 +98,10 @@ export const GuidanceOutlookPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
                   {g.assumptions && g.assumptions.length > 0 && (
                     <div className="space-y-1">
-                      <span className="font-semibold text-slate-400 light:text-slate-600 uppercase tracking-wider text-[10px]">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                         {language === 'ko' ? '경영진 핵심 전제조건' : 'Management Assumptions'}
                       </span>
-                      <ul className="list-disc list-inside space-y-0.5 text-slate-300 dark:text-slate-300 light:text-slate-700">
+                      <ul className="list-disc list-inside space-y-0.5 text-slate-700 dark:text-slate-300">
                         {g.assumptions.map((ass, i) => (
                           <li key={i}>{ass}</li>
                         ))}
@@ -111,23 +111,23 @@ export const GuidanceOutlookPage: React.FC = () => {
 
                   {g.riskNotes && (
                     <div className="space-y-1">
-                      <span className="font-semibold text-slate-400 light:text-slate-600 uppercase tracking-wider text-[10px]">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                         {language === 'ko' ? '주요 위험 요인' : 'Key Risk Factors'}
                       </span>
-                      <p className="text-slate-300 dark:text-slate-300 light:text-slate-700">{g.riskNotes}</p>
+                      <p className="text-slate-700 dark:text-slate-300">{g.riskNotes}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Source Link */}
                 {src && (
-                  <div className="pt-2 border-t border-slate-900 dark:border-slate-900 light:border-slate-200 flex items-center justify-between text-xs text-slate-400 light:text-slate-600">
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                     <span className="truncate max-w-md">Source: {src.title}</span>
                     <a
                       href={src.officialUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-brand-400 hover:underline flex items-center gap-1 shrink-0 font-medium"
+                      className="text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0 font-medium"
                     >
                       <span>{language === 'ko' ? '공식 발표 자료 보기' : 'View Official Release'}</span>
                       <ExternalLink className="w-3.5 h-3.5" />

@@ -7,7 +7,6 @@ import {
   ExternalLink,
   ShieldCheck,
   Calendar,
-  CheckCircle2,
 } from 'lucide-react';
 
 export const SourceExplorerPage: React.FC = () => {
@@ -43,14 +42,14 @@ export const SourceExplorerPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-12">
       {/* Banner */}
-      <div className="bg-slate-900 dark:bg-slate-900 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
           <ShieldCheck className="w-4 h-4" /> {language === 'ko' ? '1차 공식 IR 감사 추적 및 출처 레지스트리' : 'Primary IR Audit Trail & Source Registry'}
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {language === 'ko' ? '공식 투자자 관계(IR) 공시 문서 라이브러리' : 'Official Investor Relations Library'}
         </h1>
-        <p className="text-slate-300 dark:text-slate-300 light:text-slate-600 text-sm max-w-3xl leading-relaxed">
+        <p className="text-slate-600 dark:text-slate-300 text-sm max-w-3xl leading-relaxed">
           {language === 'ko'
             ? 'AutoMetrics Intelligence에 렌더링되는 모든 데이터는 공식 공시 문서로부터 직접 추출 및 검증되었습니다. 원문 보고서, IR 프레젠테이션, 보도자료 링크를 직접 탐색할 수 있습니다.'
             : 'Every number rendered in AutoMetrics Intelligence originates from an official, verified primary publication. Browse or search through the underlying earnings reports, financial releases, and shareholder letters.'}
@@ -58,7 +57,7 @@ export const SourceExplorerPage: React.FC = () => {
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-slate-900 dark:bg-slate-900 light:bg-white rounded-xl border border-slate-800 dark:border-slate-800 light:border-slate-200 p-4 space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 shadow-md">
         <div className="flex flex-col md:flex-row items-center gap-3">
           {/* Search Input */}
           <div className="relative flex-1 w-full">
@@ -68,7 +67,7 @@ export const SourceExplorerPage: React.FC = () => {
               placeholder={language === 'ko' ? '기업명, 문서 제목 또는 키워드로 공시 검색...' : 'Search documents by company, title, or keywords...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-950 dark:bg-slate-950 light:bg-slate-50 border border-slate-800 dark:border-slate-800 light:border-slate-300 rounded-lg pl-10 pr-4 py-2 text-xs text-slate-200 dark:text-slate-200 light:text-slate-800 placeholder-slate-500 focus:outline-none focus:border-brand-500"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-brand-500 shadow-inner"
             />
           </div>
 
@@ -78,7 +77,7 @@ export const SourceExplorerPage: React.FC = () => {
               value={selectedCompanyId}
               onChange={(e) => setSelectedCompanyId(e.target.value)}
               aria-label="Filter by OEM"
-              className="w-full md:w-48 bg-slate-950 dark:bg-slate-950 light:bg-slate-50 border border-slate-800 dark:border-slate-800 light:border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-200 dark:text-slate-200 light:text-slate-800 focus:outline-none focus:border-brand-500 font-medium"
+              className="w-full md:w-48 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500 font-medium"
             >
               <option value="all">{language === 'ko' ? '모든 완성차 제조사' : 'All Automakers'}</option>
               {companies.map((c) => (
@@ -95,7 +94,7 @@ export const SourceExplorerPage: React.FC = () => {
               value={selectedDocType}
               onChange={(e) => setSelectedDocType(e.target.value)}
               aria-label="Filter by document type"
-              className="w-full md:w-56 bg-slate-950 dark:bg-slate-950 light:bg-slate-50 border border-slate-800 dark:border-slate-800 light:border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-200 dark:text-slate-200 light:text-slate-800 focus:outline-none focus:border-brand-500 font-medium"
+              className="w-full md:w-56 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500 font-medium"
             >
               {docTypes.map((dt) => (
                 <option key={dt.id} value={dt.id}>
@@ -105,61 +104,64 @@ export const SourceExplorerPage: React.FC = () => {
             </select>
           </div>
         </div>
-
-        <div className="text-[11px] text-slate-400 light:text-slate-600 flex items-center justify-between pt-1 border-t border-slate-800/80 dark:border-slate-800/80 light:border-slate-200">
-          <span>{filteredDocs.length} {language === 'ko' ? '개의 검증된 공식 문서' : 'verified primary documents'}</span>
-          <span className="font-mono text-emerald-400 flex items-center gap-1 font-semibold">
-            <CheckCircle2 className="w-3.5 h-3.5" /> 100% {language === 'ko' ? '공식 IR 링크 검증 완료' : 'Verified Official IR Links'}
-          </span>
-        </div>
       </div>
 
-      {/* Documents Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredDocs.map((doc) => {
-          const comp = getCompanyById(doc.companyId);
-          return (
-            <div
-              key={doc.id}
-              className="p-5 bg-slate-900 dark:bg-slate-900 light:bg-white rounded-xl border border-slate-800 dark:border-slate-800 light:border-slate-200 flex flex-col justify-between space-y-4 hover:border-slate-700 transition shadow-sm"
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="text-xs font-bold text-brand-400">{comp?.name}</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 dark:bg-slate-950 light:bg-slate-100 text-slate-400 dark:text-slate-400 light:text-slate-700 border border-slate-800 dark:border-slate-800 light:border-slate-300">
-                    {doc.period} • {doc.docType.replace('_', ' ')}
-                  </span>
+      {/* Document Cards Grid */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+          <span>{filteredDocs.length} {language === 'ko' ? '개 공식 출처 문서 검증됨' : 'verified source documents'}</span>
+          <span>100% Primary IR Filings</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredDocs.map((doc) => {
+            const comp = getCompanyById(doc.companyId);
+
+            return (
+              <div
+                key={doc.id}
+                className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 hover:shadow-md transition flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-xs text-brand-600 dark:text-brand-400">
+                      {comp?.name || doc.companyId}
+                    </span>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      {doc.period} • {doc.docType.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug">
+                    {doc.title}
+                  </h3>
+
+                  {doc.notes && (
+                    <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 leading-relaxed">
+                      {doc.notes}
+                    </p>
+                  )}
                 </div>
 
-                <h3 className="font-bold text-slate-100 dark:text-slate-100 light:text-slate-900 text-sm leading-snug">
-                  {doc.title}
-                </h3>
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1 font-mono text-[11px]">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> {doc.publicationDate}
+                  </span>
 
-                {doc.notes && (
-                  <p className="text-xs text-slate-400 light:text-slate-600 leading-relaxed line-clamp-3">
-                    {doc.notes}
-                  </p>
-                )}
+                  <a
+                    href={doc.officialUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-brand-700 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 hover:bg-brand-100 dark:hover:bg-brand-500/20 border border-brand-200 dark:border-brand-500/20 transition"
+                  >
+                    <span>{t.global.openOfficialDoc}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
               </div>
-
-              <div className="pt-3 border-t border-slate-800 dark:border-slate-800 light:border-slate-200 flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1 font-mono text-[11px] text-slate-500">
-                  <Calendar className="w-3.5 h-3.5" /> {doc.publicationDate}
-                </span>
-
-                <a
-                  href={doc.officialUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-3 py-1.5 font-semibold text-brand-400 bg-brand-500/10 hover:bg-brand-500/20 rounded-lg border border-brand-500/20 transition"
-                >
-                  <span>{t.global.openOfficialDoc}</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
