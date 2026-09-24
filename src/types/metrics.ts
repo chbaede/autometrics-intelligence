@@ -31,6 +31,69 @@ export type MetricValueType = 'reported' | 'derived' | 'guidance' | 'estimated';
 
 export type PeriodType = 'quarterly' | 'annual' | 'semi_annual';
 
+/**
+ * Explicit reporting scope for financial and operational metrics.
+ * Differentiates consolidated group metrics from segment-level disclosures.
+ */
+export type ReportingScope =
+  | 'consolidated_group'
+  | 'automotive_segment'
+  | 'cars_segment'
+  | 'commercial_vehicles_segment'
+  | 'financial_services'
+  | 'business_unit'
+  | 'unknown';
+
+/**
+ * Accounting basis under applicable standards (IFRS, US GAAP, K-IFRS, J-GAAP, PRC GAAP).
+ */
+export type AccountingBasis =
+  | 'reported'
+  | 'adjusted'
+  | 'non_gaap'
+  | 'management_defined'
+  | 'unknown';
+
+/**
+ * Volume delivery perimeter (Customer retail handovers vs Wholesale shipments vs Registrations).
+ */
+export type VolumeDefinition =
+  | 'retail_deliveries'
+  | 'wholesale_shipments'
+  | 'production'
+  | 'registrations'
+  | 'unknown';
+
+/**
+ * Evidence-based verification status for audit compliance.
+ */
+export type VerificationStatus =
+  | 'verified'
+  | 'needs_review'
+  | 'scope_warning'
+  | 'unverified';
+
+export type VerificationMethod =
+  | 'official_pdf_filing'
+  | 'official_earnings_call_presentation'
+  | 'official_press_release'
+  | 'regulatory_filing_sec_kessan'
+  | 'derived_calculation'
+  | 'unverified';
+
+export type ComparabilityLevel = 'direct' | 'limited' | 'not_comparable';
+
+export interface ComparabilityResult {
+  comparable: boolean;
+  level: ComparabilityLevel;
+  reasons: string[];
+  scopeMatched: boolean;
+  accountingBasisMatched: boolean;
+  definitionMatched: boolean;
+  periodMatched: boolean;
+  currencyMatched: boolean;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -67,6 +130,9 @@ export interface MetricDefinition {
   applicableCompanies: string[]; // '*' for all or list of company IDs
   originalLabelsMap?: Record<string, string>; // companyId -> typical reported label
   isCumulativeDefault?: boolean;
+  defaultScope?: ReportingScope;
+  defaultBasis?: AccountingBasis;
+  defaultVolumeDefinition?: VolumeDefinition;
 }
 
 export type DocumentType =
@@ -82,11 +148,13 @@ export interface SourceDocument {
   id: string;
   companyId: string;
   title: string;
+  issuer?: string;
   docType: DocumentType;
   period: string; // e.g., '2024-Q3', '2024-Q4', '2024-FY', '2025-Q1', '2025-Q2'
   publicationDate: string; // YYYY-MM-DD
   officialUrl: string;
   isVerified: boolean;
+  verificationStatus?: VerificationStatus;
   notes?: string;
   lastChecked: string;
 }
@@ -103,6 +171,14 @@ export interface MetricObservation {
   unit: MetricUnit;
   currency?: string; // original reported currency
   valueType: MetricValueType;
+  reportingScope?: ReportingScope;
+  accountingBasis?: AccountingBasis;
+  volumeDefinition?: VolumeDefinition;
+  verificationStatus?: VerificationStatus;
+  verificationMethod?: VerificationMethod;
+  evidenceReference?: string;
+  tableReference?: string;
+  sectionReference?: string;
   sourceDocId?: string;
   pageNumber?: number | string;
   originalLabel?: string;
@@ -142,10 +218,14 @@ export interface GuidanceObservation {
   midpoint?: number;
   unit: MetricUnit;
   currency?: string;
+  reportingScope?: ReportingScope;
+  accountingBasis?: AccountingBasis;
+  verificationStatus?: VerificationStatus;
   status: GuidanceStatus;
   publicationDate: string;
   sourceDocId: string;
   pageNumber?: number | string;
+  tableReference?: string;
   revisionHistory?: GuidanceRevision[];
   assumptions?: string[];
   riskNotes?: string;
@@ -160,6 +240,9 @@ export interface RegionalObservation {
   value: number;
   unit: MetricUnit;
   currency?: string;
+  reportingScope?: ReportingScope;
+  volumeDefinition?: VolumeDefinition;
+  verificationStatus?: VerificationStatus;
   sourceDocId: string;
   pageNumber?: number | string;
   originalRegionLabel: string;
@@ -177,4 +260,3 @@ export interface DataQualityReport {
   companiesCovered: number;
   periodsCovered: string[];
 }
-

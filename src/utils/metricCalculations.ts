@@ -1,11 +1,19 @@
 /**
- * Metric Calculation Utilities for AutoMetrics Intelligence
+ * Metric Calculation & Comparability Utilities for AutoMetrics Intelligence
  *
  * All functions strictly follow data integrity rules:
  * - Return null for invalid, non-finite, missing, or zero-denominator inputs.
  * - Never silently coerce missing values to zero.
  * - Handle negative numbers properly.
+ * - Validate reporting scopes and accounting basis before direct comparison.
  */
+
+import {
+  MetricObservation,
+  ComparabilityResult,
+  ComparabilityLevel,
+  VerificationStatus,
+} from '../types/metrics';
 
 export function calculateYoYGrowth(
   current: number | null | undefined,
@@ -75,45 +83,44 @@ export function calculateGuidanceRangeSpread(
 ): number | null {
   if (min === null || min === undefined || max === null || max === undefined) return null;
   if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
-  return Math.abs(max - min);
+  return Math.round(Math.abs(max - min) * 100) / 100;
 }
 
 export function calculateCAGR(
   startValue: number | null | undefined,
   endValue: number | null | undefined,
-  years: number
+  numYears: number
 ): number | null {
-  if (startValue === null || startValue === undefined || endValue === null || endValue === undefined) return null;
-  if (!Number.isFinite(startValue) || !Number.isFinite(endValue) || years <= 0) return null;
-  if (startValue <= 0 || endValue <= 0) return null;
+  if (startValue === null || startValue === undefined || !Number.isFinite(startValue)) return null;
+  if (endValue === null || endValue === undefined || !Number.isFinite(endValue)) return null;
+  if (numYears <= 0 || startValue <= 0 || endValue < 0) return null;
 
-  const cagr = (Math.pow(endValue / startValue, 1 / years) - 1) * 100;
+  const cagr = (Math.pow(endValue / startValue, 1 / numYears) - 1) * 100;
   return Number.isFinite(cagr) ? Math.round(cagr * 100) / 100 : null;
 }
 
 export function calculateRegionalShare(
-  regionalValue: number | null | undefined,
-  totalValue: number | null | undefined
+  regionalVolume: number | null | undefined,
+  globalVolume: number | null | undefined
 ): number | null {
-  if (regionalValue === null || regionalValue === undefined || !Number.isFinite(regionalValue)) return null;
-  if (totalValue === null || totalValue === undefined || !Number.isFinite(totalValue)) return null;
-  if (totalValue <= 0) return null;
-  if (regionalValue < 0) return null;
+  if (regionalVolume === null || regionalVolume === undefined || !Number.isFinite(regionalVolume)) return null;
+  if (globalVolume === null || globalVolume === undefined || !Number.isFinite(globalVolume)) return null;
+  if (globalVolume <= 0 || regionalVolume < 0) return null;
 
-  const share = (regionalValue / totalValue) * 100;
+  const share = (regionalVolume / globalVolume) * 100;
   return Number.isFinite(share) ? Math.round(share * 100) / 100 : null;
 }
 
 export function formatMetricValue(
   value: number | null | undefined,
   unit: string,
-  currency?: string
+  currencyCode?: string
 ): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return 'Not reported';
   }
 
-  const currSymbol = currency ? getCurrencySymbol(currency) : '';
+  const currSymbol = currencyCode ? getCurrencySymbol(currencyCode) : '$';
 
   switch (unit) {
     case 'percentage':
@@ -150,6 +157,8 @@ export function getCurrencySymbol(currencyCode: string): string {
       return '£';
     case 'INR':
       return '₹';
+    case 'SEK':
+      return 'kr ';
     default:
       return `${currencyCode} `;
   }
@@ -175,3 +184,180 @@ export function formatPeriodLabel(period: string, lang: 'ko' | 'en' = 'ko'): str
   return period;
 }
 
+/**
+ * Reusable comparison validation engine.
+ * Checks definition, scope, accounting basis, volume definition, period, and currency.
+ */
+export function checkObservationComparability(
+  obsA: MetricObservation,
+  obsB: MetricObservation
+): ComparabilityResult {
+  const reasons: string[] = [];
+
+  const definitionMatched = obsA.metricId === obsB.metricId;
+  if (!definitionMatched) {
+    reasons.push(`Metric definitions differ: "${obsA.metricId}" vs "${obsB.metricId}"`);
+  }
+
+  // Scope check
+  const scopeA = obsA.reportingScope || 'unknown';
+  const scopeB = obsB.reportingScope || 'unknown';
+  const scopeMatched = scopeA === scopeB && scopeA !== 'unknown';
+  if (!scopeMatched) {
+    reasons.push(`Reporting scope mismatch: "${scopeA}" vs "${scopeB}"`);
+  }
+
+  // Accounting basis check
+  const basisA = obsA.accountingBasis || 'unknown';
+  const basisB = obsB.accountingBasis || 'unknown';
+  const accountingBasisMatched = basisA === basisB && basisA !== 'unknown';
+  if (!accountingBasisMatched) {
+    reasons.push(`Accounting basis mismatch: "${basisA}" vs "${basisB}"`);
+  }
+
+  // Volume definition check
+  let definitionVolumeMatched = true;
+  if (obsA.volumeDefinition || obsB.volumeDefinition) {
+    const volA = obsA.volumeDefinition || 'unknown';
+    const volB = obsB.volumeDefinition || 'unknown';
+    definitionVolumeMatched = volA === volB && volA !== 'unknown';
+    if (!definitionVolumeMatched) {
+      reasons.push(`Volume perimeter mismatch: "${volA}" vs "${volB}"`);
+    }
+  }
+
+  // Period match
+  const periodMatched = obsA.period === obsB.period && obsA.periodType === obsB.periodType;
+  if (!periodMatched) {
+    reasons.push(`Reporting period mismatch: "${obsA.period}" vs "${obsB.period}"`);
+  }
+
+  // Currency match for financial metrics
+  let currencyMatched = true;
+  if (obsA.unit.startsWith('currency') || obsB.unit.startsWith('currency')) {
+    currencyMatched = obsA.currency === obsB.currency && !!obsA.currency;
+    if (!currencyMatched) {
+      reasons.push(`Functional currency difference: "${obsA.currency}" vs "${obsB.currency}"`);
+    }
+  }
+
+  // Determine Level
+  let level: ComparabilityLevel = 'direct';
+  let comparable = true;
+
+  if (!definitionMatched || !periodMatched) {
+    level = 'not_comparable';
+    comparable = false;
+  } else if (!scopeMatched || !accountingBasisMatched || !definitionVolumeMatched || !currencyMatched) {
+    level = 'limited';
+    comparable = true;
+  } else {
+    level = 'direct';
+    comparable = true;
+  }
+
+  return {
+    comparable,
+    level,
+    reasons,
+    scopeMatched,
+    accountingBasisMatched,
+    definitionMatched,
+    periodMatched,
+    currencyMatched,
+  };
+}
+
+export interface ScopeMarginValidation {
+  isScopeCompatible: boolean;
+  validationStatus: VerificationStatus;
+  calculatedMargin: number | null;
+  reportedMargin: number | null;
+  difference: number | null;
+  diagnostic: string;
+}
+
+/**
+ * Scope-aware margin validator.
+ * Ensures that numerator and denominator scopes & bases match before calculating and asserting margin.
+ */
+export function validateMarginScopeCompatibility(
+  revObs?: MetricObservation | null,
+  ebitObs?: MetricObservation | null,
+  marginObs?: MetricObservation | null
+): ScopeMarginValidation {
+  if (!revObs || !ebitObs || !marginObs || revObs.value === null || ebitObs.value === null || marginObs.value === null) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: null,
+      difference: null,
+      diagnostic: 'Incomplete observation triplet for revenue, EBIT, and margin.',
+    };
+  }
+
+  if (revObs.value <= 0) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'needs_review',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      diagnostic: 'Revenue is non-positive; margin calculation undefined.',
+    };
+  }
+
+  const calculatedMargin = Math.round(((ebitObs.value / revObs.value) * 100) * 100) / 100;
+  const reportedMargin = marginObs.value;
+  const difference = Math.round(Math.abs(calculatedMargin - reportedMargin) * 100) / 100;
+
+  const scopeRev = revObs.reportingScope || 'unknown';
+  const scopeEbit = ebitObs.reportingScope || 'unknown';
+  const scopeMargin = marginObs.reportingScope || 'unknown';
+
+  const basisEbit = ebitObs.accountingBasis || 'unknown';
+  const basisMargin = marginObs.accountingBasis || 'unknown';
+
+  if (scopeRev !== scopeEbit || scopeRev !== scopeMargin || scopeEbit !== scopeMargin) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'scope_warning',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      diagnostic: `Scope mismatch detected: Revenue is ${scopeRev}, EBIT is ${scopeEbit}, Margin is ${scopeMargin}. Math gap: ${difference}%p.`,
+    };
+  }
+
+  if (basisEbit !== basisMargin) {
+    return {
+      isScopeCompatible: false,
+      validationStatus: 'scope_warning',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      diagnostic: `Accounting basis mismatch: EBIT is ${basisEbit}, Margin is ${basisMargin}.`,
+    };
+  }
+
+  if (difference > 0.35) {
+    return {
+      isScopeCompatible: true,
+      validationStatus: 'needs_review',
+      calculatedMargin,
+      reportedMargin,
+      difference,
+      diagnostic: `Mathematical deviation of ${difference}%p exceeds 0.35%p threshold despite matching scopes.`,
+    };
+  }
+
+  return {
+    isScopeCompatible: true,
+    validationStatus: 'verified',
+    calculatedMargin,
+    reportedMargin,
+    difference,
+    diagnostic: 'Scope, accounting basis, and mathematical margin calculation fully reconciled.',
+  };
+}

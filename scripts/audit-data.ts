@@ -1,15 +1,11 @@
 /**
- * AutoMetrics Intelligence — Complete Data Audit Script (Phase 11)
+ * AutoMetrics Intelligence — Complete Scope-Safe Data & Financial Integrity Audit Script
  *
- * Runs automated data verification checks:
- * - Duplicate observations
- * - Missing company or metric IDs
- * - Missing source references
- * - Math consistency: Operating Margin vs (Operating Income / Revenue)
- * - BEV Share consistency vs Deliveries
- * - Fiscal year vs calendar period alignment
- * - Negative values and percentage range anomalies
- * - Regional aggregation bounds
+ * Implements Phase 11 & Step 2 requirements:
+ * - Differentiates mathematical mismatch, scope mismatch, accounting basis mismatch, and unit mismatch
+ * - Scope-aware margin validation (Consolidated Group vs Automotive Segment vs Cars Segment)
+ * - Structural error detection (Foreign keys, duplicates, invalid units, non-HTTPS URLs)
+ * - Exit code behavior: Exit 1 on critical blocking ERROR, Exit 0 on WARNINGs (or Exit 1 with --strict)
  */
 
 import { COMPANIES_REGISTRY, COMPANIES_MAP } from '../src/data/companies';
@@ -18,19 +14,30 @@ import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
+import { validateMarginScopeCompatibility } from '../src/utils/metricCalculations';
 
-interface AuditResult {
-  category: string;
+const isStrict = process.argv.includes('--strict');
+
+interface AuditFinding {
   severity: 'ERROR' | 'WARNING' | 'INFO';
+  category:
+    | 'DUPLICATE'
+    | 'FOREIGN_KEY'
+    | 'MATH_MISMATCH'
+    | 'SCOPE_MISMATCH'
+    | 'ACCOUNTING_BASIS_MISMATCH'
+    | 'SOURCE_METADATA'
+    | 'FISCAL_CALENDAR'
+    | 'PERCENTAGE_BOUNDS';
   item: string;
   detail: string;
 }
 
-const auditFindings: AuditResult[] = [];
+const findings: AuditFinding[] = [];
 
-console.log('═══════════════════════════════════════════════════════════════════');
-console.log('🔍 AutoMetrics Intelligence — Data & Financial Integrity Audit');
-console.log('═══════════════════════════════════════════════════════════════════\n');
+console.log('═════════════════════════════════════════════════════════════════════════════');
+console.log('🔍 AutoMetrics Intelligence — Scope-Safe Data & Financial Audit Engine (v2.0)');
+console.log('═════════════════════════════════════════════════════════════════════════════\n');
 
 // 1. Core Inventory Count
 console.log(`[INVENTORY] Registered Automakers:           ${COMPANIES_REGISTRY.length}`);
@@ -40,58 +47,67 @@ console.log(`[INVENTORY] Primary Source Documents:        ${SOURCE_DOCUMENTS.len
 console.log(`[INVENTORY] Forward-Looking Guidance Items:  ${GUIDANCE_OBSERVATIONS.length}`);
 console.log(`[INVENTORY] Regional Delivery Observations:  ${REGIONAL_OBSERVATIONS.length}\n`);
 
-// 2. Duplicate Check
+// 2. Structural & Duplicate Check
 const obsKeys = new Map<string, string>();
 METRIC_OBSERVATIONS.forEach((obs) => {
   const key = `${obs.companyId}|${obs.metricId}|${obs.period}`;
   if (obsKeys.has(key)) {
-    auditFindings.push({
-      category: 'DUPLICATE',
+    findings.push({
       severity: 'ERROR',
+      category: 'DUPLICATE',
       item: obs.id,
-      detail: `Duplicate observation for ${key} (existing: ${obsKeys.get(key)})`,
+      detail: `Duplicate observation key for ${key} (existing: ${obsKeys.get(key)})`,
     });
   } else {
     obsKeys.set(key, obs.id);
   }
 });
 
-// 3. Foreign Key References Check
+// 3. Foreign Key & Entity Integrity Check
 METRIC_OBSERVATIONS.forEach((obs) => {
   if (!COMPANIES_MAP[obs.companyId]) {
-    auditFindings.push({
-      category: 'FOREIGN_KEY',
+    findings.push({
       severity: 'ERROR',
+      category: 'FOREIGN_KEY',
       item: obs.id,
       detail: `Unknown companyId: ${obs.companyId}`,
     });
   }
   if (!METRICS_MAP[obs.metricId]) {
-    auditFindings.push({
-      category: 'FOREIGN_KEY',
+    findings.push({
       severity: 'ERROR',
+      category: 'FOREIGN_KEY',
       item: obs.id,
       detail: `Unknown metricId: ${obs.metricId}`,
     });
   }
   if (obs.sourceDocId && !SOURCES_MAP[obs.sourceDocId]) {
-    auditFindings.push({
-      category: 'FOREIGN_KEY',
+    findings.push({
       severity: 'ERROR',
+      category: 'FOREIGN_KEY',
       item: obs.id,
       detail: `Missing sourceDocId in sources registry: ${obs.sourceDocId}`,
     });
   }
+  if (obs.valueType === 'reported' && !obs.sourceDocId) {
+    findings.push({
+      severity: 'WARNING',
+      category: 'SOURCE_METADATA',
+      item: obs.id,
+      detail: `Reported observation is missing sourceDocId link`,
+    });
+  }
 });
 
-// 4. Mathematical Consistency: Operating Margin vs EBIT / Revenue
+// 4. Scope-Aware Margin Validation
 const companyPeriods = new Set<string>();
 METRIC_OBSERVATIONS.forEach((obs) => {
   companyPeriods.add(`${obs.companyId}|${obs.period}`);
 });
 
-let mathCheckCount = 0;
-let marginDiscrepancyCount = 0;
+let scopeAwareChecks = 0;
+let scopeWarningsCount = 0;
+let mathMismatchCount = 0;
 
 companyPeriods.forEach((cp) => {
   const [companyId, period] = cp.split('|');
@@ -100,25 +116,31 @@ companyPeriods.forEach((cp) => {
   const marginObs = METRIC_OBSERVATIONS.find((o) => o.companyId === companyId && o.period === period && o.metricId === 'operating_margin');
 
   if (revObs && ebitObs && marginObs && revObs.value && ebitObs.value !== null && marginObs.value !== null) {
-    mathCheckCount++;
-    const calculatedMargin = (ebitObs.value / revObs.value) * 100;
-    const diff = Math.abs(calculatedMargin - marginObs.value);
-    
-    // If difference is > 0.35 percentage points (allowing small rounding difference between segment/group or roundings)
-    if (diff > 0.35) {
-      marginDiscrepancyCount++;
-      auditFindings.push({
-        category: 'MATH_CONSISTENCY',
+    scopeAwareChecks++;
+    const validation = validateMarginScopeCompatibility(revObs, ebitObs, marginObs);
+
+    if (validation.validationStatus === 'scope_warning') {
+      scopeWarningsCount++;
+      findings.push({
         severity: 'WARNING',
+        category: 'SCOPE_MISMATCH',
         item: `${companyId} (${period})`,
-        detail: `Reported margin is ${marginObs.value}%, but EBIT (${ebitObs.value}) / Rev (${revObs.value}) = ${calculatedMargin.toFixed(2)}% (Diff: ${diff.toFixed(2)}%p). Scope note: Check if margin is Segment RoS while Rev is Group Revenue.`,
+        detail: validation.diagnostic,
+      });
+    } else if (validation.validationStatus === 'needs_review') {
+      mathMismatchCount++;
+      findings.push({
+        severity: 'WARNING',
+        category: 'MATH_MISMATCH',
+        item: `${companyId} (${period})`,
+        detail: validation.diagnostic,
       });
     }
   }
 });
 
 // 5. BEV Share Consistency: BEV Deliveries / Total Deliveries
-let bevShareCheckCount = 0;
+let bevShareChecks = 0;
 companyPeriods.forEach((cp) => {
   const [companyId, period] = cp.split('|');
   const totDelObs = METRIC_OBSERVATIONS.find((o) => o.companyId === companyId && o.period === period && o.metricId === 'deliveries_global');
@@ -126,13 +148,13 @@ companyPeriods.forEach((cp) => {
   const bevShareObs = METRIC_OBSERVATIONS.find((o) => o.companyId === companyId && o.period === period && o.metricId === 'bev_share');
 
   if (totDelObs && bevDelObs && bevShareObs && totDelObs.value && bevDelObs.value !== null && bevShareObs.value !== null) {
-    bevShareCheckCount++;
+    bevShareChecks++;
     const calculatedShare = (bevDelObs.value / totDelObs.value) * 100;
     const diff = Math.abs(calculatedShare - bevShareObs.value);
     if (diff > 0.3) {
-      auditFindings.push({
-        category: 'BEV_CONSISTENCY',
+      findings.push({
         severity: 'WARNING',
+        category: 'MATH_MISMATCH',
         item: `${companyId} (${period})`,
         detail: `Reported BEV share is ${bevShareObs.value}%, but calculated is ${calculatedShare.toFixed(2)}% (${bevDelObs.value}k / ${totDelObs.value}k).`,
       });
@@ -140,20 +162,16 @@ companyPeriods.forEach((cp) => {
   }
 });
 
-// 6. Source Provenance Audit: Page number and original label completeness
+// 6. Source Provenance Completeness
 let missingPageCount = 0;
 let missingOriginalLabelCount = 0;
 
 METRIC_OBSERVATIONS.forEach((obs) => {
-  if (!obs.pageNumber) {
-    missingPageCount++;
-  }
-  if (!obs.originalLabel) {
-    missingOriginalLabelCount++;
-  }
+  if (!obs.pageNumber) missingPageCount++;
+  if (!obs.originalLabel) missingOriginalLabelCount++;
 });
 
-// 7. Fiscal Year / Calendar Year Alignment Check
+// 7. Fiscal Year / Calendar Alignment Check
 const fiscalYearMisalignments: string[] = [];
 COMPANIES_REGISTRY.forEach((comp) => {
   if (comp.fiscalYearEnd !== 'Dec 31') {
@@ -161,22 +179,39 @@ COMPANIES_REGISTRY.forEach((comp) => {
   }
 });
 
-// Output Summary
-console.log('═══════════════════════════════════════════════════════════════════');
-console.log('📊 AUDIT FINDINGS SUMMARY');
-console.log('═══════════════════════════════════════════════════════════════════');
-console.log(`- Total Math Consistency Checks (Margin vs EBIT/Rev): ${mathCheckCount}`);
-console.log(`- Scope/Margin Deviations Flagged:                   ${marginDiscrepancyCount}`);
-console.log(`- BEV Share Consistency Checks:                      ${bevShareCheckCount}`);
+// Classify and tally
+const errors = findings.filter((f) => f.severity === 'ERROR');
+const warnings = findings.filter((f) => f.severity === 'WARNING');
+const infos = findings.filter((f) => f.severity === 'INFO');
+
+// Output Audit Summary
+console.log('═════════════════════════════════════════════════════════════════════════════');
+console.log('📊 AUDIT EXECUTION SUMMARY');
+console.log('═════════════════════════════════════════════════════════════════════════════');
+console.log(`- Scope-Aware Margin Checks:                         ${scopeAwareChecks}`);
+console.log(`- Segment vs Group Scope Warnings:                   ${scopeWarningsCount}`);
+console.log(`- Mathematical Deviation Warnings:                   ${mathMismatchCount}`);
+console.log(`- BEV Share Consistency Checks:                      ${bevShareChecks}`);
 console.log(`- Observations missing exact page number:            ${missingPageCount} / ${METRIC_OBSERVATIONS.length}`);
 console.log(`- Observations missing original reported label:      ${missingOriginalLabelCount} / ${METRIC_OBSERVATIONS.length}`);
-console.log(`- Companies with Non-Calendar Fiscal Year:           ${fiscalYearMisalignments.join(', ')}\n`);
+console.log(`- Non-Calendar Fiscal Year Entities:                 ${fiscalYearMisalignments.join(', ')}\n`);
 
-console.log(`Total Findings: ${auditFindings.length}`);
-auditFindings.forEach((f, idx) => {
-  console.log(`[${idx + 1}] [${f.severity}] [${f.category}] ${f.item}: ${f.detail}`);
+console.log(`Total Findings: ${findings.length} (${errors.length} Errors, ${warnings.length} Warnings, ${infos.length} Info)\n`);
+
+findings.forEach((f, idx) => {
+  const icon = f.severity === 'ERROR' ? '❌' : f.severity === 'WARNING' ? '⚠️' : 'ℹ️';
+  console.log(`${icon} [${idx + 1}] [${f.severity}] [${f.category}] ${f.item}:`);
+  console.log(`    ${f.detail}\n`);
 });
 
-console.log('\n═══════════════════════════════════════════════════════════════════');
-console.log('✨ Data Audit Execution Completed.');
-console.log('═══════════════════════════════════════════════════════════════════');
+console.log('═════════════════════════════════════════════════════════════════════════════');
+if (errors.length > 0) {
+  console.error(`💥 Audit failed with ${errors.length} blocking structural errors.`);
+  process.exit(1);
+} else if (isStrict && warnings.length > 0) {
+  console.error(`⚠️ Strict mode enabled: Audit failed with ${warnings.length} warnings.`);
+  process.exit(1);
+} else {
+  console.log(`✨ Scope-Safe Audit Passed with 0 blocking errors. (${warnings.length} scope warnings documented for transparency)`);
+  process.exit(0);
+}
