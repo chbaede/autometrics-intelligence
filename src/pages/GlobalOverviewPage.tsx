@@ -120,15 +120,20 @@ export const GlobalOverviewPage: React.FC = () => {
     };
   }).filter((d) => d.totalDeliveries > 0);
 
-  // Scatter matrix points (Volume vs Margin)
+  // Scatter matrix points (Volume vs Margin vs Profit)
   const scatterPoints = selectedCompanies.map((cid) => {
     const comp = getCompanyById(cid)!;
     const vol = getObservations([cid], ['deliveries_global'], selectedPeriod)[0]?.value || 0;
     const margin = getObservations([cid], ['operating_margin'], selectedPeriod)[0]?.value || 0;
+    const ebit = getObservations([cid], ['operating_income'], selectedPeriod)[0]?.value;
+    const rev = getObservations([cid], ['revenue'], selectedPeriod)[0]?.value;
     return {
       company: comp,
       volumeThousand: vol,
       marginPercent: margin,
+      operatingIncome: ebit,
+      revenue: rev,
+      currency: comp.reportingCurrency,
     };
   }).filter((pt) => pt.volumeThousand > 0 && pt.marginPercent > 0);
 
