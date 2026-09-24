@@ -2,8 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { REGIONS_REGISTRY } from '../data/regions';
 import { getRegionalObservations, getCompanyById, getSourceDocById } from '../utils/metricQueries';
 import { RegionId } from '../types/metrics';
-import { formatMetricValue } from '../utils/metricCalculations';
-import { TermBadge } from '../components/metrics/TermBadge';
+import { formatMetricValue, formatPeriodLabel } from '../utils/metricCalculations';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   Globe2,
@@ -79,13 +78,13 @@ export const RegionalAnalysisPage: React.FC = () => {
                 <button
                   key={p}
                   onClick={() => setSelectedPeriod(p)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-sans font-semibold transition ${
                     selectedPeriod === p
                       ? 'bg-brand-600 text-white shadow-xs'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {p === 'all' ? (language === 'ko' ? '전체' : 'All') : p}
+                  {p === 'all' ? (language === 'ko' ? '전체' : 'All') : formatPeriodLabel(p, language)}
                 </button>
               ))}
             </div>
@@ -250,7 +249,7 @@ export const RegionalAnalysisPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase font-mono text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th className="px-4 py-3">{language === 'ko' ? '완성차 제조사' : 'Automaker'} (<TermBadge term="OEM" />)</th>
+                  <th className="px-4 py-3">{language === 'ko' ? '완성차 제조사' : 'Automaker'}</th>
                   <th className="px-4 py-3">{language === 'ko' ? '공시 주기' : 'Period'}</th>
                   <th className="px-4 py-3">{language === 'ko' ? 'IR 원문 지역 표기' : 'Original Region Label in IR'}</th>
                   <th className="px-4 py-3 text-right">{language === 'ko' ? '인도량' : 'Volume'}</th>
@@ -267,9 +266,9 @@ export const RegionalAnalysisPage: React.FC = () => {
                       <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
                         {comp?.name || regObs.companyId}
                       </td>
-                      <td className="px-4 py-3 font-mono text-slate-500 text-[11px]">
+                      <td className="px-4 py-3 font-sans text-slate-600 dark:text-slate-300 text-[11px]">
                         <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold">
-                          {regObs.period}
+                          {formatPeriodLabel(regObs.period, language)}
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-300 text-[11px]">

@@ -11,9 +11,8 @@ import { MetricObservation } from '../types/metrics';
 import { MetricBarChart } from '../components/metrics/charts/MetricBarChart';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
-import { TermBadge } from '../components/metrics/TermBadge';
 import { useLanguage } from '../i18n/LanguageContext';
-import { formatMetricValue } from '../utils/metricCalculations';
+import { formatMetricValue, formatPeriodLabel } from '../utils/metricCalculations';
 import {
   BarChart2,
   AlertTriangle,
@@ -31,12 +30,12 @@ export const CompanyComparisonPage: React.FC = () => {
   const periods = getDistinctPeriods();
 
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([
+    'mercedes_benz',
+    'bmw_group',
     'volkswagen_group',
+    'hyundai_motor',
     'toyota_motor',
     'tesla',
-    'byd',
-    'hyundai_motor',
-    'bmw_group',
   ]);
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
   const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
@@ -118,7 +117,7 @@ export const CompanyComparisonPage: React.FC = () => {
               {language === 'ko' ? '비교 대상 기업 선택' : 'Select Automakers'} ({selectedCompanies.length} / 8)
             </label>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-              2 ~ 8 <TermBadge term="OEM" />
+              {language === 'ko' ? '2 ~ 8개 기업 선택' : '2 ~ 8 OEMs'}
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -175,7 +174,7 @@ export const CompanyComparisonPage: React.FC = () => {
             >
               {periods.map((p) => (
                 <option key={p} value={p}>
-                  {p}
+                  {formatPeriodLabel(p, language)}
                 </option>
               ))}
             </select>

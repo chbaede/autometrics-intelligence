@@ -1,7 +1,6 @@
 import React from 'react';
 import { getAllGuidance, getCompanyById, getSourceDocById } from '../utils/metricQueries';
 import { GuidanceRangeChart } from '../components/metrics/charts/GuidanceRangeChart';
-import { TermBadge } from '../components/metrics/TermBadge';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   Compass,
@@ -76,7 +75,7 @@ export const GuidanceOutlookPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{comp?.name}</span>
                     <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-brand-700 dark:text-brand-400 font-semibold">
-                      FY{g.reportingYear} Outlook
+                      {language === 'ko' ? `${g.reportingYear}년도 연간 목표 전망` : `${g.reportingYear} Annual Outlook`}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs font-mono text-slate-500 dark:text-slate-400">
@@ -84,7 +83,7 @@ export const GuidanceOutlookPage: React.FC = () => {
                       <Calendar className="w-3.5 h-3.5" /> Published: {g.publicationDate}
                     </span>
                     <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold">
-                      Target: {g.min}% – {g.max}% (<TermBadge term="RoS" />)
+                      {g.unit === 'percentage' ? `Target: ${g.min}% – ${g.max}%` : `Target: ${g.min?.toLocaleString()} – ${g.max?.toLocaleString()}k`}
                     </span>
                   </div>
                 </div>

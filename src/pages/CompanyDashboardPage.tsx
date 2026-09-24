@@ -9,10 +9,9 @@ import {
   getDistinctPeriods,
 } from '../utils/metricQueries';
 import { MetricObservation } from '../types/metrics';
-import { formatMetricValue, getCurrencySymbol } from '../utils/metricCalculations';
+import { formatMetricValue, getCurrencySymbol, formatPeriodLabel } from '../utils/metricCalculations';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
-import { TermBadge } from '../components/metrics/TermBadge';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SOURCE_DOCUMENTS } from '../data/sources';
 import {
@@ -33,7 +32,7 @@ export const CompanyDashboardPage: React.FC = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const allCompanies = getAllCompanies();
-  const currentCompany = getCompanyById(companyId || 'volkswagen_group') || allCompanies[0];
+  const currentCompany = getCompanyById(companyId || 'mercedes_benz') || allCompanies[0];
   const periods = getDistinctPeriods();
 
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
@@ -204,7 +203,7 @@ export const CompanyDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
             <span className="text-xs font-semibold">
-              {latestDel?.period} {language === 'ko' ? '인도 실적' : 'Deliveries'} (<TermBadge term="OEM" />)
+              {formatPeriodLabel(latestDel?.period || '', language)} {language === 'ko' ? '인도 실적' : 'Deliveries'}
             </span>
             <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
           </div>
@@ -223,7 +222,7 @@ export const CompanyDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
             <span className="text-xs font-semibold">
-              {latestRev?.period} {language === 'ko' ? '연결 매출액' : 'Revenue'}
+              {formatPeriodLabel(latestRev?.period || '', language)} {language === 'ko' ? '연결 매출액' : 'Revenue'}
             </span>
             <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
@@ -242,7 +241,7 @@ export const CompanyDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
             <span className="text-xs font-semibold">
-              {latestMargin?.period} {language === 'ko' ? '영업이익률' : 'Operating Margin'} (<TermBadge term="RoS" />)
+              {formatPeriodLabel(latestMargin?.period || '', language)} {language === 'ko' ? '영업이익률' : 'Operating Margin'}
             </span>
             <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
@@ -250,7 +249,7 @@ export const CompanyDashboardPage: React.FC = () => {
             {formatMetricValue(latestMargin?.value, 'percentage')}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            Operating <TermBadge term="EBIT" /> / Revenue
+            Operating EBIT / Revenue
           </div>
         </div>
 
@@ -261,7 +260,7 @@ export const CompanyDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
             <span className="text-xs font-semibold">
-              <TermBadge term="BEV" /> {language === 'ko' ? '전동화 비중' : 'Adoption Share'}
+              {language === 'ko' ? '전기차(BEV) 점유율' : 'BEV Adoption Share'}
             </span>
             <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>

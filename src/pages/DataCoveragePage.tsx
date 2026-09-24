@@ -1,6 +1,6 @@
 import React from 'react';
 import { getDataQualityReport, getCoverageMatrix } from '../utils/metricQueries';
-import { TermBadge } from '../components/metrics/TermBadge';
+import { formatPeriodLabel } from '../utils/metricCalculations';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   TableProperties,
@@ -67,7 +67,9 @@ export const DataCoveragePage: React.FC = () => {
           <span className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
             {qualityReport.totalGuidanceObservations}
           </span>
-          <span className="text-[11px] text-slate-500 block mt-1">FY2026/FY2025 Outlook</span>
+          <span className="text-[11px] text-slate-500 block mt-1">
+            {language === 'ko' ? '2026/2025년 목표 전망' : '2026/2025 Outlook'}
+          </span>
         </div>
 
         <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -88,7 +90,7 @@ export const DataCoveragePage: React.FC = () => {
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <TableProperties className="w-5 h-5 text-brand-600 dark:text-brand-400" />
-              {language === 'ko' ? '완성차 제조사별 분기 공시 가용성 매트릭스' : 'Automaker Reporting Period Availability Matrix'} (<TermBadge term="OEM" />)
+              {language === 'ko' ? '완성차 제조사별 분기 공시 가용성 매트릭스' : 'Automaker Reporting Period Availability Matrix'}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {language === 'ko'
@@ -118,7 +120,7 @@ export const DataCoveragePage: React.FC = () => {
                 <th className="px-4 py-3 min-w-[140px]">{language === 'ko' ? '완성차 제조사' : 'Automaker'}</th>
                 {periods.map((p) => (
                   <th key={p} className="px-4 py-3 text-center min-w-[110px]">
-                    {p}
+                    {formatPeriodLabel(p, language)}
                   </th>
                 ))}
               </tr>

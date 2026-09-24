@@ -155,3 +155,23 @@ export function getCurrencySymbol(currencyCode: string): string {
   }
 }
 
+export function formatPeriodLabel(period: string, lang: 'ko' | 'en' = 'ko'): string {
+  if (!period) return '';
+  if (period === '2024-FY') return lang === 'ko' ? '2024년도' : '2024 (Full Year)';
+  if (period === '2025-FY') return lang === 'ko' ? '2025년도' : '2025 (Full Year)';
+  if (period === '2026-FY') return lang === 'ko' ? '2026년도' : '2026 (Full Year)';
+  if (period === '2026-Q1') return lang === 'ko' ? '2026년 1분기' : '2026 Q1';
+  if (period === '2026-Q2') return lang === 'ko' ? '2026년 2분기' : '2026 Q2';
+  if (period === '2026-Q3') return lang === 'ko' ? '2026년 3분기' : '2026 Q3';
+  if (period === '2026-Q4') return lang === 'ko' ? '2026년 4분기' : '2026 Q4';
+  if (period.endsWith('-FY')) {
+    const y = period.replace('-FY', '');
+    return lang === 'ko' ? `${y}년도` : `${y} (Full Year)`;
+  }
+  if (period.includes('-Q')) {
+    const [y, q] = period.split('-Q');
+    return lang === 'ko' ? `${y}년 ${q}분기` : `${y} Q${q}`;
+  }
+  return period;
+}
+

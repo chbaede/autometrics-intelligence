@@ -8,6 +8,7 @@ import {
   getCompanyById,
 } from '../utils/metricQueries';
 import { MetricObservation } from '../types/metrics';
+import { formatPeriodLabel } from '../utils/metricCalculations';
 import { MetricBarChart } from '../components/metrics/charts/MetricBarChart';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { GuidanceRangeChart } from '../components/metrics/charts/GuidanceRangeChart';
@@ -15,7 +16,6 @@ import { PowertrainMixChart } from '../components/metrics/charts/PowertrainMixCh
 import { MarginScatterChart } from '../components/metrics/charts/MarginScatterChart';
 import { DataTable } from '../components/metrics/DataTable';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
-import { TermBadge } from '../components/metrics/TermBadge';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   ShieldCheck,
@@ -32,14 +32,16 @@ export const GlobalOverviewPage: React.FC = () => {
   const periods = getDistinctPeriods();
   const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([
+    'mercedes_benz',
+    'bmw_group',
     'volkswagen_group',
+    'hyundai_motor',
     'toyota_motor',
     'tesla',
     'byd',
-    'hyundai_motor',
-    'bmw_group',
-    'mercedes_benz',
     'general_motors',
+    'stellantis',
+    'ford',
   ]);
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
@@ -160,7 +162,7 @@ export const GlobalOverviewPage: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
           <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-              {t.global.coveredOems} (<TermBadge term="OEM" />)
+              {t.global.coveredOems}
             </span>
             <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
               {companies.length} Global OEMs
@@ -171,12 +173,12 @@ export const GlobalOverviewPage: React.FC = () => {
               {t.global.reportingPeriod}
             </span>
             <span className="text-xl font-bold font-mono text-brand-600 dark:text-brand-400">
-              {selectedPeriod}
+              {formatPeriodLabel(selectedPeriod, language)}
             </span>
           </div>
           <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-              {t.global.bevLeader} (<TermBadge term="BEV" />)
+              {t.global.bevLeader}
             </span>
             <span className="text-base sm:text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
               Tesla 100% • BYD 47.5%
@@ -184,7 +186,7 @@ export const GlobalOverviewPage: React.FC = () => {
           </div>
           <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-              {t.global.marginLeader} (<TermBadge term="RoS" />)
+              {t.global.marginLeader} (영업이익률 / RoS)
             </span>
             <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
               Toyota 10.6% • Hyundai 8.6%
@@ -248,13 +250,13 @@ export const GlobalOverviewPage: React.FC = () => {
               <button
                 key={p}
                 onClick={() => setSelectedPeriod(p)}
-                className={`px-3 py-1 text-xs font-mono font-medium rounded-lg transition ${
+                className={`px-3 py-1.5 text-xs font-sans font-semibold rounded-lg transition ${
                   selectedPeriod === p
                     ? 'bg-brand-600 text-white font-bold shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
               >
-                {p}
+                {formatPeriodLabel(p, language)}
               </button>
             ))}
           </div>
