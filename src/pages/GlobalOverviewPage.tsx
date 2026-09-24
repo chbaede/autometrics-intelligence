@@ -70,9 +70,25 @@ export const GlobalOverviewPage: React.FC = () => {
     }))
     .filter((o) => o.company);
 
-  // Historical line series for top 5 OEMs (revenue & volume)
-  const lineChartColors = ['#0c93e7', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
-  const trendSeries = selectedCompanies.slice(0, 5).map((cid, idx) => {
+  // OEM distinct brand colors helper for line chart
+  const getOemColor = (compName: string, idx: number) => {
+    const n = compName.toLowerCase();
+    if (n.includes('toyota')) return '#dc2626';
+    if (n.includes('tesla')) return '#e11d48';
+    if (n.includes('byd')) return '#2563eb';
+    if (n.includes('volkswagen')) return '#0284c7';
+    if (n.includes('hyundai')) return '#0369a1';
+    if (n.includes('bmw')) return '#0891b2';
+    if (n.includes('mercedes')) return '#0d9488';
+    if (n.includes('gm') || n.includes('general')) return '#4f46e5';
+    if (n.includes('stellantis')) return '#7c3aed';
+    if (n.includes('ford')) return '#1d4ed8';
+    const palette = ['#0c93e7', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
+    return palette[idx % palette.length];
+  };
+
+  // Historical line series for ALL selected OEMs
+  const trendSeries = selectedCompanies.map((cid, idx) => {
     const comp = getCompanyById(cid)!;
     const companyObs = getObservations([cid], ['operating_margin']);
     return {
@@ -85,7 +101,7 @@ export const GlobalOverviewPage: React.FC = () => {
           observation: obs,
         };
       }),
-      color: lineChartColors[idx % lineChartColors.length],
+      color: getOemColor(comp?.name || cid, idx),
     };
   });
 
@@ -274,8 +290,8 @@ export const GlobalOverviewPage: React.FC = () => {
         />
       </div>
 
-      {/* SECTION 2: Volume & Powertrain Mix Row (2 Columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* SECTION 2: Core Volume & Profitability Benchmarks (Balanced 2-Column Equal Height Row) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <MetricBarChart
           title={t.charts.salesVolume}
           subtitle={t.charts.salesSubtitle}
@@ -283,15 +299,6 @@ export const GlobalOverviewPage: React.FC = () => {
           unit="thousand_units"
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
-        <PowertrainMixChart
-          title={t.charts.powertrainMix}
-          subtitle={t.charts.powertrainMixSubtitle}
-          data={powertrainData}
-        />
-      </div>
-
-      {/* SECTION 3: Operating Margin & Guidance Row (2 Columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <MetricBarChart
           title={t.charts.operatingMargin}
           subtitle={t.charts.marginSubtitle}
@@ -299,11 +306,18 @@ export const GlobalOverviewPage: React.FC = () => {
           unit="percentage"
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
-        <div className="h-full">
-          <GuidanceRangeChart
-            guidanceList={guidanceList}
-          />
-        </div>
+      </div>
+
+      {/* SECTION 3: Strategic Guidance Corridors & Powertrain Electrification Mix (2 Columns) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <GuidanceRangeChart
+          guidanceList={guidanceList}
+        />
+        <PowertrainMixChart
+          title={t.charts.powertrainMix}
+          subtitle={t.charts.powertrainMixSubtitle}
+          data={powertrainData}
+        />
       </div>
 
       {/* SECTION 4: Multi-Period Historical Trend Trajectory (Full Width Long Chart, No Horizontal Scroll) */}

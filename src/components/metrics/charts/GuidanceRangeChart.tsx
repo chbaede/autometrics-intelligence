@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { GuidanceObservation } from '../../../types/metrics';
 import { getCompanyById } from '../../../utils/metricQueries';
 import { Target, CheckCircle2, TrendingUp, TrendingDown, Compass, ExternalLink } from 'lucide-react';
@@ -15,6 +15,7 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
   onSelectGuidance,
 }) => {
   const { language } = useLanguage();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   if (!guidanceList || guidanceList.length === 0) {
     return (
@@ -24,45 +25,63 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
     );
   }
 
-  // Calibration scale from 0% to 12%
+  // Scale bounds: 0% to 14%
   const scaleMin = 0;
-  const scaleMax = 12;
+  const scaleMax = 14;
   const scaleSpan = scaleMax - scaleMin;
-  const tickSteps = [0, 2, 4, 6, 8, 10, 12];
+  const tickSteps = [0, 2, 4, 6, 8, 10, 12, 14];
+
+  // OEM distinct brand colors
+  const getOemColor = (compName: string) => {
+    const n = compName.toLowerCase();
+    if (n.includes('toyota')) return '#dc2626';
+    if (n.includes('tesla')) return '#e11d48';
+    if (n.includes('byd')) return '#2563eb';
+    if (n.includes('volkswagen')) return '#0284c7';
+    if (n.includes('hyundai')) return '#0369a1';
+    if (n.includes('bmw')) return '#0891b2';
+    if (n.includes('mercedes')) return '#0d9488';
+    if (n.includes('gm') || n.includes('general')) return '#4f46e5';
+    if (n.includes('stellantis')) return '#7c3aed';
+    if (n.includes('ford')) return '#1d4ed8';
+    return '#64748b';
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'raised':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
-            <TrendingUp className="w-3 h-3" /> {language === 'ko' ? '상향 조정' : 'Raised'}
+          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold shrink-0">
+            <TrendingUp className="w-2.5 h-2.5" /> {language === 'ko' ? '상향' : 'Raised'}
           </span>
         );
       case 'lowered':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold">
-            <TrendingDown className="w-3 h-3" /> {language === 'ko' ? '하향 조정' : 'Lowered'}
+          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold shrink-0">
+            <TrendingDown className="w-2.5 h-2.5" /> {language === 'ko' ? '하향' : 'Lowered'}
           </span>
         );
       case 'reaffirmed':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
-            <CheckCircle2 className="w-3 h-3" /> {language === 'ko' ? '유지/재확인' : 'Reaffirmed'}
+          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold shrink-0">
+            <CheckCircle2 className="w-2.5 h-2.5" /> {language === 'ko' ? '유지' : 'Reaffirmed'}
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-semibold">
-            <Target className="w-3 h-3" /> {language === 'ko' ? '최초 공시' : 'Initial'}
+          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-semibold shrink-0">
+            <Target className="w-2.5 h-2.5" /> {language === 'ko' ? '공시' : 'Initial'}
           </span>
         );
     }
   };
 
+  const hoveredGuidance = guidanceList.find((g) => g.id === hoveredId);
+
   return (
-    <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md space-y-6">
+    <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
             <Compass className="w-5 h-5 text-brand-600 dark:text-brand-400" />
@@ -72,111 +91,102 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                 : 'FY2026 Operating / EBIT Margin Target Guidance Corridors'}
             </h3>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold">
-              Corridor Matrix
+              Unified Corridor Chart
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {language === 'ko'
-              ? '완성차 제조사 경영진이 공식 발표한 연간 수익성 목표 밴드(Min ~ Max) 및 중앙값(Midpoint) 시각화'
-              : 'Official management target ranges (%) with midpoint indicators and corridor benchmarks'}
+              ? '완성차 제조사별 연간 수익성 목표 밴드(Min ~ Max) 및 중앙값(Midpoint) 통합 비교'
+              : 'Unified comparative corridor bands across all global automakers'}
           </p>
         </div>
 
         {/* Legend */}
         <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
-            <span className="w-3.5 h-3.5 rounded bg-brand-500/30 border border-brand-500 dark:border-brand-400" />
-            <span>{language === 'ko' ? '목표 범위' : 'Target Range'}</span>
+            <span className="w-3.5 h-2.5 rounded bg-brand-500/40 border border-brand-500" />
+            <span>{language === 'ko' ? '목표 밴드' : 'Target Band'}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rotate-45 bg-amber-500 dark:bg-amber-400 shadow-xs" />
+            <span className="w-2.5 h-2.5 rotate-45 bg-amber-400 border border-white dark:border-slate-900 shadow-xs" />
             <span>{language === 'ko' ? '중앙값' : 'Midpoint'}</span>
           </div>
         </div>
       </div>
 
-      {/* Calibration Scale Header */}
-      <div className="space-y-4">
-        {/* Scale Top Legend Bar */}
-        <div className="relative h-6 w-full hidden sm:block">
-          <div className="absolute inset-x-0 bottom-0 h-px bg-slate-200 dark:bg-slate-800" />
-          {tickSteps.map((tick) => {
-            const leftPct = ((tick - scaleMin) / scaleSpan) * 100;
-            return (
-              <div
-                key={tick}
-                className="absolute bottom-0 flex flex-col items-center -translate-x-1/2"
-                style={{ left: `${leftPct}%` }}
-              >
-                <span className="text-[10px] font-mono font-semibold text-slate-400 dark:text-slate-500 mb-1">
-                  {tick}%
-                </span>
-                <div className="w-px h-1.5 bg-slate-300 dark:bg-slate-700" />
-              </div>
-            );
-          })}
+      {/* Unified Horizontal Comparative Chart Area */}
+      <div className="relative w-full overflow-x-auto bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+        {/* Scale Top Axis */}
+        <div className="relative h-6 w-full pl-[150px] pr-4">
+          <div className="relative w-full h-full">
+            {tickSteps.map((tick) => {
+              const leftPct = ((tick - scaleMin) / scaleSpan) * 100;
+              return (
+                <div
+                  key={tick}
+                  className="absolute top-0 bottom-0 flex flex-col items-center -translate-x-1/2"
+                  style={{ left: `${leftPct}%` }}
+                >
+                  <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500">
+                    {tick}%
+                  </span>
+                  <div className="w-px h-2 bg-slate-300 dark:bg-slate-700 mt-0.5" />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Guidance Items List */}
-        <div className="space-y-3">
+        {/* Unified OEM Rows */}
+        <div className="space-y-2 pt-1 pb-1">
           {guidanceList.map((g) => {
             const company = getCompanyById(g.companyId);
             const min = g.min ?? g.target ?? 0;
             const max = g.max ?? g.target ?? min;
             const mid = g.midpoint ?? (min + max) / 2;
+            const color = company ? getOemColor(company.name) : '#64748b';
 
             const leftPct = Math.max(0, Math.min(100, ((min - scaleMin) / scaleSpan) * 100));
-            const widthPct = Math.max(4, Math.min(100 - leftPct, ((max - min) / scaleSpan) * 100));
+            const widthPct = Math.max(2.5, Math.min(100 - leftPct, ((max - min) / scaleSpan) * 100));
             const midPct = Math.max(0, Math.min(100, ((mid - scaleMin) / scaleSpan) * 100));
+            const isHovered = hoveredId === g.id;
 
             return (
               <div
                 key={g.id}
+                onMouseEnter={() => setHoveredId(g.id)}
+                onMouseLeave={() => setHoveredId(null)}
                 onClick={() => onSelectGuidance?.(g)}
-                className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 dark:hover:border-brand-500/50 hover:shadow-md transition cursor-pointer space-y-3 group"
+                className={`flex items-center gap-3 py-1.5 px-2 rounded-lg transition cursor-pointer ${
+                  isHovered
+                    ? 'bg-brand-50/80 dark:bg-brand-500/10 shadow-xs'
+                    : 'hover:bg-slate-100/70 dark:hover:bg-slate-900/60'
+                }`}
               >
-                {/* Upper Meta Row */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center font-black text-xs text-brand-600 dark:text-brand-400 shadow-xs shrink-0">
-                      {company?.shortName.slice(0, 2).toUpperCase() || 'OEM'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">
-                          {company?.name || g.companyId}
-                        </span>
-                        <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                          FY{g.reportingYear}
-                        </span>
-                      </div>
-                    </div>
+                {/* Left Column: OEM Name & Meta (Fixed 140px width) */}
+                <div className="w-[140px] shrink-0 flex items-center justify-between pr-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                      {company?.shortName || g.companyId}
+                    </span>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    {getStatusBadge(g.status)}
-                    <div className="px-3 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-mono font-bold text-slate-900 dark:text-white shadow-xs">
-                      {min === max ? (
-                        <span>Target: {min}%</span>
-                      ) : (
-                        <span>
-                          {min}% – {max}% <span className="text-amber-600 dark:text-amber-400 ml-1 font-semibold">(Mid: {mid}%)</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  {getStatusBadge(g.status)}
                 </div>
 
-                {/* Visual Corridor Bar Area */}
-                <div className="relative pt-1 pb-2">
-                  {/* Background Grid Lines */}
-                  <div className="relative h-7 w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800/80 overflow-hidden shadow-inner">
+                {/* Right Corridor Bar Column (Fluid flex-1) */}
+                <div className="relative flex-1 h-7 pr-4">
+                  {/* Background Track with Grid Guidelines */}
+                  <div className="relative w-full h-full bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden shadow-inner flex items-center">
                     {tickSteps.map((tick) => {
                       const pos = ((tick - scaleMin) / scaleSpan) * 100;
                       return (
                         <div
                           key={tick}
-                          className="absolute top-0 bottom-0 w-px border-r border-dashed border-slate-200 dark:border-slate-800/60"
+                          className="absolute top-0 bottom-0 w-px border-r border-dashed border-slate-200 dark:border-slate-800/80"
                           style={{ left: `${pos}%` }}
                         />
                       );
@@ -184,51 +194,67 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
 
                     {/* Target Corridor Band */}
                     <div
-                      className="absolute top-1 bottom-1 bg-gradient-to-r from-brand-500/30 to-brand-600/40 dark:from-brand-500/25 dark:to-brand-400/35 border-y-2 border-brand-500 dark:border-brand-400 rounded-md transition group-hover:brightness-110 shadow-xs"
+                      className="absolute top-1 bottom-1 rounded transition-all shadow-xs flex items-center justify-between px-1.5"
                       style={{
                         left: `${leftPct}%`,
                         width: `${widthPct}%`,
+                        backgroundColor: `${color}33`,
+                        borderTop: `2px solid ${color}`,
+                        borderBottom: `2px solid ${color}`,
                       }}
                     >
-                      {/* Range Min Label inside */}
-                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-brand-900 dark:text-brand-200 hidden sm:inline">
-                        {min}%
-                      </span>
-                      {/* Range Max Label inside */}
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-brand-900 dark:text-brand-200 hidden sm:inline">
-                        {max}%
-                      </span>
+                      {/* Min label */}
+                      {widthPct > 8 && (
+                        <span className="text-[9px] font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {min}%
+                        </span>
+                      )}
+                      {/* Max label */}
+                      {widthPct > 8 && (
+                        <span className="text-[9px] font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {max}%
+                        </span>
+                      )}
                     </div>
 
                     {/* Midpoint Diamond Marker */}
                     <div
-                      className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-45 bg-amber-400 dark:bg-amber-400 border-2 border-white dark:border-slate-900 shadow-md z-10"
+                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rotate-45 bg-amber-400 border border-slate-900 dark:border-white shadow-md z-10"
                       style={{
-                        left: `calc(${midPct}% - 7px)`,
+                        left: `calc(${midPct}% - 6px)`,
                       }}
                       title={`Midpoint: ${mid}%`}
                     />
                   </div>
                 </div>
 
-                {/* Verbatim Statement Summary */}
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1">
-                  <p className="line-clamp-1 italic text-[11px] pr-2">
-                    "{g.originalText}"
-                  </p>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 dark:text-brand-400 group-hover:underline shrink-0">
-                    <span>{language === 'ko' ? '출처 상세' : 'Audit Details'}</span>
-                    <ExternalLink className="w-3 h-3" />
+                {/* Right Summary Badge (Fixed 90px width) */}
+                <div className="w-[90px] shrink-0 text-right">
+                  <span className="font-mono font-bold text-xs text-brand-700 dark:text-brand-300">
+                    {min === max ? `${min}%` : `${min}% ~ ${max}%`}
                   </span>
                 </div>
               </div>
             );
           })}
         </div>
+
+        {/* Active Verbatim Statement Drawer on Hover */}
+        {hoveredGuidance && (
+          <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs animate-fadeIn">
+            <p className="text-slate-600 dark:text-slate-300 italic text-[11px] line-clamp-1 pr-3">
+              "{hoveredGuidance.originalText}"
+            </p>
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 dark:text-brand-400 hover:underline shrink-0">
+              <span>{language === 'ko' ? '공식 IR 출처 확인' : 'Audit Link'}</span>
+              <ExternalLink className="w-3 h-3" />
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Footer explanation */}
-      <div className="p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+      {/* Footer Info */}
+      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
         <span>
           * {language === 'ko' ? '가이던스는 각 제조사의 공식 연간 실적발표 자료 및 보고서 기준' : 'Guidance corridors represent primary disclosures from official OEM IR conferences and filings.'}
         </span>
