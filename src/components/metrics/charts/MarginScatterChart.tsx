@@ -105,31 +105,33 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
   // Sort points to place isolated or extreme points first
   const sortedPoints = [...points].sort((a, b) => {
-    // Toyota or higher volume first
     return b.volumeThousand - a.volumeThousand;
   });
 
   sortedPoints.forEach((pt) => {
     const px = getX(pt.volumeThousand);
     const py = getY(pt.marginPercent);
-    const boxW = pt.company.shortName.length * 7 + 44;
-    const boxH = 22;
+    const nameLen = pt.company.shortName.length;
+    const nameWidth = nameLen <= 3 ? 32 : nameLen * 7.8 + 6;
+    const numWidth = 38;
+    const boxW = Math.max(92, Math.round(nameWidth + numWidth + 24));
+    const boxH = 24;
     const color = getOemColor(pt.company.name);
 
     // 12 Candidate offsets (dx, dy) relative to (px, py)
     const candidates = [
-      { dx: 14, dy: -24, hasLeader: false },
-      { dx: -boxW - 14, dy: -24, hasLeader: false },
-      { dx: 14, dy: 10, hasLeader: false },
-      { dx: -boxW - 14, dy: 10, hasLeader: false },
-      { dx: -boxW / 2, dy: -36, hasLeader: true },
-      { dx: -boxW / 2, dy: 24, hasLeader: true },
-      { dx: 22, dy: -44, hasLeader: true },
-      { dx: -boxW - 22, dy: -44, hasLeader: true },
-      { dx: 24, dy: 30, hasLeader: true },
-      { dx: -boxW - 24, dy: 30, hasLeader: true },
-      { dx: -boxW / 2, dy: -52, hasLeader: true },
-      { dx: -boxW / 2, dy: 44, hasLeader: true },
+      { dx: 18, dy: -32, hasLeader: true },
+      { dx: -boxW - 18, dy: -32, hasLeader: true },
+      { dx: 18, dy: 16, hasLeader: true },
+      { dx: -boxW - 18, dy: 16, hasLeader: true },
+      { dx: -boxW / 2, dy: -42, hasLeader: true },
+      { dx: -boxW / 2, dy: 28, hasLeader: true },
+      { dx: 26, dy: -52, hasLeader: true },
+      { dx: -boxW - 26, dy: -52, hasLeader: true },
+      { dx: 26, dy: 40, hasLeader: true },
+      { dx: -boxW - 26, dy: 40, hasLeader: true },
+      { dx: -boxW / 2, dy: -62, hasLeader: true },
+      { dx: -boxW / 2, dy: 50, hasLeader: true },
     ];
 
     let bestCandidate = candidates[0];
@@ -146,13 +148,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       if (by < padTop + 5) penalty += (padTop + 5 - by) * 100;
       if (by + boxH > height - padBottom - 5) penalty += (by + boxH - (height - padBottom - 5)) * 100;
 
-      // Check overlap with other placed label boxes
+      // Check overlap with other placed label boxes with 8px buffer
       for (const placed of placedLabels) {
-        const overlapX = Math.max(0, Math.min(bx + boxW, placed.boxX + placed.boxW) - Math.max(bx, placed.boxX));
-        const overlapY = Math.max(0, Math.min(by + boxH, placed.boxY + placed.boxH) - Math.max(by, placed.boxY));
+        const overlapX = Math.max(0, Math.min(bx + boxW + 8, placed.boxX + placed.boxW + 8) - Math.max(bx - 8, placed.boxX - 8));
+        const overlapY = Math.max(0, Math.min(by + boxH + 8, placed.boxY + placed.boxH + 8) - Math.max(by - 8, placed.boxY - 8));
         const overlapArea = overlapX * overlapY;
         if (overlapArea > 0) {
-          penalty += overlapArea * 50 + 1000;
+          penalty += overlapArea * 60 + 1200;
         }
       }
 
@@ -160,9 +162,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       for (const p of points) {
         const pointX = getX(p.volumeThousand);
         const pointY = getY(p.marginPercent);
-        if (bx <= pointX + 10 && bx + boxW >= pointX - 10 && by <= pointY + 10 && by + boxH >= pointY - 10) {
+        if (bx <= pointX + 12 && bx + boxW >= pointX - 12 && by <= pointY + 12 && by + boxH >= pointY - 12) {
           if (p.company.id !== pt.company.id) {
-            penalty += 800;
+            penalty += 900;
           }
         }
       }
@@ -185,7 +187,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       boxW,
       boxH,
       color,
-      hasLeader: bestCandidate.hasLeader || Math.abs(bestCandidate.dx) > 20 || Math.abs(bestCandidate.dy) > 30,
+      hasLeader: bestCandidate.hasLeader || Math.abs(bestCandidate.dx) > 15 || Math.abs(bestCandidate.dy) > 25,
     });
   });
 
@@ -489,24 +491,35 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   />
                   {/* OEM Color Dot inside badge */}
                   <circle
-                    cx="8"
+                    cx="10"
                     cy={lbl.boxH / 2}
                     r="3.5"
                     fill={color}
                   />
+                  {/* Company Name */}
                   <text
-                    x="16"
-                    y="15"
-                    className={`font-bold text-[10px] font-sans ${
+                    x="18"
+                    y="16"
+                    className={`font-bold text-[10.5px] font-sans ${
                       isHovered ? 'fill-white' : 'fill-slate-900 dark:fill-slate-100'
                     }`}
                   >
                     {pt.company.shortName}
                   </text>
+                  {/* Value Pill Box */}
+                  <rect
+                    x={lbl.boxW - 44}
+                    y="3.5"
+                    width="38"
+                    height="17"
+                    rx="4"
+                    className={isHovered ? 'fill-brand-500/30' : 'fill-brand-500/10 dark:fill-brand-400/20'}
+                  />
+                  {/* Margin Percentage Value */}
                   <text
-                    x={lbl.boxW - 6}
-                    y="15"
-                    textAnchor="end"
+                    x={lbl.boxW - 25}
+                    y="15.5"
+                    textAnchor="middle"
                     className="fill-brand-600 dark:fill-brand-400 font-mono font-bold text-[10px]"
                   >
                     {pt.marginPercent.toFixed(1)}%
