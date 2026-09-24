@@ -112,26 +112,26 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
     const px = getX(pt.volumeThousand);
     const py = getY(pt.marginPercent);
     const nameLen = pt.company.shortName.length;
-    const nameWidth = nameLen <= 3 ? 32 : nameLen * 7.8 + 6;
-    const numWidth = 38;
-    const boxW = Math.max(92, Math.round(nameWidth + numWidth + 24));
-    const boxH = 24;
+    const nameWidth = nameLen <= 3 ? 34 : nameLen * 7.5 + 6;
+    const numWidth = 40;
+    const boxW = Math.max(122, Math.round(nameWidth + numWidth + 24));
+    const boxH = 32;
     const color = getOemColor(pt.company.name);
 
     // 12 Candidate offsets (dx, dy) relative to (px, py)
     const candidates = [
-      { dx: 18, dy: -32, hasLeader: true },
-      { dx: -boxW - 18, dy: -32, hasLeader: true },
+      { dx: 18, dy: -38, hasLeader: true },
+      { dx: -boxW - 18, dy: -38, hasLeader: true },
       { dx: 18, dy: 16, hasLeader: true },
       { dx: -boxW - 18, dy: 16, hasLeader: true },
-      { dx: -boxW / 2, dy: -42, hasLeader: true },
-      { dx: -boxW / 2, dy: 28, hasLeader: true },
-      { dx: 26, dy: -52, hasLeader: true },
-      { dx: -boxW - 26, dy: -52, hasLeader: true },
-      { dx: 26, dy: 40, hasLeader: true },
-      { dx: -boxW - 26, dy: 40, hasLeader: true },
-      { dx: -boxW / 2, dy: -62, hasLeader: true },
-      { dx: -boxW / 2, dy: 50, hasLeader: true },
+      { dx: -boxW / 2, dy: -46, hasLeader: true },
+      { dx: -boxW / 2, dy: 30, hasLeader: true },
+      { dx: 26, dy: -58, hasLeader: true },
+      { dx: -boxW - 26, dy: -58, hasLeader: true },
+      { dx: 26, dy: 44, hasLeader: true },
+      { dx: -boxW - 26, dy: 44, hasLeader: true },
+      { dx: -boxW / 2, dy: -68, hasLeader: true },
+      { dx: -boxW / 2, dy: 54, hasLeader: true },
     ];
 
     let bestCandidate = candidates[0];
@@ -475,7 +475,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   className="shadow-lg transition-all duration-200"
                 />
 
-                {/* Collision-Free Label Badge */}
+                {/* Collision-Free Comprehensive Metric Badge */}
                 <g transform={`translate(${lbl.boxX}, ${lbl.boxY})`}>
                   <rect
                     x="0"
@@ -492,14 +492,14 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   {/* OEM Color Dot inside badge */}
                   <circle
                     cx="10"
-                    cy={lbl.boxH / 2}
+                    cy="12"
                     r="3.5"
                     fill={color}
                   />
                   {/* Company Name */}
                   <text
                     x="18"
-                    y="16"
+                    y="15"
                     className={`font-bold text-[10.5px] font-sans ${
                       isHovered ? 'fill-white' : 'fill-slate-900 dark:fill-slate-100'
                     }`}
@@ -509,9 +509,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   {/* Value Pill Box */}
                   <rect
                     x={lbl.boxW - 44}
-                    y="3.5"
+                    y="4"
                     width="38"
-                    height="17"
+                    height="16"
                     rx="4"
                     className={isHovered ? 'fill-brand-500/30' : 'fill-brand-500/10 dark:fill-brand-400/20'}
                   />
@@ -524,54 +524,25 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   >
                     {pt.marginPercent.toFixed(1)}%
                   </text>
+
+                  {/* Line 2: Delivery Volume & Strategic Role */}
+                  <text
+                    x="18"
+                    y="27"
+                    className={`font-mono text-[9px] ${
+                      isHovered ? 'fill-slate-300' : 'fill-slate-500 dark:fill-slate-400'
+                    }`}
+                  >
+                    Vol: {pt.volumeThousand >= 1000 ? `${(pt.volumeThousand / 1000).toFixed(2)}M` : `${pt.volumeThousand}k`}
+                    <tspan className="font-sans font-semibold text-[8px] fill-slate-400 dark:fill-slate-500" dx="4">
+                      • {pt.marginPercent >= midMargin && pt.volumeThousand >= midVol ? 'Leader' : pt.marginPercent >= midMargin ? 'Premium' : 'Volume'}
+                    </tspan>
+                  </text>
                 </g>
               </g>
             );
           })}
         </svg>
-      </div>
-
-      {/* OEM Quadrant Breakdown Table (Quick Overview) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-        {points
-          .sort((a, b) => b.marginPercent - a.marginPercent)
-          .map((pt) => {
-            const color = getOemColor(pt.company.name);
-            const isLeader = pt.marginPercent >= midMargin && pt.volumeThousand >= midVol;
-            const isLuxury = pt.marginPercent >= midMargin && pt.volumeThousand < midVol;
-
-            return (
-              <div
-                key={pt.company.id}
-                onClick={() => onSelectCompany?.(pt.company)}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 hover:shadow-xs transition cursor-pointer flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className="w-3 h-3 rounded-full shrink-0 shadow-xs"
-                    style={{ backgroundColor: color }}
-                  />
-                  <div className="truncate">
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate block">
-                      {pt.company.name}
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                      Vol: {pt.volumeThousand >= 1000 ? `${(pt.volumeThousand / 1000).toFixed(2)}M` : `${pt.volumeThousand}k`}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="font-mono font-black text-xs text-brand-600 dark:text-brand-400 block">
-                    {pt.marginPercent.toFixed(1)}%
-                  </span>
-                  <span className="text-[9px] font-sans font-semibold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                    {isLeader ? 'Leader' : isLuxury ? 'Premium' : 'Volume'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
       </div>
     </div>
   );
