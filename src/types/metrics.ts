@@ -235,6 +235,93 @@ export interface SourceDocument {
   lastChecked: string;
 }
 
+/**
+ * Base observation interface with core identification, temporal, value, and governance fields.
+ */
+export interface BaseObservation {
+  id: string;
+  companyId: string;
+  metricId: string;
+  period: string; // e.g., '2024-Q1', '2024-Q2', '2024-FY', '2025-Q1', '2025-Q2'
+  periodType: PeriodType;
+  calendarYear: number;
+  calendarQuarter?: number; // 1, 2, 3, 4
+  value: number | null; // null if not reported or not applicable
+  unit: MetricUnit;
+  valueType: MetricValueType;
+  reportingScope?: ReportingScope;
+  verificationStatus?: VerificationStatus;
+  verificationMethod?: VerificationMethod;
+  /**
+   * Intrinsic peer-comparability eligibility of the individual observation.
+   * - true: Follows standard external reporting definitions (e.g., standard IFRS revenue, retail deliveries)
+   *         and is eligible for cross-company peer benchmarking.
+   * - false: Represents a bespoke, non-standard management KPI with unique internal allocation rules.
+   *
+   * Note: Pairwise cross-OEM comparability is computed dynamically via checkObservationComparability().
+   */
+  isComparable: boolean;
+  nonComparableReason?: string;
+  notes?: string;
+}
+
+/**
+ * Reported financial observation with required currency, accounting basis, and source link.
+ */
+export interface ReportedFinancialObservation extends BaseObservation {
+  valueType: 'reported';
+  unit: 'currency_millions' | 'currency_billions' | 'currency_per_unit';
+  currency: string;
+  reportingScope: ReportingScope;
+  accountingBasis: AccountingBasis;
+  sourceDocId: string;
+  verificationStatus: VerificationStatus;
+  verificationMethod: VerificationMethod;
+  originalLabel?: string;
+  evidenceReference?: string;
+  tableReference?: string;
+  sectionReference?: string;
+  pageNumber?: number | string;
+}
+
+/**
+ * Reported volume / delivery observation with required perimeter definition and source link.
+ */
+export interface ReportedVolumeObservation extends BaseObservation {
+  valueType: 'reported';
+  unit: 'units' | 'thousand_units';
+  volumeDefinition: VolumeDefinition;
+  reportingScope: ReportingScope;
+  sourceDocId: string;
+  verificationStatus: VerificationStatus;
+  verificationMethod: VerificationMethod;
+  originalLabel?: string;
+  evidenceReference?: string;
+  tableReference?: string;
+  sectionReference?: string;
+  pageNumber?: number | string;
+}
+
+/**
+ * Derived observation with calculation metadata and input observation references.
+ */
+export interface DerivedObservation extends BaseObservation {
+  valueType: 'derived';
+  reportingScope: ReportingScope;
+  verificationStatus: VerificationStatus;
+  inputObservationIds?: string[];
+  derivationFormula?: string;
+}
+
+/**
+ * Full observation union for strict category typing.
+ */
+export type TypedMetricObservation =
+  | ReportedFinancialObservation
+  | ReportedVolumeObservation
+  | DerivedObservation
+  | MetricObservation;
+
 export interface MetricObservation {
   id: string;
   companyId: string;
@@ -258,6 +345,10 @@ export interface MetricObservation {
   sourceDocId?: string;
   pageNumber?: number | string;
   originalLabel?: string;
+  /**
+   * Intrinsic peer-comparability eligibility of the individual observation.
+   * Evaluated alongside pairwise dimensional alignment in checkObservationComparability().
+   */
   isComparable: boolean;
   nonComparableReason?: string;
   inputObservationIds?: string[];

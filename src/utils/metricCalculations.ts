@@ -199,13 +199,23 @@ import { COMPANIES_MAP } from '../data/companies';
 /**
  * Reusable comparison validation engine.
  * Checks definition, scope, accounting basis, volume definition, period, period type,
- * fiscal calendar alignment, currency, and unit scale.
+ * fiscal calendar alignment, currency, unit scale, and intrinsic comparability flags.
  */
 export function checkObservationComparability(
   obsA: MetricObservation,
   obsB: MetricObservation
 ): ComparabilityResult {
   const reasons: string[] = [];
+
+  // 0. Intrinsic metric comparability check
+  const intrinsicA = obsA.isComparable !== false;
+  const intrinsicB = obsB.isComparable !== false;
+  if (!intrinsicA || !intrinsicB) {
+    const nonComp = !intrinsicA ? obsA : obsB;
+    reasons.push(
+      `Observation flagged as intrinsically non-comparable (${nonComp.id}): ${nonComp.nonComparableReason || 'Standard cross-OEM comparison not supported'}`
+    );
+  }
 
   // 1. Metric definition check
   const definitionMatched = obsA.metricId === obsB.metricId;
@@ -311,7 +321,7 @@ export function checkObservationComparability(
     unitMatched,
   };
 
-  if (!definitionMatched || !periodMatched || !periodTypeMatched || !fiscalCalendarMatched) {
+  if (!intrinsicA || !intrinsicB || !definitionMatched || !periodMatched || !periodTypeMatched || !fiscalCalendarMatched) {
     level = 'not_comparable';
     directlyComparable = false;
     limitedComparisonAllowed = false;

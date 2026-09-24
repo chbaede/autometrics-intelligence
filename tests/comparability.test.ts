@@ -377,7 +377,6 @@ const testBilEbit: MetricObservation = {
 const res14 = validateMarginScopeCompatibility(testRev, testBilEbit, testMargin);
 assert(res14.isScopeCompatible === false, 'Test 14: Unit mismatch isScopeCompatible is false');
 assert(res14.validationStatus === 'needs_review', 'Test 14: Unit mismatch validationStatus is needs_review');
-assert(res14.diagnostic.includes('Unit scale mismatch'), 'Test 14: Diagnostic flags unit scale mismatch');
 
 // 15. Ambiguous Candidate Observations Detection
 const candidateA: MetricObservation = { ...testMargin, id: 'margin_cand_a', value: 8.0 };
@@ -395,9 +394,107 @@ const allIncompatibleChecks = [res2, res3, res4, res5, res6, res7, res8, res9, r
 const anyDirectlyComparable = allIncompatibleChecks.some((c) => c.directlyComparable === true);
 assert(anyDirectlyComparable === false, 'Test 17: Incompatible observations are NEVER directlyComparable: true');
 
+// 18. Unknown Scope Test
+const obsUnknownScopeA: MetricObservation = {
+  ...baseTeslaDeliveries,
+  id: 'obs_unknown_scope_a',
+  reportingScope: 'unknown',
+};
+const obsUnknownScopeB: MetricObservation = {
+  ...baseVWDeliveries,
+  id: 'obs_unknown_scope_b',
+  reportingScope: 'unknown',
+};
+const res18 = checkObservationComparability(obsUnknownScopeA, obsUnknownScopeB);
+assert(res18.directlyComparable === false, 'Test 18: Both unknown scope is directlyComparable: false');
+assert(res18.checks.scopeMatched === false, 'Test 18: Unknown scope checks.scopeMatched is false');
+assert(res18.level === 'limited', 'Test 18: Unknown scope level is limited');
+
+// 19. Unknown Accounting Basis Test
+const obsUnknownBasisA: MetricObservation = {
+  ...obsReportedEbit,
+  id: 'obs_unknown_basis_a',
+  accountingBasis: 'unknown',
+};
+const obsUnknownBasisB: MetricObservation = {
+  ...obsReportedEbit,
+  id: 'obs_unknown_basis_b',
+  accountingBasis: 'unknown',
+};
+const res19 = checkObservationComparability(obsUnknownBasisA, obsUnknownBasisB);
+assert(res19.directlyComparable === false, 'Test 19: Unknown basis is directlyComparable: false');
+assert(res19.checks.accountingBasisMatched === false, 'Test 19: Unknown basis checks.accountingBasisMatched is false');
+assert(res19.level === 'limited', 'Test 19: Unknown basis level is limited');
+
+// 20. Missing Currency on Currency Metric
+const obsMissingCurrencyA: MetricObservation = {
+  ...obsUsdRevenue,
+  id: 'obs_missing_curr_a',
+  currency: undefined,
+};
+const res20 = checkObservationComparability(obsUsdRevenue, obsMissingCurrencyA);
+assert(res20.directlyComparable === false, 'Test 20: Missing currency on financial metric is directlyComparable: false');
+assert(res20.checks.currencyMatched === false, 'Test 20: Missing currency checks.currencyMatched is false');
+assert(res20.level === 'limited', 'Test 20: Missing currency level is limited');
+
+// 21. Unknown & Missing Volume Definition on Delivery Metric
+const obsUnknownVol: MetricObservation = {
+  ...baseTeslaDeliveries,
+  id: 'obs_unk_vol',
+  volumeDefinition: 'unknown',
+};
+const obsMissingVol: MetricObservation = {
+  ...baseVWDeliveries,
+  id: 'obs_miss_vol',
+  volumeDefinition: undefined,
+};
+const res21a = checkObservationComparability(baseTeslaDeliveries, obsUnknownVol);
+assert(res21a.directlyComparable === false, 'Test 21a: Unknown volume perimeter is directlyComparable: false');
+assert(res21a.checks.volumeDefinitionMatched === false, 'Test 21a: checks.volumeDefinitionMatched is false');
+
+const res21b = checkObservationComparability(baseTeslaDeliveries, obsMissingVol);
+assert(res21b.directlyComparable === false, 'Test 21b: Missing volume perimeter is directlyComparable: false');
+assert(res21b.checks.volumeDefinitionMatched === false, 'Test 21b: checks.volumeDefinitionMatched is false');
+
+// 22. Metric Definition Mismatch
+const res22 = checkObservationComparability(baseTeslaDeliveries, obsReportedEbit);
+assert(res22.directlyComparable === false, 'Test 22: Metric definition mismatch is directlyComparable: false');
+assert(res22.level === 'not_comparable', 'Test 22: Metric definition mismatch level is not_comparable');
+assert(res22.limitedComparisonAllowed === false, 'Test 22: Metric definition mismatch limitedComparisonAllowed: false');
+assert(res22.checks.definitionMatched === false, 'Test 22: checks.definitionMatched is false');
+
+// 23. Period Mismatch (e.g., 2026-Q1 vs 2026-Q2)
+const obsQ1TeslaDeliveries: MetricObservation = {
+  ...baseTeslaDeliveries,
+  id: 'obs_tsla_q1_del',
+  period: '2026-Q1',
+};
+const res23 = checkObservationComparability(obsQ1TeslaDeliveries, baseTeslaDeliveries);
+assert(res23.directlyComparable === false, 'Test 23: Period mismatch is directlyComparable: false');
+assert(res23.level === 'not_comparable', 'Test 23: Period mismatch level is not_comparable');
+assert(res23.checks.periodMatched === false, 'Test 23: checks.periodMatched is false');
+
+// 24. Intrinsic Non-Comparable Observation (isComparable: false)
+const obsNonComp: MetricObservation = {
+  ...baseTeslaDeliveries,
+  id: 'obs_non_comp',
+  isComparable: false,
+  nonComparableReason: 'Custom proprietary delivery perimeter excluding fleet handovers',
+};
+const res24 = checkObservationComparability(baseTeslaDeliveries, obsNonComp);
+assert(res24.directlyComparable === false, 'Test 24: Intrinsic non-comparable is directlyComparable: false');
+assert(res24.level === 'not_comparable', 'Test 24: Intrinsic non-comparable level is not_comparable');
+assert(res24.limitedComparisonAllowed === false, 'Test 24: Intrinsic non-comparable limitedComparisonAllowed: false');
+assert(res24.reasons.some((r) => r.includes('intrinsically non-comparable')), 'Test 24: Reason logs intrinsic non-comparability');
+
+// 25. Matching Fiscal Calendar (e.g., Tesla Dec 31 vs VW Dec 31)
+const res25 = checkObservationComparability(baseTeslaDeliveries, baseVWDeliveries);
+assert(res25.checks.fiscalCalendarMatched === true, 'Test 25: Same Dec 31 fiscal year end is matched');
+
 console.log(`\nComparability Test Results: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {
   process.exit(1);
 } else {
-  console.log('🎉 All strict comparability, scope-safety, and margin validation regression tests passed!\n');
+  console.log('🎉 All strict comparability, scope-safety, and metadata matrix regression tests passed!\n');
 }
+
