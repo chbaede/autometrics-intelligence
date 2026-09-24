@@ -29,29 +29,32 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   if (!points || points.length === 0) return null;
 
   // Chart dimensions
-  const width = 920;
-  const height = 480;
+  const width = 1000;
+  const height = 520;
   const padLeft = 70;
   const padBottom = 55;
-  const padRight = 40;
-  const padTop = 35;
+  const padRight = 50;
+  const padTop = 40;
 
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
-  // Calculate dynamic axis maximums based on actual observations
+  // Calculate dynamic axis bounds based on actual observations
   const rawMaxVol = Math.max(...points.map((p) => p.volumeThousand), 500);
-  const maxVolume = rawMaxVol > 3500 ? 12000 : 3500;
-  const volStep = maxVolume > 3500 ? 2000 : 500;
+  const isAnnual = rawMaxVol > 4000;
+  const maxVolume = isAnnual
+    ? Math.max(12000, Math.ceil((rawMaxVol * 1.08) / 1000) * 1000)
+    : Math.max(3000, Math.ceil((rawMaxVol * 1.1) / 500) * 500);
+  const volStep = isAnnual ? 2000 : 500;
 
-  const rawMaxMargin = Math.max(...points.map((p) => p.marginPercent), 10);
-  const maxMargin = Math.max(14, Math.ceil((rawMaxMargin + 2) / 2) * 2);
+  const rawMaxMargin = Math.max(...points.map((p) => p.marginPercent), 8);
+  const maxMargin = rawMaxMargin > 12 ? 14 : 12;
   const minMargin = 0;
   const marginStep = 2;
 
   // Midpoints for 4 Quadrants
-  const midVol = maxVolume / 2;
-  const midMargin = maxMargin / 2;
+  const midVol = isAnnual ? 6000 : 1500;
+  const midMargin = 7.0; // Industry weighted RoS benchmark
 
   const getX = (vol: number) => padLeft + (Math.min(maxVolume, Math.max(0, vol)) / maxVolume) * chartW;
   const getY = (margin: number) =>
@@ -84,6 +87,107 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
     if (n.includes('ford')) return '#1d4ed8';
     return '#64748b';
   };
+
+  // Anti-collision label layout computation
+  interface PlacedLabel {
+    point: ScatterPoint;
+    x: number;
+    y: number;
+    boxX: number;
+    boxY: number;
+    boxW: number;
+    boxH: number;
+    color: string;
+    hasLeader: boolean;
+  }
+
+  const placedLabels: PlacedLabel[] = [];
+
+  // Sort points to place isolated or extreme points first
+  const sortedPoints = [...points].sort((a, b) => {
+    // Toyota or higher volume first
+    return b.volumeThousand - a.volumeThousand;
+  });
+
+  sortedPoints.forEach((pt) => {
+    const px = getX(pt.volumeThousand);
+    const py = getY(pt.marginPercent);
+    const boxW = pt.company.shortName.length * 7 + 44;
+    const boxH = 22;
+    const color = getOemColor(pt.company.name);
+
+    // 12 Candidate offsets (dx, dy) relative to (px, py)
+    const candidates = [
+      { dx: 14, dy: -24, hasLeader: false },
+      { dx: -boxW - 14, dy: -24, hasLeader: false },
+      { dx: 14, dy: 10, hasLeader: false },
+      { dx: -boxW - 14, dy: 10, hasLeader: false },
+      { dx: -boxW / 2, dy: -36, hasLeader: true },
+      { dx: -boxW / 2, dy: 24, hasLeader: true },
+      { dx: 22, dy: -44, hasLeader: true },
+      { dx: -boxW - 22, dy: -44, hasLeader: true },
+      { dx: 24, dy: 30, hasLeader: true },
+      { dx: -boxW - 24, dy: 30, hasLeader: true },
+      { dx: -boxW / 2, dy: -52, hasLeader: true },
+      { dx: -boxW / 2, dy: 44, hasLeader: true },
+    ];
+
+    let bestCandidate = candidates[0];
+    let minPenalty = Infinity;
+
+    for (const c of candidates) {
+      const bx = px + c.dx;
+      const by = py + c.dy;
+      let penalty = 0;
+
+      // Check boundary violation
+      if (bx < padLeft + 5) penalty += (padLeft + 5 - bx) * 100;
+      if (bx + boxW > width - padRight - 5) penalty += (bx + boxW - (width - padRight - 5)) * 100;
+      if (by < padTop + 5) penalty += (padTop + 5 - by) * 100;
+      if (by + boxH > height - padBottom - 5) penalty += (by + boxH - (height - padBottom - 5)) * 100;
+
+      // Check overlap with other placed label boxes
+      for (const placed of placedLabels) {
+        const overlapX = Math.max(0, Math.min(bx + boxW, placed.boxX + placed.boxW) - Math.max(bx, placed.boxX));
+        const overlapY = Math.max(0, Math.min(by + boxH, placed.boxY + placed.boxH) - Math.max(by, placed.boxY));
+        const overlapArea = overlapX * overlapY;
+        if (overlapArea > 0) {
+          penalty += overlapArea * 50 + 1000;
+        }
+      }
+
+      // Check overlap with point markers
+      for (const p of points) {
+        const pointX = getX(p.volumeThousand);
+        const pointY = getY(p.marginPercent);
+        if (bx <= pointX + 10 && bx + boxW >= pointX - 10 && by <= pointY + 10 && by + boxH >= pointY - 10) {
+          if (p.company.id !== pt.company.id) {
+            penalty += 800;
+          }
+        }
+      }
+
+      // Small penalty for larger displacement
+      penalty += Math.sqrt(c.dx * c.dx + c.dy * c.dy);
+
+      if (penalty < minPenalty) {
+        minPenalty = penalty;
+        bestCandidate = c;
+      }
+    }
+
+    placedLabels.push({
+      point: pt,
+      x: px,
+      y: py,
+      boxX: px + bestCandidate.dx,
+      boxY: py + bestCandidate.dy,
+      boxW,
+      boxH,
+      color,
+      hasLeader: bestCandidate.hasLeader || Math.abs(bestCandidate.dx) > 20 || Math.abs(bestCandidate.dy) > 30,
+    });
+  });
 
   return (
     <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-5">
@@ -120,10 +224,10 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       </div>
 
       {/* SVG Scatter Plot Container */}
-      <div className="relative w-full overflow-x-auto bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800/80 p-2">
+      <div className="relative w-full overflow-hidden bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800/80 p-2">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-auto min-w-[700px]"
+          className="w-full h-auto"
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Quadrant Tinted Background Panels */}
@@ -131,8 +235,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           <rect
             x={getX(midVol)}
             y={padTop}
-            width={chartW / 2}
-            height={chartH / 2}
+            width={width - padRight - getX(midVol)}
+            height={getY(midMargin) - padTop}
             className="fill-emerald-500/5 dark:fill-emerald-500/10"
             rx="8"
           />
@@ -140,8 +244,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           <rect
             x={padLeft}
             y={padTop}
-            width={chartW / 2}
-            height={chartH / 2}
+            width={getX(midVol) - padLeft}
+            height={getY(midMargin) - padTop}
             className="fill-brand-500/5 dark:fill-brand-500/10"
             rx="8"
           />
@@ -149,8 +253,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           <rect
             x={getX(midVol)}
             y={getY(midMargin)}
-            width={chartW / 2}
-            height={chartH / 2}
+            width={width - padRight - getX(midVol)}
+            height={height - padBottom - getY(midMargin)}
             className="fill-amber-500/5 dark:fill-amber-500/10"
             rx="8"
           />
@@ -158,8 +262,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           <rect
             x={padLeft}
             y={getY(midMargin)}
-            width={chartW / 2}
-            height={chartH / 2}
+            width={getX(midVol) - padLeft}
+            height={height - padBottom - getY(midMargin)}
             className="fill-slate-500/5 dark:fill-slate-500/10"
             rx="8"
           />
@@ -288,12 +392,33 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             );
           })}
 
+          {/* Leader Lines from Bubbles to Label Boxes */}
+          {placedLabels.map((lbl) => {
+            const targetX = lbl.boxX + lbl.boxW / 2;
+            const targetY = lbl.boxY + lbl.boxH / 2;
+            return (
+              <g key={`leader-${lbl.point.company.id}`}>
+                <line
+                  x1={lbl.x}
+                  y1={lbl.y}
+                  x2={targetX}
+                  y2={targetY}
+                  stroke={lbl.color}
+                  strokeWidth="1.2"
+                  strokeDasharray={lbl.hasLeader ? '2 2' : 'none'}
+                  strokeOpacity={lbl.hasLeader ? 0.6 : 0.25}
+                />
+              </g>
+            );
+          })}
+
           {/* Scatter Data Points & Connecting Badges */}
-          {points.map((pt) => {
-            const x = getX(pt.volumeThousand);
-            const y = getY(pt.marginPercent);
+          {placedLabels.map((lbl) => {
+            const pt = lbl.point;
+            const x = lbl.x;
+            const y = lbl.y;
             const isHovered = hovered?.company.id === pt.company.id;
-            const color = getOemColor(pt.company.name);
+            const color = lbl.color;
 
             return (
               <g
@@ -303,7 +428,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                 onMouseLeave={() => setHovered(null)}
                 onClick={() => onSelectCompany?.(pt.company)}
               >
-                {/* Connecting Leader Line on Hover */}
+                {/* Connecting Axis Guides on Hover */}
                 {isHovered && (
                   <>
                     <line
@@ -348,26 +473,40 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   className="shadow-lg transition-all duration-200"
                 />
 
-                {/* Label Box (Always clear and visible) */}
-                <g transform={`translate(${x + 12}, ${y - 12})`}>
+                {/* Collision-Free Label Badge */}
+                <g transform={`translate(${lbl.boxX}, ${lbl.boxY})`}>
                   <rect
                     x="0"
-                    y="-12"
-                    width={pt.company.shortName.length * 7.5 + 46}
-                    height="22"
+                    y="0"
+                    width={lbl.boxW}
+                    height={lbl.boxH}
                     rx="6"
-                    className="fill-white/95 dark:fill-slate-900/95 stroke-slate-300 dark:stroke-slate-700 shadow-sm"
+                    className={`transition-colors shadow-sm ${
+                      isHovered
+                        ? 'fill-slate-900 text-white stroke-brand-500 stroke-2'
+                        : 'fill-white/95 dark:fill-slate-900/95 stroke-slate-300 dark:stroke-slate-700'
+                    }`}
+                  />
+                  {/* OEM Color Dot inside badge */}
+                  <circle
+                    cx="8"
+                    cy={lbl.boxH / 2}
+                    r="3.5"
+                    fill={color}
                   />
                   <text
-                    x="6"
-                    y="3"
-                    className="fill-slate-900 dark:fill-slate-100 font-bold text-[10px] font-sans"
+                    x="16"
+                    y="15"
+                    className={`font-bold text-[10px] font-sans ${
+                      isHovered ? 'fill-white' : 'fill-slate-900 dark:fill-slate-100'
+                    }`}
                   >
                     {pt.company.shortName}
                   </text>
                   <text
-                    x={pt.company.shortName.length * 7.5 + 10}
-                    y="3"
+                    x={lbl.boxW - 6}
+                    y="15"
+                    textAnchor="end"
                     className="fill-brand-600 dark:fill-brand-400 font-mono font-bold text-[10px]"
                   >
                     {pt.marginPercent.toFixed(1)}%

@@ -172,6 +172,48 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
       </div>
 
+      {/* OEM Quick Directory Dossiers (Moved to Top for Fast Navigation) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+            {t.global.quickDirectory}
+          </h2>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {language === 'ko' ? '기업 카드를 클릭하면 상세 IR 대시보드로 이동합니다' : 'Click any OEM card to open dedicated deep-dive dashboard'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {companies.map((c) => (
+            <Link
+              key={c.id}
+              to={`/company/${c.id}`}
+              className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-brand-500/60 hover:shadow-md transition flex flex-col justify-between group"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition truncate">
+                    {c.shortName}
+                  </span>
+                  {c.ticker && (
+                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      {c.ticker}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                  {c.hqCountry} • {c.reportingCurrency}
+                </p>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-brand-600 dark:text-brand-400 font-semibold group-hover:translate-x-0.5 transition">
+                <span>{language === 'ko' ? '실적 분석' : 'Deep Dive'}</span>
+                <ExternalLink className="w-3 h-3" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* Interactive Filter Toolbar */}
       <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-wrap items-center justify-between gap-4 transition-colors">
         {/* Period Selector */}
@@ -223,7 +265,7 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* SECTION 1: 4-Quadrant Strategic Volume vs Margin Matrix (Full Width, Spacious) */}
+      {/* SECTION 1: 4-Quadrant Strategic Volume vs Margin Matrix (Full Width, Collision-Free) */}
       <div className="w-full">
         <MarginScatterChart
           title={t.charts.revenueVsMargin}
@@ -248,7 +290,7 @@ export const GlobalOverviewPage: React.FC = () => {
         />
       </div>
 
-      {/* SECTION 3: Profitability & Historical Trajectory Row (2 Columns) */}
+      {/* SECTION 3: Operating Margin & Guidance Row (2 Columns) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <MetricBarChart
           title={t.charts.operatingMargin}
@@ -257,19 +299,21 @@ export const GlobalOverviewPage: React.FC = () => {
           unit="percentage"
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
+        <div className="h-full">
+          <GuidanceRangeChart
+            guidanceList={guidanceList}
+          />
+        </div>
+      </div>
+
+      {/* SECTION 4: Multi-Period Historical Trend Trajectory (Full Width Long Chart, No Horizontal Scroll) */}
+      <div className="w-full">
         <MetricLineChart
           title={t.charts.historicalTrend}
           subtitle={t.charts.historicalSubtitle}
           series={trendSeries}
           unit="percentage"
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
-        />
-      </div>
-
-      {/* SECTION 4: FY2026 Guidance Corridors (Full Width, Spacious) */}
-      <div className="w-full">
-        <GuidanceRangeChart
-          guidanceList={guidanceList}
         />
       </div>
 
@@ -281,41 +325,6 @@ export const GlobalOverviewPage: React.FC = () => {
           observations={getObservations(selectedCompanies, undefined, selectedPeriod)}
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
-      </div>
-
-      {/* Company Navigation Cards Directory */}
-      <div className="space-y-4 pt-4">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-brand-600 dark:text-brand-400" />
-          {t.global.quickDirectory}
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          {companies.map((c) => (
-            <Link
-              key={c.id}
-              to={`/company/${c.id}`}
-              className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 hover:shadow-md transition flex flex-col justify-between group"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">
-                    {c.name}
-                  </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                    {c.stockExchange}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {c.hqCountry} • Currency: {c.reportingCurrency}
-                </p>
-              </div>
-              <div className="mt-4 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-brand-600 dark:text-brand-400 font-semibold group-hover:translate-x-0.5 transition">
-                <span>{t.global.viewDashboard}</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </div>
-            </Link>
-          ))}
-        </div>
       </div>
 
       {/* Data Provenance Modal */}

@@ -45,27 +45,39 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
   return (
     <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col">
       {/* Chart Header */}
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-2">
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             {title}
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">
               {unit.replace('_', ' ')}
             </span>
           </h3>
           {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
+
+        {/* Dynamic Hover/Active Status in Header */}
+        {hoveredIndex !== null && observations[hoveredIndex] && (
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-mono animate-fadeIn">
+            <span className="font-bold text-brand-700 dark:text-brand-300">
+              {observations[hoveredIndex].company.shortName}:
+            </span>
+            <span className="font-extrabold text-slate-900 dark:text-slate-100">
+              {formatMetricValue(observations[hoveredIndex].observation.value, unit, observations[hoveredIndex].observation.currency)}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* SVG Bar Chart */}
-      <div className="relative w-full overflow-x-auto">
-        <div className="min-w-[420px] h-[220px] flex items-end justify-around gap-2 px-4 pb-8 pt-6 border-b border-slate-200 dark:border-slate-800 relative">
+      {/* SVG Bar Chart Container with Ample Headroom */}
+      <div className="relative w-full overflow-x-auto pt-6 pb-2">
+        <div className="min-w-[420px] h-[230px] flex items-end justify-around gap-2 px-3 pb-8 pt-8 border-b border-slate-200 dark:border-slate-800 relative">
           {/* Zero baseline if minVal < 0 */}
           {minVal < 0 && (
             <div
               className="absolute left-0 right-0 border-t border-dashed border-slate-300 dark:border-slate-700 pointer-events-none"
               style={{
-                bottom: `${(Math.abs(minVal) / range) * 160 + 32}px`,
+                bottom: `${(Math.abs(minVal) / range) * 130 + 32}px`,
               }}
             />
           )}
@@ -74,7 +86,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
             const val = item.observation.value;
             const isNull = val === null || !Number.isFinite(val);
             const valNum = isNull ? 0 : val;
-            const barHeightPct = isNull ? 4 : Math.max(4, (Math.abs(valNum) / (maxVal || 1)) * 140);
+            const barHeightPct = isNull ? 4 : Math.max(6, (Math.abs(valNum) / (maxVal || 1)) * 125);
             const isHovered = hoveredIndex === idx;
 
             return (
@@ -85,28 +97,32 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                 onMouseLeave={() => setHoveredIndex(null)}
                 onClick={() => onSelectObservation?.(item.observation)}
               >
-                {/* Tooltip */}
+                {/* Floating Tooltip inside container */}
                 {isHovered && (
-                  <div className="absolute -top-12 z-20 px-2.5 py-1 bg-slate-900 text-white dark:bg-slate-800 dark:text-slate-100 rounded-lg shadow-lg text-[11px] font-mono border border-slate-700 whitespace-nowrap pointer-events-none">
-                    <span className="font-semibold text-brand-400">{item.company.shortName}: </span>
-                    {formatMetricValue(val, unit, item.observation.currency)}
+                  <div className="absolute -top-7 z-30 px-2.5 py-1 bg-slate-900 text-white dark:bg-slate-800 dark:text-slate-100 rounded-lg shadow-xl text-[11px] font-mono border border-slate-700 whitespace-nowrap pointer-events-none flex items-center gap-1.5">
+                    <span className="font-bold text-brand-400">{item.company.shortName}:</span>
+                    <span className="font-semibold text-white">
+                      {formatMetricValue(val, unit, item.observation.currency)}
+                    </span>
                     {!item.observation.isComparable && (
-                      <span className="text-amber-400 ml-1.5">({language === 'ko' ? '비교주의' : 'Non-comparable'})</span>
+                      <span className="text-amber-400 text-[10px]">({language === 'ko' ? '비교주의' : 'Scope'})</span>
                     )}
                   </div>
                 )}
 
                 {/* Value Label */}
-                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mb-1.5 truncate group-hover:text-brand-600 dark:group-hover:text-brand-300 font-medium">
+                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mb-1.5 truncate group-hover:text-brand-600 dark:group-hover:text-brand-300 font-semibold">
                   {isNull ? 'N/R' : valNum >= 1000 ? `${(valNum / 1000).toFixed(1)}k` : valNum.toFixed(1)}
                 </div>
 
                 {/* Vertical Bar */}
-                <div className="w-full max-w-[38px] flex items-end justify-center">
+                <div className="w-full max-w-[36px] flex items-end justify-center">
                   <div
                     className={`w-full rounded-t transition-all duration-200 ${
                       isNull
                         ? 'bg-slate-200 dark:bg-slate-800 border-dashed border border-slate-300 dark:border-slate-700'
+                        : isHovered
+                        ? 'bg-gradient-to-t from-brand-500 to-brand-400 shadow-md scale-y-105 origin-bottom'
                         : item.observation.isComparable
                         ? 'bg-gradient-to-t from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 shadow-xs'
                         : 'bg-gradient-to-t from-amber-600 to-amber-500'
@@ -117,7 +133,9 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
 
                 {/* Company Label */}
                 <div className="mt-2 text-center">
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 group-hover:text-brand-600 dark:group-hover:text-brand-400 truncate block max-w-[55px]">
+                  <span className={`text-[11px] font-semibold truncate block max-w-[55px] ${
+                    isHovered ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-700 dark:text-slate-300'
+                  }`}>
                     {item.company.shortName}
                   </span>
                 </div>

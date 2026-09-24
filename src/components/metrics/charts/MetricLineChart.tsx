@@ -56,9 +56,9 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   const range = maxVal - minVal || 1;
 
   // Chart dimensions
-  const width = 800;
-  const height = 280;
-  const paddingX = 60;
+  const width = 1000;
+  const height = 300;
+  const paddingX = 65;
   const paddingY = 35;
   const chartW = width - paddingX * 2;
   const chartH = height - paddingY * 2;
@@ -98,11 +98,11 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
         </div>
       </div>
 
-      {/* SVG Canvas */}
-      <div className="relative w-full overflow-x-auto bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800/80 p-2">
+      {/* SVG Canvas (Full width, responsive, no scrollbars) */}
+      <div className="relative w-full overflow-hidden bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800/80 p-2">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-auto min-w-[640px]"
+          className="w-full h-auto"
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Grid lines */}
