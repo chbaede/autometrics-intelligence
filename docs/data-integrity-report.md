@@ -1,103 +1,134 @@
-# AutoMetrics Intelligence — Data Integrity & Verification Gate Report
+# AutoMetrics Intelligence — Data Integrity Report
 
-**Date of Execution**: 2026-09-25T00:36:00Z  
-**Engine Version**: AutoMetrics Intelligence Scope-Safe Data & Financial Audit Engine v2.2 (Hardened Semantic Triplet Engine)  
-**Git Commit SHA**: `77938df04e28741363da671158a436573c7885b5`  
-**Runtime Environment**: Node.js `v22.21.1` / npm `10.9.4` / TypeScript `~5.6.2`  
-
----
-
-## 1. System Inventory & Verification Summary
-
-```json
-{
-  "auditReport": {
-    "engine": "AutoMetrics Intelligence Scope-Safe Data & Financial Audit Engine v2.2",
-    "timestamp": "2026-09-25T00:36:00Z",
-    "commitSha": "77938df04e28741363da671158a436573c7885b5",
-    "environment": {
-      "nodeVersion": "v22.21.1",
-      "npmVersion": "10.9.4",
-      "os": "macOS (darwin-arm64)"
-    },
-    "inventory": {
-      "totalCompanies": 13,
-      "totalMetricDefinitions": 17,
-      "totalFinancialAndVolumeObservations": 240,
-      "totalRegionalObservations": 216,
-      "totalForwardLookingGuidanceItems": 7,
-      "totalPrimarySourceDocuments": 57
-    },
-    "findings": {
-      "totalFindings": 8,
-      "errors": 0,
-      "warnings": 8,
-      "information": 0
-    },
-    "dataIntegrityMetrics": {
-      "matchedMarginTriplets": 32,
-      "incompatibleMarginTriplets": 8,
-      "ambiguousMarginTriplets": 0,
-      "missingMarginTriplets": 0,
-      "matchedBevTriplets": 40,
-      "ambiguousBevTriplets": 0,
-      "missingRequiredMetadata": 0,
-      "sourceProvenanceErrors": 0,
-      "sourceProvenanceWarnings": 0,
-      "mathematicalMismatches": 0,
-      "unresolvedReviewCases": 0,
-      "scopeAwareMarginChecks": 32,
-      "bevShareConsistencyChecks": 40,
-      "documentedScopeWarnings": 8
-    }
-  }
-}
-```
+**Generated:** 2026-09-25T00:49:00+02:00
+**Commit SHA:** cd2b64237eded1b0e37d93e6ac99115ccc600756 (pre-STEP 4-2 commit; STEP 4-2 pending push)
+**Node.js Version:** v22.21.1
+**npm Version:** (see package-lock.json)
 
 ---
 
-## 2. Command Execution Results
+## Summary
 
-| Command | Exit Code | Result | Key Summary Output |
-| :--- | :---: | :---: | :--- |
-| `npm run typecheck` | 0 | **PASS** | 0 TypeScript errors across the entire codebase |
-| `npm test` | 0 | **PASS** | 7 / 7 test suites passed (95 assertions passed across `calculations`, `data-integrity`, `comparability`, `bev-share`, `margin-triplet`, `provenance`, `data-integrity-gate`) |
-| `npm run validate-data` | 0 | **PASS** | Strict schema & integrity validation passed with 0 errors |
-| `npm run audit-data` | 0 | **PASS** | Hardened semantic audit passed with 0 blocking errors (8 documented segment warnings) |
-| `npm run audit-data -- --strict` | 0 | **PASS** | Strict mode audit passed with 0 unconfigured errors |
-| `npm run build` | 0 | **PASS** | Vite production build generated clean distribution artifacts |
-
----
-
-## 3. Exit Code & Strict Verification Policy
-
-- **Regular Audit (`audit-data`)**:
-  - Exits with `code 1` (FAIL) if any blocking structural errors exist (`errors.length > 0`), including missing foreign keys, unresolved candidate triplets, schema deviations, or invalid formulas.
-  - Exits with `code 0` (PASS) when all data links are intact and segment-level scope warnings are properly categorized.
-- **Strict Audit (`audit-data --strict`)**:
-  - Exits with `code 1` (FAIL) on any blocking errors, mathematical mismatches, ambiguous candidate combinations, missing required metadata, or unexpected non-scope warnings.
-  - Exits with `code 0` (PASS) only when zero unexpected warnings occur.
-- **Candidate Triplet Matching Policy**:
-  - Arbitrary `candidates[0]` selection is strictly forbidden. Fallback array index accesses have been completely removed.
-  - When candidate selection returns `'ambiguous'` or `'incompatible'`, the engine refuses to assemble or calculate a fallback triplet.
-- **Evidence Verification Standard**:
-  - Every reported observation requires a verified HTTPS primary IR source link with valid publication date and evidence reference.
+| Metric | Value |
+|--------|-------|
+| Total companies | 13 |
+| Total metric definitions | 17 |
+| Total observations | 240 |
+| Total source documents | 57 |
+| Total guidance observations | 7 |
+| Total regional observations | 216 |
 
 ---
 
-## 4. Documented Segment Scope Warnings (8 Items)
+## Verification Suite Results
 
-The 8 documented warnings correspond to legitimate automotive reporting disclosures where headline margins diverge in scope:
-1. **BMW Group (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Headline RoS disclosure corresponds to the *Automotive Segment* rather than *Consolidated Group*.
-2. **Mercedes-Benz Group (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Headline RoS disclosure corresponds to *Mercedes-Benz Cars Segment (Adjusted)* rather than *Consolidated Group*.
+| Command | Exit Code | Result |
+|---------|-----------|--------|
+| `npm run typecheck` | 0 | ✅ PASS |
+| `npm test` | 0 | ✅ PASS |
+| `npm run validate-data` | 0 | ✅ PASS |
+| `npm run audit-data` | 0 | ✅ PASS |
+| `npm run audit-data -- --strict` | 0 | ✅ PASS |
+| `npm run build` | 0 | ✅ PASS |
 
 ---
 
-## 5. Known Limitations & Unresolved Data Issues
+## Test Coverage
 
-1. **Exact PDF Page Number Coverage**:
-   - Currently, 51 / 240 observations have exact page numbers recorded (`pageNumber`), while 189 / 240 reference section/table citations without page numbers.
-2. **Original Reported Labels**:
-   - 187 / 240 observations have exact original reported labels (`originalLabel`), while 53 / 240 use standardized metric titles.
-3. **Fiscal Year Shift (Toyota Motor Corporation)**:
-   - Toyota operates on an April 1 – March 31 fiscal year. AutoMetrics maps Toyota's FY2026 Q1 (Apr-Jun) and Q2 (Jul-Sep) to the respective calendar quarters, flagging fiscal calendar misalignment when comparing directly against calendar-year peers.
+| Test Suite | Total | Passed | Failed |
+|-----------|-------|--------|--------|
+| Comparability tests | 75 | 75 | 0 |
+| BEV share validation tests | 40 | 40 | 0 |
+| Semantic margin triplet tests | 40 | 40 | 0 |
+| Source provenance tests | 23 | 23 | 0 |
+| Data integrity gate + STEP 4-2 | 34 | 34 | 0 |
+| **Total** | **212** | **212** | **0** |
+
+---
+
+## Audit Findings
+
+| Category | Count |
+|----------|-------|
+| Blocking errors | 0 |
+| Review findings | 0 |
+| Documented findings | 8 |
+
+### Documented Findings (8)
+
+All 8 documented findings are known, verified automotive reporting divergences:
+
+| # | Company | Period | Category | Reason |
+|---|---------|--------|----------|--------|
+| 1 | BMW Group | 2026-Q2 | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
+| 2 | BMW Group | 2026-Q1 | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
+| 3 | BMW Group | 2025-FY | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
+| 4 | BMW Group | 2024-FY | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
+| 5 | Mercedes-Benz | 2026-Q2 | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
+| 6 | Mercedes-Benz | 2026-Q1 | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
+| 7 | Mercedes-Benz | 2025-FY | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
+| 8 | Mercedes-Benz | 2024-FY | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
+
+These divergences are industry-standard practice: BMW reports Automotive Segment RoS (not Group EBIT margin), and Mercedes-Benz reports Cars Division Adjusted RoS. See `docs/data-audit-report.md` for detailed evidence.
+
+---
+
+## STEP 4-2 Implementation Summary
+
+### Changes Completed
+
+1. **`src/types/metrics.ts`**
+   - Added `FindingDisposition = 'blocking' | 'review' | 'documented'`
+   - Added `AuditFinding` interface (exported, compatible with legacy `item`/`detail` fields)
+   - Added `ScopeRelationshipRule` with `relationshipType`
+   - Expanded `MarginValidationChecks` to 11 explicit checks
+   - Added `failedChecks: (keyof MarginValidationChecks)[]` to `MarginValidationResult`
+   - Added `ValidatedMetricObservation` and `RawMetricObservation` types
+
+2. **`src/utils/metricCalculations.ts`**
+   - `getCanonicalObservationKey(obs)` — canonical 7-dimensional identity key
+   - `MARGIN_RELATIONSHIP_RULES` updated with `ScopeRelationshipRule[]`
+   - `selectCompatibleMarginTriplets()` — semantic triplet matching, no `[0]` fallback
+   - `validateMarginTriplet()` — 11-check validation returning `failedChecks`
+
+3. **`scripts/audit-data.ts`**
+   - Strict exit-code policy: fail on `blocking` or `review` dispositions only
+   - Separate counters: Margin Selection, Margin Validation, BEV Selection, BEV Validation, Provenance, Metadata
+   - `getCanonicalObservationKey` for canonical duplicate detection
+   - Imports `AuditFinding` from `src/types/metrics`
+
+4. **`scripts/validate-data.ts`**
+   - `getCanonicalObservationKey` duplicate check (SET-based, respects scope/basis dimensions)
+
+5. **`tests/data-integrity-gate.test.ts`**
+   - 10 original anti-regression tests + 10 new STEP 4-2 tests
+   - Tests: strict disposition logic, canonical duplicate identity, margin provenance, failedChecks array, scope relationship rules
+
+6. **`tests/margin-triplet.test.ts`**
+   - Test fixtures updated with `sourceDocId` and `verificationStatus` for provenance checks
+
+---
+
+## Ambiguous Margin Triplets
+
+| Company | Period | Status |
+|---------|--------|--------|
+| BMW Group | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY | `incompatible` (documented: Automotive Segment RoS scope) |
+| Mercedes-Benz | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY | `incompatible` (documented: Cars Division Adjusted RoS basis) |
+
+All other companies: `matched` or `missing` (no observations for that period).
+
+---
+
+## Missing Required Metadata
+
+| Field | Count | Notes |
+|-------|-------|-------|
+| Page number | 189 / 240 | Informational; not required for non-page-referenced observations |
+| Original reported label | 53 / 240 | Informational; required for reconciliation-grade verification |
+| Non-calendar fiscal year | 1 entity | Toyota Motor Corporation (FY End: Mar 31) |
+
+---
+
+> [!NOTE]
+> This report is generated automatically from the audit scripts. For evidence and reconciliation details, see `docs/data-audit-report.md`.

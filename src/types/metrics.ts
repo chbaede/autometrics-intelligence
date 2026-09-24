@@ -136,6 +136,39 @@ export interface DerivedMetricDefinition {
   allowedAccountingBases?: AccountingBasis[];
 }
 
+export type FindingDisposition = 'blocking' | 'review' | 'documented';
+
+export interface AuditFinding {
+  severity: 'ERROR' | 'WARNING' | 'INFO';
+  disposition: FindingDisposition;
+  category:
+    | 'FOREIGN_KEY'
+    | 'DUPLICATE'
+    | 'REQUIRED_METADATA'
+    | 'MATH_MISMATCH'
+    | 'SCOPE_MISMATCH'
+    | 'SOURCE_METADATA'
+    | 'AMBIGUOUS_SELECTION'
+    | 'PROVENANCE_INFO'
+    | 'UNCATEGORIZED';
+  // Structured fields (preferred for new findings)
+  companyId?: string;
+  period?: string;
+  metricId?: string;
+  message?: string;
+  documentationUrl?: string;
+  // Legacy fields (used in audit-data.ts)
+  item?: string;
+  detail?: string;
+}
+
+export interface ScopeRelationshipRule {
+  relationshipType: 'same_scope' | 'segment_operating_margin' | 'custom_scope_mapping';
+  numeratorScope?: ReportingScope;
+  denominatorScope?: ReportingScope;
+  marginScope?: ReportingScope;
+}
+
 export interface MarginRelationshipRule {
   id: string;
   name: string;
@@ -145,7 +178,7 @@ export interface MarginRelationshipRule {
   numeratorAccountingBases: AccountingBasis[];
   denominatorAccountingBases: AccountingBasis[];
   marginAccountingBases: AccountingBasis[];
-  allowedScopeRelationships: ('same_scope' | 'segment_over_group')[];
+  allowedScopeRelationships: ScopeRelationshipRule[];
 }
 
 export type MarginSelectionStatus = CandidateSelectionStatus;
@@ -169,6 +202,10 @@ export interface MarginValidationChecks {
   currency: boolean;
   unit: boolean;
   metricDefinition: boolean;
+  relationshipRule: boolean;
+  valueValidity: boolean;
+  verificationStatus: boolean;
+  provenance: boolean;
 }
 
 export interface MarginValidationResult {
@@ -181,6 +218,8 @@ export interface MarginValidationResult {
     profit?: string;
     margin?: string;
   };
+  selectedRuleId?: string;
+  failedChecks: (keyof MarginValidationChecks)[];
   checks: MarginValidationChecks;
   diagnostic: string;
   reasons: string[];
@@ -330,13 +369,19 @@ export interface DerivedObservation extends BaseObservation {
 }
 
 /**
- * Full observation union for strict category typing.
+ * Strict validated observation union requiring category-appropriate metadata.
  */
-export type TypedMetricObservation =
+export type ValidatedMetricObservation =
   | ReportedFinancialObservation
   | ReportedVolumeObservation
-  | DerivedObservation
-  | MetricObservation;
+  | DerivedObservation;
+
+export type RawMetricObservation = MetricObservation;
+
+/**
+ * Validated observation union for strict typing.
+ */
+export type TypedMetricObservation = ValidatedMetricObservation;
 
 export interface MetricObservation {
   id: string;

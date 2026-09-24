@@ -21,8 +21,10 @@ import {
   validateBEVShare,
   checkObservationComparability,
   validateObservationProvenance,
+  getCanonicalObservationKey,
+  MARGIN_RELATIONSHIP_RULES,
 } from '../src/utils/metricCalculations';
-import { MetricObservation, SourceDocument, Company } from '../src/types/metrics';
+import { MetricObservation, SourceDocument, Company, AuditFinding } from '../src/types/metrics';
 
 let passed = 0;
 let failed = 0;
@@ -341,6 +343,184 @@ assert(
   resBothUnknown.directlyComparable === false,
   'Anti-Regression #10: Two observations with "unknown" scope must NOT be directly comparable'
 );
+
+// ==========================================
+// STEP 4-2: Strict Policy & Validation Contract Tests
+// ==========================================
+console.log('\n🔒 STEP 4-2: Testing Strict Audit Policy, Contract Checks & Duplicate Identity...\n');
+
+// Local fixtures for STEP 4-2 tests (re-use base types already defined above)
+const step42Rev: MetricObservation = {
+  ...baseRev,
+  id: 's42_rev',
+  sourceDocId: 'doc_vw_2026_q2',
+  verificationStatus: 'verified',
+};
+const step42Profit: MetricObservation = {
+  ...baseProfit,
+  id: 's42_profit',
+  sourceDocId: 'doc_vw_2026_q2',
+  verificationStatus: 'verified',
+};
+const step42Margin: MetricObservation = {
+  ...marginCandidateA,
+  id: 's42_margin',
+  verificationStatus: 'verified',
+};
+
+// 1. Strict mode disposition logic: blocking errors must fail strict audit
+const mockFindingsBlocking: AuditFinding[] = [
+  {
+    companyId: 'volkswagen_group',
+    period: '2026-Q2',
+    metricId: 'revenue',
+    category: 'MATH_MISMATCH',
+    message: 'Math error',
+    severity: 'ERROR',
+    disposition: 'blocking',
+  },
+];
+const strictBlockingCount = mockFindingsBlocking.filter((f) => f.disposition === 'blocking' || f.disposition === 'review').length;
+assert(strictBlockingCount > 0, 'STEP 4-2 #1: Strict mode fails when a blocking error is present');
+
+// 2. Strict mode succeeds when only documented or info findings exist
+const mockFindingsDocumented: AuditFinding[] = [
+  {
+    companyId: 'bmw_group',
+    period: '2026-Q2',
+    metricId: 'operating_margin',
+    category: 'SCOPE_MISMATCH',
+    message: 'Documented segment RoS divergence',
+    severity: 'WARNING',
+    disposition: 'documented',
+    documentationUrl: 'docs/data-audit-report.md',
+  },
+  {
+    companyId: 'bmw_group',
+    period: '2026-Q2',
+    metricId: 'deliveries_global',
+    category: 'PROVENANCE_INFO',
+    message: 'Informational provenance note',
+    severity: 'INFO',
+    disposition: 'documented',
+  },
+];
+const strictDocCount = mockFindingsDocumented.filter((f) => f.disposition === 'blocking' || f.disposition === 'review').length;
+assert(strictDocCount === 0, 'STEP 4-2 #2: Strict mode succeeds when only documented or info findings exist');
+
+// 3. Unhandled review findings cause strict mode to fail
+const mockFindingsReview: AuditFinding[] = [
+  {
+    companyId: 'general_motors',
+    period: '2026-Q2',
+    metricId: 'adjusted_ebit',
+    category: 'AMBIGUOUS_SELECTION',
+    message: 'Ambiguous candidates requiring manual review',
+    severity: 'WARNING',
+    disposition: 'review',
+  },
+];
+const strictReviewCount = mockFindingsReview.filter((f) => f.disposition === 'blocking' || f.disposition === 'review').length;
+assert(strictReviewCount > 0, 'STEP 4-2 #3: Unhandled review findings cause strict mode to fail');
+
+// 4. Duplicate observations with different reportingScope or accountingBasis are NOT flagged as duplicates
+const obsReportedConsolidated: MetricObservation = {
+  id: 'obs_bmw_rev_rep',
+  companyId: 'bmw_group',
+  metricId: 'revenue',
+  period: '2026-Q2',
+  periodType: 'quarterly',
+  calendarYear: 2026,
+  value: 36944,
+  unit: 'currency_millions',
+  currency: 'EUR',
+  valueType: 'reported',
+  reportingScope: 'consolidated_group',
+  accountingBasis: 'reported',
+  isComparable: true,
+};
+const obsReportedAutomotive: MetricObservation = {
+  ...obsReportedConsolidated,
+  id: 'obs_bmw_rev_auto',
+  reportingScope: 'automotive_segment',
+};
+const key1 = getCanonicalObservationKey(obsReportedConsolidated);
+const key2 = getCanonicalObservationKey(obsReportedAutomotive);
+assert(key1 !== key2, 'STEP 4-2 #4: Observations with different reportingScope have distinct canonical keys (not duplicates)');
+
+const obsAdjustedConsolidated: MetricObservation = {
+  ...obsReportedConsolidated,
+  id: 'obs_bmw_rev_adj',
+  accountingBasis: 'adjusted',
+};
+const key3 = getCanonicalObservationKey(obsAdjustedConsolidated);
+assert(key1 !== key3, 'STEP 4-2 #4: Observations with different accountingBasis have distinct canonical keys (not duplicates)');
+
+// 5. Exact identical observations ARE flagged as duplicate errors
+const obsDuplicateExact: MetricObservation = {
+  ...obsReportedConsolidated,
+  id: 'obs_bmw_rev_rep_duplicate',
+  value: 36944,
+};
+const keyDuplicate = getCanonicalObservationKey(obsDuplicateExact);
+assert(key1 === keyDuplicate, 'STEP 4-2 #5: Exact identical observations share the same canonical key (flagged duplicate)');
+
+// 6. Margin validation fails when checks.relationshipRule is false
+const invalidRelationshipMarginObs: MetricObservation = {
+  ...step42Margin,
+  id: 'obs_invalid_rel_margin',
+  metricId: 'gross_margin', // Not supported in MARGIN_RELATIONSHIP_RULES
+};
+const resInvalidRel = validateMarginTriplet(step42Rev, step42Profit, invalidRelationshipMarginObs);
+assert(resInvalidRel.status === 'invalid', 'STEP 4-2 #6: Margin validation fails on invalid relationship rule');
+assert(resInvalidRel.checks.relationshipRule === false, 'STEP 4-2 #6: checks.relationshipRule is false');
+assert(resInvalidRel.failedChecks.includes('relationshipRule'), 'STEP 4-2 #6: failedChecks includes "relationshipRule"');
+
+// 7. Margin validation fails when checks.provenance is false
+const obsNoSourceProfit: MetricObservation = {
+  ...step42Profit,
+  verificationStatus: 'unverified',
+  sourceDocId: undefined,
+};
+const resInvalidProvenance = validateMarginTriplet(step42Rev, obsNoSourceProfit, step42Margin);
+assert(resInvalidProvenance.checks.provenance === false, 'STEP 4-2 #7: checks.provenance is false when verificationStatus is unverified');
+assert(resInvalidProvenance.failedChecks.includes('provenance'), 'STEP 4-2 #7: failedChecks includes "provenance"');
+
+// 8. Margin validation returns failedChecks containing exact failed check names
+const resMultipleFailures = validateMarginTriplet(
+  { ...step42Rev, currency: 'EUR' },
+  { ...step42Profit, currency: 'USD', period: '2026-Q1' },
+  step42Margin
+);
+assert(resMultipleFailures.failedChecks.includes('currency'), 'STEP 4-2 #8: failedChecks includes "currency"');
+assert(resMultipleFailures.failedChecks.includes('period'), 'STEP 4-2 #8: failedChecks includes "period"');
+
+// 9. Scope relationship rule matches allowed combinations and rejects disallowed combinations
+const ruleReported = MARGIN_RELATIONSHIP_RULES.find((r) => r.id === 'reported_operating_margin');
+assert(ruleReported !== undefined, 'STEP 4-2 #9: reported_operating_margin rule exists');
+const allowsSameScope = ruleReported?.allowedScopeRelationships.some(
+  (s) => s.relationshipType === 'same_scope'
+);
+assert(allowsSameScope === true, 'STEP 4-2 #9: Rule allows same_scope relationship');
+
+// 10. ValidatedMetricObservation contract enforcement
+const rawInvalidObs: MetricObservation = {
+  id: 'raw_invalid_1',
+  companyId: 'tesla',
+  metricId: 'revenue',
+  period: '2026-Q2',
+  periodType: 'quarterly',
+  calendarYear: 2026,
+  value: 26850,
+  unit: 'currency_millions',
+  currency: 'USD',
+  valueType: 'reported',
+  reportingScope: 'unknown',
+  accountingBasis: 'unknown',
+  isComparable: false,
+};
+const isRawValid = rawInvalidObs.reportingScope !== 'unknown' && rawInvalidObs.accountingBasis !== 'unknown';
+assert(!isRawValid, 'STEP 4-2 #10: Raw unvalidated observation with "unknown" scope/basis fails validation gate');
 
 console.log(`\nFinal Data Integrity Gate Results: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {

@@ -5,10 +5,13 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 
+import { getCanonicalObservationKey } from '../src/utils/metricCalculations';
+
 console.log('🚀 Running AutoMetrics Data Ingestion & Strict Integrity Validator...\n');
 
 let errorCount = 0;
 let warningCount = 0;
+const observationKeys = new Set<string>();
 
 console.log(`📊 Total Registered Automakers: ${COMPANIES_REGISTRY.length}`);
 console.log(`📈 Total Metric Definitions: ${METRIC_DEFINITIONS.length}`);
@@ -31,6 +34,15 @@ SOURCE_DOCUMENTS.forEach((doc) => {
 
 // 2. Metric Observations Strict Required Metadata Check by Category
 METRIC_OBSERVATIONS.forEach((obs) => {
+  // Check canonical dimensional duplicate
+  const canonicalKey = getCanonicalObservationKey(obs);
+  if (observationKeys.has(canonicalKey)) {
+    console.error(`❌ Duplicate Observation Key: "${canonicalKey}" (Obs ID: ${obs.id})`);
+    errorCount++;
+  } else {
+    observationKeys.add(canonicalKey);
+  }
+
   const metricDef = METRICS_MAP[obs.metricId];
   if (!metricDef) {
     console.error(`❌ Observation ${obs.id}: Unknown metricId "${obs.metricId}"`);

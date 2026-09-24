@@ -58,8 +58,10 @@ const baseRevenue: MetricObservation = {
   unit: 'currency_millions',
   currency: 'USD',
   valueType: 'reported',
+  sourceDocId: 'doc_tsla_2026_q2',
   reportingScope: 'consolidated_group',
   accountingBasis: 'reported',
+  verificationStatus: 'verified',
   isComparable: true,
 };
 
@@ -74,8 +76,10 @@ const baseReportedProfit: MetricObservation = {
   unit: 'currency_millions',
   currency: 'USD',
   valueType: 'reported',
+  sourceDocId: 'doc_tsla_2026_q2',
   reportingScope: 'consolidated_group',
   accountingBasis: 'reported',
+  verificationStatus: 'verified',
   isComparable: true,
 };
 
