@@ -1,6 +1,6 @@
-# AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report (STEP 1 & STEP 2)
+# AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report (STEP 1 — STEP 3-5)
 
-**Date of Audit**: September 24, 2026  
+**Date of Audit**: September 25, 2026  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -11,7 +11,11 @@
 
 This comprehensive data audit inspects all 13 registered companies, 240 primary financial and delivery observations, 216 regional observations, 7 management forward-looking guidance items, and 57 primary investor-relations source records in the AutoMetrics Intelligence platform.
 
-Under **STEP 2 (Scope-Safe Financial Data Model & Evidence-Based Verification)**, the data model has been strengthened with explicit types for `ReportingScope`, `AccountingBasis`, `VolumeDefinition`, `VerificationStatus`, and `VerificationMethod`. Blanket certification claims have been removed in favor of evidence-based audit classifications.
+Through **STEP 3-1 to STEP 3-5**, the architecture was hardened with:
+1. **Candidate-Based Triplet Matchers**: Replaced unsafe `.find()` / `candidates[0]` selections for BEV share and margin triplets (`selectCompatibleBevShareTriplets`, `selectCompatibleMarginTriplets`).
+2. **Strict Comparability Engine**: Evaluates 9 distinct dimensions (`definitionMatched`, `scopeMatched`, `accountingBasisMatched`, `volumeDefinitionMatched`, `periodMatched`, `periodTypeMatched`, `fiscalCalendarMatched`, `currencyMatched`, `unitMatched`) alongside intrinsic observation comparability (`isComparable`).
+3. **Source Provenance Cross-Validation**: Cross-validates source documents, company ownership, period alignment, secure HTTPS endpoints, and category-specific metadata.
+4. **Anti-Regression Gate**: 7 automated test suites with 87 assertions protecting core validation invariants.
 
 ### Verification Status Breakdown
 
@@ -19,129 +23,71 @@ Under **STEP 2 (Scope-Safe Financial Data Model & Evidence-Based Verification)**
 | :--- | :---: | :---: | :--- |
 | **Verified** (`verified`) | 232 | 96.7% | Verified against official corporate IR releases, 10-K/20-F, or audited financial statements with matching scope and mathematical reconcilability. |
 | **Scope Warning** (`scope_warning`) | 8 | 3.3% | Stored value represents segment-level return (e.g., BMW Automotive RoS, Mercedes-Benz Cars Adjusted RoS) rather than consolidated group EBIT margin. Explicitly flagged for scope awareness. |
-| **Needs Review** (`needs_review`) | 0 | 0.0% | Ambiguous observations with insufficient primary disclosure evidence to confirm reporting perimeter (reconciled during Step 2). |
+| **Needs Review** (`needs_review`) | 0 | 0.0% | Ambiguous observations with insufficient primary disclosure evidence to confirm reporting perimeter (0 in production dataset). |
 | **Unverified** (`unverified`) | 0 | 0.0% | Observations without official documentation (none permitted in the production store). |
 | **Total Observations** | **240** | **100.0%** | Total primary financial and operational observation series |
 
 ---
 
-## 2. Architecture & Scope-Safe Data Flow
+## 2. Definitional Policies & Reference Ontologies
 
-The application is structured into rigorous, scope-isolated layers:
-- **Registry Layer** (`src/types/metrics.ts`, `src/data/companies.ts`, `src/data/metricDefinitions.ts`, `src/data/regions.ts`):
-  - Strongly typed `ReportingScope` (`consolidated_group`, `automotive_segment`, `cars_segment`, `commercial_vehicles_segment`, `financial_services`, `business_unit`, `unknown`).
-  - Strongly typed `AccountingBasis` (`reported`, `adjusted`, `non_gaap`, `management_defined`, `unknown`).
-  - Strongly typed `VolumeDefinition` (`retail_deliveries`, `wholesale_shipments`, `production`, `registrations`, `unknown`).
-  - Strongly typed `VerificationStatus` (`verified`, `needs_review`, `scope_warning`, `unverified`).
-- **Observation Store** (`src/data/observations.ts`, `src/data/regionalObservations.ts`, `src/data/guidance.ts`): Normalized data points with full provenance linkage (`sourceDocId`, `pageNumber`, `originalLabel`, `evidenceReference`, `tableReference`, `reportingScope`, `accountingBasis`, `volumeDefinition`, `verificationStatus`, `verificationMethod`).
-- **Source Index** (`src/data/sources.ts`): 57 primary official IR documents, publication dates, and official URLs.
-- **Comparability Engine** (`src/utils/metricCalculations.ts`):
-  - `checkObservationComparability(obsA, obsB)`: Evaluates metric definition, reporting scope, accounting basis, volume definition, period, and currency alignment, returning detailed mismatch reasons and levels (`direct`, `limited`, `not_comparable`).
-  - `validateMarginScopeCompatibility(ebitObs, revObs, marginObs)`: Detects and warns on cross-scope margin calculations (e.g. Group EBIT / Segment Revenue).
-- **Presentation Layer** (`src/pages/*`, `src/components/*`): Reactive UI dashboards, 4-quadrant scatter matrices, and guidance corridor visualizers with scope badges and transparent audit metadata.
+### 2.1 Reporting Scope Definitions
+- **`consolidated_group`**: Entire corporate entity including automotive manufacturing, captive financial services, mobility solutions, and software subsidiaries (e.g. Total Volkswagen Group, Total Tesla, Inc., Total BMW Group).
+- **`automotive_segment`**: Automotive manufacturing and sales operations excluding financial services and motorcycle divisions (e.g. BMW Automotive Segment, GM Automotive).
+- **`cars_segment`**: Passenger car vehicle division specifically (e.g. Mercedes-Benz Cars segment distinct from Mercedes-Benz Vans).
+- **`commercial_vehicles_segment`**: Commercial vans, trucks, and bus divisions.
+- **`financial_services`**: Captive financing, leasing, and insurance operations.
+- **`business_unit`**: Sub-segment or brand-level disclosures.
 
----
+### 2.2 Accounting Basis Definitions
+- **`reported`**: Standard audited GAAP / IFRS disclosures (e.g. US GAAP Operating Income, IFRS Operating Profit, K-IFRS 영업이익).
+- **`adjusted`**: Management non-GAAP operating results adjusted for special items, restructuring, impairment, or legal provisions (e.g. GM Adjusted EBIT, Mercedes-Benz Cars Adjusted EBIT, Ford Company Adjusted EBIT).
+- **`non_gaap`**: Non-standard financial measures defined under SEC Regulation G / ESMA guidelines.
+- **`management_defined`**: Proprietary internal KPI allocations.
 
-## 3. Company Coverage & Fiscal Calendar Audit
+### 2.3 Volume Perimeter Definitions
+- **`retail_deliveries`**: Physical handovers to end-consumer customers. Used by **Tesla, Volkswagen Group, BMW Group, Mercedes-Benz, BYD**.
+- **`wholesale_shipments`**: Factory gate dispatches and billings to independent franchised dealers. Used by **Hyundai Motor, Toyota Motor, General Motors, Ford, Stellantis**.
+- **`production`**: Total assembled vehicles at manufacturing facilities.
+- **`registrations`**: Official government motor vehicle registry filings.
 
-| Company ID | Name | HQ Country | Currency | Accounting Standard | Fiscal Year-End | Calendar Alignment | Supported Periods |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| `mercedes_benz` | Mercedes-Benz Group | Germany | EUR | IFRS | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `bmw_group` | BMW Group | Germany | EUR | IFRS | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `volkswagen_group` | Volkswagen Group | Germany | EUR | IFRS | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `hyundai_motor` | Hyundai Motor Company | South Korea | KRW | K-IFRS | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `toyota_motor` | Toyota Motor Corporation | Japan | JPY | IFRS / J-GAAP | **Mar 31** | **Fiscal Year Shift** (Q1=Apr-Jun, Q2=Jul-Sep) | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `tesla` | Tesla, Inc. | United States | USD | US GAAP | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `byd` | BYD Company Limited | China | CNY | IFRS / PRC GAAP | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `general_motors` | General Motors Company | United States | USD | US GAAP | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `stellantis` | Stellantis N.V. | Netherlands/IT/FR | EUR | IFRS | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `ford` | Ford Motor Company | United States | USD | US GAAP | Dec 31 | Calendar | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY |
-| `kia` | Kia Corporation | South Korea | KRW | K-IFRS | Dec 31 | Calendar | Extensible entity |
-| `rivian` | Rivian Automotive | United States | USD | US GAAP | Dec 31 | Calendar | Extensible entity |
-| `volvo_cars` | Volvo Car AB | Sweden | SEK | IFRS | Dec 31 | Calendar | Extensible entity |
+### 2.4 Cross-OEM Comparability Policy
+Pairwise comparability between any two observations $A$ and $B$ produces one of three levels:
+1. **Direct (`level: 'direct'`, `directlyComparable: true`)**: All 9 dimensional checks match (definition, scope, accounting basis, volume definition, period, period type, fiscal calendar, currency, unit scale) and both observations have `isComparable: true`.
+2. **Limited (`level: 'limited'`, `directlyComparable: false`)**: Scope, accounting basis, currency, unit scale, or volume definition mismatch exists. Limited comparison is permitted with explicit disclosure warnings.
+3. **Not Comparable (`level: 'not_comparable'`, `directlyComparable: false`)**: Metric definition, period, period type, fiscal calendar mismatch, or intrinsic non-comparability (`isComparable: false`). Cross-comparison is strictly blocked.
 
 ---
 
-## 4. Reconciled Scope Nuances & Observations with Scope Warnings
+## 3. Command Execution & Verification Results
 
-The audit identified two key European premium OEMs where headline operating margins reported in industry press and investor decks correspond to **Automotive / Cars Segments** rather than the **Consolidated Group** (which includes Financial Services). In AutoMetrics Intelligence, these are explicitly tagged with `scope_warning` and exact scope definitions:
-
-| Company | Period | Metric | Stored Value | Reporting Scope | Accounting Basis | Official Source & Evidence | Reconciled Audit Verdict |
-| :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- |
-| **BMW Group** | `2024-FY` | `operating_margin` | `6.3%` | `automotive_segment` | `reported` | BMW Group Annual Report 2024, p. 4 | Automotive Segment EBIT (€8.94B) / Automotive Segment Revenue (€142.6B) = 6.27% (rounded 6.3%). Tagged `scope_warning`. |
-| **BMW Group** | `2025-FY` | `operating_margin` | `7.8%` | `automotive_segment` | `reported` | BMW Group Annual Report 2025, Key Figures | Automotive Segment RoS. Tagged `scope_warning`. |
-| **BMW Group** | `2026-Q1` | `operating_margin` | `8.8%` | `automotive_segment` | `reported` | BMW Q1 2026 Quarterly Statement, p. 6 | Automotive Segment EBIT (€3.22B) / Automotive Revenue (€36.6B) = 8.80%. Total Group EBIT was €4.05B (11.07% Group RoS). Tagged `scope_warning`. |
-| **BMW Group** | `2026-Q2` | `operating_margin` | `8.4%` | `automotive_segment` | `reported` | BMW Q2 2026 Quarterly Statement, Segment Overview | Automotive Segment RoS. Tagged `scope_warning`. |
-| **Mercedes-Benz** | `2024-FY` | `operating_margin` | `8.1%` | `cars_segment` | `adjusted` | Mercedes-Benz Annual Report 2024, p. 2 | Mercedes-Benz Cars (MBC) adjusted EBIT (€8.76B) / MBC Revenue (€108.1B) = 8.10%. Consolidated Group EBIT was €13.78B (9.46% Group RoS). Tagged `scope_warning`. |
-| **Mercedes-Benz** | `2025-FY` | `operating_margin` | `9.2%` | `cars_segment` | `adjusted` | Mercedes-Benz Annual Report 2025, Key Figures | Mercedes-Benz Cars adjusted RoS. Tagged `scope_warning`. |
-| **Mercedes-Benz** | `2026-Q1` | `operating_margin` | `9.8%` | `cars_segment` | `adjusted` | Mercedes-Benz Q1 2026 Interim Report, Key Figures | Mercedes-Benz Cars adjusted RoS. Tagged `scope_warning`. |
-| **Mercedes-Benz** | `2026-Q2` | `operating_margin` | `9.4%` | `cars_segment` | `adjusted` | Mercedes-Benz Q2 2026 Interim Report, Key Figures | Mercedes-Benz Cars adjusted RoS. Tagged `scope_warning`. |
+| Command | Exit Code | Result | Key Summary Output |
+| :--- | :---: | :---: | :--- |
+| `npm run typecheck` | 0 | **PASS** | 0 TypeScript errors across the entire codebase |
+| `npm test` | 0 | **PASS** | 7 / 7 test suites passed (87 assertions passed) |
+| `npm run validate-data` | 0 | **PASS** | Strict schema & integrity validation passed with 0 errors |
+| `npm run audit-data` | 0 | **PASS** | Scope-safe audit passed with 0 blocking errors (20 documented segment warnings) |
+| `npm run audit-data -- --strict` | 0 | **PASS** | Strict mode audit passed with 0 unconfigured errors |
+| `npm run build` | 0 | **PASS** | Vite production build generated clean distribution artifacts |
 
 ---
 
-## 5. Scope and Accounting Consistency Analysis
+## 4. Documented Segment Scope Warnings (20 Items)
 
-### 5.1 Volume Definition Matrix
-Volume definitions vary fundamentally across global OEMs:
-- **Retail Deliveries** (`retail_deliveries`): Customer handovers. Used by **Tesla, Volkswagen Group, BMW Group, Mercedes-Benz, BYD**.
-- **Wholesale Shipments** (`wholesale_shipments`): Dealer billings / factory gate dispatches. Used by **Hyundai Motor, Toyota Motor, General Motors, Ford, Stellantis**.
-- *Audit Rule*: In `checkObservationComparability`, comparing Retail Deliveries with Wholesale Shipments produces `level: 'limited'` with the warning `"Volume definition mismatch: retail_deliveries vs wholesale_shipments"`.
-
-### 5.2 Profitability & Accounting Basis Matrix
-- **Reported GAAP / IFRS** (`reported`): Tesla, BYD, Hyundai Motor, Volkswagen Group.
-- **Adjusted EBIT / Non-GAAP** (`adjusted`, `non_gaap`): GM (Adjusted EBIT), Ford (Adjusted EBIT), Stellantis (Adjusted Operating Income), Mercedes-Benz Cars (Adjusted RoS).
+The 20 documented warnings correspond to legitimate automotive reporting disclosures where:
+1. **BMW Group (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Headline RoS disclosure corresponds to the *Automotive Segment* rather than *Consolidated Group*.
+2. **Mercedes-Benz Group (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Headline RoS disclosure corresponds to *Mercedes-Benz Cars Segment (Adjusted)* rather than *Consolidated Group*.
+3. **General Motors (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Revenue is reported on GAAP basis, while operating profit is disclosed as *Adjusted EBIT*.
+4. **Stellantis (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Revenue is reported on IFRS basis, while operating profit is disclosed as *Adjusted Operating Income (AOI)*.
+5. **Ford Motor Company (4 periods: 2024-FY, 2025-FY, 2026-Q1, 2026-Q2)**: Revenue is reported on GAAP basis, while operating profit is disclosed as *Company Adjusted EBIT*.
 
 ---
 
-## 6. Fiscal-Year Alignment Issues
+## 5. Known Limitations & Unresolved Data Issues
 
-### Toyota Motor Corporation
-- **Fiscal Calendar**: April 1 – March 31.
-- **Standardized Mapping**:
-  - `2026-Q2` = Toyota FY2027 Q1 (Apr – Jun 2026)
-  - `2026-Q1` = Toyota FY2026 Q4 (Jan – Mar 2026)
-  - `2025-FY` = Toyota FY2025 Full Year (Apr 2024 – Mar 2025)
-  - `2024-FY` = Toyota FY2024 Full Year (Apr 2023 – Mar 2024)
-- *Audit Note*: Explicit fiscal note preserved in `companies.ts` and `metricDefinitions.ts`.
-
----
-
-## 7. Mathematical & Calculation Integrity Audit
-
-| Formula | Implementation Function | Numerator / Denominator | Missing / Zero Handling | Audit Verdict |
-| :--- | :--- | :--- | :--- | :---: |
-| **Year-over-Year (YoY)** | `calculateYoYGrowth(curr, prev)` | `(curr - prev) / abs(prev) * 100` | Returns `null` on `prev === 0` or missing inputs | **PASSED** |
-| **Quarter-over-Quarter (QoQ)** | `calculateQoQGrowth(curr, prevQ)` | `(curr - prevQ) / abs(prevQ) * 100` | Returns `null` on missing inputs | **PASSED** |
-| **Operating Margin** | `calculateMargin(ebit, rev)` | `(ebit / rev) * 100` | Returns `null` if `rev <= 0` or missing | **PASSED** |
-| **BEV Share** | `calculateBEVShare(bev, tot)` | `(bev / tot) * 100` | Clamped to $\le 100\%$, returns `null` if `tot <= 0` | **PASSED** |
-| **Guidance Midpoint** | `calculateGuidanceMidpoint(min, max, target)` | Explicit target > `(min + max) / 2` | Fallback on single bound | **PASSED** |
-| **Guidance Spread** | `calculateGuidanceRangeSpread(min, max)` | `max - min` | Returns `null` on missing bounds | **PASSED** |
-| **CAGR** | `calculateCAGR(start, end, years)` | `((end / start) ^ (1/years) - 1) * 100` | Returns `null` if `start <= 0` | **PASSED** |
-| **Regional Share** | `calculateRegionalShare(reg, tot)` | `(reg / tot) * 100` | Returns `null` if `tot <= 0` | **PASSED** |
-| **Comparability Check** | `checkObservationComparability(obsA, obsB)` | 6-dimension schema matching | Returns structured `ComparabilityResult` | **PASSED** |
-
----
-
-## 8. Regional Data & Market Perimeter Audit
-
-- **Volume Scope**: Regional records in `regionalObservations.ts` store each OEM's disclosed vehicle volume across major markets (`europe`, `north_america`, `china`, `south_america`, `japan`, `south_korea`, `rest_of_world`, `global`).
-- **Audit Caution**: These regional volumes reflect **OEM delivery footprints**, not total industry market share. The application UI labels have been verified to clearly indicate "권역 집계 총 인도량 (Total Regional Volume of Covered OEMs)" and not full market registrations.
-
----
-
-## 9. Source Metadata & Provenance Completeness
-
-- **Total Source Documents**: 57 primary IR filings registered in `src/data/sources.ts`.
-- **Protocol**: 100% of URLs are secure HTTPS endpoints directly hosted on official OEM investor domains.
-- **Audit Findings on Provenance**:
-  - `pageNumber` is present on 51 observations and omitted on 189 observations where quarterly press releases or shareholder letter HTML portals are published without fixed PDF pagination.
-  - `originalLabel` is populated on 187 observations (e.g., `"Operating profit (K-IFRS consolidated)"`, `"Total vehicle deliveries"`, `"Adjusted Return on Sales MBC"`).
-  - `evidenceReference` and `tableReference` fields added in Step 2 to support table and disclosure footnote references.
-
----
-
-## 10. Audit Methodology & Scope-Safety Note
-
-> **AUDIT NOTE ON SCOPE SAFETY**:  
-> Financial metrics across international automakers contain intrinsic scope variations (e.g., segment Return on Sales vs. consolidated Group EBIT, retail customer deliveries vs. wholesale dealer shipments).  
-> All 240 observations in this dataset have been classified according to their explicit reporting scope and accounting basis. Data points where segment definitions diverge from group consolidated metrics are flagged as `scope_warning` and isolated by the comparability engine to prevent misleading cross-OEM comparisons.
+1. **Exact PDF Page Number Coverage**:
+   - Currently, 51 / 240 observations have exact page numbers recorded (`pageNumber`), while 189 / 240 reference section/table citations without page numbers.
+2. **Original Reported Labels**:
+   - 187 / 240 observations have exact original reported labels (`originalLabel`), while 53 / 240 use standardized metric titles.
+3. **Fiscal Year Shift (Toyota Motor Corporation)**:
+   - Toyota operates on an April 1 – March 31 fiscal year. AutoMetrics maps Toyota's FY2026 Q1 (Apr-Jun) and Q2 (Jul-Sep) to the respective calendar quarters, flagging fiscal calendar misalignment when comparing directly against calendar-year peers.
