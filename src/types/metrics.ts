@@ -260,7 +260,15 @@ export interface MetricObservation {
   originalLabel?: string;
   isComparable: boolean;
   nonComparableReason?: string;
+  inputObservationIds?: string[];
+  derivationFormula?: string;
   notes?: string;
+}
+
+export interface ProvenanceValidationResult {
+  valid: boolean;
+  severity: 'ERROR' | 'WARNING' | 'INFO';
+  reasons: string[];
 }
 
 export type GuidanceStatus =

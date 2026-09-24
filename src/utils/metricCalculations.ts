@@ -19,6 +19,9 @@ import {
   MarginCandidateResult,
   MarginValidationChecks,
   MarginValidationResult,
+  SourceDocument,
+  Company,
+  ProvenanceValidationResult,
 } from '../types/metrics';
 
 export function calculateYoYGrowth(
@@ -1157,5 +1160,149 @@ export function validateBEVShare(
     diagnostic: 'BEV share calculation, volume definition, reporting scope, and mathematical consistency fully verified.',
     reasons: [],
     matchedObservationIds,
+  };
+}
+
+/**
+ * Cross-validates an observation against its associated SourceDocument and Company entity.
+ * Validates entity alignment, period alignment, official HTTPS URLs, verification status,
+ * verification methods, and evidence references.
+ */
+export function validateObservationProvenance(
+  obs: MetricObservation,
+  sourceDoc?: SourceDocument | null,
+  company?: Company | null
+): ProvenanceValidationResult {
+  const reasons: string[] = [];
+  let severity: 'ERROR' | 'WARNING' | 'INFO' = 'INFO';
+
+  // 0. Company Registry Check
+  if (company && company.id !== obs.companyId) {
+    reasons.push(`Company mismatch: observation has "${obs.companyId}", but company object is "${company.id}".`);
+    severity = 'ERROR';
+  }
+
+  // 1. Derived Observations
+  if (obs.valueType === 'derived') {
+    if (!obs.verificationStatus || obs.verificationStatus === 'unverified') {
+      reasons.push('Derived observation is missing a valid verificationStatus.');
+      return { valid: false, severity: 'ERROR', reasons };
+    }
+    if (!obs.reportingScope || obs.reportingScope === 'unknown') {
+      reasons.push('Derived observation is missing required reportingScope.');
+      return { valid: false, severity: 'ERROR', reasons };
+    }
+    return {
+      valid: true,
+      severity: 'INFO',
+      reasons: ['Derived observation has valid verification status, reporting scope, and calculation metadata.'],
+    };
+  }
+
+  // 2. Reported Observations: sourceDocId is required
+  if (!obs.sourceDocId) {
+    reasons.push('Reported observation is missing required sourceDocId link.');
+    return { valid: false, severity: 'ERROR', reasons };
+  }
+
+  if (!sourceDoc) {
+    reasons.push(`Referenced source document "${obs.sourceDocId}" does not exist in registry.`);
+    return { valid: false, severity: 'ERROR', reasons };
+  }
+
+  // 3. Entity Linkage Check: source companyId must match observation companyId
+  if (sourceDoc.companyId !== obs.companyId) {
+    reasons.push(
+      `Source company mismatch: observation belongs to "${obs.companyId}", but source document belongs to "${sourceDoc.companyId}".`
+    );
+    severity = 'ERROR';
+  }
+
+  // 4. Period Alignment Check
+  if (sourceDoc.period && sourceDoc.period !== 'all' && sourceDoc.period !== obs.period) {
+    const isQ4DeckForFY =
+      sourceDoc.period.endsWith('-Q4') &&
+      obs.period.endsWith('-FY') &&
+      obs.period.split('-FY')[0] === sourceDoc.period.split('-Q4')[0];
+    const isAnnualReportForPeriod =
+      sourceDoc.period.endsWith('-FY') &&
+      obs.period.startsWith(sourceDoc.period.split('-FY')[0]);
+
+    if (!isAnnualReportForPeriod && !isQ4DeckForFY) {
+      reasons.push(
+        `Source period mismatch: observation period is "${obs.period}", but source document period is "${sourceDoc.period}".`
+      );
+      if (severity !== 'ERROR') severity = 'WARNING';
+    }
+  }
+
+  // 5. Official Source URL Check
+  if (!sourceDoc.officialUrl || !sourceDoc.officialUrl.startsWith('https://')) {
+    reasons.push(`Source document "${sourceDoc.id}" is missing a valid secure HTTPS officialUrl.`);
+    severity = 'ERROR';
+  }
+
+  // 6. Source Publication Date Check
+  if (!sourceDoc.publicationDate || !/^\d{4}-\d{2}-\d{2}$/.test(sourceDoc.publicationDate)) {
+    reasons.push(`Source document "${sourceDoc.id}" has invalid or missing publicationDate.`);
+    severity = 'ERROR';
+  }
+
+  // 7. Source Verification Status
+  if (!sourceDoc.isVerified || sourceDoc.verificationStatus === 'unverified') {
+    reasons.push(`Source document "${sourceDoc.id}" is not marked as verified.`);
+    if (severity !== 'ERROR') severity = 'WARNING';
+  }
+
+  // 8. Observation Verification Status & Method
+  if (!obs.verificationStatus || obs.verificationStatus === 'unverified') {
+    reasons.push('Reported observation is missing or unverified verificationStatus.');
+    severity = 'ERROR';
+  }
+
+  if (!obs.verificationMethod || obs.verificationMethod === 'unverified') {
+    reasons.push('Reported observation is missing required verificationMethod.');
+    severity = 'ERROR';
+  }
+
+  // 9. Financial Specific checks
+  if (obs.unit.startsWith('currency')) {
+    if (!obs.currency) {
+      reasons.push('Financial observation is missing required currency.');
+      severity = 'ERROR';
+    }
+    if (!obs.accountingBasis || obs.accountingBasis === 'unknown') {
+      reasons.push('Financial observation is missing required accountingBasis.');
+      severity = 'ERROR';
+    }
+    if (!obs.reportingScope || obs.reportingScope === 'unknown') {
+      reasons.push('Financial observation is missing required reportingScope.');
+      severity = 'ERROR';
+    }
+  }
+
+  // 10. Volume Specific checks
+  if (obs.unit === 'units' || obs.unit === 'thousand_units' || obs.metricId.includes('deliveries')) {
+    if (!obs.volumeDefinition || obs.volumeDefinition === 'unknown') {
+      reasons.push('Volume observation is missing required volumeDefinition.');
+      severity = 'ERROR';
+    }
+    if (!obs.reportingScope || obs.reportingScope === 'unknown') {
+      reasons.push('Volume observation is missing required reportingScope.');
+      severity = 'ERROR';
+    }
+  }
+
+  // 11. Evidence Reference Note
+  if (!obs.originalLabel && !obs.evidenceReference && !obs.pageNumber && !obs.tableReference) {
+    reasons.push('Observation has no original label or evidence page/table reference.');
+    if (severity !== 'ERROR') severity = 'WARNING';
+  }
+
+  const valid = severity !== 'ERROR';
+  return {
+    valid,
+    severity,
+    reasons: reasons.length > 0 ? reasons : ['Observation provenance and source document cross-validation verified.'],
   };
 }

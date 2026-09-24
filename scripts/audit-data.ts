@@ -21,6 +21,7 @@ import {
   validateMarginTriplet,
   selectCompatibleBevShareTriplets,
   validateBEVShare,
+  validateObservationProvenance,
 } from '../src/utils/metricCalculations';
 const isStrict = process.argv.includes('--strict');
 
@@ -69,38 +70,34 @@ METRIC_OBSERVATIONS.forEach((obs) => {
   }
 });
 
-// 3. Foreign Key & Entity Integrity Check
+// 3. Source Document Provenance & Entity Cross-Validation
+let validProvenanceCount = 0;
+let sourceProvenanceErrorsCount = 0;
+let sourceProvenanceWarningsCount = 0;
+
 METRIC_OBSERVATIONS.forEach((obs) => {
-  if (!COMPANIES_MAP[obs.companyId]) {
+  const sourceDoc = obs.sourceDocId ? SOURCES_MAP[obs.sourceDocId] : null;
+  const company = COMPANIES_MAP[obs.companyId];
+
+  const provenanceResult = validateObservationProvenance(obs, sourceDoc, company);
+
+  if (provenanceResult.valid && provenanceResult.severity === 'INFO') {
+    validProvenanceCount++;
+  } else if (provenanceResult.severity === 'ERROR') {
+    sourceProvenanceErrorsCount++;
     findings.push({
       severity: 'ERROR',
-      category: 'FOREIGN_KEY',
+      category: 'SOURCE_METADATA',
       item: obs.id,
-      detail: `Unknown companyId: ${obs.companyId}`,
+      detail: provenanceResult.reasons.join('; '),
     });
-  }
-  if (!METRICS_MAP[obs.metricId]) {
-    findings.push({
-      severity: 'ERROR',
-      category: 'FOREIGN_KEY',
-      item: obs.id,
-      detail: `Unknown metricId: ${obs.metricId}`,
-    });
-  }
-  if (obs.sourceDocId && !SOURCES_MAP[obs.sourceDocId]) {
-    findings.push({
-      severity: 'ERROR',
-      category: 'FOREIGN_KEY',
-      item: obs.id,
-      detail: `Missing sourceDocId in sources registry: ${obs.sourceDocId}`,
-    });
-  }
-  if (obs.valueType === 'reported' && !obs.sourceDocId) {
+  } else if (provenanceResult.severity === 'WARNING') {
+    sourceProvenanceWarningsCount++;
     findings.push({
       severity: 'WARNING',
       category: 'SOURCE_METADATA',
       item: obs.id,
-      detail: `Reported observation is missing sourceDocId link`,
+      detail: provenanceResult.reasons.join('; '),
     });
   }
 });

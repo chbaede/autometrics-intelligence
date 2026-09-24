@@ -226,3 +226,4 @@ if (failed > 0) {
 } else {
   console.log('🎉 All semantic margin triplet matching regression tests passed!\n');
 }
+
