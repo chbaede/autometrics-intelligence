@@ -13,6 +13,8 @@ import {
   ComparabilityResult,
   ComparabilityLevel,
   VerificationStatus,
+  BevShareCandidateResult,
+  BevShareValidationResult,
 } from '../types/metrics';
 
 export function calculateYoYGrowth(
@@ -54,9 +56,10 @@ export function calculateBEVShare(
   if (totalDeliveries === null || totalDeliveries === undefined || !Number.isFinite(totalDeliveries)) return null;
   if (totalDeliveries <= 0) return null;
   if (bevDeliveries < 0) return null;
+  if (bevDeliveries > totalDeliveries) return null;
 
   const share = (bevDeliveries / totalDeliveries) * 100;
-  return Number.isFinite(share) ? Math.min(100, Math.round(share * 100) / 100) : null;
+  return Number.isFinite(share) ? Math.round(share * 100) / 100 : null;
 }
 
 export function calculateGuidanceMidpoint(
@@ -514,5 +517,364 @@ export function validateMarginScopeCompatibility(
     reportedMargin,
     difference,
     diagnostic: 'Scope, accounting basis, currency, unit, and mathematical margin calculation fully reconciled.',
+  };
+}
+
+/**
+ * Selects compatible BEV share candidate triplets from a list of observations.
+ * Matches on: companyId, period, periodType, reportingScope, accountingBasis, volumeDefinition, unit.
+ * Never arbitrarily selects candidates[0].
+ */
+export function selectCompatibleBevShareTriplets(
+  observations: MetricObservation[],
+  companyId: string,
+  period: string
+): BevShareCandidateResult {
+  const totCandidates = observations.filter(
+    (o) => o.companyId === companyId && o.period === period && o.metricId === 'deliveries_global' && o.value !== null
+  );
+  const bevCandidates = observations.filter(
+    (o) => o.companyId === companyId && o.period === period && o.metricId === 'bev_deliveries' && o.value !== null
+  );
+  const shareCandidates = observations.filter(
+    (o) => o.companyId === companyId && o.period === period && o.metricId === 'bev_share' && o.value !== null
+  );
+
+  const candidatesChecked = totCandidates.length + bevCandidates.length + shareCandidates.length;
+  const reasons: string[] = [];
+
+  if (totCandidates.length === 0 || bevCandidates.length === 0 || shareCandidates.length === 0) {
+    if (totCandidates.length === 0) reasons.push('Missing total deliveries candidate observation.');
+    if (bevCandidates.length === 0) reasons.push('Missing BEV deliveries candidate observation.');
+    if (shareCandidates.length === 0) reasons.push('Missing reported BEV share candidate observation.');
+    return {
+      status: 'missing',
+      candidatesChecked,
+      reasons,
+    };
+  }
+
+  const compatibleTriplets: {
+    tot: MetricObservation;
+    bev: MetricObservation;
+    share: MetricObservation;
+  }[] = [];
+
+  for (const tot of totCandidates) {
+    for (const bev of bevCandidates) {
+      for (const share of shareCandidates) {
+        const periodTypeMatch = tot.periodType === bev.periodType && bev.periodType === share.periodType;
+        const scopeMatch =
+          !!tot.reportingScope &&
+          !!bev.reportingScope &&
+          !!share.reportingScope &&
+          tot.reportingScope !== 'unknown' &&
+          tot.reportingScope === bev.reportingScope &&
+          bev.reportingScope === share.reportingScope;
+        const basisMatch =
+          !!tot.accountingBasis &&
+          !!bev.accountingBasis &&
+          !!share.accountingBasis &&
+          tot.accountingBasis !== 'unknown' &&
+          tot.accountingBasis === bev.accountingBasis &&
+          bev.accountingBasis === share.accountingBasis;
+        const volumeMatch =
+          !!tot.volumeDefinition &&
+          !!bev.volumeDefinition &&
+          tot.volumeDefinition !== 'unknown' &&
+          tot.volumeDefinition === bev.volumeDefinition &&
+          (!share.volumeDefinition || share.volumeDefinition === tot.volumeDefinition);
+        const unitMatch = tot.unit === bev.unit && share.unit === 'percentage';
+
+        if (periodTypeMatch && scopeMatch && basisMatch && volumeMatch && unitMatch) {
+          compatibleTriplets.push({ tot, bev, share });
+        }
+      }
+    }
+  }
+
+  if (compatibleTriplets.length === 1) {
+    return {
+      status: 'matched',
+      totalDelivery: compatibleTriplets[0].tot,
+      bevDelivery: compatibleTriplets[0].bev,
+      reportedShare: compatibleTriplets[0].share,
+      candidatesChecked,
+      reasons: ['Compatible BEV share triplet successfully matched across all metadata dimensions.'],
+    };
+  }
+
+  if (compatibleTriplets.length > 1) {
+    return {
+      status: 'ambiguous',
+      candidatesChecked,
+      reasons: [
+        `Ambiguous candidate observations: found ${compatibleTriplets.length} valid compatible candidate triplets.`,
+      ],
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    candidatesChecked,
+    reasons: [
+      'Incompatible candidate triplet: candidates exist but have mismatched reportingScope, accountingBasis, volumeDefinition, or unit.',
+    ],
+  };
+}
+
+/**
+ * Validates a BEV share triplet.
+ * Validates mathematical accuracy, volume perimeter, reporting scope, accounting basis, and value bounds.
+ */
+export function validateBEVShare(
+  totObs?: MetricObservation | null,
+  bevObs?: MetricObservation | null,
+  shareObs?: MetricObservation | null
+): BevShareValidationResult {
+  const matchedObservationIds: string[] = [];
+  if (totObs?.id) matchedObservationIds.push(totObs.id);
+  if (bevObs?.id) matchedObservationIds.push(bevObs.id);
+  if (shareObs?.id) matchedObservationIds.push(shareObs.id);
+
+  if (!totObs || !bevObs || !shareObs || totObs.value === null || bevObs.value === null || shareObs.value === null) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs?.value ?? null,
+      difference: null,
+      diagnostic: 'Incomplete observation triplet for BEV share validation.',
+      reasons: ['Missing total deliveries, BEV deliveries, or reported BEV share observation.'],
+      matchedObservationIds,
+    };
+  }
+
+  // 1. Period and PeriodType checks
+  if (totObs.period !== bevObs.period || totObs.period !== shareObs.period) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Period mismatch among total deliveries (${totObs.period}), BEV deliveries (${bevObs.period}), and share (${shareObs.period}).`,
+      reasons: ['Period mismatch across observations.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (totObs.periodType !== bevObs.periodType || totObs.periodType !== shareObs.periodType) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Period type mismatch among total deliveries (${totObs.periodType}), BEV deliveries (${bevObs.periodType}), and share (${shareObs.periodType}).`,
+      reasons: ['Period type mismatch across observations.'],
+      matchedObservationIds,
+    };
+  }
+
+  // 2. Reporting scope checks
+  const scopeTot = totObs.reportingScope;
+  const scopeBev = bevObs.reportingScope;
+  const scopeShare = shareObs.reportingScope;
+  if (!scopeTot || !scopeBev || !scopeShare || scopeTot === 'unknown' || scopeBev === 'unknown' || scopeShare === 'unknown') {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Missing or unknown reporting scope: Total (${scopeTot || 'missing'}), BEV (${scopeBev || 'missing'}), Share (${scopeShare || 'missing'}).`,
+      reasons: ['Missing reporting scope.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (scopeTot !== scopeBev || scopeTot !== scopeShare || scopeBev !== scopeShare) {
+    return {
+      isValid: false,
+      validationStatus: 'scope_warning',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Reporting scope mismatch: Total (${scopeTot}), BEV (${scopeBev}), Share (${scopeShare}).`,
+      reasons: ['Reporting scope mismatch.'],
+      matchedObservationIds,
+    };
+  }
+
+  // 3. Accounting basis checks
+  const basisTot = totObs.accountingBasis;
+  const basisBev = bevObs.accountingBasis;
+  const basisShare = shareObs.accountingBasis;
+  if (!basisTot || !basisBev || !basisShare || basisTot === 'unknown' || basisBev === 'unknown' || basisShare === 'unknown') {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Missing or unknown accounting basis: Total (${basisTot || 'missing'}), BEV (${basisBev || 'missing'}), Share (${basisShare || 'missing'}).`,
+      reasons: ['Missing accounting basis.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (basisTot !== basisBev || basisTot !== basisShare || basisBev !== basisShare) {
+    return {
+      isValid: false,
+      validationStatus: 'scope_warning',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Accounting basis mismatch: Total (${basisTot}), BEV (${basisBev}), Share (${basisShare}).`,
+      reasons: ['Accounting basis mismatch.'],
+      matchedObservationIds,
+    };
+  }
+
+  // 4. Volume definition checks
+  const volTot = totObs.volumeDefinition;
+  const volBev = bevObs.volumeDefinition;
+  const volShare = shareObs.volumeDefinition;
+  if (!volTot || !volBev || volTot === 'unknown' || volBev === 'unknown') {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Missing or unknown volume definition on volume metrics: Total (${volTot || 'missing'}), BEV (${volBev || 'missing'}).`,
+      reasons: ['Missing volume definition.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (volTot !== volBev || (volShare && volShare !== 'unknown' && volShare !== volTot)) {
+    return {
+      isValid: false,
+      validationStatus: 'scope_warning',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Volume definition mismatch: Total (${volTot}), BEV (${volBev})${volShare ? `, Share (${volShare})` : ''}.`,
+      reasons: ['Volume definition mismatch.'],
+      matchedObservationIds,
+    };
+  }
+
+  // 5. Metric unit checks
+  if (totObs.unit !== bevObs.unit) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `Unit scale mismatch between Total deliveries (${totObs.unit}) and BEV deliveries (${bevObs.unit}).`,
+      reasons: ['Unit scale mismatch.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (shareObs.unit !== 'percentage') {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare: shareObs.value,
+      difference: null,
+      diagnostic: `BEV share metric unit must be "percentage" (found "${shareObs.unit}").`,
+      reasons: ['Invalid BEV share unit.'],
+      matchedObservationIds,
+    };
+  }
+
+  // 6. Numerical & mathematical bounds checks
+  const totalDeliveries = totObs.value;
+  const bevDeliveries = bevObs.value;
+  const reportedShare = shareObs.value;
+
+  if (totalDeliveries <= 0) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare,
+      difference: null,
+      diagnostic: `Total deliveries must be positive (${totalDeliveries}); BEV share is undefined.`,
+      reasons: ['Non-positive total deliveries.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (bevDeliveries < 0) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare,
+      difference: null,
+      diagnostic: `BEV deliveries cannot be negative (${bevDeliveries}).`,
+      reasons: ['Negative BEV deliveries.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (bevDeliveries > totalDeliveries) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare,
+      difference: null,
+      diagnostic: `BEV deliveries (${bevDeliveries}) cannot exceed total vehicle deliveries (${totalDeliveries}).`,
+      reasons: ['BEV deliveries exceed total deliveries.'],
+      matchedObservationIds,
+    };
+  }
+
+  if (reportedShare < 0 || reportedShare > 100) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare: null,
+      reportedShare,
+      difference: null,
+      diagnostic: `Reported BEV share (${reportedShare}%) is outside the valid range [0, 100].`,
+      reasons: ['Reported share out of [0, 100] bounds.'],
+      matchedObservationIds,
+    };
+  }
+
+  const calculatedShare = Math.round(((bevDeliveries / totalDeliveries) * 100) * 100) / 100;
+  const difference = Math.round(Math.abs(calculatedShare - reportedShare) * 100) / 100;
+
+  if (difference > 0.35) {
+    return {
+      isValid: false,
+      validationStatus: 'needs_review',
+      calculatedShare,
+      reportedShare,
+      difference,
+      diagnostic: `Mathematical deviation of ${difference}%p exceeds 0.35%p threshold (reported: ${reportedShare}%, calculated: ${calculatedShare}%).`,
+      reasons: ['Mathematical deviation exceeds threshold.'],
+      matchedObservationIds,
+    };
+  }
+
+  return {
+    isValid: true,
+    validationStatus: 'verified',
+    calculatedShare,
+    reportedShare,
+    difference,
+    diagnostic: 'BEV share calculation, volume definition, reporting scope, and mathematical consistency fully verified.',
+    reasons: [],
+    matchedObservationIds,
   };
 }

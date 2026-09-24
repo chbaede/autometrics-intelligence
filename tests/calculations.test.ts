@@ -46,6 +46,7 @@ assert(calculateMargin(null, 100) === null, 'Margin: Null operating income retur
 assert(calculateBEVShare(20, 100) === 20, 'BEV Share: 20 BEVs / 100 total deliveries = 20%');
 assert(calculateBEVShare(0, 100) === 0, 'BEV Share: 0 BEVs = 0%');
 assert(calculateBEVShare(100, 100) === 100, 'BEV Share: 100% BEV');
+assert(calculateBEVShare(120, 100) === null, 'BEV Share: BEV deliveries > total deliveries returns null');
 assert(calculateBEVShare(-5, 100) === null, 'BEV Share: Negative BEV deliveries returns null');
 assert(calculateBEVShare(10, 0) === null, 'BEV Share: Zero total deliveries returns null');
 assert(calculateBEVShare(null, 100) === null, 'BEV Share: Null BEV value returns null');

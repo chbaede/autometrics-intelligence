@@ -103,6 +103,32 @@ export interface ComparabilityResult {
   checks: ComparabilityChecks;
 }
 
+export type CandidateSelectionStatus =
+  | 'matched'
+  | 'missing'
+  | 'ambiguous'
+  | 'incompatible';
+
+export interface BevShareCandidateResult {
+  status: CandidateSelectionStatus;
+  totalDelivery?: MetricObservation;
+  bevDelivery?: MetricObservation;
+  reportedShare?: MetricObservation;
+  candidatesChecked: number;
+  reasons: string[];
+}
+
+export interface BevShareValidationResult {
+  isValid: boolean;
+  validationStatus: VerificationStatus;
+  calculatedShare: number | null;
+  reportedShare: number | null;
+  difference: number | null;
+  diagnostic: string;
+  reasons: string[];
+  matchedObservationIds: string[];
+}
+
 export interface Company {
   id: string;
   name: string;

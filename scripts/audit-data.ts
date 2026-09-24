@@ -15,7 +15,11 @@ import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
-import { validateMarginScopeCompatibility } from '../src/utils/metricCalculations';
+import {
+  validateMarginScopeCompatibility,
+  selectCompatibleBevShareTriplets,
+  validateBEVShare,
+} from '../src/utils/metricCalculations';
 import { MetricObservation } from '../src/types/metrics';
 
 const isStrict = process.argv.includes('--strict');
@@ -293,35 +297,44 @@ companyPeriods.forEach((cp) => {
 let bevShareChecks = 0;
 companyPeriods.forEach((cp) => {
   const [companyId, period] = cp.split('|');
-  const totDelCandidates = METRIC_OBSERVATIONS.filter(
-    (o) => o.companyId === companyId && o.period === period && o.metricId === 'deliveries_global' && o.value !== null
-  );
-  const bevDelCandidates = METRIC_OBSERVATIONS.filter(
-    (o) => o.companyId === companyId && o.period === period && o.metricId === 'bev_deliveries' && o.value !== null
-  );
-  const bevShareCandidates = METRIC_OBSERVATIONS.filter(
-    (o) => o.companyId === companyId && o.period === period && o.metricId === 'bev_share' && o.value !== null
-  );
+  const selection = selectCompatibleBevShareTriplets(METRIC_OBSERVATIONS, companyId, period);
 
-  if (totDelCandidates.length > 0 && bevDelCandidates.length > 0 && bevShareCandidates.length > 0) {
+  if (selection.status === 'matched') {
     bevShareChecks++;
-    const tot = totDelCandidates[0].value!;
-    const bev = bevDelCandidates[0].value!;
-    const reportedShare = bevShareCandidates[0].value!;
+    const validation = validateBEVShare(selection.totalDelivery, selection.bevDelivery, selection.reportedShare);
 
-    if (tot > 0) {
-      const calculatedShare = (bev / tot) * 100;
-      const diff = Math.abs(calculatedShare - reportedShare);
-      if (diff > 0.35) {
-        mathMismatchCount++;
-        findings.push({
-          severity: 'WARNING',
-          category: 'MATH_MISMATCH',
-          item: `${companyId} (${period})`,
-          detail: `Reported BEV share is ${reportedShare}%, but calculated is ${calculatedShare.toFixed(2)}% (${bev}k / ${tot}k).`,
-        });
-      }
+    if (validation.validationStatus === 'needs_review') {
+      mathMismatchCount++;
+      findings.push({
+        severity: 'WARNING',
+        category: 'MATH_MISMATCH',
+        item: `${companyId} (${period})`,
+        detail: validation.diagnostic,
+      });
+    } else if (validation.validationStatus === 'scope_warning') {
+      scopeWarningsCount++;
+      findings.push({
+        severity: 'WARNING',
+        category: 'SCOPE_MISMATCH',
+        item: `${companyId} (${period})`,
+        detail: validation.diagnostic,
+      });
     }
+  } else if (selection.status === 'ambiguous') {
+    ambiguousCombinationsCount++;
+    findings.push({
+      severity: 'WARNING',
+      category: 'SCOPE_MISMATCH',
+      item: `${companyId} (${period})`,
+      detail: selection.reasons.join('; '),
+    });
+  } else if (selection.status === 'incompatible') {
+    findings.push({
+      severity: 'WARNING',
+      category: 'SCOPE_MISMATCH',
+      item: `${companyId} (${period})`,
+      detail: selection.reasons.join('; '),
+    });
   }
 });
 
