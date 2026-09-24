@@ -232,3 +232,4 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
     </div>
   );
 };
+

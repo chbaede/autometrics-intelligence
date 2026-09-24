@@ -13,6 +13,8 @@ export interface Translations {
     glossary: string;
     activeOems: string;
     verifiedIr: string;
+    mainHub: string;
+    mainHubDesc: string;
   };
   global: {
     badge: string;
@@ -73,10 +75,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       coverage: 'Coverage Matrix',
       glossary: 'Glossary & Acronyms',
       activeOems: '10 Global OEMs Active',
-      verifiedIr: 'Verified IR Data',
+      verifiedIr: 'Verified IR Data (Q2 2026)',
+      mainHub: 'Main Hub',
+      mainHubDesc: 'Back to Yocto Main Hub',
     },
     global: {
-      badge: 'Official IR Disclosures • Audit-Backed',
+      badge: 'Official IR Disclosures • Audit-Backed (Latest: 2026-Q2)',
       title: 'Global OEM Performance Intelligence',
       subtitle: 'Consolidated vehicle volume, electrification adoption, operating profit margins, and forward-looking guidance synthesized strictly from official quarterly filings and investor presentations.',
       coveredOems: 'OEMs Covered',
@@ -102,10 +106,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       marginSubtitle: 'Core operating profitability as percentage of sales revenue (%)',
       bevShare: 'Battery Electric Vehicle (BEV) Delivery Share',
       bevSubtitle: 'Pure all-electric deliveries as % of total vehicle sales volume',
-      guidanceCorridor: 'FY2025 Operating / EBIT Margin Guidance Corridors',
+      guidanceCorridor: 'FY2026 Operating / EBIT Margin Guidance Corridors',
       guidanceSubtitle: 'Official management target ranges (%) with midpoint indicators',
       historicalTrend: 'Multi-Period Performance Trend',
-      historicalSubtitle: 'Tracking historical quarterly and annual trajectory',
+      historicalSubtitle: 'Tracking historical quarterly and annual trajectory (2024 - 2026)',
       revenueVsMargin: 'Volume vs. Operating Profitability Matrix',
       revenueVsMarginSubtitle: 'Delivery volume (x-axis) vs operating margin % (y-axis)',
       powertrainMix: 'Electrification Powertrain Mix',
@@ -132,10 +136,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       coverage: '데이터 수집 매트릭스',
       glossary: '용어 및 약자 사전',
       activeOems: '글로벌 10대 OEM 검증 완료',
-      verifiedIr: '공식 IR 데이터 검증',
+      verifiedIr: '공식 IR 데이터 검증 (2026.Q2 최신)',
+      mainHub: '메인 허브',
+      mainHubDesc: 'Yocto 메인 허브로 이동',
     },
     global: {
-      badge: '공식 IR 공시 기반 • 100% 원문 인용 검증',
+      badge: '공식 IR 공시 기반 • 100% 원문 인용 검증 (2026.Q2 최신)',
       title: '글로벌 완성차 OEM 실적 및 투자 인텔리전스',
       subtitle: '공식 분기 재무제표, 연간 사업보고서, 실적 발표회(Earnings Call) 자료를 엄격하게 수집하여 분석한 완성차 판매량, 전동화 점유율, 영업이익률 및 연간 가이던스 대시보드.',
       coveredOems: '분석 대상 OEM',
@@ -161,10 +167,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       marginSubtitle: '총 매출액 대비 본업 영업이익 비율 (%)',
       bevShare: '순수 배터리 전기차(BEV) 인도 비중',
       bevSubtitle: '전체 차량 인도량 중 100% 순수 배터리 전기차 점유율 (%)',
-      guidanceCorridor: 'FY2025 연간 영업이익률 목표 가이던스 밴드',
+      guidanceCorridor: 'FY2026 연간 영업이익률 목표 가이던스 밴드',
       guidanceSubtitle: '경영진 공식 가이던스 목표 범위 (%) 및 중앙값 지표',
       historicalTrend: '분기 및 연간 다변수 실적 추이',
-      historicalSubtitle: '분기별 매출액 및 수익성 궤적 시각화',
+      historicalSubtitle: '분기별 매출액 및 수익성 궤적 시각화 (2024 - 2026)',
       revenueVsMargin: '판매 규모 vs. 수익성 4분면 매트릭스',
       revenueVsMarginSubtitle: '판매량(X축) 대비 영업이익률(Y축) 상관관계',
       powertrainMix: '파워트레인 전동화 구성비 (BEV vs PHEV vs 내연기관)',

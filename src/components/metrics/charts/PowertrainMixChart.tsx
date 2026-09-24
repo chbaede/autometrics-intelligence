@@ -113,3 +113,4 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
     </div>
   );
 };
+

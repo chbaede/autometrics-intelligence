@@ -39,7 +39,7 @@ export const CompanyComparisonPage: React.FC = () => {
     'bmw_group',
   ]);
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('2024-FY');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
   const toggleCompany = (companyId: string) => {

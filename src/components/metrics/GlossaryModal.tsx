@@ -153,3 +153,4 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose })
     </div>
   );
 };
+

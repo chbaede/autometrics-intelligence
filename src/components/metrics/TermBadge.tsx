@@ -61,3 +61,4 @@ export const TermBadge: React.FC<TermBadgeProps> = ({
     </span>
   );
 };
+

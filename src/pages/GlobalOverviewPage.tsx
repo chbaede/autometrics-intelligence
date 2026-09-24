@@ -31,7 +31,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const { t } = useLanguage();
   const companies = getAllCompanies();
   const periods = getDistinctPeriods();
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('2024-FY');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([
     'volkswagen_group',
     'toyota_motor',

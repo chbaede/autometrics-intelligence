@@ -183,3 +183,4 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
     </div>
   );
 };
+

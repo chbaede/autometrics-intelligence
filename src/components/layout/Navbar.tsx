@@ -13,6 +13,7 @@ import {
   Moon,
   BookOpen,
   Languages,
+  ExternalLink,
 } from 'lucide-react';
 import { useTheme } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -81,8 +82,20 @@ export const Navbar: React.FC = () => {
             })}
           </nav>
 
-          {/* Utility Controls (Theme Toggle, Language Toggle, Glossary Button) */}
+          {/* Utility Controls (Theme Toggle, Language Toggle, Glossary Button, Main Hub) */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Main Hub Link */}
+            <a
+              href="https://main.yocto.co.kr/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-brand-300 dark:text-brand-300 light:text-brand-700 bg-brand-950/60 dark:bg-brand-950/60 light:bg-brand-50 hover:bg-brand-900/60 dark:hover:bg-brand-900/60 light:hover:bg-brand-100 border border-brand-800/60 dark:border-brand-800/60 light:border-brand-200 transition shadow-xs"
+              title={t.nav.mainHubDesc}
+            >
+              <span>{t.nav.mainHub}</span>
+              <ExternalLink className="w-3 h-3 text-brand-400" />
+            </a>
+
             {/* Glossary Button */}
             <button
               onClick={() => setIsGlossaryOpen(true)}

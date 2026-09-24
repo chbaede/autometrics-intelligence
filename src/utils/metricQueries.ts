@@ -91,7 +91,7 @@ export function getDataQualityReport(): DataQualityReport {
     verifiedSourcesRatio: Math.round((verifiedCount / (SOURCE_DOCUMENTS.length || 1)) * 100),
     missingSourcesCount: missingSources,
     nonComparableCount: nonComparable,
-    lastUpdated: '2025-03-24',
+    lastUpdated: '2026-09-24',
     companiesCovered: COMPANIES_REGISTRY.length,
     periodsCovered: periods,
   };
@@ -103,7 +103,7 @@ export function getCoverageMatrix(): {
   matrix: Record<string, Record<string, 'available' | 'non_comparable' | 'missing'>>;
 } {
   const companies = COMPANIES_REGISTRY.slice(0, 10).map((c) => ({ id: c.id, name: c.shortName }));
-  const periods = ['2024-Q1', '2024-Q2', '2024-Q3', '2024-Q4', '2024-FY'];
+  const periods = getDistinctPeriods();
   const matrix: Record<string, Record<string, 'available' | 'non_comparable' | 'missing'>> = {};
 
   companies.forEach((comp) => {

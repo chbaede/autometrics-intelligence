@@ -145,3 +145,4 @@ export const GLOSSARY_MAP: Record<string, GlossaryTerm> = GLOSSARY_TERMS.reduce(
   },
   {} as Record<string, GlossaryTerm>
 );
+
