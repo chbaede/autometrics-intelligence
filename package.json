@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "tsx tests/calculations.test.ts && tsx tests/data-integrity.test.ts",
     "validate-data": "tsx scripts/validate-data.ts",
+    "audit-data": "tsx scripts/audit-data.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/"
   },
