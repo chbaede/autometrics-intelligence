@@ -12,6 +12,7 @@ import { MetricObservation } from '../types/metrics';
 import { formatMetricValue, getCurrencySymbol, formatPeriodLabel } from '../utils/metricCalculations';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
+import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SOURCE_DOCUMENTS } from '../data/sources';
 import {
@@ -281,6 +282,11 @@ export const CompanyDashboardPage: React.FC = () => {
         unit={selectedMetricDef?.unit || 'units'}
         onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
       />
+
+      {/* Google AdSense Sponsored Display Unit */}
+      <div className="w-full">
+        <GoogleAdBanner slot="9426228178" client="ca-pub-6854824605420161" />
+      </div>
 
       {/* Dynamic Metric Explorer */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-md space-y-6">

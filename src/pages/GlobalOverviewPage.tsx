@@ -16,6 +16,7 @@ import { PowertrainMixChart } from '../components/metrics/charts/PowertrainMixCh
 import { MarginScatterChart } from '../components/metrics/charts/MarginScatterChart';
 import { DataTable } from '../components/metrics/DataTable';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
+import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   ShieldCheck,
@@ -350,6 +351,11 @@ export const GlobalOverviewPage: React.FC = () => {
           unit="percentage"
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
+      </div>
+
+      {/* Google AdSense Sponsored Display Unit */}
+      <div className="w-full my-2">
+        <GoogleAdBanner slot="9426228178" client="ca-pub-6854824605420161" />
       </div>
 
       {/* SECTION 5: Dedicated Data Table Hub Card & Collapsible Terminal */}

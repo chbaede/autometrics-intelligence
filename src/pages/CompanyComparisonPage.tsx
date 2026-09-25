@@ -11,6 +11,7 @@ import { MetricObservation } from '../types/metrics';
 import { MetricBarChart } from '../components/metrics/charts/MetricBarChart';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
+import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import { formatMetricValue, formatPeriodLabel } from '../utils/metricCalculations';
 import {
@@ -219,6 +220,11 @@ export const CompanyComparisonPage: React.FC = () => {
         unit={selectedMetricDef?.unit || 'units'}
         onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
       />
+
+      {/* Google AdSense Sponsored Display Unit */}
+      <div className="w-full">
+        <GoogleAdBanner slot="9426228178" client="ca-pub-6854824605420161" />
+      </div>
 
       {/* Multi-Metric Side-by-Side Matrix Table */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-md">
