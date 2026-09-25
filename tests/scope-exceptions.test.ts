@@ -30,10 +30,12 @@ import {
   getEvidenceIdentityKey,
   getCanonicalObservationKey,
   validateMarginTriplet,
+  selectCompatibleMarginTriplets,
 } from '../src/utils/metricCalculations';
 import {
   MetricObservation,
   AuditFinding,
+  SourceDocument,
 } from '../src/types/metrics';
 
 let passed = 0;
@@ -51,7 +53,8 @@ function check(condition: boolean, message: string): void {
 
 console.log('\n🔒 STEP 4-3 Scope Exception & Policy Tests\n');
 
-// ── Shared known source docs set ───────────────────────────────────────────
+// ── Shared verified mock sources map ─────────────────────────────────────────
+const mockSourcesMap = new Map<string, SourceDocument>();
 const knownSourceDocIds = new Set<string>([
   'bmw_2026_q2_statement',
   'bmw_2026_q1_statement',
@@ -62,6 +65,30 @@ const knownSourceDocIds = new Set<string>([
   'mbg_2025_fy_results',
   'mbg_2024_fy_results',
 ]);
+
+for (const id of knownSourceDocIds) {
+  const isBmw = id.startsWith('bmw');
+  const period = id.includes('2026_q2')
+    ? '2026-Q2'
+    : id.includes('2026_q1')
+    ? '2026-Q1'
+    : id.includes('2025_fy')
+    ? '2025-FY'
+    : '2024-FY';
+
+  mockSourcesMap.set(id, {
+    id,
+    companyId: isBmw ? 'bmw_group' : 'mercedes_benz',
+    title: `${id} Verified Official Report`,
+    docType: 'quarterly_report',
+    period,
+    publicationDate: '2026-05-01',
+    officialUrl: `https://ir.example.com/${id}.pdf`,
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+  });
+}
 
 // ── Base observation builder ───────────────────────────────────────────────
 function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
@@ -532,6 +559,321 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   );
   check(result.matched === true, 'Test 20a: Exact Mercedes Cars Adjusted RoS exception matches (updated registry)');
   check(result.exceptionId === 'mbg_cars_adjusted_ros_2026q2', 'Test 20b: Correct Mercedes exception ID returned');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 21: Consolidated group operating income cannot automatically become segment EBIT (P0-1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const groupRev = makeObs({ id: 'bmw_rev_21', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', value: 36000 });
+  const groupEbit = makeObs({ id: 'bmw_ebit_21', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', value: 2800 });
+  const segMargin = makeObs({ id: 'bmw_margin_21', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', value: 7.8, unit: 'percentage', valueType: 'reported', currency: undefined });
+
+  // 21a: Without exception: status is 'invalid'
+  const unapprovedResult = validateMarginTriplet(groupRev, groupEbit, segMargin);
+  check(unapprovedResult.status === 'invalid', 'Test 21a: Without exception, consolidated operating income + segment margin is invalid');
+  check(unapprovedResult.checks.scope === false, 'Test 21b: Scope check fails for consolidated profit + segment margin');
+
+  // 21c: With proxy exception: status is 'proxy_only', NOT verified
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS.find(e => e.id === 'bmw_automotive_segment_ros_2026q2');
+  const proxyResult = validateMarginTriplet(groupRev, groupEbit, segMargin, undefined, { exception: bmwException });
+  check(proxyResult.status === 'proxy_only', 'Test 21c: With proxy exception, status is proxy_only (cannot be verified)');
+  check(proxyResult.calculatedMargin === null, 'Test 21d: Proxy relationship does not produce calculated verified margin');
+  check(proxyResult.reportedMargin === 7.8, 'Test 21e: Reported margin is preserved');
+  check(proxyResult.diagnostic.includes('Proxy numerator limitation'), 'Test 21f: Diagnostic clearly cites proxy numerator limitation');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 22: Reported group operating income cannot automatically become adjusted segment EBIT (P1-3)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const groupRev = makeObs({ id: 'mbg_rev_22', companyId: 'mercedes_benz', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', value: 36000 });
+  const reportedGroupEbit = makeObs({ id: 'mbg_ebit_22', companyId: 'mercedes_benz', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', value: 3000 });
+  const adjSegMargin = makeObs({ id: 'mbg_margin_22', companyId: 'mercedes_benz', metricId: 'operating_margin', reportingScope: 'cars_segment', accountingBasis: 'adjusted', value: 8.4, unit: 'percentage', valueType: 'reported', currency: undefined });
+
+  const result = validateMarginTriplet(groupRev, reportedGroupEbit, adjSegMargin);
+  check(result.status === 'invalid', 'Test 22a: Reported group profit + adjusted segment margin is invalid without exception');
+  check(result.failedChecks.includes('accountingBasis') || result.failedChecks.includes('relationshipRule') || result.failedChecks.includes('scope'), 'Test 22b: Basis or scope failed check reported');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 23: An exact exception does not override an invalid metric definition (P1-3)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const groupRev = makeObs({ id: 'bmw_rev_23', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', value: 36000 });
+  const grossProfitObs = makeObs({ id: 'bmw_gp_23', companyId: 'bmw_group', metricId: 'gross_profit' as any, reportingScope: 'consolidated_group', value: 5000 });
+  const segMargin = makeObs({ id: 'bmw_margin_23', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', value: 7.8, unit: 'percentage', valueType: 'reported', currency: undefined });
+
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS.find(e => e.id === 'bmw_automotive_segment_ros_2026q2');
+  const result = validateMarginTriplet(groupRev, grossProfitObs, segMargin, undefined, { exception: bmwException });
+  check(result.status === 'invalid', 'Test 23a: Invalid metric definition remains invalid even when exception provided');
+  check(result.failedChecks.includes('metricDefinition'), 'Test 23b: failedChecks includes metricDefinition');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 24: A valid actual segment numerator can produce a verified result (P0-1, P1-3)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const segRev = makeObs({ id: 'seg_rev_24', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'automotive_segment', accountingBasis: 'reported', value: 30000 });
+  const segProfit = makeObs({ id: 'seg_ebit_24', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'automotive_segment', accountingBasis: 'reported', value: 2400 });
+  const segMargin = makeObs({ id: 'seg_margin_24', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', value: 8.0, unit: 'percentage', valueType: 'reported', currency: undefined });
+
+  const result = validateMarginTriplet(segRev, segProfit, segMargin);
+  check(result.status === 'verified', 'Test 24a: Actual segment numerator + segment revenue produces verified status');
+  check(result.calculatedMargin === 8.0, 'Test 24b: Calculated margin is 8.0%');
+  check(result.difference === 0.0, 'Test 24c: Mathematical difference is 0.0%p');
+  check(result.checks.scope === true, 'Test 24d: Scope check passes for matching segment scopes');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 25: Deep source document validation (P0-2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // 25a: source_not_found
+  const emptySourcesMap = new Map<string, SourceDocument>();
+  const res25a = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', emptySourcesMap
+  );
+  check(res25a.matched === false, 'Test 25a-1: Missing source doc rejects exception');
+  check(res25a.structuredRejections?.includes('source_not_found') === true, 'Test 25a-2: Rejection includes source_not_found');
+
+  // 25b: source_not_verified
+  const unverifiedSourcesMap = new Map<string, SourceDocument>(mockSourcesMap);
+  unverifiedSourcesMap.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    isVerified: false,
+    verificationStatus: 'unverified',
+  });
+  const res25b = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', unverifiedSourcesMap
+  );
+  check(res25b.matched === false, 'Test 25b-1: Unverified source doc rejects exception');
+  check(res25b.structuredRejections?.includes('source_not_verified') === true, 'Test 25b-2: Rejection includes source_not_verified');
+
+  // 25c: source_company_mismatch
+  const companyMismatchSourcesMap = new Map<string, SourceDocument>(mockSourcesMap);
+  companyMismatchSourcesMap.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    companyId: 'volkswagen_group', // mismatch
+  });
+  const res25c = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', companyMismatchSourcesMap
+  );
+  check(res25c.matched === false, 'Test 25c-1: Company mismatch in source doc rejects exception');
+  check(res25c.structuredRejections?.includes('source_company_mismatch') === true, 'Test 25c-2: Rejection includes source_company_mismatch');
+
+  // 25d: source_period_mismatch
+  const periodMismatchSourcesMap = new Map<string, SourceDocument>(mockSourcesMap);
+  periodMismatchSourcesMap.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    period: '2025-FY', // mismatch from 2026-Q2
+  });
+  const res25d = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', periodMismatchSourcesMap
+  );
+  check(res25d.matched === false, 'Test 25d-1: Period mismatch in source doc rejects exception');
+  check(res25d.structuredRejections?.includes('source_period_mismatch') === true, 'Test 25d-2: Rejection includes source_period_mismatch');
+
+  // 25e: missing_official_url
+  const noUrlSourcesMap = new Map<string, SourceDocument>(mockSourcesMap);
+  noUrlSourcesMap.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    officialUrl: '', // missing
+  });
+  const res25e = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', noUrlSourcesMap
+  );
+  check(res25e.matched === false, 'Test 25e-1: Missing officialUrl in source doc rejects exception');
+  check(res25e.structuredRejections?.includes('missing_official_url') === true, 'Test 25e-2: Rejection includes missing_official_url');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 26: Candidate Selection Regression Test — Multiple Candidates without .find() (P0-3)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // Pool has 2 revenue candidates, 2 profit candidates, 2 margin candidates.
+  // The first candidate in array order [0] is a decoy that DOES NOT match the BMW exception.
+  // The second candidate [1] is the genuine BMW candidate triplet.
+  const decoyRev = makeObs({ id: 'decoy_rev', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'financial_services' }); // wrong scope (financial_services vs consolidated_group)
+  const genuineRev = makeObs({ id: 'genuine_rev', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group' });
+
+  const decoyProfit = makeObs({ id: 'decoy_profit', companyId: 'bmw_group', metricId: 'ebit', currency: 'USD', reportingScope: 'consolidated_group' }); // wrong metricId & currency
+  const genuineProfit = makeObs({ id: 'genuine_profit', companyId: 'bmw_group', metricId: 'operating_income', currency: 'EUR', reportingScope: 'consolidated_group' });
+
+  const decoyMargin = makeObs({ id: 'decoy_margin', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'commercial_vehicles_segment' }); // decoy, not automotive
+  const genuineMargin = makeObs({ id: 'genuine_margin', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment' });
+
+  // Pass pool where decoys appear FIRST
+  const pool = [decoyRev, genuineRev, decoyProfit, genuineProfit, decoyMargin, genuineMargin];
+  const selection = selectCompatibleMarginTriplets(pool, 'bmw_group', '2026-Q2');
+
+  check(selection.status === 'incompatible', 'Test 26a: Selection status is incompatible across rules');
+  check(Array.isArray(selection.diagnostics) && selection.diagnostics.length === 8, 'Test 26b: Diagnostics preserves all 2x2x2=8 candidate combinations');
+
+  // Demonstrate that picking [0] would fail exception lookup
+  const firstDiagnostic = selection.diagnostics![0];
+  const firstCheck = findDocumentedScopeException(
+    'bmw_group', '2026-Q2',
+    firstDiagnostic.margin!.metricId,
+    firstDiagnostic.profit!.metricId,
+    firstDiagnostic.revenue!.metricId,
+    firstDiagnostic.profit!.reportingScope,
+    firstDiagnostic.revenue!.reportingScope,
+    firstDiagnostic.margin!.reportingScope,
+    firstDiagnostic.profit!.accountingBasis,
+    firstDiagnostic.revenue!.accountingBasis,
+    firstDiagnostic.margin!.accountingBasis,
+    mockSourcesMap
+  );
+  check(firstCheck.matched === false, 'Test 26c: Arbitrary first candidate [0] fails exception matching');
+
+  // Demonstrate that inspecting all candidate diagnostics correctly finds the genuine triplet
+  const matchingDiagnostics = selection.diagnostics!.filter(d => {
+    const res = findDocumentedScopeException(
+      'bmw_group', '2026-Q2',
+      d.margin!.metricId,
+      d.profit!.metricId,
+      d.revenue!.metricId,
+      d.profit!.reportingScope,
+      d.revenue!.reportingScope,
+      d.margin!.reportingScope,
+      d.profit!.accountingBasis,
+      d.revenue!.accountingBasis,
+      d.margin!.accountingBasis,
+      mockSourcesMap
+    );
+    return res.matched;
+  });
+
+  check(matchingDiagnostics.length === 1, 'Test 26d: Exactly 1 candidate diagnostic triplet matches documented exception');
+  check(matchingDiagnostics[0].revenue?.id === 'genuine_rev', 'Test 26e: Matched triplet revenue is genuine_rev (not decoy)');
+  check(matchingDiagnostics[0].profit?.id === 'genuine_profit', 'Test 26f: Matched triplet profit is genuine_profit (not decoy)');
+  check(matchingDiagnostics[0].margin?.id === 'genuine_margin', 'Test 26g: Matched triplet margin is genuine_margin (not decoy)');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 27: Informational corroboration disposition (P1-1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const corroborationFinding: AuditFinding = {
+    severity: 'INFO',
+    disposition: 'informational',
+    category: 'PROVENANCE_INFO',
+    item: 'obs_corroboration',
+    sourceDocIds: ['doc_1', 'doc_2'],
+    detail: 'Corroboration from multiple filings',
+  };
+
+  const documentedFinding: AuditFinding = {
+    severity: 'WARNING',
+    disposition: 'documented',
+    category: 'SCOPE_MISMATCH',
+    item: 'bmw_group (2026-Q2)',
+    exceptionId: 'bmw_automotive_segment_ros_2026q2',
+    sourceDocIds: ['bmw_2026_q2_statement'],
+    detail: 'Documented scope exception',
+  };
+
+  const findingsList = [corroborationFinding, documentedFinding];
+  const blocking = findingsList.filter(f => f.disposition === 'blocking');
+  const review = findingsList.filter(f => f.disposition === 'review');
+  const documented = findingsList.filter(f => f.disposition === 'documented');
+  const informational = findingsList.filter(f => f.disposition === 'informational');
+
+  const isStrict = true;
+  const strictFails = blocking.length > 0 || (isStrict && review.length > 0);
+
+  check(strictFails === false, 'Test 27a: Neither documented exceptions nor informational corroborations fail strict mode');
+  check(documented.length === 1, 'Test 27b: Exactly 1 documented exception counted');
+  check(informational.length === 1, 'Test 27c: Exactly 1 informational corroboration counted');
+  check(documented[0].exceptionId !== undefined, 'Test 27d: Documented exception has exceptionId');
+  check(informational[0].exceptionId === undefined, 'Test 27e: Informational corroboration does NOT have exceptionId');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 28: Duplicate analysis with Map<string, DimRecord[]> (P1-2 & P2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  interface DimRecord {
+    id: string;
+    value: number | null;
+    sourceDocId?: string;
+    pageNumber?: number | string;
+    tableReference?: string;
+    sectionReference?: string;
+    evidenceReference?: string;
+    originalLabel?: string;
+  }
+
+  const dimMap = new Map<string, DimRecord[]>();
+
+  function processRecord(rec: DimRecord, dimKey: string): AuditFinding[] {
+    const list = dimMap.get(dimKey) || [];
+    const localFindings: AuditFinding[] = [];
+
+    for (const existing of list) {
+      const sameSource = !!existing.sourceDocId && !!rec.sourceDocId && existing.sourceDocId === rec.sourceDocId;
+      const sameValue = existing.value === rec.value;
+      const sameEvidence =
+        existing.pageNumber === rec.pageNumber &&
+        existing.tableReference === rec.tableReference &&
+        existing.sectionReference === rec.sectionReference &&
+        existing.evidenceReference === rec.evidenceReference &&
+        existing.originalLabel === rec.originalLabel;
+
+      if (sameSource && sameValue && sameEvidence) {
+        localFindings.push({ severity: 'ERROR', disposition: 'blocking', category: 'DUPLICATE', item: rec.id, detail: 'Exact duplicate' });
+      } else if (sameSource && sameValue && !sameEvidence) {
+        localFindings.push({ severity: 'WARNING', disposition: 'review', category: 'DUPLICATE', item: rec.id, detail: 'Metadata conflict' });
+      } else if (sameSource && !sameValue) {
+        localFindings.push({ severity: 'ERROR', disposition: 'blocking', category: 'DUPLICATE', item: rec.id, detail: 'Value conflict' });
+      } else if (!sameSource && sameValue) {
+        localFindings.push({ severity: 'INFO', disposition: 'informational', category: 'PROVENANCE_INFO', item: rec.id, detail: 'Corroboration' });
+      } else {
+        localFindings.push({ severity: 'WARNING', disposition: 'review', category: 'DUPLICATE', item: rec.id, detail: 'Cross-source conflict' });
+      }
+    }
+
+    list.push(rec);
+    dimMap.set(dimKey, list);
+    return localFindings;
+  }
+
+  const base: DimRecord = { id: 'r1', value: 100, sourceDocId: 'doc_a', pageNumber: 5, tableReference: 'T1', originalLabel: 'Rev' };
+  processRecord(base, 'key_1');
+
+  // Exact duplicate: same source, same value, same evidence → blocking
+  const exactDup: DimRecord = { id: 'r2', value: 100, sourceDocId: 'doc_a', pageNumber: 5, tableReference: 'T1', originalLabel: 'Rev' };
+  const fExact = processRecord(exactDup, 'key_1');
+  check(fExact[0]?.disposition === 'blocking' && fExact[0]?.severity === 'ERROR', 'Test 28a: Exact duplicate is blocking ERROR');
+
+  // Metadata conflict: same source, same value, different pageNumber → review (NOT exact duplicate!)
+  const metaConflict: DimRecord = { id: 'r3', value: 100, sourceDocId: 'doc_a', pageNumber: 12, tableReference: 'T1', originalLabel: 'Rev' };
+  const fMeta = processRecord(metaConflict, 'key_1');
+  check(fMeta.some(f => f.disposition === 'review' && f.detail?.includes('Metadata conflict')), 'Test 28b: Differing metadata on same source is review, not exact duplicate');
+
+  // Value conflict: same source, different value → blocking
+  const valConflict: DimRecord = { id: 'r4', value: 150, sourceDocId: 'doc_a', pageNumber: 5, tableReference: 'T1', originalLabel: 'Rev' };
+  const fVal = processRecord(valConflict, 'key_1');
+  check(fVal.some(f => f.disposition === 'blocking' && f.detail?.includes('Value conflict')), 'Test 28c: Same source differing value is blocking');
+
+  // Cross-source corroboration: diff source, same value → informational
+  const crossCorrob: DimRecord = { id: 'r5', value: 100, sourceDocId: 'doc_b', pageNumber: 5, tableReference: 'T1', originalLabel: 'Rev' };
+  const fCorrob = processRecord(crossCorrob, 'key_1');
+  check(fCorrob.some(f => f.disposition === 'informational' && f.detail?.includes('Corroboration')), 'Test 28d: Different source same value is informational corroboration');
+
+  // Verify all 5 records preserved in map
+  check(dimMap.get('key_1')?.length === 5, 'Test 28e: Map preserves all 5 dimensional candidates without overwriting');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

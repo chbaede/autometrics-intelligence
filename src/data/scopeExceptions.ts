@@ -24,7 +24,13 @@
  *   - rationale          (human-readable explanation with references)
  */
 
-import { ReportingScope, AccountingBasis } from '../types/metrics';
+import {
+  ReportingScope,
+  AccountingBasis,
+  SourceDocument,
+  ScopeExceptionRejectionReason,
+  ScopeExceptionNature,
+} from '../types/metrics';
 
 export interface DocumentedScopeException {
   /** Unique exception identifier (used in AuditFinding.exceptionId) */
@@ -68,7 +74,7 @@ export interface DocumentedScopeException {
 
   /**
    * One or more source document IDs that provide evidence for this exception.
-   * Must be non-empty and reference documents verified in SOURCES_MAP.
+   * Must be non-empty and reference verified source documents.
    */
   sourceDocIds: string[];
 
@@ -77,6 +83,16 @@ export interface DocumentedScopeException {
    * or industry convention that justifies this scope divergence.
    */
   rationale: string;
+
+  /**
+   * Nature of the exception numerator:
+   * - 'actual_segment': exact segment-level metric reported by OEM
+   * - 'proxy_numerator': group operating income or proxy used as approximation (cannot be verified mathematically)
+   */
+  nature?: ScopeExceptionNature;
+
+  /** Indicates whether the numerator is a proxy rather than actual segment metric. */
+  isProxy?: boolean;
 }
 
 /**
@@ -125,6 +141,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2026_q2_statement'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'BMW Group Q2 2026 Interim Statement: Automotive EBIT margin reported at Automotive Segment level ' +
       '(label: "Automotive EBIT margin"). The margin (automotive_segment scope) is derived from ' +
@@ -145,6 +163,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2026_q1_statement'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'BMW Group Q1 2026 Interim Statement: Automotive EBIT margin — same reporting convention as Q2 2026.',
   },
@@ -162,6 +182,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2025_fy_statement'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'BMW Group FY2025 Annual Report: Automotive EBIT margin — same BMW reporting convention.',
   },
@@ -179,6 +201,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2024_fy_statement'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'BMW Group FY2024 Annual Report: Automotive EBIT margin — same BMW reporting convention.',
   },
@@ -205,6 +229,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2026_q2_results'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'Mercedes-Benz Group Q2 2026 Quarterly Statement: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars. ' +
       'The margin (cars_segment, adjusted) represents the Cars Division KPI. The observable numerator ' +
@@ -225,6 +251,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2026_q1_results'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'Mercedes-Benz Group Q1 2026: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — same policy as Q2 2026.',
   },
@@ -242,6 +270,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2025_fy_results'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'Mercedes-Benz Group FY2025 Annual Report: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — same policy.',
   },
@@ -259,6 +289,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2024_fy_results'],
+    nature: 'proxy_numerator',
+    isProxy: true,
     rationale:
       'Mercedes-Benz Group FY2024 Annual Report: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — same policy.',
   },
@@ -273,14 +305,18 @@ export interface ScopeExceptionValidationResult {
   sourceDocIds?: string[];
   rationale?: string;
   rejectionReasons?: string[];
+  structuredRejections?: ScopeExceptionRejectionReason[];
+  isProxy?: boolean;
+  nature?: ScopeExceptionNature;
 }
 
 /**
  * Looks up a matching documented scope exception for a given set of observed
- * margin triplet dimensions.
+ * margin triplet dimensions and validates evidence against the source registry.
  *
  * Returns matched=true only when ALL applicable fields exactly match an
- * exception registry entry AND all source documents are present in the registry.
+ * exception registry entry AND all referenced source documents exist, are verified,
+ * match the company, and have valid official URLs.
  *
  * This function does NOT accept company name alone as a match criterion.
  */
@@ -296,7 +332,7 @@ export function findDocumentedScopeException(
   numeratorBasis: AccountingBasis | undefined,
   denominatorBasis: AccountingBasis | undefined,
   marginBasis: AccountingBasis | undefined,
-  knownSourceDocIds: Set<string>
+  sources: Map<string, SourceDocument> | Record<string, SourceDocument> | Set<string>
 ): ScopeExceptionValidationResult {
   const candidates = DOCUMENTED_SCOPE_EXCEPTIONS.filter(
     (e) => e.companyId === companyId && (e.period === undefined || e.period === period)
@@ -306,95 +342,128 @@ export function findDocumentedScopeException(
     return {
       matched: false,
       rejectionReasons: [`No documented exception registered for company "${companyId}" and period "${period}".`],
+      structuredRejections: ['scope_mismatch'],
     };
   }
 
+  const allRejectionReasons: string[] = [];
+  const allStructuredRejections = new Set<ScopeExceptionRejectionReason>();
+
   for (const exc of candidates) {
-    const rejectionReasons: string[] = [];
+    const candidateReasons: string[] = [];
+    const candidateStructured = new Set<ScopeExceptionRejectionReason>();
 
-    if (exc.marginMetricId !== marginMetricId)
-      rejectionReasons.push(`marginMetricId mismatch: expected "${exc.marginMetricId}", got "${marginMetricId}"`);
+    // 1. Metric definitions check
+    if (
+      exc.marginMetricId !== marginMetricId ||
+      exc.numeratorMetricId !== numeratorMetricId ||
+      exc.denominatorMetricId !== denominatorMetricId
+    ) {
+      candidateStructured.add('metric_mismatch');
+      if (exc.marginMetricId !== marginMetricId)
+        candidateReasons.push(`[${exc.id}] marginMetricId mismatch: expected "${exc.marginMetricId}", got "${marginMetricId}"`);
+      if (exc.numeratorMetricId !== numeratorMetricId)
+        candidateReasons.push(`[${exc.id}] numeratorMetricId mismatch: expected "${exc.numeratorMetricId}", got "${numeratorMetricId}"`);
+      if (exc.denominatorMetricId !== denominatorMetricId)
+        candidateReasons.push(`[${exc.id}] denominatorMetricId mismatch: expected "${exc.denominatorMetricId}", got "${denominatorMetricId}"`);
+    }
 
-    if (exc.numeratorMetricId !== numeratorMetricId)
-      rejectionReasons.push(`numeratorMetricId mismatch: expected "${exc.numeratorMetricId}", got "${numeratorMetricId}"`);
+    // 2. Reporting scope check
+    if (
+      exc.numeratorScope !== numeratorScope ||
+      exc.denominatorScope !== denominatorScope ||
+      exc.marginScope !== marginScope
+    ) {
+      candidateStructured.add('scope_mismatch');
+      if (exc.numeratorScope !== numeratorScope)
+        candidateReasons.push(`[${exc.id}] numeratorScope mismatch: expected "${exc.numeratorScope}", got "${numeratorScope}"`);
+      if (exc.denominatorScope !== denominatorScope)
+        candidateReasons.push(`[${exc.id}] denominatorScope mismatch: expected "${exc.denominatorScope}", got "${denominatorScope}"`);
+      if (exc.marginScope !== marginScope)
+        candidateReasons.push(`[${exc.id}] marginScope mismatch: expected "${exc.marginScope}", got "${marginScope}"`);
+    }
 
-    if (exc.denominatorMetricId !== denominatorMetricId)
-      rejectionReasons.push(`denominatorMetricId mismatch: expected "${exc.denominatorMetricId}", got "${denominatorMetricId}"`);
+    // 3. Accounting basis check
+    if (
+      exc.numeratorBasis !== numeratorBasis ||
+      exc.denominatorBasis !== denominatorBasis ||
+      exc.marginBasis !== marginBasis
+    ) {
+      candidateStructured.add('accounting_basis_mismatch');
+      if (exc.numeratorBasis !== numeratorBasis)
+        candidateReasons.push(`[${exc.id}] numeratorBasis mismatch: expected "${exc.numeratorBasis}", got "${numeratorBasis}"`);
+      if (exc.denominatorBasis !== denominatorBasis)
+        candidateReasons.push(`[${exc.id}] denominatorBasis mismatch: expected "${exc.denominatorBasis}", got "${denominatorBasis}"`);
+      if (exc.marginBasis !== marginBasis)
+        candidateReasons.push(`[${exc.id}] marginBasis mismatch: expected "${exc.marginBasis}", got "${marginBasis}"`);
+    }
 
-    if (exc.numeratorScope !== numeratorScope)
-      rejectionReasons.push(`numeratorScope mismatch: expected "${exc.numeratorScope}", got "${numeratorScope}"`);
-
-    if (exc.denominatorScope !== denominatorScope)
-      rejectionReasons.push(`denominatorScope mismatch: expected "${exc.denominatorScope}", got "${denominatorScope}"`);
-
-    if (exc.marginScope !== marginScope)
-      rejectionReasons.push(`marginScope mismatch: expected "${exc.marginScope}", got "${marginScope}"`);
-
-    if (exc.numeratorBasis !== numeratorBasis)
-      rejectionReasons.push(`numeratorBasis mismatch: expected "${exc.numeratorBasis}", got "${numeratorBasis}"`);
-
-    if (exc.denominatorBasis !== denominatorBasis)
-      rejectionReasons.push(`denominatorBasis mismatch: expected "${exc.denominatorBasis}", got "${denominatorBasis}"`);
-
-    if (exc.marginBasis !== marginBasis)
-      rejectionReasons.push(`marginBasis mismatch: expected "${exc.marginBasis}", got "${marginBasis}"`);
-
-    // Source document evidence verification
+    // 4. Source document deep verification
     if (exc.sourceDocIds.length === 0) {
-      rejectionReasons.push('Exception has no source documents — evidence is required.');
+      candidateStructured.add('missing_evidence_reference');
+      candidateReasons.push(`[${exc.id}] Exception has no source documents — evidence is required.`);
     } else {
-      const missingDocs = exc.sourceDocIds.filter((id) => !knownSourceDocIds.has(id));
-      if (missingDocs.length > 0) {
-        rejectionReasons.push(`Source documents not found in registry: ${missingDocs.join(', ')}`);
+      for (const docId of exc.sourceDocIds) {
+        let doc: SourceDocument | undefined;
+        if (sources instanceof Map) {
+          doc = sources.get(docId);
+        } else if (sources instanceof Set) {
+          if (!sources.has(docId)) {
+            candidateStructured.add('source_not_found');
+            candidateReasons.push(`[${exc.id}] Source document "${docId}" not found in registry.`);
+            continue;
+          }
+          // Set does not carry metadata; bypass deep checks
+          continue;
+        } else if (sources && typeof sources === 'object') {
+          doc = (sources as Record<string, SourceDocument>)[docId];
+        }
+
+        if (!doc) {
+          candidateStructured.add('source_not_found');
+          candidateReasons.push(`[${exc.id}] Source document "${docId}" not found in source registry.`);
+          continue;
+        }
+
+        if (!doc.isVerified && doc.verificationStatus !== 'verified') {
+          candidateStructured.add('source_not_verified');
+          candidateReasons.push(`[${exc.id}] Source document "${docId}" is not verified.`);
+        }
+
+        if (doc.companyId !== exc.companyId) {
+          candidateStructured.add('source_company_mismatch');
+          candidateReasons.push(
+            `[${exc.id}] Source document "${docId}" company (${doc.companyId}) does not match exception company (${exc.companyId}).`
+          );
+        }
+
+        if (exc.period && doc.period && doc.period !== exc.period) {
+          candidateStructured.add('source_period_mismatch');
+          candidateReasons.push(
+            `[${exc.id}] Source document "${docId}" period (${doc.period}) does not match exception period (${exc.period}).`
+          );
+        }
+
+        if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
+          candidateStructured.add('missing_official_url');
+          candidateReasons.push(`[${exc.id}] Source document "${docId}" missing valid HTTPS officialUrl.`);
+        }
       }
     }
 
-    if (rejectionReasons.length === 0) {
+    if (candidateReasons.length === 0) {
       return {
         matched: true,
         exceptionId: exc.id,
         sourceDocIds: exc.sourceDocIds,
         rationale: exc.rationale,
+        isProxy: exc.isProxy ?? false,
+        nature: exc.nature ?? (exc.isProxy ? 'proxy_numerator' : 'actual_segment'),
       };
     }
-  }
 
-  // No candidate fully matched — collect all per-candidate rejection reasons for diagnostics
-  const allRejectionReasons: string[] = [];
-  for (const exc of candidates) {
-    const candidateReasons: string[] = [];
-
-    if (exc.marginMetricId !== marginMetricId)
-      candidateReasons.push(`[${exc.id}] marginMetricId mismatch: expected "${exc.marginMetricId}", got "${marginMetricId}"`);
-    if (exc.numeratorMetricId !== numeratorMetricId)
-      candidateReasons.push(`[${exc.id}] numeratorMetricId mismatch: expected "${exc.numeratorMetricId}", got "${numeratorMetricId}"`);
-    if (exc.denominatorMetricId !== denominatorMetricId)
-      candidateReasons.push(`[${exc.id}] denominatorMetricId mismatch: expected "${exc.denominatorMetricId}", got "${denominatorMetricId}"`);
-    if (exc.numeratorScope !== numeratorScope)
-      candidateReasons.push(`[${exc.id}] numeratorScope mismatch: expected "${exc.numeratorScope}", got "${numeratorScope}"`);
-    if (exc.denominatorScope !== denominatorScope)
-      candidateReasons.push(`[${exc.id}] denominatorScope mismatch: expected "${exc.denominatorScope}", got "${denominatorScope}"`);
-    if (exc.marginScope !== marginScope)
-      candidateReasons.push(`[${exc.id}] marginScope mismatch: expected "${exc.marginScope}", got "${marginScope}"`);
-    if (exc.numeratorBasis !== numeratorBasis)
-      candidateReasons.push(`[${exc.id}] numeratorBasis mismatch: expected "${exc.numeratorBasis}", got "${numeratorBasis}"`);
-    if (exc.denominatorBasis !== denominatorBasis)
-      candidateReasons.push(`[${exc.id}] denominatorBasis mismatch: expected "${exc.denominatorBasis}", got "${denominatorBasis}"`);
-    if (exc.marginBasis !== marginBasis)
-      candidateReasons.push(`[${exc.id}] marginBasis mismatch: expected "${exc.marginBasis}", got "${marginBasis}"`);
-
-    if (exc.sourceDocIds.length === 0) {
-      candidateReasons.push(`[${exc.id}] Exception has no source documents — evidence is required.`);
-    } else {
-      const missingDocs = exc.sourceDocIds.filter((id) => !knownSourceDocIds.has(id));
-      if (missingDocs.length > 0) {
-        candidateReasons.push(`[${exc.id}] Source documents not found in registry: ${missingDocs.join(', ')}`);
-      }
-    }
-
-    if (candidateReasons.length > 0) {
-      allRejectionReasons.push(...candidateReasons);
-    }
+    candidateReasons.forEach((r) => allRejectionReasons.push(r));
+    candidateStructured.forEach((s) => allStructuredRejections.add(s));
   }
 
   return {
@@ -402,7 +471,8 @@ export function findDocumentedScopeException(
     rejectionReasons:
       allRejectionReasons.length > 0
         ? allRejectionReasons
-        : [`No documented exception registered for company "${companyId}" and period "${period}".`],
+        : [`No exact exception match found for ${companyId} / ${period}. All candidates failed dimension matching.`],
+    structuredRejections: Array.from(allStructuredRejections),
   };
 }
 

@@ -136,7 +136,7 @@ export interface DerivedMetricDefinition {
   allowedAccountingBases?: AccountingBasis[];
 }
 
-export type FindingDisposition = 'blocking' | 'review' | 'documented';
+export type FindingDisposition = 'blocking' | 'review' | 'documented' | 'informational';
 
 /**
  * Finding Disposition Semantics
@@ -145,13 +145,14 @@ export type FindingDisposition = 'blocking' | 'review' | 'documented';
  * severity=WARNING + disposition=blocking  → Validation failure requiring immediate action; fails audit in all modes.
  * severity=WARNING + disposition=review    → Unresolved ambiguity requiring human inspection; fails --strict mode.
  * severity=WARNING + disposition=documented → Approved exception with full evidence trail; never causes failure.
- * severity=INFO   + disposition=documented → Informational provenance note; never causes failure.
+ * severity=INFO   + disposition=informational → Non-blocking corroboration or informational finding; never causes failure.
  *
  * Invariants:
  *  - A finding with disposition='documented' MUST include a non-empty exceptionId and sourceDocIds.
  *  - A finding with disposition='blocking' is always counted toward audit failure, regardless of severity.
  *  - A finding with disposition='review' fails --strict mode but not normal mode.
  *  - 'documented' findings are NOT counted as clean verified data.
+ *  - 'informational' corroboration findings are tracked separately from documented scope exceptions.
  */
 export interface AuditFinding {
   severity: 'ERROR' | 'WARNING' | 'INFO';
@@ -185,12 +186,13 @@ export interface AuditFinding {
   failedChecks?: string[];
   /** URL to official documentation or rationale file. */
   documentationUrl?: string;
+  /** Indicates the finding pertains to a proxy relationship rather than verified actual segment metric. */
+  isProxy?: boolean;
 
   // ── Legacy fields (backward-compatible with existing audit-data.ts) ────────
   item?: string;
   detail?: string;
 }
-
 
 export interface ScopeRelationshipRule {
   relationshipType: 'same_scope' | 'segment_operating_margin' | 'custom_scope_mapping';
@@ -213,6 +215,15 @@ export interface MarginRelationshipRule {
 
 export type MarginSelectionStatus = CandidateSelectionStatus;
 
+export interface MarginTripletDiagnostic {
+  revenue?: MetricObservation;
+  profit?: MetricObservation;
+  margin?: MetricObservation;
+  ruleId?: string;
+  failedChecks: string[];
+  reasons: string[];
+}
+
 export interface MarginCandidateResult {
   status: MarginSelectionStatus;
   ruleId?: string;
@@ -222,6 +233,7 @@ export interface MarginCandidateResult {
   candidatesChecked: number;
   failedChecks?: string[];
   reasons: string[];
+  diagnostics?: MarginTripletDiagnostic[];
 }
 
 export interface MarginValidationChecks {
@@ -238,8 +250,15 @@ export interface MarginValidationChecks {
   provenance: boolean;
 }
 
+export type MarginValidationStatus =
+  | 'verified'
+  | 'needs_review'
+  | 'ambiguous'
+  | 'invalid'
+  | 'proxy_only';
+
 export interface MarginValidationResult {
-  status: 'verified' | 'needs_review' | 'ambiguous' | 'invalid';
+  status: MarginValidationStatus;
   calculatedMargin: number | null;
   reportedMargin: number | null;
   difference: number | null;
@@ -254,6 +273,19 @@ export interface MarginValidationResult {
   diagnostic: string;
   reasons: string[];
 }
+
+export type ScopeExceptionRejectionReason =
+  | 'source_not_found'
+  | 'source_not_verified'
+  | 'source_company_mismatch'
+  | 'source_period_mismatch'
+  | 'missing_official_url'
+  | 'missing_evidence_reference'
+  | 'metric_mismatch'
+  | 'scope_mismatch'
+  | 'accounting_basis_mismatch';
+
+export type ScopeExceptionNature = 'actual_segment' | 'proxy_numerator';
 
 export interface Company {
   id: string;

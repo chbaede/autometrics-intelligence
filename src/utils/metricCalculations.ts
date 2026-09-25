@@ -18,12 +18,14 @@ import {
   DerivedMetricDefinition,
   MarginRelationshipRule,
   MarginCandidateResult,
+  MarginTripletDiagnostic,
   MarginValidationChecks,
   MarginValidationResult,
   SourceDocument,
   Company,
   ProvenanceValidationResult,
 } from '../types/metrics';
+import { DocumentedScopeException } from '../data/scopeExceptions';
 
 export function calculateYoYGrowth(
   current: number | null | undefined,
@@ -588,6 +590,120 @@ export function selectCompatibleMarginTriplets(
     }
   }
 
+  // Build detailed candidate-specific diagnostics for every inspected triplet
+  const diagnostics: MarginTripletDiagnostic[] = [];
+
+  for (const margin of allMargin) {
+    for (const profit of allProfit) {
+      for (const rev of allRev) {
+        const matchingTriplet = compatibleTriplets.find(
+          (t) => t.rev.id === rev.id && t.profit.id === profit.id && t.margin.id === margin.id
+        );
+
+        if (matchingTriplet) {
+          diagnostics.push({
+            revenue: rev,
+            profit,
+            margin,
+            ruleId: matchingTriplet.rule.id,
+            failedChecks: [],
+            reasons: [`Compatible under rule "${matchingTriplet.rule.name}".`],
+          });
+          continue;
+        }
+
+        // Triplet is incompatible — diagnose why
+        const tripletFailedChecksSet = new Set<string>();
+        const tripletReasons: string[] = [];
+
+        // Check if any rule targets these metric definitions
+        const relevantRules = rules.filter(
+          (r) =>
+            r.denominatorMetricId === rev.metricId &&
+            r.numeratorMetricId === profit.metricId &&
+            r.marginMetricId === margin.metricId
+        );
+
+        if (relevantRules.length === 0) {
+          tripletFailedChecksSet.add('metricDefinition');
+          tripletReasons.push(
+            `No relationship rule for numerator "${profit.metricId}", denominator "${rev.metricId}", margin "${margin.metricId}".`
+          );
+        }
+
+        const candidateRules = relevantRules.length > 0 ? relevantRules : rules;
+        let selectedCandidateRule = candidateRules[0];
+
+        // Evaluate checks against the candidate rules
+        const periodMatch = rev.period === profit.period && profit.period === margin.period;
+        if (!periodMatch) tripletFailedChecksSet.add('period');
+
+        const periodTypeMatch = rev.periodType === profit.periodType && profit.periodType === margin.periodType;
+        if (!periodTypeMatch) tripletFailedChecksSet.add('periodType');
+
+        let basisMatch = false;
+        let scopeMatch = false;
+
+        for (const rule of candidateRules) {
+          const revBasisOk = rule.denominatorAccountingBases.includes(rev.accountingBasis || 'unknown');
+          const profitBasisOk = rule.numeratorAccountingBases.includes(profit.accountingBasis || 'unknown');
+          const marginBasisOk = rule.marginAccountingBases.includes(margin.accountingBasis || 'unknown');
+          if (revBasisOk && profitBasisOk && marginBasisOk) {
+            basisMatch = true;
+            selectedCandidateRule = rule;
+          }
+
+          for (const scopeRel of rule.allowedScopeRelationships) {
+            if (scopeRel.relationshipType === 'same_scope') {
+              if (
+                !!rev.reportingScope &&
+                !!profit.reportingScope &&
+                !!margin.reportingScope &&
+                rev.reportingScope !== 'unknown' &&
+                rev.reportingScope === profit.reportingScope &&
+                profit.reportingScope === margin.reportingScope
+              ) {
+                scopeMatch = true;
+                break;
+              }
+            } else if (
+              scopeRel.denominatorScope &&
+              scopeRel.numeratorScope &&
+              scopeRel.marginScope &&
+              rev.reportingScope === scopeRel.denominatorScope &&
+              profit.reportingScope === scopeRel.numeratorScope &&
+              margin.reportingScope === scopeRel.marginScope
+            ) {
+              scopeMatch = true;
+              break;
+            }
+          }
+        }
+
+        if (!basisMatch) tripletFailedChecksSet.add('accountingBasis');
+        if (!scopeMatch) tripletFailedChecksSet.add('reportingScope');
+
+        const currencyMatch = !!rev.currency && !!profit.currency && rev.currency === profit.currency;
+        if (!currencyMatch) tripletFailedChecksSet.add('currency');
+
+        const unitMatch = rev.unit === profit.unit && margin.unit === 'percentage';
+        if (!unitMatch) tripletFailedChecksSet.add('unit');
+
+        const failedChecks = Array.from(tripletFailedChecksSet);
+        if (failedChecks.length === 0) failedChecks.push('accountingBasis');
+
+        diagnostics.push({
+          revenue: rev,
+          profit,
+          margin,
+          ruleId: selectedCandidateRule?.id,
+          failedChecks,
+          reasons: tripletReasons.length > 0 ? tripletReasons : [`Failed checks: ${failedChecks.join(', ')}`],
+        });
+      }
+    }
+  }
+
   if (compatibleTriplets.length === 1) {
     return {
       status: 'matched',
@@ -597,6 +713,7 @@ export function selectCompatibleMarginTriplets(
       margin: compatibleTriplets[0].margin,
       candidatesChecked,
       reasons: [`Compatible margin triplet successfully matched under rule "${compatibleTriplets[0].rule.name}".`],
+      diagnostics,
     };
   }
 
@@ -608,6 +725,7 @@ export function selectCompatibleMarginTriplets(
       reasons: [
         `Ambiguous candidate observations: found ${compatibleTriplets.length} valid compatible candidate triplets across rules.`,
       ],
+      diagnostics,
     };
   }
 
@@ -625,7 +743,12 @@ export function selectCompatibleMarginTriplets(
     candidatesChecked,
     failedChecks,
     reasons: incompatibleReasons,
+    diagnostics,
   };
+}
+
+export interface MarginValidationOptions {
+  exception?: DocumentedScopeException | null;
 }
 
 /**
@@ -635,7 +758,8 @@ export function validateMarginTriplet(
   revObs?: MetricObservation | null,
   profitObs?: MetricObservation | null,
   marginObs?: MetricObservation | null,
-  rules: MarginRelationshipRule[] = MARGIN_RELATIONSHIP_RULES
+  rules: MarginRelationshipRule[] = MARGIN_RELATIONSHIP_RULES,
+  options?: MarginValidationOptions
 ): MarginValidationResult {
   const selectedObservationIds = {
     revenue: revObs?.id,
@@ -836,6 +960,60 @@ export function validateMarginTriplet(
   const calculatedMargin = Math.round(((profitObs.value! / revObs.value!) * 100) * 100) / 100;
   const reportedMargin = marginObs.value;
   const difference = Math.round(Math.abs(calculatedMargin - reportedMargin!) * 100) / 100;
+
+  // Handle proxy exception
+  if (options?.exception?.isProxy) {
+    if (!checks.metricDefinition) {
+      return {
+        status: 'invalid',
+        calculatedMargin,
+        reportedMargin,
+        difference,
+        selectedObservationIds,
+        selectedRuleId: matchingRule?.id,
+        failedChecks: ['metricDefinition'],
+        checks,
+        diagnostic: `Invalid metric definition: exception cannot override invalid metric types. ${reasons.join('; ')}`,
+        reasons: ['Metric definition mismatch cannot be overridden by exception.'],
+      };
+    }
+
+    if (!checks.period || !checks.periodType) {
+      return {
+        status: 'invalid',
+        calculatedMargin,
+        reportedMargin,
+        difference,
+        selectedObservationIds,
+        selectedRuleId: matchingRule?.id,
+        failedChecks:
+          !checks.period && !checks.periodType
+            ? ['period', 'periodType']
+            : !checks.period
+            ? ['period']
+            : ['periodType'],
+        checks,
+        diagnostic: `Period mismatch in proxy exception: ${reasons.join('; ')}`,
+        reasons: ['Period mismatch cannot be overridden by exception.'],
+      };
+    }
+
+    return {
+      status: 'proxy_only',
+      calculatedMargin: null,
+      reportedMargin: marginObs.value,
+      difference: null,
+      selectedObservationIds,
+      selectedRuleId: options.exception.id,
+      failedChecks: failedChecks.length > 0 ? failedChecks : ['scope'],
+      checks: { ...checks, scope: false },
+      diagnostic: `Proxy numerator limitation: consolidated operating income cannot automatically become verified segment EBIT. Reported margin (${marginObs.value}%) preserved without independent mathematical verification per exception [${options.exception.id}].`,
+      reasons: [
+        'Proxy numerator relationship — not classified as verified calculation.',
+        options.exception.rationale,
+      ],
+    };
+  }
 
   const allChecksPass = failedChecks.length === 0;
 

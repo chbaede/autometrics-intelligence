@@ -32,9 +32,6 @@ const isStrict = process.argv.includes('--strict');
 
 const findings: AuditFinding[] = [];
 
-// Pre-build known source doc ID set for evidence validation
-const knownSourceDocIds = new Set<string>(SOURCE_DOCUMENTS.map((d) => d.id));
-
 console.log('═════════════════════════════════════════════════════════════════════════════');
 console.log('🔍 AutoMetrics Intelligence — Scope-Safe Data & Financial Audit Engine (v3.0)');
 console.log('═════════════════════════════════════════════════════════════════════════════\n');
@@ -49,74 +46,108 @@ console.log(`[INVENTORY] Regional Delivery Observations:  ${REGIONAL_OBSERVATION
 
 // ────────────────────────────────────────────────────────────────────────────
 // 2. Duplicate Detection with Dimensional Identity Policy
-//    Policy:
-//    - Same dimensional key, same sourceDocId, same value → blocking duplicate
-//    - Same dimensional key, same sourceDocId, different value → blocking conflict
-//    - Same dimensional key, different sourceDocId, same value → informational corroboration
-//    - Same dimensional key, different sourceDocId, different value → review conflict
+//    Policy (P1-1, P1-2, P2):
+//    - Preserves all dimensional observations in Map<string, DimRecord[]>
+//    - Compares each observation against all previous matching observations:
+//      * same dimensional key + same source + same value + same evidence → exact duplicate, blocking
+//      * same dimensional key + same source + same value + different evidence → metadata conflict, review
+//      * same dimensional key + same source + different value → blocking conflict
+//      * same dimensional key + different source + same value → corroboration, informational
+//      * same dimensional key + different source + different value → review conflict
 // ────────────────────────────────────────────────────────────────────────────
 interface DimRecord {
   id: string;
   value: number | null;
   sourceDocId?: string;
+  pageNumber?: number | string;
+  tableReference?: string;
+  sectionReference?: string;
+  evidenceReference?: string;
+  originalLabel?: string;
 }
-const dimensionalMap = new Map<string, DimRecord>();
+const dimensionalMap = new Map<string, DimRecord[]>();
 
 METRIC_OBSERVATIONS.forEach((obs) => {
   const dimKey = getDimensionalObservationKey(obs);
-  const existing = dimensionalMap.get(dimKey);
+  const currentRecord: DimRecord = {
+    id: obs.id,
+    value: obs.value,
+    sourceDocId: obs.sourceDocId,
+    pageNumber: obs.pageNumber,
+    tableReference: obs.tableReference,
+    sectionReference: obs.sectionReference,
+    evidenceReference: obs.evidenceReference,
+    originalLabel: obs.originalLabel,
+  };
 
-  if (!existing) {
-    dimensionalMap.set(dimKey, { id: obs.id, value: obs.value, sourceDocId: obs.sourceDocId });
+  const existingList = dimensionalMap.get(dimKey);
+  if (!existingList) {
+    dimensionalMap.set(dimKey, [currentRecord]);
     return;
   }
 
-  const sameSource = existing.sourceDocId && obs.sourceDocId && existing.sourceDocId === obs.sourceDocId;
-  const sameValue = existing.value === obs.value;
+  for (const existing of existingList) {
+    const sameSource = !!existing.sourceDocId && !!obs.sourceDocId && existing.sourceDocId === obs.sourceDocId;
+    const sameValue = existing.value === obs.value;
+    const sameEvidence =
+      existing.pageNumber === obs.pageNumber &&
+      existing.tableReference === obs.tableReference &&
+      existing.sectionReference === obs.sectionReference &&
+      existing.evidenceReference === obs.evidenceReference &&
+      existing.originalLabel === obs.originalLabel;
 
-  if (sameSource && sameValue) {
-    findings.push({
-      severity: 'ERROR',
-      disposition: 'blocking',
-      category: 'DUPLICATE',
-      item: obs.id,
-      observationIds: [existing.id, obs.id],
-      detail: `Exact duplicate: same dimensional key, same source doc "${obs.sourceDocId}", same value (${obs.value}). Conflicts with ${existing.id}.`,
-    });
-  } else if (sameSource && !sameValue) {
-    findings.push({
-      severity: 'ERROR',
-      disposition: 'blocking',
-      category: 'DUPLICATE',
-      item: obs.id,
-      observationIds: [existing.id, obs.id],
-      detail: `Value conflict: same dimensional key, same source doc "${obs.sourceDocId}", but value differs (${existing.value} vs ${obs.value}). Conflicts with ${existing.id}.`,
-    });
-  } else if (!sameSource && sameValue) {
-    // Corroboration — informational only, not blocking
-    findings.push({
-      severity: 'INFO',
-      disposition: 'documented',
-      category: 'PROVENANCE_INFO',
-      item: obs.id,
-      observationIds: [existing.id, obs.id],
-      exceptionId: 'corroboration_policy',
-      sourceDocIds: [existing.sourceDocId || 'unknown', obs.sourceDocId || 'unknown'],
-      detail: `Corroboration: same dimensional key, different source documents ("${existing.sourceDocId}" vs "${obs.sourceDocId}"), same value (${obs.value}). Non-blocking per corroboration policy.`,
-    });
-  } else {
-    // Different source, different value → review conflict
-    findings.push({
-      severity: 'WARNING',
-      disposition: 'review',
-      category: 'DUPLICATE',
-      item: obs.id,
-      observationIds: [existing.id, obs.id],
-      failedChecks: ['value_conflict'],
-      detail: `Value conflict from different sources: same dimensional key, source "${existing.sourceDocId}" has value ${existing.value}, source "${obs.sourceDocId}" has value ${obs.value}. Requires human review.`,
-    });
-    dimensionalMap.set(dimKey, { id: obs.id, value: obs.value, sourceDocId: obs.sourceDocId });
+    if (sameSource && sameValue && sameEvidence) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'DUPLICATE',
+        item: obs.id,
+        observationIds: [existing.id, obs.id],
+        detail: `Exact duplicate: same dimensional key, same source doc "${obs.sourceDocId}", same value (${obs.value}), and identical evidence metadata. Conflicts with ${existing.id}.`,
+      });
+    } else if (sameSource && sameValue && !sameEvidence) {
+      findings.push({
+        severity: 'WARNING',
+        disposition: 'review',
+        category: 'DUPLICATE',
+        item: obs.id,
+        observationIds: [existing.id, obs.id],
+        detail: `Metadata conflict: same dimensional key, same source doc "${obs.sourceDocId}", same value (${obs.value}), but differing evidence metadata. Conflicts with ${existing.id}.`,
+      });
+    } else if (sameSource && !sameValue) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'DUPLICATE',
+        item: obs.id,
+        observationIds: [existing.id, obs.id],
+        detail: `Value conflict: same dimensional key, same source doc "${obs.sourceDocId}", but value differs (${existing.value} vs ${obs.value}). Conflicts with ${existing.id}.`,
+      });
+    } else if (!sameSource && sameValue) {
+      // Corroboration — informational only, not blocking
+      findings.push({
+        severity: 'INFO',
+        disposition: 'informational',
+        category: 'PROVENANCE_INFO',
+        item: obs.id,
+        observationIds: [existing.id, obs.id],
+        sourceDocIds: [existing.sourceDocId || 'unknown', obs.sourceDocId || 'unknown'],
+        detail: `Corroboration: same dimensional key from different sources ("${existing.sourceDocId}" vs "${obs.sourceDocId}") with identical value (${obs.value}). Non-blocking corroboration.`,
+      });
+    } else {
+      findings.push({
+        severity: 'WARNING',
+        disposition: 'review',
+        category: 'DUPLICATE',
+        item: obs.id,
+        observationIds: [existing.id, obs.id],
+        failedChecks: ['value_conflict'],
+        detail: `Cross-source value conflict: same dimensional key, source "${existing.sourceDocId}" has value ${existing.value}, source "${obs.sourceDocId}" has value ${obs.value}. Requires human review.`,
+      });
+    }
   }
+
+  existingList.push(currentRecord);
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -325,55 +356,70 @@ companyPeriodTypes.forEach((cpt) => {
     marginSelectionIncompatible++;
 
     // ── Evidence-backed documented exception check ────────────────────────────
-    // Extract actual observation scopes/bases from the candidate pool for exact matching.
-    // We look for the candidates that selectCompatibleMarginTriplets inspected.
-    const marginCandObs = periodObservations.find(
-      (o) => o.metricId === 'operating_margin' && o.value !== null
-    );
-    const revCandObs = periodObservations.find(
-      (o) => o.metricId === 'revenue' && o.value !== null
-    );
-    const profitCandObs = periodObservations.find(
-      (o) => ['operating_income', 'ebit', 'adjusted_ebit'].includes(o.metricId) && o.value !== null
-    );
+    // Use the actual candidate triplets preserved by selectCompatibleMarginTriplets()
+    // Never use arbitrary .find() or candidate array order (P0-3).
+    const candidateDiagnostics =
+      selection.diagnostics && selection.diagnostics.length > 0 ? selection.diagnostics : [];
 
-    const exceptionResult = findDocumentedScopeException(
-      companyId,
-      period,
-      marginCandObs?.metricId ?? 'operating_margin',
-      profitCandObs?.metricId ?? 'unknown',
-      revCandObs?.metricId ?? 'revenue',
-      profitCandObs?.reportingScope,
-      revCandObs?.reportingScope,
-      marginCandObs?.reportingScope,
-      profitCandObs?.accountingBasis,
-      revCandObs?.accountingBasis,
-      marginCandObs?.accountingBasis,
-      knownSourceDocIds
-    );
+    for (const diagnostic of candidateDiagnostics) {
+      if (!diagnostic.margin || !diagnostic.profit || !diagnostic.revenue) continue;
 
-    if (exceptionResult.matched) {
-      findings.push({
-        severity: 'WARNING',
-        disposition: 'documented',
-        category: 'SCOPE_MISMATCH',
-        item: `${companyId} (${period}, ${periodType})`,
-        exceptionId: exceptionResult.exceptionId,
-        sourceDocIds: exceptionResult.sourceDocIds,
-        observationIds: [marginCandObs?.id, profitCandObs?.id, revCandObs?.id].filter(Boolean) as string[],
-        failedChecks: selection.failedChecks,
-        detail: `Documented scope exception [${exceptionResult.exceptionId}]: ${exceptionResult.rationale}`,
-        documentationUrl: 'docs/data-audit-report.md',
-      });
-    } else {
-      // No matching exception → blocking
+      const exceptionResult = findDocumentedScopeException(
+        companyId,
+        period,
+        diagnostic.margin.metricId,
+        diagnostic.profit.metricId,
+        diagnostic.revenue.metricId,
+        diagnostic.profit.reportingScope,
+        diagnostic.revenue.reportingScope,
+        diagnostic.margin.reportingScope,
+        diagnostic.profit.accountingBasis,
+        diagnostic.revenue.accountingBasis,
+        diagnostic.margin.accountingBasis,
+        SOURCES_MAP
+      );
+
+      if (exceptionResult.matched) {
+        const isProxy = exceptionResult.isProxy ?? false;
+        const proxyPrefix = isProxy ? '[PROXY LIMITATION] ' : '';
+        const proxyDetail = isProxy
+          ? ' Note: consolidated operating income is a proxy substitute for segment EBIT; reported margin preserved from official filings but not independently verified mathematically.'
+          : '';
+
+        findings.push({
+          severity: 'WARNING',
+          disposition: 'documented',
+          category: 'SCOPE_MISMATCH',
+          item: `${companyId} (${period}, ${periodType})`,
+          exceptionId: exceptionResult.exceptionId,
+          sourceDocIds: exceptionResult.sourceDocIds,
+          observationIds: [diagnostic.margin.id, diagnostic.profit.id, diagnostic.revenue.id],
+          failedChecks: diagnostic.failedChecks,
+          isProxy,
+          detail: `${proxyPrefix}Documented scope exception [${exceptionResult.exceptionId}]: ${exceptionResult.rationale}${proxyDetail}`,
+          documentationUrl: 'docs/data-audit-report.md',
+        });
+      } else {
+        findings.push({
+          severity: 'WARNING',
+          disposition: 'blocking',
+          category: 'SCOPE_MISMATCH',
+          item: `${companyId} (${period}, ${periodType})`,
+          observationIds: [diagnostic.margin.id, diagnostic.profit.id, diagnostic.revenue.id],
+          failedChecks: diagnostic.failedChecks,
+          detail: `Incompatible margin triplet — no approved exception found for candidate triplet (${diagnostic.revenue.id}, ${diagnostic.profit.id}, ${diagnostic.margin.id}). Failed checks: ${diagnostic.failedChecks.join(', ')}. Rejection reasons: ${exceptionResult.rejectionReasons?.join('; ')}`,
+        });
+      }
+    }
+
+    if (candidateDiagnostics.length === 0) {
       findings.push({
         severity: 'WARNING',
         disposition: 'blocking',
         category: 'SCOPE_MISMATCH',
         item: `${companyId} (${period}, ${periodType})`,
         failedChecks: selection.failedChecks,
-        detail: `Incompatible margin triplet — no approved exception found. ${selection.reasons.join('; ')} Rejection reasons: ${exceptionResult.rejectionReasons?.join('; ')}`,
+        detail: `Incompatible margin triplet — no candidate triplets were inspected. ${selection.reasons.join('; ')}`,
       });
     }
   } else if (selection.status === 'missing') {
@@ -539,6 +585,7 @@ console.log(`  non-calendar fiscal year entities:   ${fiscalYearMisalignments.jo
 const blockingFindings = findings.filter((f) => f.disposition === 'blocking');
 const reviewFindings = findings.filter((f) => f.disposition === 'review');
 const documentedFindings = findings.filter((f) => f.disposition === 'documented');
+const informationalFindings = findings.filter((f) => f.disposition === 'informational');
 
 // Validate documented findings: each must have evidence (exceptionId + sourceDocIds)
 const documentedWithoutEvidence = documentedFindings.filter(
@@ -559,21 +606,35 @@ if (documentedWithoutEvidence.length > 0) {
 console.log('═════════════════════════════════════════════════════════════════════════════');
 console.log('📊 AUDIT DISPOSITION & STRICT EXIT POLICY');
 console.log('═════════════════════════════════════════════════════════════════════════════');
-console.log(`Blocking findings:   ${blockingFindings.length}`);
-console.log(`Review findings:     ${reviewFindings.length}`);
-console.log(`Documented findings: ${documentedFindings.length}`);
-console.log(`  - with evidence:   ${documentedFindings.length - documentedWithoutEvidence.length}`);
-console.log(`  - without evidence: ${documentedWithoutEvidence.length}`);
-console.log(`Strict exit policy:  ${isStrict ? 'FAIL on any blocking or review findings (only documented findings allowed)' : 'FAIL on blocking findings only'}`);
+console.log(`Blocking findings:            ${blockingFindings.length}`);
+console.log(`Review findings:              ${reviewFindings.length}`);
+console.log(`Documented exceptions:        ${documentedFindings.length}`);
+console.log(`  - with evidence:            ${documentedFindings.length - documentedWithoutEvidence.length}`);
+console.log(`  - without evidence:         ${documentedWithoutEvidence.length}`);
+console.log(`Informational corroborations: ${informationalFindings.length}`);
+console.log(
+  `Strict exit policy:           ${
+    isStrict
+      ? 'FAIL on any blocking or review findings (only documented exceptions and informational corroborations allowed)'
+      : 'FAIL on blocking findings only'
+  }`
+);
 
 const willFail = blockingFindings.length > 0 || (isStrict && reviewFindings.length > 0);
 const exitCode = willFail ? 1 : 0;
-console.log(`Strict exit code:    ${exitCode}\n`);
+console.log(`Strict exit code:             ${exitCode}\n`);
 
 if (findings.length > 0) {
   console.log(`Findings Detail (${findings.length} total):`);
   findings.forEach((f, idx) => {
-    const icon = f.disposition === 'blocking' ? '❌' : f.disposition === 'documented' ? 'ℹ️' : '⚠️';
+    const icon =
+      f.disposition === 'blocking'
+        ? '❌'
+        : f.disposition === 'documented'
+        ? 'ℹ️'
+        : f.disposition === 'informational'
+        ? '💬'
+        : '⚠️';
     const evidenceStr = f.exceptionId ? ` [Exception: ${f.exceptionId}]` : '';
     console.log(`${icon} [${idx + 1}] [${f.severity}] [DISPOSITION: ${f.disposition}] [${f.category}] ${f.item}:${evidenceStr}`);
     console.log(`    ${f.detail}\n`);
@@ -589,6 +650,8 @@ if (blockingFindings.length > 0) {
   process.exit(1);
 } else {
   const docCount = documentedFindings.length - documentedWithoutEvidence.length;
-  console.log(`✨ Scope-Safe Audit Passed with 0 blocking errors. (${docCount} evidence-backed documented exceptions)`);
+  console.log(
+    `✨ Scope-Safe Audit Passed with 0 blocking errors. (${docCount} evidence-backed documented exceptions, ${informationalFindings.length} corroborations)`
+  );
   process.exit(0);
 }
