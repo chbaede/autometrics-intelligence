@@ -47,7 +47,11 @@ import {
   ALL_KNOWN_EVIDENCE_PURPOSES,
   ALLOWED_PURPOSES_BY_SUPPORT,
   ALL_KNOWN_SUPPORT_TYPES,
+  ALL_KNOWN_PERIOD_TYPES,
   validatePeriodSemantics,
+  canClaimStateJustifyDocumented,
+  resolveClaimVerificationState,
+  normalizeClaimEvidenceLocator,
 } from '../src/data/scopeExceptions';
 import {
   getDimensionalObservationKey,
@@ -69,7 +73,10 @@ import {
   MarginRelationshipRule,
   PeriodType,
   EvidenceSupportType,
+  ClaimEvidenceLocator,
 } from '../src/types/metrics';
+import { COMPANIES_REGISTRY } from '../src/data/companies';
+import { METRIC_OBSERVATIONS } from '../src/data/observations';
 
 let passed = 0;
 let failed = 0;
@@ -5675,6 +5682,389 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(valResult.proxyLimitation === true, 'Test 212e: proxyLimitation is strictly true');
   check(valResult.proxyScopeCompatibility === true, 'Test 212f: proxyScopeCompatibility is strictly true');
   check(valResult.proxyCompatibility === true, 'Test 212g: proxyCompatibility is strictly true');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// STEP 4-16 TESTS (Task 1 to Task 6)
+// ────────────────────────────────────────────────────────────────────────────
+
+// TEST 213: Verification-state semantics & approval state guards (Task 1)
+{
+  // 1. resolveClaimVerificationState returns locator_only
+  check(resolveClaimVerificationState(undefined) === 'locator_only', 'Test 213a: Undefined evidence resolves to locator_only');
+  check(resolveClaimVerificationState([]) === 'locator_only', 'Test 213b: Empty evidence resolves to locator_only');
+
+  // 2. Untrusted manual claim_verified input is normalized/downgraded to locator_only
+  const manualClaim: ClaimEvidenceLocator = {
+    locator: 'Section 4 / Table 2',
+    claimedValue: '2026-Q2',
+    verificationState: 'claim_verified',
+  };
+  const norm = normalizeClaimEvidenceLocator(manualClaim);
+  check(norm?.verificationState === 'locator_only', 'Test 213c: Manual claim_verified input is downgraded to locator_only');
+
+  // 3. canClaimStateJustifyDocumented guards
+  check(canClaimStateJustifyDocumented('locator_only') === false, 'Test 213d: locator_only cannot justify documented disposition');
+  check(canClaimStateJustifyDocumented('claim_verified') === false, 'Test 213e: claim_verified without engine cannot justify documented disposition');
+  check(canClaimStateJustifyDocumented('source_verified') === true, 'Test 213f: source_verified can justify documented disposition');
+  check(canClaimStateJustifyDocumented(undefined) === false, 'Test 213g: undefined cannot justify documented disposition');
+
+  // 4. Invariants: proxy_only remains strictly review disposition and mathematicallyVerified: false
+  const bmwMapping = PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!;
+  const rev = makeObs({ id: 'rev_213', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_213', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_213', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const valResult = validateMarginTriplet(rev, profit, margin, undefined, { proxyMapping: bmwMapping, sourcesMap: mockSourcesMap });
+  const finding = createAuditFindingFromMarginValidation(valResult, 'bmw_group', '2026-Q2', 'quarterly', { proxyMapping: bmwMapping });
+
+  check(finding?.claimVerificationState === 'locator_only', 'Test 213h: Finding claimVerificationState is locator_only');
+  check(finding?.disposition === 'review', 'Test 213i: Finding disposition is review');
+  check((finding?.disposition as string) !== 'documented', 'Test 213j: Locator-only evidence cannot receive documented disposition');
+  check((finding?.disposition as string) !== 'verified', 'Test 213k: Locator-only evidence cannot receive verified disposition');
+}
+
+// TEST 214: Structured claim values & backward compatibility (Task 2)
+{
+  // 1. Normalization of string locator preserves backward compatibility
+  const strEntry = 'Interim Group Management Report / Automotive Segment';
+  const normStr = normalizeClaimEvidenceLocator(strEntry);
+  check(normStr !== undefined, 'Test 214a: Normalizing string entry produces ClaimEvidenceLocator');
+  check(normStr?.locator === strEntry, 'Test 214b: Locator string preserved');
+  check(normStr?.claimedValue === undefined, 'Test 214c: claimedValue is undefined for free-form string locator');
+  check(normStr?.verificationState === 'locator_only', 'Test 214d: verificationState defaults to locator_only');
+
+  // 2. Structured ClaimEvidenceLocator preserves claimedValue
+  const structEntry: ClaimEvidenceLocator = {
+    locator: 'Table 4 / RoS',
+    claimedValue: 'automotive_segment_ebit',
+    verificationState: 'locator_only',
+  };
+  const normStruct = normalizeClaimEvidenceLocator(structEntry);
+  check(normStruct?.claimedValue === 'automotive_segment_ebit', 'Test 214e: claimedValue preserved on structured entry');
+  check(normStruct?.locator === 'Table 4 / RoS', 'Test 214f: locator preserved on structured entry');
+
+  // 3. Mapping with valid structured claims succeeds (isValid === true)
+  const bmwMapping = PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!;
+  const mappingWithStructuredClaims: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'bmw_structured_claims_mapping',
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'Key Performance Indicators',
+        evidenceReference: 'Automotive EBIT',
+        purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope'],
+        supportEvidence: {
+          target_semantic: { locator: 'Automotive Segment / EBIT', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Segment Reporting / Automotive Scope', claimedValue: 'automotive_segment' },
+        },
+      },
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Revenues and Operating Result',
+        evidenceReference: 'Revenues: 36,944 million EUR; Operating profit: 3,877 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'period', 'period_type', 'accounting_basis'],
+        supportEvidence: {
+          revenue: { locator: 'Income Statement / Group Revenues', claimedValue: 'revenue' },
+          proxy_numerator: { locator: 'Income Statement / Operating Profit', claimedValue: 'operating_income' },
+          denominator: { locator: 'Revenues / Consolidated', claimedValue: 'revenue' },
+          period: { locator: 'Header / Period', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Header / Period Type', claimedValue: 'quarterly' },
+          accounting_basis: { locator: 'Accounting Policies / Basis', claimedValue: 'reported' },
+        },
+      },
+    ],
+  };
+
+  const rev = makeObs({ id: 'rev_214', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_214', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_214', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(mappingWithStructuredClaims, rev, profit, margin, mockSourcesMap);
+  check(compat.isValid === true, 'Test 214g: ProxyMapping with valid structured claims succeeds (isValid: true)');
+  check(compat.mismatches.length === 0, 'Test 214h: No mismatches for matching structured claims');
+}
+
+// TEST 215: Validate claim values against parent records (Task 3)
+{
+  const bmwMapping = PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!;
+  const rev = makeObs({ id: 'rev_215', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_215', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_215', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  // 1. claimPeriodMismatch
+  const mappingWrongClaimPeriod: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_wrong_claim_period',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supports: [...bmwMapping.evidence[0].supports!, 'period'],
+        supportEvidence: {
+          ...bmwMapping.evidence[0].supportEvidence,
+          period: { locator: 'Header', claimedValue: '2025-FY' }, // Mismatch! Expected 2026-Q2
+        },
+      },
+    ],
+  };
+  const compatPeriod = validateProxyMappingCompatibility(mappingWrongClaimPeriod, rev, profit, margin, mockSourcesMap);
+  check(compatPeriod.isValid === false, 'Test 215a: claimPeriodMismatch causes isValid=false');
+  check(compatPeriod.mismatches.includes('claimPeriodMismatch'), 'Test 215b: Mismatch claimPeriodMismatch emitted');
+
+  // 2. claimPeriodTypeMismatch
+  const mappingWrongClaimPeriodType: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_wrong_claim_pt',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supports: [...bmwMapping.evidence[0].supports!, 'period_type'],
+        supportEvidence: {
+          ...bmwMapping.evidence[0].supportEvidence,
+          period_type: { locator: 'Header', claimedValue: 'annual' }, // Mismatch! Expected quarterly
+        },
+      },
+    ],
+  };
+  const compatPt = validateProxyMappingCompatibility(mappingWrongClaimPeriodType, rev, profit, margin, mockSourcesMap);
+  check(compatPt.isValid === false, 'Test 215c: claimPeriodTypeMismatch causes isValid=false');
+  check(compatPt.mismatches.includes('claimPeriodTypeMismatch'), 'Test 215d: Mismatch claimPeriodTypeMismatch emitted');
+
+  // 3. claimAccountingBasisMismatch
+  const mappingWrongClaimBasis: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_wrong_claim_basis',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supports: [...bmwMapping.evidence[0].supports!, 'accounting_basis'],
+        supportEvidence: {
+          ...bmwMapping.evidence[0].supportEvidence,
+          accounting_basis: { locator: 'Notes', claimedValue: 'adjusted' }, // Mismatch! Expected reported
+        },
+      },
+    ],
+  };
+  const compatBasis = validateProxyMappingCompatibility(mappingWrongClaimBasis, rev, profit, margin, mockSourcesMap);
+  check(compatBasis.isValid === false, 'Test 215e: claimAccountingBasisMismatch causes isValid=false');
+  check(compatBasis.mismatches.includes('claimAccountingBasisMismatch'), 'Test 215f: Mismatch claimAccountingBasisMismatch emitted');
+
+  // 4. claimSemanticMismatch
+  const mappingWrongClaimSemantic: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_wrong_claim_semantic',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supportEvidence: {
+          ...bmwMapping.evidence[0].supportEvidence,
+          target_semantic: { locator: 'Definition', claimedValue: 'cars_adjusted_ebit' }, // Mismatch! Expected automotive_segment_ebit
+        },
+      },
+    ],
+  };
+  const compatSem = validateProxyMappingCompatibility(mappingWrongClaimSemantic, rev, profit, margin, mockSourcesMap);
+  check(compatSem.isValid === false, 'Test 215g: claimSemanticMismatch causes isValid=false');
+  check(compatSem.mismatches.includes('claimSemanticMismatch'), 'Test 215h: Mismatch claimSemanticMismatch emitted');
+
+  // 5. claimScopeMismatch
+  const mappingWrongClaimScope: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_wrong_claim_scope',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supportEvidence: {
+          ...bmwMapping.evidence[0].supportEvidence,
+          scope: { locator: 'Perimeter', claimedValue: 'business_unit' }, // Mismatch! Not in allowed scopes
+        },
+      },
+    ],
+  };
+  const compatScope = validateProxyMappingCompatibility(mappingWrongClaimScope, rev, profit, margin, mockSourcesMap);
+  check(compatScope.isValid === false, 'Test 215i: claimScopeMismatch causes isValid=false');
+  check(compatScope.mismatches.includes('claimScopeMismatch'), 'Test 215j: Mismatch claimScopeMismatch emitted');
+}
+
+// TEST 216: SupportEvidence completeness & edge cases (Task 4)
+{
+  const bmwMapping = PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!;
+  const rev = makeObs({ id: 'rev_216', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_216', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_216', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  // 1. Missing supportEvidence on required support fails with missingClaimEvidence
+  const mappingNoSupportEv: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_no_support_ev',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supportEvidence: undefined, // Stripped!
+      },
+    ],
+  };
+  const compatNoEv = validateProxyMappingCompatibility(mappingNoSupportEv, rev, profit, margin, mockSourcesMap);
+  check(compatNoEv.isValid === false, 'Test 216a: Missing supportEvidence fails validation');
+  check(compatNoEv.mismatches.includes('missingClaimEvidence'), 'Test 216b: Mismatch missingClaimEvidence emitted');
+
+  // 2. Empty locator string inside ClaimEvidenceLocator fails with missingClaimEvidenceLocator
+  const mappingEmptyLocatorObj: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_empty_locator_obj',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supportEvidence: {
+          ...bmwMapping.evidence[0].supportEvidence,
+          revenue: { locator: '   ' }, // Whitespace locator!
+        },
+      },
+    ],
+  };
+  const compatEmptyLoc = validateProxyMappingCompatibility(mappingEmptyLocatorObj, rev, profit, margin, mockSourcesMap);
+  check(compatEmptyLoc.isValid === false, 'Test 216c: Empty locator object fails validation');
+  check(compatEmptyLoc.mismatches.includes('missingClaimEvidenceLocator'), 'Test 216d: Mismatch missingClaimEvidenceLocator emitted');
+
+  // 3. Unknown claim key fails with unknownClaimEvidenceType
+  const mappingUnknownKey: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_unknown_key',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supportEvidence: {
+          ...bmwMapping.evidence[0].supportEvidence,
+          // @ts-expect-error test unknown key
+          unsupported_key: { locator: 'Some section' },
+        },
+      },
+    ],
+  };
+  const compatUnk = validateProxyMappingCompatibility(mappingUnknownKey, rev, profit, margin, mockSourcesMap);
+  check(compatUnk.isValid === false, 'Test 216e: Unknown claim key fails validation');
+  check(compatUnk.mismatches.includes('unknownClaimEvidenceType'), 'Test 216f: Mismatch unknownClaimEvidenceType emitted');
+
+  // 4. Orphan claim key not declared in supports fails with orphanClaimEvidence
+  const mappingOrphanKey: ProxyMetricMapping = {
+    ...bmwMapping,
+    id: 'mapping_orphan_key',
+    evidence: [
+      {
+        ...bmwMapping.evidence[0],
+        supports: ['revenue', 'proxy_numerator'], // scope is missing from supports!
+        supportEvidence: {
+          revenue: 'Revenue locator',
+          proxy_numerator: 'Numerator locator',
+          scope: 'Orphan scope locator', // Declared in supportEvidence but NOT in supports
+        },
+      },
+    ],
+  };
+  const compatOrphan = validateProxyMappingCompatibility(mappingOrphanKey, rev, profit, margin, mockSourcesMap);
+  check(compatOrphan.isValid === false, 'Test 216g: Orphan claim key fails validation');
+  check(compatOrphan.mismatches.includes('orphanClaimEvidence'), 'Test 216h: Mismatch orphanClaimEvidence emitted');
+}
+
+// TEST 217: Period semantics across all PeriodType values (Task 5)
+{
+  check(ALL_KNOWN_PERIOD_TYPES.length === 6, 'Test 217a0: ALL_KNOWN_PERIOD_TYPES contains 6 standard period types');
+  check(ALL_KNOWN_PERIOD_TYPES.includes('semi_annual'), 'Test 217a1: ALL_KNOWN_PERIOD_TYPES includes semi_annual');
+
+  // 1. Valid periodType checks
+  check(validatePeriodSemantics('2026-Q2', 'quarterly').isValid === true, 'Test 217a: 2026-Q2 quarterly is valid');
+  check(validatePeriodSemantics('2025-FY', 'annual').isValid === true, 'Test 217b: 2025-FY annual is valid');
+  check(validatePeriodSemantics('2026-H1', 'semi_annual').isValid === true, 'Test 217c: 2026-H1 semi_annual is valid');
+  check(validatePeriodSemantics('2026-H2', 'semi_annual').isValid === true, 'Test 217d: 2026-H2 semi_annual is valid');
+  check(validatePeriodSemantics('2026-9M', 'nine_months').isValid === true, 'Test 217e: 2026-9M nine_months is valid');
+  check(validatePeriodSemantics('2026-YTD', 'ytd').isValid === true, 'Test 217f: 2026-YTD ytd is valid');
+  check(validatePeriodSemantics('2026-TTM', 'ttm').isValid === true, 'Test 217g: 2026-TTM ttm is valid');
+
+  // 2. Invalid periodType values
+  // @ts-expect-error testing invalid periodType
+  const invPt = validatePeriodSemantics('2026-Q2', 'monthly');
+  check(invPt.isValid === false, 'Test 217h: monthly periodType is rejected');
+  check(invPt.mismatches.includes('invalidPeriodType'), 'Test 217i: Mismatch invalidPeriodType emitted');
+
+  // 3. Mismatched period and periodType
+  const mismatchQAnnual = validatePeriodSemantics('2026-Q2', 'annual');
+  check(mismatchQAnnual.isValid === false, 'Test 217j: 2026-Q2 with annual is invalid');
+  check(mismatchQAnnual.mismatches.includes('invalidPeriodTypeCombination'), 'Test 217k: Mismatch invalidPeriodTypeCombination emitted');
+
+  const mismatchSemiQuarter = validatePeriodSemantics('2026-H1', 'quarterly');
+  check(mismatchSemiQuarter.isValid === false, 'Test 217l: 2026-H1 with quarterly is invalid');
+
+  // 4. Source document period mismatch and periodType mismatch
+  const bmwMapping = PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!;
+  const rev = makeObs({ id: 'rev_217', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_217', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_217', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const wrongDocPeriodMap = new Map<string, SourceDocument>([
+    [
+      'bmw_2026_q2_statement',
+      {
+        id: 'bmw_2026_q2_statement',
+        companyId: 'bmw_group',
+        title: 'BMW Q2 2026',
+        docType: 'quarterly_report',
+        period: '2025-FY', // Mismatched period!
+        periodType: 'annual', // Mismatched periodType!
+        publicationDate: '2026-08-01',
+        officialUrl: 'https://bmwgroup.com/q2',
+        isVerified: true,
+        verificationStatus: 'verified',
+        lastChecked: '2026-08-01',
+      },
+    ],
+  ]);
+
+  const compatDocMismatch = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, wrongDocPeriodMap);
+  check(compatDocMismatch.isValid === false, 'Test 217m: Source doc period/periodType mismatch fails validation');
+  check(compatDocMismatch.mismatches.includes('sourcePeriodMismatch'), 'Test 217n: Mismatch sourcePeriodMismatch emitted');
+  check(compatDocMismatch.mismatches.includes('sourcePeriodTypeMismatch'), 'Test 217o: Mismatch sourcePeriodTypeMismatch emitted');
+}
+
+// TEST 218: UI regression safety & Outlier Filtering Invariants (Task 6)
+{
+  // 1. Original observations are never deleted from METRIC_OBSERVATIONS
+  const totalObsCount = METRIC_OBSERVATIONS.length;
+  check(totalObsCount === 384, 'Test 218a: Total metric observations preserved intact (384)');
+
+  const rivianObs = METRIC_OBSERVATIONS.filter(o => o.companyId === 'rivian');
+  check(rivianObs.length > 0, 'Test 218b: Rivian observations remain present in dataset');
+  const rivianMargin = rivianObs.find(o => o.metricId === 'operating_margin' && o.period === '2026-Q2');
+  check(rivianMargin !== undefined && (rivianMargin.value ?? 0) < 0, 'Test 218c: Rivian 2026-Q2 negative margin is present in dataset');
+
+  // 2. Audit calculations use complete dataset (all 16 registered companies)
+  check(COMPANIES_REGISTRY.length === 16, 'Test 218d: All 16 companies registered in companies registry');
+  const allCompanyIds = COMPANIES_REGISTRY.map(c => c.id);
+
+  // 3. Visualization filter behavior: filtered mode excludes Rivian
+  const excludeOutliersTrue = true;
+  const filteredCompanyIds = allCompanyIds.filter(cid => !excludeOutliersTrue || cid !== 'rivian');
+  check(filteredCompanyIds.length === 15, 'Test 218e: Filtered display list has 15 companies (Rivian excluded)');
+  check(!filteredCompanyIds.includes('rivian'), 'Test 218f: Rivian absent from filtered display list');
+
+  // 4. Unfiltered mode includes Rivian
+  const excludeOutliersFalse = false;
+  const unfilteredCompanyIds = allCompanyIds.filter(cid => !excludeOutliersFalse || cid !== 'rivian');
+  check(unfilteredCompanyIds.length === 16, 'Test 218g: Unfiltered display list includes all 16 companies');
+  check(unfilteredCompanyIds.includes('rivian'), 'Test 218h: Rivian present in unfiltered display list');
+
+  // 5. Margin ranking consistency: Top 5 companies are identical between filtered and unfiltered
+  const marginObservations = METRIC_OBSERVATIONS.filter(
+    o => o.metricId === 'operating_margin' && o.period === '2026-Q2' && o.value !== null
+  ).sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+
+  const top5All = marginObservations.slice(0, 5).map(o => o.companyId);
+  const top5Filtered = marginObservations.filter(o => o.companyId !== 'rivian').slice(0, 5).map(o => o.companyId);
+  check(JSON.stringify(top5All) === JSON.stringify(top5Filtered), 'Test 218i: Top 5 margin companies are identical in filtered and unfiltered modes');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

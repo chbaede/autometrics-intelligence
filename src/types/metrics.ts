@@ -341,6 +341,22 @@ export type EvidenceSupportType =
   | 'period_type'
   | 'reported_kpi';
 
+/**
+ * Structured claim-level evidence locator representation (STEP 4-16, Task 2).
+ * Allows binding specific claim locators and claimed values to evidence.
+ */
+export interface ClaimEvidenceLocator {
+  locator: string;
+  claimedValue?: string;
+  verificationState?: EvidenceClaimVerificationState;
+}
+
+/**
+ * Claim-level evidence entry: supports both backward-compatible string locators
+ * and structured ClaimEvidenceLocator objects (STEP 4-16, Task 2).
+ */
+export type ClaimEvidenceEntry = string | ClaimEvidenceLocator;
+
 export interface ScopeExceptionEvidence {
   sourceDocId: string;
   pageNumber?: number | string;
@@ -350,9 +366,10 @@ export interface ScopeExceptionEvidence {
   purpose?: EvidencePurpose;
   supports?: EvidenceSupportType[];
   /**
-   * Optional claim-level locators or citations binding specific support types to evidence strings (STEP 4-14, Task 4).
+   * Optional claim-level locators or citations binding specific support types to evidence strings
+   * or structured ClaimEvidenceLocator entries (STEP 4-14, Task 4; STEP 4-16, Task 2).
    */
-  supportEvidence?: Partial<Record<EvidenceSupportType, string>>;
+  supportEvidence?: Partial<Record<EvidenceSupportType, ClaimEvidenceEntry>>;
 }
 
 export interface DocumentedReportedKpi {

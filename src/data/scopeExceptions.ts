@@ -34,6 +34,8 @@ import {
   EvidencePurpose,
   EvidenceSupportType,
   EvidenceClaimVerificationState,
+  ClaimEvidenceLocator,
+  ClaimEvidenceEntry,
   DocumentedReportedKpi,
   ProxyMetricMapping,
   ProxyMetricMappingQuery,
@@ -51,6 +53,8 @@ export type {
   EvidencePurpose,
   EvidenceSupportType,
   EvidenceClaimVerificationState,
+  ClaimEvidenceLocator,
+  ClaimEvidenceEntry,
   DocumentedReportedKpi,
   ProxyMetricMapping,
   ProxyMetricMappingQuery,
@@ -1204,7 +1208,7 @@ function lookupSourceDocInRegistry(
 }
 
 /**
- * Options for shared evidence validation (STEP 4-13, Task 4).
+ * Options for shared evidence validation (STEP 4-13, Task 4; STEP 4-16, Task 3).
  */
 interface EvidenceValidationOptions {
   /** All valid evidence support types. Used for unknown-type detection. */
@@ -1215,6 +1219,15 @@ interface EvidenceValidationOptions {
   readonly parentLabel: string;
   /** Source registry for existence checks. */
   readonly sourcesMap: SourceRegistry | null | undefined;
+  /** Expected claim values from parent record for structured claim validation (STEP 4-16, Task 3). */
+  readonly expectedClaims?: {
+    readonly period?: string;
+    readonly periodType?: PeriodType;
+    readonly accountingBasis?: AccountingBasis;
+    readonly targetSemantic?: string;
+    readonly scope?: ReportingScope;
+    readonly allowedScopes?: readonly ReportingScope[];
+  };
 }
 
 /** All known EvidenceSupportType values for unknown-type detection (STEP 4-13, Task 3 / Task 6). */
@@ -1238,6 +1251,16 @@ export const ALL_KNOWN_EVIDENCE_PURPOSES: readonly EvidencePurpose[] = [
   'proxy_justification',
 ];
 
+/** All known PeriodType values for runtime validation (STEP 4-16, Task 5). */
+export const ALL_KNOWN_PERIOD_TYPES: readonly PeriodType[] = [
+  'quarterly',
+  'annual',
+  'semi_annual',
+  'nine_months',
+  'ytd',
+  'ttm',
+];
+
 /** Allowed purpose(s) for each required evidence support type (STEP 4-14, Task 3). */
 export const ALLOWED_PURPOSES_BY_SUPPORT: Record<EvidenceSupportType, readonly EvidencePurpose[]> = {
   proxy_numerator: ['numerator_definition', 'proxy_justification'],
@@ -1252,7 +1275,7 @@ export const ALLOWED_PURPOSES_BY_SUPPORT: Record<EvidenceSupportType, readonly E
 };
 
 /**
- * Period semantic validation result (STEP 4-15, Task 3).
+ * Period semantic validation result (STEP 4-15, Task 3; STEP 4-16, Task 5).
  */
 export interface PeriodSemanticValidationResult {
   isValid: boolean;
@@ -1260,7 +1283,7 @@ export interface PeriodSemanticValidationResult {
   reasons: string[];
 }
 
-/** Supported period format patterns per periodType (STEP 4-15, Task 3). */
+/** Supported period format patterns per periodType (STEP 4-15, Task 3; STEP 4-16, Task 5). */
 export const PERIOD_FORMAT_PATTERNS: Record<PeriodType, RegExp> = {
   quarterly: /^\d{4}-Q[1-4]$/,
   annual: /^\d{4}-FY$/,
@@ -1273,11 +1296,12 @@ export const PERIOD_FORMAT_PATTERNS: Record<PeriodType, RegExp> = {
 const ALL_PERIOD_PATTERNS = Object.values(PERIOD_FORMAT_PATTERNS);
 
 /**
- * Validates period and periodType semantics (STEP 4-15, Task 3).
+ * Validates period and periodType semantics (STEP 4-15, Task 3; STEP 4-16, Task 5).
  * Validates:
  *  - missingPeriod: period is missing / empty
  *  - missingPeriodType: periodType is missing
  *  - invalidPeriodFormat: period does not match any recognized reporting period format
+ *  - invalidPeriodType: periodType is not a recognized PeriodType value
  *  - invalidPeriodTypeCombination: period does not match the expected pattern for its periodType
  */
 export function validatePeriodSemantics(
@@ -1302,6 +1326,12 @@ export function validatePeriodSemantics(
     reasons.push(`${label} periodType is missing.`);
   }
 
+  if (periodType && !ALL_KNOWN_PERIOD_TYPES.includes(periodType)) {
+    addMismatch('invalidPeriodType');
+    addMismatch('invalidPeriodTypeCombination');
+    reasons.push(`${label} periodType "${periodType}" is unsupported or invalid.`);
+  }
+
   if (period && typeof period === 'string' && period.trim().length > 0) {
     const trimmed = period.trim();
     const matchesAny = ALL_PERIOD_PATTERNS.some((pattern) => pattern.test(trimmed));
@@ -1310,7 +1340,7 @@ export function validatePeriodSemantics(
       reasons.push(`${label} "${period}" has an invalid period format.`);
     }
 
-    if (periodType) {
+    if (periodType && ALL_KNOWN_PERIOD_TYPES.includes(periodType)) {
       const expectedPattern = PERIOD_FORMAT_PATTERNS[periodType];
       if (!expectedPattern) {
         addMismatch('invalidPeriodTypeCombination');
@@ -1333,7 +1363,72 @@ export function validatePeriodSemantics(
 }
 
 /**
- * Result of evidence item validation (STEP 4-15, Task 1 & 2).
+ * Normalizes a ClaimEvidenceEntry (string or structured object) into a ClaimEvidenceLocator (STEP 4-16, Task 2).
+ */
+export function normalizeClaimEvidenceLocator(
+  entry: ClaimEvidenceEntry | undefined | null
+): ClaimEvidenceLocator | undefined {
+  if (!entry) return undefined;
+  if (typeof entry === 'string') {
+    return {
+      locator: entry,
+      verificationState: 'locator_only',
+    };
+  }
+  return {
+    locator: entry.locator,
+    claimedValue: entry.claimedValue,
+    // Task 1: 'claim_verified' must not be manually trusted from arbitrary input without a verification engine
+    verificationState:
+      entry.verificationState === 'claim_verified'
+        ? 'locator_only'
+        : (entry.verificationState ?? 'locator_only'),
+  };
+}
+
+/**
+ * Resolves the evidence claim verification state with explicit verification semantics (STEP 4-16, Task 1).
+ * Semantics:
+ *  - 'locator_only': locator exists, but document content is not verified.
+ *  - 'source_verified': source document identity and metadata are verified.
+ *  - 'claim_verified': the specific claim has been verified against source content.
+ *
+ * Invariants:
+ *  1. 'claim_verified' must not be manually trusted from arbitrary input.
+ *  2. If no real claim verification engine exists, do not automatically produce 'claim_verified'.
+ *  3. 'locator_only' evidence must not independently justify `disposition: 'documented'`.
+ *  4. Preserves 'proxy_only' and mathematicallyVerified: false.
+ */
+export function resolveClaimVerificationState(
+  evidence: ScopeExceptionEvidence[] | undefined | null,
+  _sourcesVerified: boolean = false
+): EvidenceClaimVerificationState {
+  if (!evidence || evidence.length === 0) {
+    return 'locator_only';
+  }
+  // In the absence of a machine content verification engine, claimVerificationState is locator_only.
+  return 'locator_only';
+}
+
+/**
+ * Checks whether an evidence claim verification state can justify a documented disposition (STEP 4-16, Task 1).
+ * 'locator_only' evidence can NEVER independently justify disposition: 'documented'.
+ */
+export function canClaimStateJustifyDocumented(
+  state?: EvidenceClaimVerificationState
+): boolean {
+  if (!state || state === 'locator_only') {
+    return false;
+  }
+  if (state === 'claim_verified') {
+    // Unverified claims cannot be trusted without a verification engine
+    return false;
+  }
+  return state === 'source_verified';
+}
+
+/**
+ * Result of evidence item validation (STEP 4-15, Task 1 & 2; STEP 4-16, Tasks 2, 3, 4).
  */
 export interface EvidenceValidationResult {
   mismatches: string[];
@@ -1344,7 +1439,8 @@ export interface EvidenceValidationResult {
 
 /**
  * Validates a list of evidence items against membership, locator, purpose/support consistency,
- * empty-supports, unknown-support-type, duplicate-supports, unknown-purpose, and claim-level locator invariants (STEP 4-13, Task 4; STEP 4-14, Tasks 2 & 4; STEP 4-15, Tasks 1 & 2).
+ * empty-supports, unknown-support-type, duplicate-supports, unknown-purpose, claim-level locators,
+ * and structured claim values against parent expected values (STEP 4-13, Task 4; STEP 4-14, Tasks 2 & 4; STEP 4-15, Tasks 1 & 2; STEP 4-16, Tasks 2, 3, 4).
  *
  * Returns an object with arrays of mismatch codes and reasons collected across all evidence items.
  * Each mismatch code is emitted at most once globally; per-item reasons are always appended.
@@ -1441,23 +1537,77 @@ export function validateEvidenceItems(
       }
     }
 
-    // Task 4 (STEP 4-14) & Task 1 (STEP 4-15): Claim-level evidence locator validation
+    // Task 4 (STEP 4-14), Task 1 (STEP 4-15), Tasks 2 & 3 (STEP 4-16): Claim-level evidence locator & value validation
     if (ev.supportEvidence) {
-      for (const [claimKey, locator] of Object.entries(ev.supportEvidence)) {
-        if (!(knownSupportTypes as readonly string[]).includes(claimKey as EvidenceSupportType)) {
+      for (const [claimKey, rawEntry] of Object.entries(ev.supportEvidence)) {
+        const supportType = claimKey as EvidenceSupportType;
+        if (!(knownSupportTypes as readonly string[]).includes(supportType)) {
           addMismatch('unknownClaimEvidenceType');
           reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" contains unknown claim evidence type "${claimKey}".`);
-        } else if (!ev.supports?.includes(claimKey as EvidenceSupportType)) {
+        } else if (!ev.supports?.includes(supportType)) {
           addMismatch('orphanClaimEvidence');
           reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" contains orphan claim locator "${claimKey}" not declared in supports.`);
         }
 
-        if (!locator || typeof locator !== 'string' || locator.trim().length === 0) {
+        const normalized = normalizeClaimEvidenceLocator(rawEntry as ClaimEvidenceEntry);
+        const locatorStr = normalized?.locator;
+
+        if (!locatorStr || typeof locatorStr !== 'string' || locatorStr.trim().length === 0) {
           addMismatch('missingClaimEvidenceLocator');
           reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" has empty locator for claim "${claimKey}".`);
         } else {
-          if (validSupportsOnThisItem.has(claimKey as EvidenceSupportType)) {
-            supportedClaims.add(claimKey as EvidenceSupportType);
+          if (validSupportsOnThisItem.has(supportType)) {
+            supportedClaims.add(supportType);
+          }
+        }
+
+        // Task 1: Check if input claimed 'claim_verified' manually
+        if (typeof rawEntry === 'object' && rawEntry !== null && rawEntry.verificationState === 'claim_verified') {
+          // Untrusted claim verification state: no claim verification engine exists
+          reasons.push(
+            `${parentLabel} evidence for "${ev.sourceDocId}" claims "claim_verified" for "${claimKey}", but claim verification without an engine is not trusted; downgraded to "locator_only".`
+          );
+        }
+
+        // Task 3: Validate structured claim value against parent expected claims
+        if (normalized?.claimedValue !== undefined && options.expectedClaims) {
+          const val = normalized.claimedValue;
+          if (supportType === 'period') {
+            if (options.expectedClaims.period && val !== options.expectedClaims.period) {
+              addMismatch('claimPeriodMismatch');
+              reasons.push(
+                `${parentLabel} evidence for "${ev.sourceDocId}" claimed period "${val}" does not match expected period "${options.expectedClaims.period}".`
+              );
+            }
+          } else if (supportType === 'period_type') {
+            if (options.expectedClaims.periodType && val !== options.expectedClaims.periodType) {
+              addMismatch('claimPeriodTypeMismatch');
+              reasons.push(
+                `${parentLabel} evidence for "${ev.sourceDocId}" claimed periodType "${val}" does not match expected periodType "${options.expectedClaims.periodType}".`
+              );
+            }
+          } else if (supportType === 'accounting_basis') {
+            if (options.expectedClaims.accountingBasis && val !== options.expectedClaims.accountingBasis) {
+              addMismatch('claimAccountingBasisMismatch');
+              reasons.push(
+                `${parentLabel} evidence for "${ev.sourceDocId}" claimed accounting basis "${val}" does not match expected basis "${options.expectedClaims.accountingBasis}".`
+              );
+            }
+          } else if (supportType === 'target_semantic') {
+            if (options.expectedClaims.targetSemantic && val !== options.expectedClaims.targetSemantic) {
+              addMismatch('claimSemanticMismatch');
+              reasons.push(
+                `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" does not match expected target semantic "${options.expectedClaims.targetSemantic}".`
+              );
+            }
+          } else if (supportType === 'scope') {
+            const allowed = options.expectedClaims.allowedScopes ?? (options.expectedClaims.scope ? [options.expectedClaims.scope] : undefined);
+            if (allowed && !allowed.includes(val as ReportingScope)) {
+              addMismatch('claimScopeMismatch');
+              reasons.push(
+                `${parentLabel} evidence for "${ev.sourceDocId}" claimed scope "${val}" does not match expected scope [${allowed.join(', ')}].`
+              );
+            }
           }
         }
       }
@@ -1632,12 +1782,18 @@ export function validateDocumentedReportedKpiCompatibility(
     }
   }
 
-  // Evidence validation via shared helper (Task 4 — STEP 4-13; STEP 4-15)
+  // Evidence validation via shared helper (Task 4 — STEP 4-13; STEP 4-15; STEP 4-16)
   const evResult = validateEvidenceItems(kpi.evidence, {
     knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
     parentSourceDocIds: kpi.sourceDocIds,
     parentLabel: `Reported KPI [${kpi.id}]`,
     sourcesMap,
+    expectedClaims: {
+      period: expectedPeriod,
+      periodType: expectedPeriodType,
+      accountingBasis: kpi.accountingBasis,
+      scope: kpi.reportingScope,
+    },
   });
   for (const m of evResult.mismatches) {
     addMismatch(m);
@@ -1855,6 +2011,9 @@ export function validateProxyMappingCompatibility(
   const reasons: string[] = [];
   const mismatches: string[] = [];
 
+  const expectedPeriod = mapping.period ?? revObs.period;
+  const expectedPeriodType = mapping.periodType ?? revObs.periodType;
+
   // Mapping invariants (STEP 4-9, Task 5)
   if (mapping.status !== 'proxy_only') {
     mismatches.push('invalidMappingStatus');
@@ -1939,12 +2098,26 @@ export function validateProxyMappingCompatibility(
     }
   }
 
-  // Evidence validation via shared helper (Task 4 — STEP 4-13; replaces inline loop from STEP 4-12)
+  // Evidence validation via shared helper (Task 4 — STEP 4-13; STEP 4-16)
   const evResult = validateEvidenceItems(mapping.evidence, {
     knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
     parentSourceDocIds: mapping.sourceDocIds ?? [],
     parentLabel: `ProxyMapping [${mapping.id}]`,
     sourcesMap,
+    expectedClaims: {
+      period: expectedPeriod,
+      periodType: expectedPeriodType,
+      accountingBasis: mapping.targetBasis,
+      targetSemantic: mapping.targetNumeratorSemantic,
+      scope: mapping.targetScope,
+      allowedScopes: Array.from(
+        new Set([
+          mapping.targetScope,
+          mapping.proxyScope,
+          mapping.denominatorScope,
+        ].filter(Boolean))
+      ) as ReportingScope[],
+    },
   });
   for (const m of evResult.mismatches) {
     if (!mismatches.includes(m)) mismatches.push(m);
@@ -2144,9 +2317,6 @@ export function validateProxyMappingCompatibility(
   }
 
   // 8. Mandatory deep source document verification — including Task 1 & 2 period/periodType checks (STEP 4-13 & STEP 4-14)
-  const expectedPeriod = mapping.period ?? revObs.period;
-  const expectedPeriodType = mapping.periodType ?? revObs.periodType;
-
   // Period semantics validation on expected period/periodType (STEP 4-15, Task 3)
   const periodSemantics = validatePeriodSemantics(expectedPeriod, expectedPeriodType, `ProxyMapping [${mapping.id}]`);
   for (const m of periodSemantics.mismatches) {
