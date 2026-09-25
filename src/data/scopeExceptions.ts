@@ -709,23 +709,157 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
 ];
 
 /**
- * Finds a documented reported KPI (STEP 4-6, P0-1).
+ * Finds all matching documented reported KPIs (STEP 4-8, Task 3 & Task 6).
+ */
+export function findDocumentedReportedKpis(
+  companyId: string,
+  period?: string,
+  metricId?: string,
+  reportingScope?: ReportingScope,
+  periodType?: PeriodType,
+  accountingBasis?: AccountingBasis,
+  kpisList: DocumentedReportedKpi[] = DOCUMENTED_REPORTED_KPIS
+): DocumentedReportedKpi[] {
+  return kpisList.filter(
+    (k) =>
+      k.companyId === companyId &&
+      (period === undefined || k.period === undefined || k.period === period) &&
+      (metricId === undefined || k.metricId === metricId) &&
+      (reportingScope === undefined || k.reportingScope === reportingScope) &&
+      (periodType === undefined || k.periodType === undefined || k.periodType === periodType) &&
+      (accountingBasis === undefined || k.accountingBasis === undefined || k.accountingBasis === accountingBasis)
+  );
+}
+
+/**
+ * Finds a unique documented reported KPI (STEP 4-6, P0-1; STEP 4-8, Task 3).
+ * Returns undefined if no match OR if multiple ambiguous matches occur.
  */
 export function findDocumentedReportedKpi(
   companyId: string,
   period?: string,
   metricId?: string,
   reportingScope?: ReportingScope,
-  periodType?: PeriodType
+  periodType?: PeriodType,
+  accountingBasis?: AccountingBasis,
+  kpisList: DocumentedReportedKpi[] = DOCUMENTED_REPORTED_KPIS
 ): DocumentedReportedKpi | undefined {
-  return DOCUMENTED_REPORTED_KPIS.find(
-    (k) =>
-      k.companyId === companyId &&
-      (k.period === undefined || k.period === period) &&
-      (metricId === undefined || k.metricId === metricId) &&
-      (reportingScope === undefined || k.reportingScope === reportingScope) &&
-      (periodType === undefined || k.periodType === undefined || k.periodType === periodType)
+  const matches = findDocumentedReportedKpis(
+    companyId,
+    period,
+    metricId,
+    reportingScope,
+    periodType,
+    accountingBasis,
+    kpisList
   );
+  if (matches.length === 1) {
+    return matches[0];
+  }
+  // Ambiguous if multiple matches: do not use arbitrary .find()
+  return undefined;
+}
+
+/**
+ * Compatibility validation result for DocumentedReportedKpi (STEP 4-8, Task 6).
+ */
+export interface DocumentedKpiValidationResult {
+  isValid: boolean;
+  mismatches: string[];
+  reasons: string[];
+}
+
+/**
+ * Validates actual observation compatibility with a DocumentedReportedKpi (STEP 4-8, Task 6).
+ */
+export function validateDocumentedReportedKpiCompatibility(
+  kpi: DocumentedReportedKpi,
+  marginObs: MetricObservation,
+  sourcesMap?: Map<string, SourceDocument>
+): DocumentedKpiValidationResult {
+  const mismatches: string[] = [];
+  const reasons: string[] = [];
+
+  if (kpi.companyId !== marginObs.companyId) {
+    mismatches.push('companyId');
+    reasons.push(
+      `Reported KPI companyId "${kpi.companyId}" does not match margin observation "${marginObs.companyId}".`
+    );
+  }
+
+  if (kpi.period && kpi.period !== marginObs.period) {
+    mismatches.push('period');
+    reasons.push(
+      `Reported KPI period "${kpi.period}" does not match margin observation "${marginObs.period}".`
+    );
+  }
+
+  if (kpi.periodType && kpi.periodType !== marginObs.periodType) {
+    mismatches.push('periodType');
+    reasons.push(
+      `Reported KPI periodType "${kpi.periodType}" does not match margin observation "${marginObs.periodType}".`
+    );
+  }
+
+  if (kpi.metricId !== marginObs.metricId) {
+    mismatches.push('metricId');
+    reasons.push(
+      `Reported KPI metricId "${kpi.metricId}" does not match margin observation "${marginObs.metricId}".`
+    );
+  }
+
+  if (kpi.reportingScope && kpi.reportingScope !== marginObs.reportingScope) {
+    mismatches.push('reportingScope');
+    reasons.push(
+      `Reported KPI scope "${kpi.reportingScope}" does not match margin observation "${marginObs.reportingScope}".`
+    );
+  }
+
+  if (kpi.accountingBasis && kpi.accountingBasis !== marginObs.accountingBasis) {
+    mismatches.push('accountingBasis');
+    reasons.push(
+      `Reported KPI accountingBasis "${kpi.accountingBasis}" does not match margin observation "${marginObs.accountingBasis}".`
+    );
+  }
+
+  if (!marginObs.sourceDocId || !kpi.sourceDocIds.includes(marginObs.sourceDocId)) {
+    mismatches.push('sourceDocId');
+    reasons.push(
+      `Margin observation sourceDocId "${marginObs.sourceDocId}" is not present in KPI sourceDocIds [${kpi.sourceDocIds.join(', ')}].`
+    );
+  }
+
+  if (marginObs.verificationStatus !== 'verified') {
+    mismatches.push('verificationStatus');
+    reasons.push(
+      `Margin observation verification status is "${marginObs.verificationStatus}", expected "verified".`
+    );
+  }
+
+  if (sourcesMap) {
+    for (const docId of kpi.sourceDocIds) {
+      const doc = sourcesMap.get(docId);
+      if (!doc) {
+        mismatches.push('sourceMissing');
+        reasons.push(`Source document "${docId}" referenced by KPI was not found in registry.`);
+      } else if (doc.isVerified === false) {
+        mismatches.push('sourceUnverified');
+        reasons.push(`Source document "${docId}" referenced by KPI is not verified.`);
+      }
+    }
+  }
+
+  const hasReportedKpiEvidence = kpi.evidence.some((ev) => ev.purpose === 'reported_kpi');
+  if (!hasReportedKpiEvidence) {
+    mismatches.push('evidencePurpose');
+    reasons.push(`Reported KPI [${kpi.id}] does not contain evidence with purpose "reported_kpi".`);
+  }
+
+  return {
+    isValid: mismatches.length === 0,
+    mismatches,
+    reasons,
+  };
 }
 
 /**
@@ -785,7 +919,7 @@ export function normalizeProxyException(exception: DocumentedScopeException): {
 }
 
 /**
- * Compatibility validation result for ProxyMetricMapping (STEP 4-7, P1-4).
+ * Compatibility validation result for ProxyMetricMapping (STEP 4-7, P1-4; STEP 4-8, Task 2).
  */
 export interface ProxyMappingValidationResult {
   isValid: boolean;
@@ -794,11 +928,12 @@ export interface ProxyMappingValidationResult {
 }
 
 /**
- * Validates actual observation compatibility with a ProxyMetricMapping (STEP 4-7, P1-4).
+ * Validates actual observation compatibility with a ProxyMetricMapping (STEP 4-7, P1-4; STEP 4-8, Task 2).
  * Verifies:
  *  - profitObs matches proxyMetricId, proxyScope, proxyBasis, and sourceDocIds
  *  - marginObs matches targetScope, targetBasis, and sourceDocIds
  *  - period and periodType match
+ *  - targetNumeratorSemantic matches OEM requirements (BMW: automotive_segment_ebit, Mercedes: cars_adjusted_ebit)
  */
 export function validateProxyMappingCompatibility(
   mapping: ProxyMetricMapping,
@@ -821,7 +956,7 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 2. Period
+  // 2. Period (STEP 4-8, Task 2)
   if (
     mapping.period &&
     (mapping.period !== revObs.period ||
@@ -834,7 +969,7 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 3. PeriodType (P2-1)
+  // 3. PeriodType (STEP 4-8, Task 2)
   if (
     mapping.periodType &&
     (mapping.periodType !== revObs.periodType ||
@@ -847,7 +982,7 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 4. Candidate profit observation against proxy definition (P1-4)
+  // 4. Candidate profit observation against proxy definition (STEP 4-8, Task 2)
   if (profitObs.metricId !== mapping.proxyMetricId) {
     mismatches.push('proxyMetricId');
     reasons.push(
@@ -873,7 +1008,7 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 5. Candidate margin observation against target definition (P1-4)
+  // 5. Candidate margin observation against target definition (STEP 4-8, Task 2)
   if (marginObs.reportingScope !== mapping.targetScope) {
     mismatches.push('targetScope');
     reasons.push(
@@ -893,6 +1028,24 @@ export function validateProxyMappingCompatibility(
     );
   }
 
+  // 6. Target numerator semantic validation (STEP 4-8, Task 2)
+  const targetSemantic = mapping.targetNumeratorSemantic || mapping.targetMetricId;
+  if (mapping.companyId === 'bmw_group') {
+    if (targetSemantic !== 'automotive_segment_ebit') {
+      mismatches.push('targetNumeratorSemantic');
+      reasons.push(
+        `BMW proxy mapping requires targetNumeratorSemantic to be "automotive_segment_ebit", but found "${targetSemantic}".`
+      );
+    }
+  } else if (mapping.companyId === 'mercedes_benz') {
+    if (targetSemantic !== 'cars_adjusted_ebit') {
+      mismatches.push('targetNumeratorSemantic');
+      reasons.push(
+        `Mercedes-Benz proxy mapping requires targetNumeratorSemantic to be "cars_adjusted_ebit", but found "${targetSemantic}".`
+      );
+    }
+  }
+
   return {
     isValid: mismatches.length === 0,
     mismatches,
@@ -901,27 +1054,71 @@ export function validateProxyMappingCompatibility(
 }
 
 /**
- * Finds a proxy metric mapping (STEP 4-6, P0-1; STEP 4-7, P1-3).
+ * Finds all proxy metric mappings matching criteria (STEP 4-8, Task 3).
  */
-export function findProxyMetricMapping(
+export function findProxyMetricMappings(
   companyId: string,
   period?: string,
   targetMetricId?: string,
   proxyMetricId?: string,
-  periodType?: PeriodType
-): ProxyMetricMapping | undefined {
-  return PROXY_METRIC_MAPPINGS.find(
+  periodType?: PeriodType,
+  targetScope?: ReportingScope,
+  targetBasis?: AccountingBasis,
+  proxyScope?: ReportingScope,
+  proxyBasis?: AccountingBasis,
+  mappingsList: ProxyMetricMapping[] = PROXY_METRIC_MAPPINGS
+): ProxyMetricMapping[] {
+  return mappingsList.filter(
     (m) =>
       m.companyId === companyId &&
-      (m.period === undefined || m.period === period) &&
+      (period === undefined || m.period === undefined || m.period === period) &&
       (periodType === undefined || m.periodType === undefined || m.periodType === periodType) &&
       (targetMetricId === undefined ||
         m.targetMetricId === targetMetricId ||
         (targetMetricId === 'operating_income' &&
           (m.targetMetricId === 'automotive_segment_ebit' || m.targetMetricId === 'cars_adjusted_ebit')) ||
         (m.targetNumeratorSemantic && m.targetNumeratorSemantic === targetMetricId)) &&
-      (proxyMetricId === undefined || m.proxyMetricId === proxyMetricId)
+      (proxyMetricId === undefined || m.proxyMetricId === proxyMetricId) &&
+      (targetScope === undefined || m.targetScope === targetScope) &&
+      (targetBasis === undefined || m.targetBasis === targetBasis) &&
+      (proxyScope === undefined || m.proxyScope === proxyScope) &&
+      (proxyBasis === undefined || m.proxyBasis === proxyBasis)
   );
+}
+
+/**
+ * Finds a unique proxy metric mapping (STEP 4-6, P0-1; STEP 4-7, P1-3; STEP 4-8, Task 3).
+ * Returns undefined if no match OR if multiple ambiguous matches occur.
+ */
+export function findProxyMetricMapping(
+  companyId: string,
+  period?: string,
+  targetMetricId?: string,
+  proxyMetricId?: string,
+  periodType?: PeriodType,
+  targetScope?: ReportingScope,
+  targetBasis?: AccountingBasis,
+  proxyScope?: ReportingScope,
+  proxyBasis?: AccountingBasis,
+  mappingsList: ProxyMetricMapping[] = PROXY_METRIC_MAPPINGS
+): ProxyMetricMapping | undefined {
+  const matches = findProxyMetricMappings(
+    companyId,
+    period,
+    targetMetricId,
+    proxyMetricId,
+    periodType,
+    targetScope,
+    targetBasis,
+    proxyScope,
+    proxyBasis,
+    mappingsList
+  );
+  if (matches.length === 1) {
+    return matches[0];
+  }
+  // Ambiguous if multiple matches: do not use arbitrary .find()
+  return undefined;
 }
 
 /**

@@ -28,6 +28,8 @@ import {
   DocumentedReportedKpi,
   ProxyMetricMapping,
   MarginValidationContext,
+  ReportingScope,
+  ScopeRelationshipRule,
 } from '../types/metrics';
 import {
   DocumentedScopeException,
@@ -486,6 +488,44 @@ export const OPERATING_MARGIN_RELATIONSHIP: DerivedMetricDefinition = {
 };
 
 /**
+ * Evaluates whether observed scopes satisfy any allowed scope relationship rules (STEP 4-8, Task 5).
+ * Shared by selectCompatibleMarginTriplets() and validateMarginTriplet().
+ */
+export function matchScopeRelationship(
+  scopeRev?: ReportingScope,
+  scopeProfit?: ReportingScope,
+  scopeMargin?: ReportingScope,
+  allowedRelationships?: ScopeRelationshipRule[]
+): boolean {
+  if (!allowedRelationships || !scopeRev || !scopeProfit || !scopeMargin) return false;
+  if (scopeRev === 'unknown' || scopeProfit === 'unknown' || scopeMargin === 'unknown') return false;
+
+  for (const scopeRel of allowedRelationships) {
+    if (scopeRel.relationshipType === 'same_scope') {
+      if (scopeRev === scopeProfit && scopeProfit === scopeMargin) {
+        return true;
+      }
+    } else if (
+      (scopeRel.relationshipType === 'segment_operating_margin' ||
+        scopeRel.relationshipType === 'custom_scope_mapping') &&
+      scopeRel.denominatorScope &&
+      scopeRel.numeratorScope &&
+      scopeRel.marginScope
+    ) {
+      if (
+        scopeRev === scopeRel.denominatorScope &&
+        scopeProfit === scopeRel.numeratorScope &&
+        scopeMargin === scopeRel.marginScope
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Selects compatible margin candidate triplets from an observation pool.
  * Identifies the correct numerator (operating_income/ebit vs adjusted_ebit),
  * denominator (revenue), and margin without arbitrary candidate[0] selection.
@@ -554,36 +594,12 @@ export function selectCompatibleMarginTriplets(
           const periodTypeMatch = rev.periodType === profit.periodType && profit.periodType === margin.periodType;
           if (!periodTypeMatch) failedChecksSet.add('periodType');
 
-          let scopeMatch = false;
-          for (const scopeRel of rule.allowedScopeRelationships) {
-            if (scopeRel.relationshipType === 'same_scope') {
-              if (
-                !!rev.reportingScope &&
-                !!profit.reportingScope &&
-                !!margin.reportingScope &&
-                rev.reportingScope !== 'unknown' &&
-                rev.reportingScope === profit.reportingScope &&
-                profit.reportingScope === margin.reportingScope
-              ) {
-                scopeMatch = true;
-                break;
-              }
-            } else if (
-              (scopeRel.relationshipType === 'segment_operating_margin' || scopeRel.relationshipType === 'custom_scope_mapping') &&
-              scopeRel.denominatorScope &&
-              scopeRel.numeratorScope &&
-              scopeRel.marginScope
-            ) {
-              if (
-                rev.reportingScope === scopeRel.denominatorScope &&
-                profit.reportingScope === scopeRel.numeratorScope &&
-                margin.reportingScope === scopeRel.marginScope
-              ) {
-                scopeMatch = true;
-                break;
-              }
-            }
-          }
+          const scopeMatch = matchScopeRelationship(
+            rev.reportingScope,
+            profit.reportingScope,
+            margin.reportingScope,
+            rule.allowedScopeRelationships
+          );
           if (!scopeMatch) failedChecksSet.add('reportingScope');
 
           const currencyMatch =
@@ -837,7 +853,12 @@ export function resolveMarginValidationContext(
         period: exception.period,
         periodType: exception.periodType,
         targetMetricId: exception.marginMetricId,
-        targetNumeratorSemantic: exception.numeratorMetricId,
+        targetNumeratorSemantic:
+          exception.companyId === 'bmw_group'
+            ? 'automotive_segment_ebit'
+            : exception.companyId === 'mercedes_benz'
+            ? 'cars_adjusted_ebit'
+            : exception.numeratorMetricId,
         targetScope: exception.marginScope,
         targetBasis: exception.marginBasis,
         proxyMetricId: exception.numeratorMetricId,
@@ -1110,38 +1131,14 @@ export function validateMarginTriplet(
   const scopeRev = revObs.reportingScope;
   const scopeProfit = profitObs.reportingScope;
   const scopeMargin = marginObs.reportingScope;
-  let scopeMatchesRule = false;
-  if (matchingRule) {
-    for (const scopeRel of matchingRule.allowedScopeRelationships) {
-      if (scopeRel.relationshipType === 'same_scope') {
-        if (
-          !!scopeRev &&
-          !!scopeProfit &&
-          !!scopeMargin &&
-          scopeRev !== 'unknown' &&
-          scopeRev === scopeProfit &&
-          scopeProfit === scopeMargin
-        ) {
-          scopeMatchesRule = true;
-          break;
-        }
-      } else if (
-        (scopeRel.relationshipType === 'segment_operating_margin' || scopeRel.relationshipType === 'custom_scope_mapping') &&
-        scopeRel.denominatorScope &&
-        scopeRel.numeratorScope &&
-        scopeRel.marginScope
-      ) {
-        if (
-          scopeRev === scopeRel.denominatorScope &&
-          scopeProfit === scopeRel.numeratorScope &&
-          scopeMargin === scopeRel.marginScope
-        ) {
-          scopeMatchesRule = true;
-          break;
-        }
-      }
-    }
-  }
+  const scopeMatchesRule = matchingRule
+    ? matchScopeRelationship(
+        scopeRev,
+        scopeProfit,
+        scopeMargin,
+        matchingRule.allowedScopeRelationships
+      )
+    : false;
   checks.scope = scopeMatchesRule;
   if (!checks.scope) {
     reasons.push(`Scope mismatch: Revenue (${scopeRev}), Profit (${scopeProfit}), Margin (${scopeMargin}).`);
@@ -1217,7 +1214,12 @@ export function validateMarginTriplet(
             period: context.exception.period,
             periodType: context.exception.periodType,
             targetMetricId: context.exception.marginMetricId,
-            targetNumeratorSemantic: context.exception.numeratorMetricId,
+            targetNumeratorSemantic:
+              context.exception.companyId === 'bmw_group'
+                ? 'automotive_segment_ebit'
+                : context.exception.companyId === 'mercedes_benz'
+                ? 'cars_adjusted_ebit'
+                : context.exception.numeratorMetricId,
             targetScope: context.exception.marginScope,
             targetBasis: context.exception.marginBasis,
             proxyMetricId: context.exception.numeratorMetricId,
@@ -1288,9 +1290,41 @@ export function validateMarginTriplet(
     }
 
     if (!isExceptionApplicable) {
-      reasons.push(
-        `Proxy mapping/exception rejected: dimensional mismatch (${Array.from(new Set(dimensionMismatches)).join(', ')}).`
-      );
+      const uniqueMismatches = Array.from(new Set(dimensionMismatches));
+      const failedProxyChecks = Array.from(new Set([
+        ...failedChecks,
+        ...(uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope') ? ['scope' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis') ? ['accountingBasis' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'period') ? ['period' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'periodType') ? ['periodType' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc') ? ['provenance' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'targetNumeratorSemantic' || m === 'proxyMetricId') ? ['metricDefinition' as keyof MarginValidationChecks] : []),
+      ]));
+
+      return {
+        status: 'invalid',
+        calculatedMargin: null,
+        reportedMargin: marginObs.value,
+        difference: null,
+        mathematicallyVerified: false,
+        selectedObservationIds,
+        selectedRuleId: matchingRule?.id,
+        exceptionId: legacyException?.id,
+        proxyMappingId: proxyMapping.id,
+        reportedKpiId: resolvedContext.reportedKpi?.id,
+        failedChecks: failedProxyChecks.length > 0 ? failedProxyChecks : ['scope'],
+        checks: {
+          ...checks,
+          scope: uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope') ? false : checks.scope,
+          accountingBasis: uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis') ? false : checks.accountingBasis,
+          provenance: uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc') ? false : checks.provenance,
+        },
+        diagnostic: `Proxy mapping [${proxyMapping.id}] rejected due to dimensional mismatch (${uniqueMismatches.join(', ')}): ${reasons.join('; ')}`,
+        reasons: [
+          `Proxy mapping rejected due to mismatch: ${uniqueMismatches.join(', ')}.`,
+          ...reasons,
+        ],
+      };
     } else {
       // General integrity checks are NEVER waived for proxy exceptions (STEP 4-5, STEP 4-6, STEP 4-7, P1-5)
       // Explicit Precedence Policy (P1-5):
@@ -1506,7 +1540,7 @@ export function validateMarginTriplet(
       selectedRuleId: matchingRule?.id,
       exceptionId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.exception.id : undefined,
       proxyMappingId: undefined,
-      reportedKpiId: (resolvedContext.kind === 'documented_actual_segment' || resolvedContext.kind === 'proxy_numerator') ? resolvedContext.reportedKpi?.id : undefined,
+      reportedKpiId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.reportedKpi?.id : undefined,
       failedChecks,
       checks,
       diagnostic: reasons.join('; '),
@@ -1525,7 +1559,7 @@ export function validateMarginTriplet(
       selectedRuleId: matchingRule?.id,
       exceptionId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.exception.id : undefined,
       proxyMappingId: undefined,
-      reportedKpiId: (resolvedContext.kind === 'documented_actual_segment' || resolvedContext.kind === 'proxy_numerator') ? resolvedContext.reportedKpi?.id : undefined,
+      reportedKpiId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.reportedKpi?.id : undefined,
       failedChecks: ['valueValidity'],
       checks: { ...checks, valueValidity: false },
       diagnostic: `Mathematical deviation of ${difference}%p exceeds 0.35%p threshold (reported: ${reportedMargin}%, calculated: ${calculatedMargin}%).`,
@@ -1543,7 +1577,7 @@ export function validateMarginTriplet(
     selectedRuleId: matchingRule?.id,
     exceptionId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.exception.id : undefined,
     proxyMappingId: undefined,
-    reportedKpiId: (resolvedContext.kind === 'documented_actual_segment' || resolvedContext.kind === 'proxy_numerator') ? resolvedContext.reportedKpi?.id : undefined,
+    reportedKpiId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.reportedKpi?.id : undefined,
     failedChecks: [],
     checks,
     diagnostic: `Margin verified under rule "${matchingRule?.name}". Calculated: ${calculatedMargin}%, Reported: ${reportedMargin}% (diff: ${difference}%p).`,

@@ -30,8 +30,8 @@ import {
 import { AuditFinding, PeriodType } from '../src/types/metrics';
 import {
   findDocumentedScopeException,
-  findDocumentedReportedKpi,
-  findProxyMetricMapping,
+  findDocumentedReportedKpis,
+  findProxyMetricMappings,
   DOCUMENTED_SCOPE_EXCEPTIONS,
   DOCUMENTED_REPORTED_KPIS,
   PROXY_METRIC_MAPPINGS,
@@ -327,25 +327,61 @@ companyPeriodTypes.forEach((cpt) => {
   if (selection.status === 'matched') {
     marginSelectionMatched++;
 
-    // Resolve proxy mapping or documented KPI if applicable
-    const proxyMapping = selection.profit
-      ? findProxyMetricMapping(
+    // Resolve proxy mapping or documented KPI if applicable (STEP 4-8, Task 2 & Task 3)
+    const proxyMatches = (selection.profit && selection.margin)
+      ? findProxyMetricMappings(
           companyId,
           period,
           undefined,
           selection.profit.metricId,
-          periodType as PeriodType
+          periodType as PeriodType,
+          selection.margin.reportingScope,
+          selection.margin.accountingBasis,
+          selection.profit.reportingScope,
+          selection.profit.accountingBasis
         )
-      : undefined;
-    const documentedKpi = selection.margin
-      ? findDocumentedReportedKpi(
+      : [];
+
+    if (proxyMatches.length > 1) {
+      findings.push({
+        severity: 'WARNING',
+        disposition: 'review',
+        category: 'SCOPE_MISMATCH',
+        companyId,
+        period,
+        periodType,
+        item: `${companyId} (${period}, ${periodType})`,
+        detail: `Ambiguous proxy metric mapping lookup: ${proxyMatches.length} candidates matched. Human review required.`,
+      });
+    }
+
+    const proxyMapping = proxyMatches.length === 1 ? proxyMatches[0] : undefined;
+
+    const kpiMatches = selection.margin
+      ? findDocumentedReportedKpis(
           companyId,
           period,
           selection.margin.metricId,
           selection.margin.reportingScope,
-          periodType as PeriodType
+          periodType as PeriodType,
+          selection.margin.accountingBasis
         )
-      : undefined;
+      : [];
+
+    if (kpiMatches.length > 1) {
+      findings.push({
+        severity: 'WARNING',
+        disposition: 'review',
+        category: 'SCOPE_MISMATCH',
+        companyId,
+        period,
+        periodType,
+        item: `${companyId} (${period}, ${periodType})`,
+        detail: `Ambiguous documented reported KPI lookup: ${kpiMatches.length} candidates matched. Human review required.`,
+      });
+    }
+
+    const documentedKpi = kpiMatches.length === 1 ? kpiMatches[0] : undefined;
 
     const validationOptions: MarginValidationOptions = {};
     if (proxyMapping) {
