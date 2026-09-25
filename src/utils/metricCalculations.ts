@@ -346,11 +346,20 @@ export function checkObservationComparability(
 }
 
 /**
- * Generates the canonical dimensional identity key for an observation.
- * Differentiates observations by company, metric, period, periodType,
- * reportingScope, accountingBasis, volumeDefinition, currency, and valueType.
+ * getDimensionalObservationKey — Dimensional Identity
+ *
+ * Identifies an observation by its core measurement dimensions:
+ * who reported what, for which period, under which scope, basis, volume perimeter, and currency.
+ *
+ * Two observations with the same dimensional key represent the SAME underlying data point
+ * (even if sourced from different documents). Duplicate policy:
+ *
+ *  - Same key, same value, different sourceDocId → corroboration (INFO finding).
+ *  - Same key, different value, different sourceDocId → conflict (REVIEW finding).
+ *  - Same key, same value, same sourceDocId → exact duplicate (ERROR / blocking).
+ *  - Same key, conflicting source metadata → source conflict (REVIEW finding).
  */
-export function getCanonicalObservationKey(obs: MetricObservation): string {
+export function getDimensionalObservationKey(obs: MetricObservation): string {
   return [
     obs.companyId,
     obs.metricId,
@@ -363,6 +372,40 @@ export function getCanonicalObservationKey(obs: MetricObservation): string {
     obs.valueType,
   ].join('|');
 }
+
+/**
+ * getEvidenceIdentityKey — Evidence Identity
+ *
+ * Uniquely identifies a single reported observation including its evidence provenance.
+ * Two observations may share a dimensional key but differ in evidence identity
+ * (e.g., same metric from two different official sources = corroboration, not duplicate).
+ */
+export function getEvidenceIdentityKey(obs: MetricObservation): string {
+  return [
+    obs.companyId,
+    obs.metricId,
+    obs.period,
+    obs.periodType,
+    obs.reportingScope || 'unknown',
+    obs.accountingBasis || 'unknown',
+    obs.volumeDefinition || 'unknown',
+    obs.currency || 'none',
+    obs.valueType,
+    obs.sourceDocId || 'no_source',
+    obs.pageNumber !== undefined ? String(obs.pageNumber) : 'no_page',
+    obs.tableReference || 'no_table',
+    obs.originalLabel || 'no_label',
+  ].join('|');
+}
+
+/**
+ * getCanonicalObservationKey — backward-compatible alias for getDimensionalObservationKey.
+ * @deprecated Use getDimensionalObservationKey or getEvidenceIdentityKey explicitly.
+ */
+export function getCanonicalObservationKey(obs: MetricObservation): string {
+  return getDimensionalObservationKey(obs);
+}
+
 
 export const MARGIN_RELATIONSHIP_RULES: MarginRelationshipRule[] = [
   {

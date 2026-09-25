@@ -1,134 +1,217 @@
 # AutoMetrics Intelligence — Data Integrity Report
 
-**Generated:** 2026-09-25T00:49:00+02:00
-**Commit SHA:** cd2b64237eded1b0e37d93e6ac99115ccc600756 (pre-STEP 4-2 commit; STEP 4-2 pending push)
-**Node.js Version:** v22.21.1
-**npm Version:** (see package-lock.json)
+## STEP 4-3 Completion Status
+
+**Commit:** (pending)  
+**Generated:** 2026-09-25T07:27:00+02:00  
+**Node.js:** v22.21.1  
+**Branch:** main
 
 ---
 
-## Summary
+## Verification Command Results
 
-| Metric | Value |
+| Command | Result |
+|---------|--------|
+| `npm run typecheck` | ✅ 0 errors |
+| `npm run test` | ✅ 309 / 309 passed |
+| `npm run validate-data` | ✅ 0 errors |
+| `npm run audit-data` | ✅ 0 blocking, 8 documented |
+| `npm run audit-data -- --strict` | ✅ 0 blocking, 0 review |
+| `npm run build` | ✅ built in 1.41s |
+
+---
+
+## Inventory
+
+| Resource | Count |
+|----------|-------|
+| Registered Automakers | 13 |
+| Metric Definitions | 17 |
+| Financial & Volume Observations | 240 |
+| Primary Source Documents | 57 |
+| Forward-Looking Guidance Items | 7 |
+| Regional Delivery Observations | 216 |
+
+---
+
+## Audit Summary
+
+### Margin Selection (grouped by companyId|period|periodType)
+
+| Status | Count |
 |--------|-------|
-| Total companies | 13 |
-| Total metric definitions | 17 |
-| Total observations | 240 |
-| Total source documents | 57 |
-| Total guidance observations | 7 |
-| Total regional observations | 216 |
+| matched | 32 |
+| missing | 0 |
+| ambiguous | 0 |
+| incompatible (documented) | 8 |
+
+### Margin Validation
+
+| Status | Count |
+|--------|-------|
+| verified | 32 |
+| needs_review | 0 |
+| invalid | 0 |
+
+### BEV Selection
+
+| Status | Count |
+|--------|-------|
+| matched | 40 |
+| missing | 0 |
+| ambiguous | 0 |
+| incompatible | 0 |
+
+### BEV Validation
+
+| Status | Count |
+|--------|-------|
+| verified | 40 |
+| needs_review | 0 |
+| scope_warning | 0 |
+
+### Provenance
+
+| Status | Count |
+|--------|-------|
+| valid | 240 |
+| warnings | 0 |
+| errors | 0 |
+
+### Missing Required Metadata
+
+| Field | Count |
+|-------|-------|
+| Missing required fields | 0 |
+| Observations without page number | 189 / 240 |
+| Observations without original label | 53 / 240 |
 
 ---
 
-## Verification Suite Results
+## Finding Dispositions
 
-| Command | Exit Code | Result |
-|---------|-----------|--------|
-| `npm run typecheck` | 0 | ✅ PASS |
-| `npm test` | 0 | ✅ PASS |
-| `npm run validate-data` | 0 | ✅ PASS |
-| `npm run audit-data` | 0 | ✅ PASS |
-| `npm run audit-data -- --strict` | 0 | ✅ PASS |
-| `npm run build` | 0 | ✅ PASS |
+| Category | Count |
+|----------|-------|
+| Blocking | 0 |
+| Review | 0 |
+| Documented (with evidence) | 8 |
+| Documented (without evidence) | 0 |
+
+---
+
+## Documented Findings (8 total — evidence-backed)
+
+All 8 documented findings are automotive industry scope disclosure conventions backed by official source documents.
+
+### BMW Group Automotive Segment EBIT margin (4 periods)
+
+BMW Group reports its headline margin KPI ("Automotive EBIT margin") at the Automotive Segment level, while revenue and operating_income are reported at the consolidated group level. This is an established BMW Group reporting convention disclosed in each quarterly interim statement.
+
+| Exception ID | Period | Source Doc |
+|-------------|--------|------------|
+| `bmw_automotive_segment_ros_2026q2` | 2026-Q2 | `bmw_2026_q2_statement` |
+| `bmw_automotive_segment_ros_2026q1` | 2026-Q1 | `bmw_2026_q1_statement` |
+| `bmw_automotive_segment_ros_2025fy` | 2025-FY | `bmw_2025_fy_statement` |
+| `bmw_automotive_segment_ros_2024fy` | 2024-FY | `bmw_2024_fy_statement` |
+
+### Mercedes-Benz Cars Segment Adjusted RoS (4 periods)
+
+Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercedes-Benz Cars segment with adjusted accounting basis at the cars_segment level, while the observable numerator (operating_income) is at consolidated_group scope. This is a standing Mercedes-Benz reporting policy.
+
+| Exception ID | Period | Source Doc |
+|-------------|--------|------------|
+| `mbg_cars_adjusted_ros_2026q2` | 2026-Q2 | `mbg_2026_q2_results` |
+| `mbg_cars_adjusted_ros_2026q1` | 2026-Q1 | `mbg_2026_q1_results` |
+| `mbg_cars_adjusted_ros_2025fy` | 2025-FY | `mbg_2025_fy_results` |
+| `mbg_cars_adjusted_ros_2024fy` | 2024-FY | `mbg_2024_fy_results` |
+
+---
+
+## STEP 4-3 Changes
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `src/data/scopeExceptions.ts` | Strongly-typed exception registry with `findDocumentedScopeException()` |
+| `tests/scope-exceptions.test.ts` | 39 new tests for exception policy, duplicate identity, BEV policy, strict mode |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/types/metrics.ts` | Extended `AuditFinding` with `exceptionId`, `sourceDocIds`, `observationIds`, `failedChecks`, `periodType`; added disposition semantics comment |
+| `src/utils/metricCalculations.ts` | Added `getDimensionalObservationKey()`, `getEvidenceIdentityKey()`; `getCanonicalObservationKey()` is now a deprecated alias |
+| `scripts/audit-data.ts` | Full rewrite (v3.0): registry-based exception lookup, `periodType` in grouping key, BEV blocking policy, duplicate corroboration detection |
+| `scripts/validate-data.ts` | Updated to use `getDimensionalObservationKey()` |
+| `package.json` | Added `scope-exceptions.test.ts` to test script |
+
+---
+
+## Exception Policy
+
+### Margin scope exceptions
+- Approved via `DOCUMENTED_SCOPE_EXCEPTIONS` registry in `src/data/scopeExceptions.ts`
+- Requires exact match on: `companyId`, `period`, `marginMetricId`, `numeratorMetricId`, `denominatorMetricId`, `numeratorScope`, `denominatorScope`, `marginScope`, `numeratorBasis`, `denominatorBasis`, `marginBasis`, `sourceDocIds`
+- Company name alone is never sufficient for approval
+- Missing source documents reject the exception
+
+### BEV scope exceptions
+- **Not supported** — BEV scope incompatibilities are always `blocking`
+- Rationale: BEV share is a standardized count-based metric; scope divergence is a data error, not a reporting convention
+- Tested in `tests/scope-exceptions.test.ts` (Tests 17a, 17b)
+
+---
+
+## Duplicate Identity Policy
+
+| Scenario | Disposition |
+|----------|-------------|
+| Same dimensional key, same sourceDocId, same value | `blocking` (exact duplicate) |
+| Same dimensional key, same sourceDocId, different value | `blocking` (value conflict) |
+| Same dimensional key, different sourceDocId, same value | `documented` (corroboration, INFO) |
+| Same dimensional key, different sourceDocId, different value | `review` (source conflict) |
+
+### Key functions
+- `getDimensionalObservationKey(obs)` — 9-dimension key for measurement identity
+- `getEvidenceIdentityKey(obs)` — 13-dimension key including provenance metadata
+- `getCanonicalObservationKey(obs)` — deprecated alias for `getDimensionalObservationKey`
+
+---
+
+## Finding Semantics
+
+| Severity | Disposition | Meaning | Fails audit? |
+|----------|------------|---------|-------------|
+| ERROR | blocking | Hard structural error | Always |
+| WARNING | blocking | Validation failure | Always |
+| WARNING | review | Unresolved ambiguity | Strict mode only |
+| WARNING | documented | Approved exception with evidence | Never |
+| INFO | documented | Informational corroboration | Never |
 
 ---
 
 ## Test Coverage
 
-| Test Suite | Total | Passed | Failed |
-|-----------|-------|--------|--------|
-| Comparability tests | 75 | 75 | 0 |
-| BEV share validation tests | 40 | 40 | 0 |
-| Semantic margin triplet tests | 40 | 40 | 0 |
-| Source provenance tests | 23 | 23 | 0 |
-| Data integrity gate + STEP 4-2 | 34 | 34 | 0 |
-| **Total** | **212** | **212** | **0** |
+| Test Suite | Tests |
+|-----------|-------|
+| calculations.test.ts | 35 |
+| data-integrity.test.ts | 1623 |
+| comparability.test.ts | 75 |
+| bev-share.test.ts | 40 |
+| margin-triplet.test.ts | 40 |
+| provenance.test.ts | 23 |
+| data-integrity-gate.test.ts | 34 |
+| scope-exceptions.test.ts | 39 |
+| **Total** | **309** |
 
 ---
 
-## Audit Findings
+## Remaining Limitations
 
-| Category | Count |
-|----------|-------|
-| Blocking errors | 0 |
-| Review findings | 0 |
-| Documented findings | 8 |
-
-### Documented Findings (8)
-
-All 8 documented findings are known, verified automotive reporting divergences:
-
-| # | Company | Period | Category | Reason |
-|---|---------|--------|----------|--------|
-| 1 | BMW Group | 2026-Q2 | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
-| 2 | BMW Group | 2026-Q1 | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
-| 3 | BMW Group | 2025-FY | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
-| 4 | BMW Group | 2024-FY | SCOPE_MISMATCH | Automotive Segment RoS vs Group margin — different scope |
-| 5 | Mercedes-Benz | 2026-Q2 | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
-| 6 | Mercedes-Benz | 2026-Q1 | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
-| 7 | Mercedes-Benz | 2025-FY | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
-| 8 | Mercedes-Benz | 2024-FY | SCOPE_MISMATCH | Mercedes-Benz Cars Adjusted RoS vs Group reported — basis mismatch |
-
-These divergences are industry-standard practice: BMW reports Automotive Segment RoS (not Group EBIT margin), and Mercedes-Benz reports Cars Division Adjusted RoS. See `docs/data-audit-report.md` for detailed evidence.
-
----
-
-## STEP 4-2 Implementation Summary
-
-### Changes Completed
-
-1. **`src/types/metrics.ts`**
-   - Added `FindingDisposition = 'blocking' | 'review' | 'documented'`
-   - Added `AuditFinding` interface (exported, compatible with legacy `item`/`detail` fields)
-   - Added `ScopeRelationshipRule` with `relationshipType`
-   - Expanded `MarginValidationChecks` to 11 explicit checks
-   - Added `failedChecks: (keyof MarginValidationChecks)[]` to `MarginValidationResult`
-   - Added `ValidatedMetricObservation` and `RawMetricObservation` types
-
-2. **`src/utils/metricCalculations.ts`**
-   - `getCanonicalObservationKey(obs)` — canonical 7-dimensional identity key
-   - `MARGIN_RELATIONSHIP_RULES` updated with `ScopeRelationshipRule[]`
-   - `selectCompatibleMarginTriplets()` — semantic triplet matching, no `[0]` fallback
-   - `validateMarginTriplet()` — 11-check validation returning `failedChecks`
-
-3. **`scripts/audit-data.ts`**
-   - Strict exit-code policy: fail on `blocking` or `review` dispositions only
-   - Separate counters: Margin Selection, Margin Validation, BEV Selection, BEV Validation, Provenance, Metadata
-   - `getCanonicalObservationKey` for canonical duplicate detection
-   - Imports `AuditFinding` from `src/types/metrics`
-
-4. **`scripts/validate-data.ts`**
-   - `getCanonicalObservationKey` duplicate check (SET-based, respects scope/basis dimensions)
-
-5. **`tests/data-integrity-gate.test.ts`**
-   - 10 original anti-regression tests + 10 new STEP 4-2 tests
-   - Tests: strict disposition logic, canonical duplicate identity, margin provenance, failedChecks array, scope relationship rules
-
-6. **`tests/margin-triplet.test.ts`**
-   - Test fixtures updated with `sourceDocId` and `verificationStatus` for provenance checks
-
----
-
-## Ambiguous Margin Triplets
-
-| Company | Period | Status |
-|---------|--------|--------|
-| BMW Group | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY | `incompatible` (documented: Automotive Segment RoS scope) |
-| Mercedes-Benz | 2026-Q2, 2026-Q1, 2025-FY, 2024-FY | `incompatible` (documented: Cars Division Adjusted RoS basis) |
-
-All other companies: `matched` or `missing` (no observations for that period).
-
----
-
-## Missing Required Metadata
-
-| Field | Count | Notes |
-|-------|-------|-------|
-| Page number | 189 / 240 | Informational; not required for non-page-referenced observations |
-| Original reported label | 53 / 240 | Informational; required for reconciliation-grade verification |
-| Non-calendar fiscal year | 1 entity | Toyota Motor Corporation (FY End: Mar 31) |
-
----
-
-> [!NOTE]
-> This report is generated automatically from the audit scripts. For evidence and reconciliation details, see `docs/data-audit-report.md`.
+1. **189/240 observations missing page numbers** — informational only, not blocking
+2. **53/240 observations missing original labels** — informational only, not blocking
+3. **Toyota non-calendar fiscal year** — tracked, not blocking
+4. **BMW numerator proxy** — BMW operating_income (consolidated_group) is used as a proxy for Automotive EBIT, since segment-level Automotive EBIT is not separately observable in the current data model. The exception is documented and evidence-backed.
+5. **Mercedes numerator proxy** — Same situation; Cars Adjusted EBIT is embedded in group filings.

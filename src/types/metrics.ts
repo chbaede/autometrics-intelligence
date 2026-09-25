@@ -138,6 +138,21 @@ export interface DerivedMetricDefinition {
 
 export type FindingDisposition = 'blocking' | 'review' | 'documented';
 
+/**
+ * Finding Disposition Semantics
+ * ─────────────────────────────
+ * severity=ERROR  + disposition=blocking   → Hard structural error; fails audit in all modes.
+ * severity=WARNING + disposition=blocking  → Validation failure requiring immediate action; fails audit in all modes.
+ * severity=WARNING + disposition=review    → Unresolved ambiguity requiring human inspection; fails --strict mode.
+ * severity=WARNING + disposition=documented → Approved exception with full evidence trail; never causes failure.
+ * severity=INFO   + disposition=documented → Informational provenance note; never causes failure.
+ *
+ * Invariants:
+ *  - A finding with disposition='documented' MUST include a non-empty exceptionId and sourceDocIds.
+ *  - A finding with disposition='blocking' is always counted toward audit failure, regardless of severity.
+ *  - A finding with disposition='review' fails --strict mode but not normal mode.
+ *  - 'documented' findings are NOT counted as clean verified data.
+ */
 export interface AuditFinding {
   severity: 'ERROR' | 'WARNING' | 'INFO';
   disposition: FindingDisposition;
@@ -151,16 +166,31 @@ export interface AuditFinding {
     | 'AMBIGUOUS_SELECTION'
     | 'PROVENANCE_INFO'
     | 'UNCATEGORIZED';
-  // Structured fields (preferred for new findings)
+
+  // ── Core identification (preferred for new findings) ──────────────────────
   companyId?: string;
   period?: string;
+  periodType?: string;
   metricId?: string;
   message?: string;
+
+  // ── Evidence fields — required when disposition='documented' ──────────────
+  /** Exception registry ID; required for documented findings. */
+  exceptionId?: string;
+  /** Source document IDs providing evidence for the exception. */
+  sourceDocIds?: string[];
+  /** Observation IDs involved in the finding. */
+  observationIds?: string[];
+  /** Validation dimension names that failed (e.g. 'scope', 'accountingBasis'). */
+  failedChecks?: string[];
+  /** URL to official documentation or rationale file. */
   documentationUrl?: string;
-  // Legacy fields (used in audit-data.ts)
+
+  // ── Legacy fields (backward-compatible with existing audit-data.ts) ────────
   item?: string;
   detail?: string;
 }
+
 
 export interface ScopeRelationshipRule {
   relationshipType: 'same_scope' | 'segment_operating_margin' | 'custom_scope_mapping';

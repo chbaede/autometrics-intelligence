@@ -5,7 +5,7 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 
-import { getCanonicalObservationKey } from '../src/utils/metricCalculations';
+import { getDimensionalObservationKey } from '../src/utils/metricCalculations';
 
 console.log('🚀 Running AutoMetrics Data Ingestion & Strict Integrity Validator...\n');
 
@@ -34,8 +34,8 @@ SOURCE_DOCUMENTS.forEach((doc) => {
 
 // 2. Metric Observations Strict Required Metadata Check by Category
 METRIC_OBSERVATIONS.forEach((obs) => {
-  // Check canonical dimensional duplicate
-  const canonicalKey = getCanonicalObservationKey(obs);
+  // Check dimensional duplicate
+  const canonicalKey = getDimensionalObservationKey(obs);
   if (observationKeys.has(canonicalKey)) {
     console.error(`❌ Duplicate Observation Key: "${canonicalKey}" (Obs ID: ${obs.id})`);
     errorCount++;
