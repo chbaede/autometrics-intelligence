@@ -176,8 +176,14 @@ export interface AuditFinding {
   message?: string;
 
   // ── Evidence fields — required when disposition='documented' ──────────────
+  /** Rule ID when validated under a relationship rule */
+  selectedRuleId?: string;
   /** Exception registry ID; required for documented findings. */
   exceptionId?: string;
+  /** Proxy mapping ID (STEP 4-7/4-8) */
+  proxyMappingId?: string;
+  /** Documented reported KPI ID (STEP 4-7/4-8) */
+  reportedKpiId?: string;
   /** Source document IDs providing evidence for the exception. */
   sourceDocIds?: string[];
   /** Observation IDs involved in the finding. */
@@ -271,6 +277,9 @@ export interface MarginValidationResult {
     margin?: string;
   };
   selectedRuleId?: string;
+  exceptionId?: string;
+  proxyMappingId?: string;
+  reportedKpiId?: string;
   failedChecks: (keyof MarginValidationChecks | string)[];
   checks: MarginValidationChecks;
   diagnostic: string;
@@ -338,6 +347,61 @@ export interface ProxyMetricMapping {
   status: 'proxy_only' | 'needs_review';
   reason: string;
 }
+
+export interface DocumentedScopeException {
+  id: string;
+  companyId: string;
+  period?: string;
+  periodType?: PeriodType;
+
+  marginMetricId: string;
+  numeratorMetricId: string;
+  denominatorMetricId: string;
+
+  numeratorScope: ReportingScope;
+  denominatorScope: ReportingScope;
+  marginScope: ReportingScope;
+
+  numeratorBasis: AccountingBasis;
+  denominatorBasis: AccountingBasis;
+  marginBasis: AccountingBasis;
+
+  sourceDocIds: string[];
+  evidence: ScopeExceptionEvidence[];
+  rationale: string;
+
+  nature?: ScopeExceptionNature;
+  isProxy?: boolean;
+  reportedKpiId?: string;
+  proxyMappingId?: string;
+}
+
+/**
+ * Unified Validation Context (STEP 4-7/4-8, STEP 2)
+ * Discriminated union explicitly distinguishing standard, actual segment, proxy numerator, and invalid states.
+ */
+export type MarginValidationContext =
+  | {
+      kind: 'standard';
+    }
+  | {
+      kind: 'documented_actual_segment';
+      exception: DocumentedScopeException;
+      reportedKpi?: DocumentedReportedKpi | null;
+    }
+  | {
+      kind: 'proxy_numerator';
+      mapping: ProxyMetricMapping;
+      reportedKpi?: DocumentedReportedKpi | null;
+      exception?: DocumentedScopeException | null;
+    }
+  | {
+      kind: 'inconsistent_or_invalid';
+      reason: string;
+      mapping?: ProxyMetricMapping | null;
+      exception?: DocumentedScopeException | null;
+      reportedKpi?: DocumentedReportedKpi | null;
+    };
 
 export interface Company {
   id: string;

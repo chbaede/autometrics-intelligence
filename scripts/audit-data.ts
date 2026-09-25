@@ -25,10 +25,13 @@ import {
   validateBEVShare,
   validateObservationProvenance,
   getDimensionalObservationKey,
+  MarginValidationOptions,
 } from '../src/utils/metricCalculations';
-import { AuditFinding } from '../src/types/metrics';
+import { AuditFinding, PeriodType } from '../src/types/metrics';
 import {
   findDocumentedScopeException,
+  findDocumentedReportedKpi,
+  findProxyMetricMapping,
   DOCUMENTED_SCOPE_EXCEPTIONS,
   DOCUMENTED_REPORTED_KPIS,
   PROXY_METRIC_MAPPINGS,
@@ -323,7 +326,42 @@ companyPeriodTypes.forEach((cpt) => {
 
   if (selection.status === 'matched') {
     marginSelectionMatched++;
-    const validation = validateMarginTriplet(selection.revenue, selection.profit, selection.margin);
+
+    // Resolve proxy mapping or documented KPI if applicable
+    const proxyMapping = selection.profit
+      ? findProxyMetricMapping(
+          companyId,
+          period,
+          undefined,
+          selection.profit.metricId,
+          periodType as PeriodType
+        )
+      : undefined;
+    const documentedKpi = selection.margin
+      ? findDocumentedReportedKpi(
+          companyId,
+          period,
+          selection.margin.metricId,
+          selection.margin.reportingScope,
+          periodType as PeriodType
+        )
+      : undefined;
+
+    const validationOptions: MarginValidationOptions = {};
+    if (proxyMapping) {
+      validationOptions.proxyMapping = proxyMapping;
+    }
+    if (documentedKpi) {
+      validationOptions.documentedKpi = documentedKpi;
+    }
+
+    const validation = validateMarginTriplet(
+      selection.revenue,
+      selection.profit,
+      selection.margin,
+      undefined,
+      validationOptions
+    );
 
     if (validation.status === 'verified') {
       marginValidationVerified++;
@@ -339,7 +377,8 @@ companyPeriodTypes.forEach((cpt) => {
       validation,
       companyId,
       period,
-      periodType
+      periodType,
+      validationOptions
     );
     if (finding) {
       findings.push(finding);
@@ -681,7 +720,10 @@ if (findings.length > 0) {
         : f.disposition === 'informational'
         ? '💬'
         : '⚠️';
-    const evidenceStr = f.exceptionId ? ` [Exception: ${f.exceptionId}]` : '';
+    const excStr = f.exceptionId ? ` [Exception: ${f.exceptionId}]` : '';
+    const proxyStr = f.proxyMappingId ? ` [Proxy: ${f.proxyMappingId}]` : '';
+    const kpiStr = f.reportedKpiId ? ` [KPI: ${f.reportedKpiId}]` : '';
+    const evidenceStr = `${excStr}${proxyStr}${kpiStr}`;
     console.log(`${icon} [${idx + 1}] [${f.severity}] [DISPOSITION: ${f.disposition}] [${f.category}] ${f.item}:${evidenceStr}`);
     console.log(`    ${f.detail}\n`);
   });

@@ -36,87 +36,12 @@ import {
   ProxyMetricMapping,
   PeriodType,
   MetricObservation,
+  DocumentedScopeException,
+  MarginValidationContext,
 } from '../types/metrics';
 
-export type { EvidencePurpose, DocumentedReportedKpi, ProxyMetricMapping };
+export type { EvidencePurpose, DocumentedReportedKpi, ProxyMetricMapping, DocumentedScopeException, MarginValidationContext };
 
-export interface DocumentedScopeException {
-  /** Unique exception identifier (used in AuditFinding.exceptionId) */
-  id: string;
-
-  /** Company this exception applies to */
-  companyId: string;
-
-  /**
-   * Specific period for this exception (e.g., '2026-Q2').
-   * Undefined = applies to all periods for this company/metric combination.
-   */
-  period?: string;
-
-  /** Specific period type for this exception (e.g., 'quarterly', 'annual') */
-  periodType?: PeriodType;
-
-  /** Metric ID for the reported margin (e.g., 'operating_margin') */
-  marginMetricId: string;
-
-  /** Metric ID of the numerator profit observation */
-  numeratorMetricId: string;
-
-  /** Metric ID of the denominator revenue observation */
-  denominatorMetricId: string;
-
-  /** Exact ReportingScope of the numerator observation */
-  numeratorScope: ReportingScope;
-
-  /** Exact ReportingScope of the denominator observation */
-  denominatorScope: ReportingScope;
-
-  /** Exact ReportingScope of the margin observation */
-  marginScope: ReportingScope;
-
-  /** Exact AccountingBasis of the numerator observation */
-  numeratorBasis: AccountingBasis;
-
-  /** Exact AccountingBasis of the denominator observation */
-  denominatorBasis: AccountingBasis;
-
-  /** Exact AccountingBasis of the margin observation */
-  marginBasis: AccountingBasis;
-
-  /**
-   * One or more source document IDs that provide evidence for this exception.
-   * Must be non-empty and reference verified source documents.
-   */
-  sourceDocIds: string[];
-
-  /**
-   * Explicit evidence references per referenced source document (P1-2).
-   * Every sourceDocId must have at least one corresponding evidence record.
-   */
-  evidence: ScopeExceptionEvidence[];
-
-  /**
-   * Human-readable rationale citing the official reporting policy, section,
-   * or industry convention that justifies this scope divergence.
-   */
-  rationale: string;
-
-  /**
-   * Nature of the exception numerator:
-   * - 'actual_segment': exact segment-level metric reported by OEM
-   * - 'proxy_numerator': group operating income or proxy used as approximation (cannot be verified mathematically)
-   */
-  nature?: ScopeExceptionNature;
-
-  /** Indicates whether the numerator is a proxy rather than actual segment metric. */
-  isProxy?: boolean;
-
-  /** Link to underlying documented reported KPI (STEP 4-6, P0-1) */
-  reportedKpiId?: string;
-
-  /** Link to underlying proxy metric mapping (STEP 4-6, P0-1) */
-  proxyMappingId?: string;
-}
 
 /**
  * DOCUMENTED_REPORTED_KPIS (STEP 4-6, P0-1)
@@ -789,13 +714,17 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
 export function findDocumentedReportedKpi(
   companyId: string,
   period?: string,
-  metricId?: string
+  metricId?: string,
+  reportingScope?: ReportingScope,
+  periodType?: PeriodType
 ): DocumentedReportedKpi | undefined {
   return DOCUMENTED_REPORTED_KPIS.find(
     (k) =>
       k.companyId === companyId &&
       (k.period === undefined || k.period === period) &&
-      (metricId === undefined || k.metricId === metricId)
+      (metricId === undefined || k.metricId === metricId) &&
+      (reportingScope === undefined || k.reportingScope === reportingScope) &&
+      (periodType === undefined || k.periodType === undefined || k.periodType === periodType)
   );
 }
 
@@ -837,6 +766,14 @@ export function normalizeProxyException(exception: DocumentedScopeException): {
       isProxy: false,
       isInconsistent: true,
       error: `Inconsistent registry state: exception [${exception.id}] has nature='actual_segment' but isProxy=true.`,
+    };
+  }
+
+  if (exception.proxyMappingId && exception.isProxy === false) {
+    return {
+      isProxy: true,
+      isInconsistent: true,
+      error: `Inconsistent registry state: exception [${exception.id}] has proxyMappingId="${exception.proxyMappingId}" but isProxy=false.`,
     };
   }
 

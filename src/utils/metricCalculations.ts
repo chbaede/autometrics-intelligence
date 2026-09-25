@@ -27,10 +27,12 @@ import {
   AuditFinding,
   DocumentedReportedKpi,
   ProxyMetricMapping,
+  MarginValidationContext,
 } from '../types/metrics';
 import {
   DocumentedScopeException,
   isProxyException,
+  normalizeProxyException,
   validateProxyMappingCompatibility,
   DOCUMENTED_REPORTED_KPIS,
   PROXY_METRIC_MAPPINGS,
@@ -760,6 +762,110 @@ export interface MarginValidationOptions {
   proxyMapping?: ProxyMetricMapping | null;
   documentedKpi?: DocumentedReportedKpi | null;
   exception?: DocumentedScopeException | null;
+  context?: MarginValidationContext | null;
+}
+
+/**
+ * Resolves a strongly-typed MarginValidationContext (STEP 4-7/4-8).
+ * Distinguishes standard, documented_actual_segment, proxy_numerator, and inconsistent_or_invalid contexts.
+ */
+export function resolveMarginValidationContext(
+  optionsOrException?: MarginValidationOptions | DocumentedScopeException | MarginValidationContext | null
+): MarginValidationContext {
+  if (!optionsOrException) {
+    return { kind: 'standard' };
+  }
+
+  // Already a MarginValidationContext
+  if ('kind' in optionsOrException && typeof (optionsOrException as any).kind === 'string') {
+    return optionsOrException as MarginValidationContext;
+  }
+
+  let exception: DocumentedScopeException | null = null;
+  let proxyMapping: ProxyMetricMapping | null = null;
+  let documentedKpi: DocumentedReportedKpi | null = null;
+
+  if ('id' in optionsOrException && 'numeratorScope' in optionsOrException) {
+    // DocumentedScopeException
+    exception = optionsOrException as DocumentedScopeException;
+  } else {
+    // MarginValidationOptions
+    const opts = optionsOrException as MarginValidationOptions;
+    if (opts.context) {
+      return opts.context;
+    }
+    exception = opts.exception ?? null;
+    proxyMapping = opts.proxyMapping ?? null;
+    documentedKpi = opts.documentedKpi ?? null;
+  }
+
+  if (exception) {
+    if (!proxyMapping && exception.proxyMappingId) {
+      proxyMapping = PROXY_METRIC_MAPPINGS.find((p) => p.id === exception!.proxyMappingId) ?? null;
+    }
+    if (!documentedKpi && exception.reportedKpiId) {
+      documentedKpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === exception!.reportedKpiId) ?? null;
+    }
+
+    const norm = normalizeProxyException(exception);
+    if (norm.isInconsistent) {
+      return {
+        kind: 'inconsistent_or_invalid',
+        reason: norm.error || `Inconsistent proxy exception state in [${exception.id}].`,
+        exception,
+        mapping: proxyMapping,
+        reportedKpi: documentedKpi,
+      };
+    }
+  }
+
+  const isProxy = proxyMapping !== null || isProxyException(exception);
+
+  if (isProxy) {
+    if (proxyMapping) {
+      return {
+        kind: 'proxy_numerator',
+        mapping: proxyMapping,
+        reportedKpi: documentedKpi,
+        exception,
+      };
+    }
+    if (exception) {
+      const syntheticMapping: ProxyMetricMapping = {
+        id: exception.proxyMappingId || exception.id,
+        companyId: exception.companyId,
+        period: exception.period,
+        periodType: exception.periodType,
+        targetMetricId: exception.marginMetricId,
+        targetNumeratorSemantic: exception.numeratorMetricId,
+        targetScope: exception.marginScope,
+        targetBasis: exception.marginBasis,
+        proxyMetricId: exception.numeratorMetricId,
+        proxyScope: exception.numeratorScope,
+        proxyBasis: exception.numeratorBasis,
+        sourceDocIds: exception.sourceDocIds,
+        evidence: exception.evidence,
+        status: 'proxy_only',
+        reason: exception.rationale,
+      };
+      return {
+        kind: 'proxy_numerator',
+        mapping: syntheticMapping,
+        reportedKpi: documentedKpi,
+        exception,
+      };
+    }
+  }
+
+  if (exception) {
+    return {
+      kind: 'documented_actual_segment',
+      exception,
+      reportedKpi: documentedKpi,
+    };
+  }
+
+  return { kind: 'standard' };
 }
 
 export interface ExceptionDimensionValidationResult {
@@ -896,6 +1002,7 @@ export function validateMarginTriplet(
   rules: MarginRelationshipRule[] = MARGIN_RELATIONSHIP_RULES,
   options?: MarginValidationOptions
 ): MarginValidationResult {
+  const context = resolveMarginValidationContext(options);
   const selectedObservationIds = {
     revenue: revObs?.id,
     profit: profitObs?.id,
@@ -999,7 +1106,7 @@ export function validateMarginTriplet(
     );
   }
 
-  // Check 4: Reporting scope
+  // Check 4: Reporting scope (same_scope, segment_operating_margin, custom_scope_mapping)
   const scopeRev = revObs.reportingScope;
   const scopeProfit = profitObs.reportingScope;
   const scopeMargin = marginObs.reportingScope;
@@ -1014,6 +1121,20 @@ export function validateMarginTriplet(
           scopeRev !== 'unknown' &&
           scopeRev === scopeProfit &&
           scopeProfit === scopeMargin
+        ) {
+          scopeMatchesRule = true;
+          break;
+        }
+      } else if (
+        (scopeRel.relationshipType === 'segment_operating_margin' || scopeRel.relationshipType === 'custom_scope_mapping') &&
+        scopeRel.denominatorScope &&
+        scopeRel.numeratorScope &&
+        scopeRel.marginScope
+      ) {
+        if (
+          scopeRev === scopeRel.denominatorScope &&
+          scopeProfit === scopeRel.numeratorScope &&
+          scopeMargin === scopeRel.marginScope
         ) {
           scopeMatchesRule = true;
           break;
@@ -1080,6 +1201,45 @@ export function validateMarginTriplet(
     (key) => checks[key] === false
   );
 
+  // Inconsistent context check (STEP 4-7/4-8)
+  // An inconsistent exception (e.g. nature=proxy_numerator, isProxy=false) must be
+  // normalized to proxy_numerator — it cannot be treated as verified.
+  // The existing policy test (Test 62c) requires status=proxy_only, not invalid.
+  // So we re-resolve the context as proxy_numerator here.
+  let resolvedContext = context;
+  if (context.kind === 'inconsistent_or_invalid') {
+    // Best-effort: if there's an exception or mapping, treat as proxy_numerator
+    if (context.mapping || context.exception) {
+      const syntheticMapping: ProxyMetricMapping | null = context.mapping ?? (context.exception
+        ? {
+            id: context.exception.proxyMappingId || context.exception.id,
+            companyId: context.exception.companyId,
+            period: context.exception.period,
+            periodType: context.exception.periodType,
+            targetMetricId: context.exception.marginMetricId,
+            targetNumeratorSemantic: context.exception.numeratorMetricId,
+            targetScope: context.exception.marginScope,
+            targetBasis: context.exception.marginBasis,
+            proxyMetricId: context.exception.numeratorMetricId,
+            proxyScope: context.exception.numeratorScope,
+            proxyBasis: context.exception.numeratorBasis,
+            sourceDocIds: context.exception.sourceDocIds,
+            evidence: context.exception.evidence,
+            status: 'proxy_only',
+            reason: context.exception.rationale,
+          }
+        : null);
+      if (syntheticMapping) {
+        resolvedContext = {
+          kind: 'proxy_numerator',
+          mapping: syntheticMapping,
+          reportedKpi: context.reportedKpi,
+          exception: context.exception,
+        };
+      }
+    }
+  }
+
   // Denominator check
   if (revObs.value! <= 0) {
     return {
@@ -1090,6 +1250,9 @@ export function validateMarginTriplet(
       mathematicallyVerified: false,
       selectedObservationIds,
       selectedRuleId: matchingRule?.id,
+      exceptionId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.exception.id : resolvedContext.kind === 'proxy_numerator' ? resolvedContext.exception?.id : undefined,
+      proxyMappingId: resolvedContext.kind === 'proxy_numerator' ? resolvedContext.mapping.id : undefined,
+      reportedKpiId: resolvedContext.kind === 'documented_actual_segment' || resolvedContext.kind === 'proxy_numerator' ? resolvedContext.reportedKpi?.id : undefined,
       failedChecks,
       checks,
       diagnostic: `Revenue denominator is non-positive (${revObs.value}); margin calculation is undefined.`,
@@ -1101,49 +1264,30 @@ export function validateMarginTriplet(
   const reportedMargin = marginObs.value;
   const difference = Math.round(Math.abs(calculatedMargin - reportedMargin!) * 100) / 100;
 
-  // Normalize options into explicit validation context (STEP 4-7, P0-1)
-  let proxyMapping = options?.proxyMapping ?? null;
-  let documentedKpi = options?.documentedKpi ?? null;
-  const legacyException = options?.exception ?? null;
+  // Handle proxy exception or mapping (STEP 4-3, 4-4, 4-5, 4-6, 4-7, 4-8)
+  if (resolvedContext.kind === 'proxy_numerator') {
+    const proxyMapping = resolvedContext.mapping;
+    const legacyException = resolvedContext.exception;
+    let isExceptionApplicable = true;
+    const dimensionMismatches: string[] = [];
 
-  if (legacyException) {
-    if (!proxyMapping && legacyException.proxyMappingId) {
-      proxyMapping = PROXY_METRIC_MAPPINGS.find((p) => p.id === legacyException.proxyMappingId) ?? null;
-    }
-    if (!documentedKpi && legacyException.reportedKpiId) {
-      documentedKpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === legacyException.reportedKpiId) ?? null;
-    }
-  }
-
-  // Centralized proxy detection (STEP 4-7, P1-2)
-  const isProxy = proxyMapping !== null || isProxyException(legacyException);
-
-  // Validate exception / proxy mapping dimensions against candidate observations (STEP 4-5, STEP 4-7, P1-4)
-  let isExceptionApplicable = true;
-  const dimensionMismatches: string[] = [];
-
-  if (proxyMapping) {
     const proxyCompat = validateProxyMappingCompatibility(proxyMapping, revObs, profitObs, marginObs);
     if (!proxyCompat.isValid) {
       isExceptionApplicable = false;
       dimensionMismatches.push(...proxyCompat.mismatches);
       reasons.push(...proxyCompat.reasons);
     }
-  }
 
-  if (legacyException) {
-    const exceptionDimResult = validateExceptionDimensions(legacyException, revObs, profitObs, marginObs);
-    if (!exceptionDimResult.isValid) {
-      isExceptionApplicable = false;
-      dimensionMismatches.push(...exceptionDimResult.mismatches);
-      reasons.push(...exceptionDimResult.reasons);
+    if (legacyException) {
+      const exceptionDimResult = validateExceptionDimensions(legacyException, revObs, profitObs, marginObs);
+      if (!exceptionDimResult.isValid) {
+        isExceptionApplicable = false;
+        dimensionMismatches.push(...exceptionDimResult.mismatches);
+        reasons.push(...exceptionDimResult.reasons);
+      }
     }
-  }
 
-  // Handle proxy exception or mapping (STEP 4-3, 4-4, 4-5, 4-6, 4-7)
-  if (isProxy) {
     if (!isExceptionApplicable) {
-      // Dimensional mismatch: cannot apply proxy mapping/exception, fall back to standard validation
       reasons.push(
         `Proxy mapping/exception rejected: dimensional mismatch (${Array.from(new Set(dimensionMismatches)).join(', ')}).`
       );
@@ -1160,6 +1304,9 @@ export function validateMarginTriplet(
           mathematicallyVerified: false,
           selectedObservationIds,
           selectedRuleId: matchingRule?.id,
+          exceptionId: legacyException?.id,
+          proxyMappingId: proxyMapping.id,
+          reportedKpiId: resolvedContext.reportedKpi?.id,
           failedChecks: ['valueValidity'],
           checks,
           diagnostic: `Invalid value in proxy triplet: ${reasons.join('; ')}`,
@@ -1177,6 +1324,9 @@ export function validateMarginTriplet(
           mathematicallyVerified: false,
           selectedObservationIds,
           selectedRuleId: matchingRule?.id,
+          exceptionId: legacyException?.id,
+          proxyMappingId: proxyMapping.id,
+          reportedKpiId: resolvedContext.reportedKpi?.id,
           failedChecks: ['currency'],
           checks,
           diagnostic: `Currency mismatch in proxy exception: Revenue (${revObs.currency}), Profit (${profitObs.currency}). Currency mismatch cannot be overridden by exception.`,
@@ -1194,6 +1344,9 @@ export function validateMarginTriplet(
           mathematicallyVerified: false,
           selectedObservationIds,
           selectedRuleId: matchingRule?.id,
+          exceptionId: legacyException?.id,
+          proxyMappingId: proxyMapping.id,
+          reportedKpiId: resolvedContext.reportedKpi?.id,
           failedChecks: ['unit'],
           checks,
           diagnostic: `Unit mismatch in proxy exception: Revenue (${revObs.unit}), Profit (${profitObs.unit}), Margin (${marginObs.unit}). Unit mismatch cannot be overridden by exception.`,
@@ -1211,6 +1364,9 @@ export function validateMarginTriplet(
           mathematicallyVerified: false,
           selectedObservationIds,
           selectedRuleId: matchingRule?.id,
+          exceptionId: legacyException?.id,
+          proxyMappingId: proxyMapping.id,
+          reportedKpiId: resolvedContext.reportedKpi?.id,
           failedChecks: ['provenance'],
           checks,
           diagnostic: `Provenance missing in proxy exception: reported observations must link to a valid source document. Provenance cannot be overridden by exception.`,
@@ -1228,6 +1384,9 @@ export function validateMarginTriplet(
           mathematicallyVerified: false,
           selectedObservationIds,
           selectedRuleId: matchingRule?.id,
+          exceptionId: legacyException?.id,
+          proxyMappingId: proxyMapping.id,
+          reportedKpiId: resolvedContext.reportedKpi?.id,
           failedChecks: ['metricDefinition'],
           checks,
           diagnostic: `Invalid metric definition: exception cannot override invalid metric types. ${reasons.join('; ')}`,
@@ -1245,6 +1404,9 @@ export function validateMarginTriplet(
           mathematicallyVerified: false,
           selectedObservationIds,
           selectedRuleId: matchingRule?.id,
+          exceptionId: legacyException?.id,
+          proxyMappingId: proxyMapping.id,
+          reportedKpiId: resolvedContext.reportedKpi?.id,
           failedChecks:
             !checks.period && !checks.periodType
               ? ['period', 'periodType']
@@ -1266,7 +1428,10 @@ export function validateMarginTriplet(
           difference: null,
           mathematicallyVerified: false,
           selectedObservationIds,
-          selectedRuleId: proxyMapping?.id || legacyException?.id,
+          selectedRuleId: matchingRule?.id,
+          exceptionId: legacyException?.id,
+          proxyMappingId: proxyMapping.id,
+          reportedKpiId: resolvedContext.reportedKpi?.id,
           failedChecks: ['verificationStatus'],
           checks,
           diagnostic: `Proxy exception observation not verified: ${reasons.join('; ')}`,
@@ -1282,8 +1447,7 @@ export function validateMarginTriplet(
         'mathematical_equivalence_unverified',
       ]));
 
-      const ruleOrExceptionId = proxyMapping?.id || legacyException?.id || 'proxy_mapping';
-      const rationale = legacyException?.rationale || proxyMapping?.reason || 'Proxy numerator relationship';
+      const rationale = legacyException?.rationale || proxyMapping.reason || 'Proxy numerator relationship';
 
       return {
         status: 'proxy_only',
@@ -1292,15 +1456,36 @@ export function validateMarginTriplet(
         difference: null,
         mathematicallyVerified: false,
         selectedObservationIds,
-        selectedRuleId: ruleOrExceptionId,
+        selectedRuleId: matchingRule?.id,
+        exceptionId: legacyException?.id,
+        proxyMappingId: proxyMapping.id,
+        reportedKpiId: resolvedContext.reportedKpi?.id,
         failedChecks: combinedFailedChecks,
         checks: { ...checks, scope: false },
-        diagnostic: `Proxy numerator limitation: consolidated operating income cannot automatically become verified segment EBIT. Reported margin (${marginObs.value}%) preserved without independent mathematical verification per ${proxyMapping ? `proxy mapping [${proxyMapping.id}]` : `exception [${legacyException?.id}]`}.`,
+        diagnostic: `Proxy numerator limitation: consolidated operating income cannot automatically become verified segment EBIT. Reported margin (${marginObs.value}%) preserved without independent mathematical verification per proxy mapping [${proxyMapping.id}]${legacyException ? ` / exception [${legacyException.id}]` : ''}.`,
         reasons: [
           'Proxy numerator relationship — not classified as verified calculation.',
           rationale,
         ],
       };
+    }
+  }
+
+  // Handle documented actual segment exception
+  if (resolvedContext.kind === 'documented_actual_segment') {
+    const legacyException = resolvedContext.exception;
+    const exceptionDimResult = validateExceptionDimensions(legacyException, revObs, profitObs, marginObs);
+    if (!exceptionDimResult.isValid) {
+      reasons.push(
+        `Actual segment exception rejected: dimensional mismatch (${exceptionDimResult.mismatches.join(', ')}).`
+      );
+    } else {
+      // Waive scope failure if explicitly covered by documented actual segment exception
+      const scopeIdx = failedChecks.indexOf('scope');
+      if (scopeIdx !== -1) {
+        failedChecks.splice(scopeIdx, 1);
+        checks.scope = true;
+      }
     }
   }
 
@@ -1319,6 +1504,9 @@ export function validateMarginTriplet(
       mathematicallyVerified: false,
       selectedObservationIds,
       selectedRuleId: matchingRule?.id,
+      exceptionId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.exception.id : undefined,
+      proxyMappingId: undefined,
+      reportedKpiId: (resolvedContext.kind === 'documented_actual_segment' || resolvedContext.kind === 'proxy_numerator') ? resolvedContext.reportedKpi?.id : undefined,
       failedChecks,
       checks,
       diagnostic: reasons.join('; '),
@@ -1335,6 +1523,9 @@ export function validateMarginTriplet(
       mathematicallyVerified: false,
       selectedObservationIds,
       selectedRuleId: matchingRule?.id,
+      exceptionId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.exception.id : undefined,
+      proxyMappingId: undefined,
+      reportedKpiId: (resolvedContext.kind === 'documented_actual_segment' || resolvedContext.kind === 'proxy_numerator') ? resolvedContext.reportedKpi?.id : undefined,
       failedChecks: ['valueValidity'],
       checks: { ...checks, valueValidity: false },
       diagnostic: `Mathematical deviation of ${difference}%p exceeds 0.35%p threshold (reported: ${reportedMargin}%, calculated: ${calculatedMargin}%).`,
@@ -1350,6 +1541,9 @@ export function validateMarginTriplet(
     mathematicallyVerified: true,
     selectedObservationIds,
     selectedRuleId: matchingRule?.id,
+    exceptionId: resolvedContext.kind === 'documented_actual_segment' ? resolvedContext.exception.id : undefined,
+    proxyMappingId: undefined,
+    reportedKpiId: (resolvedContext.kind === 'documented_actual_segment' || resolvedContext.kind === 'proxy_numerator') ? resolvedContext.reportedKpi?.id : undefined,
     failedChecks: [],
     checks,
     diagnostic: `Margin verified under rule "${matchingRule?.name}". Calculated: ${calculatedMargin}%, Reported: ${reportedMargin}% (diff: ${difference}%p).`,
@@ -1366,7 +1560,7 @@ export function createAuditFindingFromMarginValidation(
   companyId: string,
   period: string,
   periodType?: string,
-  optionsOrException?: DocumentedScopeException | MarginValidationOptions | null
+  optionsOrException?: DocumentedScopeException | MarginValidationOptions | MarginValidationContext | null
 ): AuditFinding | null {
   if (validation.status === 'verified') {
     return null;
@@ -1375,39 +1569,34 @@ export function createAuditFindingFromMarginValidation(
   const observationIds = Object.values(validation.selectedObservationIds).filter(Boolean) as string[];
   const item = `${companyId} (${period}${periodType ? `, ${periodType}` : ''})`;
 
-  let exception: DocumentedScopeException | null = null;
-  let proxyMapping: ProxyMetricMapping | null = null;
-  let documentedKpi: DocumentedReportedKpi | null = null;
-
-  if (optionsOrException) {
-    if ('id' in optionsOrException && 'numeratorScope' in optionsOrException) {
-      exception = optionsOrException as DocumentedScopeException;
-      if (exception.proxyMappingId) {
-        proxyMapping = PROXY_METRIC_MAPPINGS.find((p) => p.id === exception!.proxyMappingId) ?? null;
-      }
-      if (exception.reportedKpiId) {
-        documentedKpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === exception!.reportedKpiId) ?? null;
-      }
-    } else {
-      const opts = optionsOrException as MarginValidationOptions;
-      exception = opts.exception ?? null;
-      proxyMapping = opts.proxyMapping ?? null;
-      documentedKpi = opts.documentedKpi ?? null;
-      if (exception && !proxyMapping && exception.proxyMappingId) {
-        const proxyId = exception.proxyMappingId;
-        proxyMapping = PROXY_METRIC_MAPPINGS.find((p) => p.id === proxyId) ?? null;
-      }
-      if (exception && !documentedKpi && exception.reportedKpiId) {
-        const kpiId = exception.reportedKpiId;
-        documentedKpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === kpiId) ?? null;
-      }
-    }
-  }
+  const context = resolveMarginValidationContext(optionsOrException);
+  const selectedRuleId = validation.selectedRuleId;
+  const exceptionId =
+    validation.exceptionId ||
+    (context.kind === 'documented_actual_segment'
+      ? context.exception.id
+      : context.kind === 'proxy_numerator'
+      ? context.exception?.id
+      : undefined);
+  const proxyMappingId =
+    validation.proxyMappingId ||
+    (context.kind === 'proxy_numerator' ? context.mapping.id : undefined);
+  const reportedKpiId =
+    validation.reportedKpiId ||
+    (context.kind === 'documented_actual_segment' || context.kind === 'proxy_numerator'
+      ? context.reportedKpi?.id
+      : undefined);
 
   if (validation.status === 'proxy_only') {
-    const excId = exception?.id || proxyMapping?.id || validation.selectedRuleId;
-    const rationale = exception?.rationale || proxyMapping?.reason || validation.reasons.join('; ');
-    const sourceDocIds = exception?.sourceDocIds || proxyMapping?.sourceDocIds;
+    const rationale =
+      (context.kind === 'proxy_numerator' && context.exception?.rationale) ||
+      (context.kind === 'proxy_numerator' && context.mapping.reason) ||
+      validation.reasons.join('; ');
+    const sourceDocIds: string[] | undefined =
+      context.kind === 'proxy_numerator'
+        ? (context.exception?.sourceDocIds ?? context.mapping.sourceDocIds)
+        : undefined;
+
     return {
       severity: 'WARNING',
       disposition: 'review',
@@ -1417,13 +1606,16 @@ export function createAuditFindingFromMarginValidation(
       periodType,
       metricId: 'operating_margin',
       item,
-      exceptionId: excId,
+      selectedRuleId,
+      exceptionId,
+      proxyMappingId,
+      reportedKpiId,
       sourceDocIds,
       observationIds,
       failedChecks: validation.failedChecks,
       isProxy: true,
       mathematicallyVerified: false,
-      detail: `[PROXY LIMITATION] Documented scope exception [${excId}]: ${rationale} The headline margin KPI is officially documented by the OEM, but the available operating profit numerator is a consolidated group proxy. The margin is not independently verified mathematically. Human review or actual segment-level numerator data is required.`,
+      detail: `[PROXY LIMITATION] Documented scope exception${exceptionId ? ` [${exceptionId}]` : ''}${proxyMappingId ? ` (proxy mapping [${proxyMappingId}])` : ''}: ${rationale} The headline margin KPI is officially documented by the OEM, but the available operating profit numerator is a consolidated group proxy. The margin is not independently verified mathematically. Human review or actual segment-level numerator data is required.`,
       documentationUrl: 'docs/data-audit-report.md',
     };
   }
@@ -1439,6 +1631,10 @@ export function createAuditFindingFromMarginValidation(
       periodType,
       metricId: 'operating_margin',
       item,
+      selectedRuleId,
+      exceptionId,
+      proxyMappingId,
+      reportedKpiId,
       observationIds,
       failedChecks: validation.failedChecks,
       mathematicallyVerified: false,
@@ -1456,6 +1652,10 @@ export function createAuditFindingFromMarginValidation(
       periodType,
       metricId: 'operating_margin',
       item,
+      selectedRuleId,
+      exceptionId,
+      proxyMappingId,
+      reportedKpiId,
       observationIds,
       failedChecks: validation.failedChecks,
       mathematicallyVerified: false,
@@ -1473,6 +1673,10 @@ export function createAuditFindingFromMarginValidation(
       periodType,
       metricId: 'operating_margin',
       item,
+      selectedRuleId,
+      exceptionId,
+      proxyMappingId,
+      reportedKpiId,
       observationIds,
       failedChecks: validation.failedChecks,
       mathematicallyVerified: false,
