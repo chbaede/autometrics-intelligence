@@ -327,8 +327,8 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* SECTION 1: Core Volume & Profitability Benchmarks (Ranked Descending) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      {/* SECTION 1: Core Volume & Profitability Benchmarks (Ranked Descending - One Chart Per Row) */}
+      <div className="flex flex-col gap-6 w-full">
         <MetricBarChart
           title={t.charts.salesVolume}
           subtitle={t.charts.salesSubtitle}
