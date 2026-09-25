@@ -93,8 +93,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
       </div>
 
       {/* SVG Bar Chart Container with Ample Headroom */}
-      <div className="relative w-full overflow-x-auto pt-6 pb-2">
-        <div className="min-w-[420px] h-[230px] flex items-end justify-around gap-2 px-3 pb-8 pt-8 border-b border-slate-200 dark:border-slate-800 relative">
+      <div className="relative w-full overflow-x-auto pt-8 pb-2">
+        <div className="min-w-[440px] h-[240px] flex items-end justify-around gap-2 px-5 pb-8 pt-10 border-b border-slate-200 dark:border-slate-800 relative">
           {/* Zero baseline if minVal < 0 */}
           {minVal < 0 && (
             <div
@@ -112,6 +112,14 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
             const barHeightPct = isNull ? 4 : Math.max(6, (Math.abs(valNum) / (maxVal || 1)) * 125);
             const isHovered = hoveredIndex === idx;
 
+            // Safe horizontal positioning to prevent first and last items from being clipped by scroll container
+            const tooltipPositionClass =
+              idx === 0
+                ? 'left-0'
+                : idx === sortedObservations.length - 1
+                ? 'right-0'
+                : 'left-1/2 -translate-x-1/2';
+
             return (
               <div
                 key={item.company.id}
@@ -120,15 +128,17 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                 onMouseLeave={() => setHoveredIndex(null)}
                 onClick={() => onSelectObservation?.(item.observation)}
               >
-                {/* Floating Tooltip inside container */}
+                {/* Floating Tooltip inside container: clean light theme in day mode, sleek slate in dark mode */}
                 {isHovered && (
-                  <div className="absolute -top-7 z-30 px-2.5 py-1 bg-slate-900 text-white dark:bg-slate-800 dark:text-slate-100 rounded-lg shadow-xl text-[11px] font-mono border border-slate-700 whitespace-nowrap pointer-events-none flex items-center gap-1.5">
-                    <span className="font-bold text-brand-400">#{idx + 1} {item.company.shortName}:</span>
-                    <span className="font-semibold text-white">
+                  <div
+                    className={`absolute -top-8 z-30 px-2.5 py-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg shadow-lg shadow-slate-300/50 dark:shadow-slate-950/60 text-[11px] font-mono border border-slate-200 dark:border-slate-700 whitespace-nowrap pointer-events-none flex items-center gap-1.5 transition-all ${tooltipPositionClass}`}
+                  >
+                    <span className="font-bold text-brand-600 dark:text-brand-400">#{idx + 1} {item.company.shortName}:</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white">
                       {formatMetricValue(val, unit, item.observation.currency)}
                     </span>
                     {!item.observation.isComparable && (
-                      <span className="text-amber-400 text-[10px]">({language === 'ko' ? '비교주의' : 'Scope'})</span>
+                      <span className="text-amber-600 dark:text-amber-400 text-[10px] font-medium">({language === 'ko' ? '비교주의' : 'Scope'})</span>
                     )}
                   </div>
                 )}

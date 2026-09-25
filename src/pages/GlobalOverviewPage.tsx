@@ -367,22 +367,22 @@ export const GlobalOverviewPage: React.FC = () => {
       </div>
 
       {/* SECTION 5: Dedicated Data Table Hub Card & Collapsible Terminal */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 text-white rounded-2xl p-6 sm:p-7 shadow-xl border border-slate-700/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+      <div className="bg-gradient-to-r from-slate-50 via-white to-brand-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 text-slate-900 dark:text-white rounded-2xl p-6 sm:p-7 shadow-md dark:shadow-xl border border-slate-200/90 dark:border-slate-700/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 transition-colors">
         <div className="space-y-1.5 max-w-2xl">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-400 border border-brand-500/30">
+            <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-brand-500/10 dark:bg-brand-500/20 text-brand-700 dark:text-brand-400 border border-brand-500/20 dark:border-brand-500/30">
               {language === 'ko' ? '공식 IR 데이터 허브' : 'Official Disclosures Hub'}
             </span>
-            <span className="text-xs text-slate-400 font-mono">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
               240+ Verified Points • 57 Primary Sources
             </span>
           </div>
-          <h3 className="text-lg font-bold text-white">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
             {language === 'ko'
               ? '글로벌 완성차 공식 IR 공시 종합 데이터 및 출처 감사 테이블'
               : 'Global OEM Consolidated Disclosures & Audit Registry'}
           </h3>
-          <p className="text-xs text-slate-300 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
             {language === 'ko'
               ? '제조사별 원문 표기 회계 라벨, 통화, 감사 출처(PDF/IR 링크) 및 회계 기준 상세 내역은 전용 데이터 커버리지 페이지에서 전체 검색 및 필터링할 수 있습니다.'
               : 'View all original accounting labels, reported units, official PDF filing traces, and deep audit data in the dedicated Data Coverage terminal.'}
@@ -392,9 +392,9 @@ export const GlobalOverviewPage: React.FC = () => {
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
           <button
             onClick={() => setShowInlineTable(!showInlineTable)}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-200 bg-slate-800 hover:bg-slate-750 border border-slate-600 transition flex items-center gap-1.5 shadow-xs"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-600 transition flex items-center gap-1.5 shadow-xs"
           >
-            <TableProperties className="w-4 h-4 text-brand-400" />
+            <TableProperties className="w-4 h-4 text-brand-600 dark:text-brand-400" />
             <span>
               {showInlineTable
                 ? (language === 'ko' ? '테이블 접기' : 'Hide Table')
@@ -404,7 +404,7 @@ export const GlobalOverviewPage: React.FC = () => {
 
           <Link
             to="/coverage"
-            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-brand-400 hover:bg-brand-300 transition flex items-center gap-1.5 shadow-md font-sans"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold text-white dark:text-slate-950 bg-brand-600 hover:bg-brand-500 dark:bg-brand-400 dark:hover:bg-brand-300 transition flex items-center gap-1.5 shadow-sm font-sans"
           >
             <span>{language === 'ko' ? '데이터 커버리지 전용 페이지 이동' : 'Go to Data Coverage Page'}</span>
             <ExternalLink className="w-3.5 h-3.5" />
