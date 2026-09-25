@@ -781,6 +781,57 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     lastChecked: '2026-09-20',
     notes: 'Q4 wholesale 1,178k units, revenue $46.0B, adjusted EBIT $2.6B (5.7% margin).',
   },
+
+  // =========================================================================
+  // 11. GEELY AUTOMOBILE HOLDINGS
+  // =========================================================================
+  {
+    id: 'geely_2026_q2_results',
+    companyId: 'geely',
+    title: 'Geely Automobile Holdings Limited 2026 Interim Business & Financial Results',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    publicationDate: '2026-08-21',
+    officialUrl: 'https://www.geelyauto.com.hk/en/investor-relations/results-announcements/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official HKEX interim disclosure: 1H 2026 delivery volume, revenue, operating profit, and 2026 annual guidance corridor.',
+  },
+
+  // =========================================================================
+  // 12. HONDA MOTOR CO., LTD.
+  // =========================================================================
+  {
+    id: 'honda_2026_q1_statement',
+    companyId: 'honda_motor',
+    title: 'Honda Motor Co., Ltd. FY2026 First Quarter Financial Results (Three Months Ended June 30, 2026)',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    publicationDate: '2026-08-09',
+    officialUrl: 'https://global.honda/en/investors/financial-results.html',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2026 Q1 operating profit, deliveries, and full-year FY2026 operating margin forecast.',
+  },
+
+  // =========================================================================
+  // 13. NISSAN MOTOR CO., LTD.
+  // =========================================================================
+  {
+    id: 'nissan_2026_q1_statement',
+    companyId: 'nissan_motor',
+    title: 'Nissan Motor Co., Ltd. First Quarter Financial Results for FY2026',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    publicationDate: '2026-07-25',
+    officialUrl: 'https://www.nissan-global.com/EN/IR/FINANCIAL/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2026 Q1 operating results and The Arc mid-term plan guidance corridor.',
+  },
 ];
 
 export const SOURCES_MAP: Record<string, SourceDocument> = Object.fromEntries(

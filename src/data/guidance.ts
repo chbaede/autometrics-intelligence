@@ -144,4 +144,67 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     ],
     riskNotes: 'Foreign exchange volatility (USD/KRW, EUR/KRW) and global interest rates.',
   },
+
+  // --- HONDA MOTOR ---
+  {
+    id: 'honda_2026_margin_guidance',
+    companyId: 'honda_motor',
+    metricId: 'guidance_operating_margin',
+    reportingYear: 2026,
+    originalText: 'Honda Motor forecasts consolidated operating profit margin between 7.0% and 8.0% for fiscal year 2026.',
+    min: 7.0,
+    max: 8.0,
+    midpoint: 7.5,
+    unit: 'percentage',
+    status: 'reaffirmed',
+    publicationDate: '2026-08-09',
+    sourceDocId: 'honda_2026_q1_statement',
+    assumptions: [
+      'Strong motorcycle division operating margins in Asian emerging markets.',
+      'Expanded hybrid (e:HEV) sales penetration in North America and Japan.',
+    ],
+    riskNotes: 'Raw material cost inflation and currency volatility (USD/JPY).',
+  },
+
+  // --- NISSAN MOTOR ---
+  {
+    id: 'nissan_2026_margin_guidance',
+    companyId: 'nissan_motor',
+    metricId: 'guidance_operating_margin',
+    reportingYear: 2026,
+    originalText: 'Nissan Motor targets consolidated operating margin within the 4.0% to 5.2% corridor under its The Arc business plan.',
+    min: 4.0,
+    max: 5.2,
+    midpoint: 4.6,
+    unit: 'percentage',
+    status: 'reaffirmed',
+    publicationDate: '2026-07-25',
+    sourceDocId: 'nissan_2026_q1_statement',
+    assumptions: [
+      'Structural cost reductions under The Arc business transformation.',
+      'Launch of next-generation e-POWER hybrid and electrified crossovers.',
+    ],
+    riskNotes: 'Fierce EV price discounting in China and North American market incentives.',
+  },
+
+  // --- GEELY AUTOMOBILE ---
+  {
+    id: 'geely_2026_margin_guidance',
+    companyId: 'geely',
+    metricId: 'guidance_operating_margin',
+    reportingYear: 2026,
+    originalText: 'Geely Automobile Holdings targets a full-year operating margin corridor of 5.5% to 6.8% alongside a 2.0+ million delivery objective.',
+    min: 5.5,
+    max: 6.8,
+    midpoint: 6.15,
+    unit: 'percentage',
+    status: 'reaffirmed',
+    publicationDate: '2026-08-21',
+    sourceDocId: 'geely_2026_q2_results',
+    assumptions: [
+      'Rapid scale growth in premium Zeekr BEV deliveries and international exports.',
+      'Cost synergies across shared SEA and CMA vehicle architecture platforms.',
+    ],
+    riskNotes: 'Intense domestic Chinese EV price competition and EU tariff adjustments.',
+  },
 ];

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface GoogleAdBannerProps {
   slot?: string;
@@ -23,36 +23,65 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({
 }) => {
   const adRef = useRef<HTMLModElement | null>(null);
   const pushedRef = useRef<boolean>(false);
+  const [isAdLoaded, setIsAdLoaded] = useState<boolean>(false);
 
   useEffect(() => {
-    // Only attempt to push to adsbygoogle once per mount
-    if (pushedRef.current) return;
+    const el = adRef.current;
+    if (!el) return;
 
-    try {
-      if (typeof window !== 'undefined' && adRef.current) {
-        // Check if the ad container already has child elements / ads iframe
-        if (adRef.current.innerHTML.trim() === '') {
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-          pushedRef.current = true;
-        }
+    const checkStatus = () => {
+      const status = el.getAttribute('data-ad-status');
+      const hasIframe = el.querySelector('iframe') !== null;
+      if (status === 'filled' || hasIframe) {
+        setIsAdLoaded(true);
+      } else if (status === 'unfilled') {
+        setIsAdLoaded(false);
       }
-    } catch (err) {
-      // In development / fast-refresh / ad-blocker environments, ignore push errors
-      console.warn('Google AdSense push caught:', err);
+    };
+
+    checkStatus();
+
+    const observer = new MutationObserver(() => {
+      checkStatus();
+    });
+
+    observer.observe(el, { attributes: true, childList: true, subtree: true });
+
+    if (!pushedRef.current) {
+      try {
+        if (typeof window !== 'undefined') {
+          if (el.innerHTML.trim() === '') {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+            pushedRef.current = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Google AdSense push caught:', err);
+      }
     }
+
+    return () => observer.disconnect();
   }, []);
 
   return (
-    <div className={`w-full overflow-hidden rounded-xl bg-slate-100/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 p-2.5 transition-all text-center ${className}`}>
-      <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-mono mb-1.5 px-1 uppercase tracking-wider">
-        <span>Sponsored</span>
-        <span>Ad</span>
-      </div>
-      <div className="min-h-[90px] flex items-center justify-center overflow-hidden">
+    <div
+      className={`w-full overflow-hidden transition-all text-center ${
+        isAdLoaded
+          ? `rounded-xl bg-slate-100/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 p-2.5 ${className}`
+          : 'h-0 m-0 p-0 border-0 opacity-0 pointer-events-none'
+      }`}
+    >
+      {isAdLoaded && (
+        <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-mono mb-1.5 px-1 uppercase tracking-wider">
+          <span>Sponsored</span>
+          <span>Ad</span>
+        </div>
+      )}
+      <div className={isAdLoaded ? 'min-h-[90px] flex items-center justify-center overflow-hidden' : ''}>
         <ins
           ref={adRef}
           className="adsbygoogle"
-          style={{ display: 'block', width: '100%', minHeight: '90px' }}
+          style={{ display: 'block', width: '100%', minHeight: isAdLoaded ? '90px' : '0px' }}
           data-ad-client={client}
           data-ad-slot={slot}
           data-ad-format={format}

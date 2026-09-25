@@ -30,33 +30,44 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
   return (
     <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+      <div className="flex flex-col gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+        {/* Top: Icon + Title + Badge */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
               {title}
             </h3>
-            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-              {language === 'ko' ? '전동화 비중 분석' : 'Powertrain Breakdown'}
-            </span>
           </div>
-          {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
+          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 whitespace-nowrap shrink-0">
+            {language === 'ko' ? '전동화 비중 분석' : 'Powertrain Breakdown'}
+          </span>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
-          <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-            <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" />
-            <TermBadge term="BEV" showIcon={false} /> {language === 'ko' ? '(순수 전기차)' : '(100% BEV)'}
-          </div>
-          <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-semibold">
-            <span className="w-2.5 h-2.5 rounded-xs bg-sky-500" />
-            <TermBadge term="PHEV" showIcon={false} /> {language === 'ko' ? '(공시 시)' : '(Disclosed)'}
-          </div>
-          <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-semibold">
-            <span className="w-2.5 h-2.5 rounded-xs bg-slate-300 dark:bg-slate-700" />
-            <span>{language === 'ko' ? '내연기관 / 일반 HEV' : 'ICE / Conventional HEV'}</span>
+        {/* Bottom row: Subtitle on left, Legend on right */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
+          {subtitle && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {subtitle}
+            </p>
+          )}
+
+          {/* Legend */}
+          <div className="flex items-center gap-3 text-xs font-mono shrink-0 whitespace-nowrap flex-wrap self-start sm:self-auto">
+            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 shrink-0" />
+              <TermBadge term="BEV" showIcon={false} />
+              <span>{language === 'ko' ? '(순수 전기차)' : '(BEV)'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-semibold">
+              <span className="w-2.5 h-2.5 rounded-xs bg-sky-500 shrink-0" />
+              <TermBadge term="PHEV" showIcon={false} />
+              <span>{language === 'ko' ? '(공시 시)' : '(PHEV)'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-semibold">
+              <span className="w-2.5 h-2.5 rounded-xs bg-slate-300 dark:bg-slate-700 shrink-0" />
+              <span>{language === 'ko' ? '내연기관 / 일반 HEV' : 'ICE / HEV'}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -96,35 +96,40 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
   return (
     <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <Compass className="w-5 h-5 text-brand-600 dark:text-brand-400" />
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+      <div className="flex flex-col gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+        {/* Top: Icon + Title + Badge */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Compass className="w-5 h-5 text-brand-600 dark:text-brand-400 shrink-0" />
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
               {language === 'ko'
                 ? '2026년 완성차 OEM 연간 재무 가이던스 목표 밴드 (가이던스 코리더)'
                 : '2026 Automotive OEM Annual Margin Target Guidance Corridors'}
             </h3>
-            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold border border-brand-500/20">
-              {language === 'ko' ? '연간 수익성 목표 밴드' : 'Unified Corridor Chart'}
-            </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold border border-brand-500/20 whitespace-nowrap shrink-0">
+            {language === 'ko' ? '연간 수익성 목표 밴드' : 'Unified Corridor Chart'}
+          </span>
+        </div>
+
+        {/* Bottom row: Subtitle on left, Legend on right */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {language === 'ko'
               ? '완성차 제조사 경영진이 공식 발표한 2026년도 연간 영업이익률 목표 밴드(최소 ~ 최대) 및 중간값 통합 비교'
               : 'Official management target ranges (min ~ max) and midpoint comparison across global automakers'}
           </p>
-        </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3.5 h-2.5 rounded bg-brand-500/30 border border-brand-500" />
-            <span className="font-medium">{language === 'ko' ? '목표 밴드' : 'Target Band'}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rotate-45 bg-amber-400 border border-slate-900 dark:border-white shadow-xs" />
-            <span className="font-medium">{language === 'ko' ? '중앙값' : 'Midpoint'}</span>
+          {/* Legend */}
+          <div className="flex items-center gap-3.5 text-xs text-slate-600 dark:text-slate-300 shrink-0 whitespace-nowrap self-start sm:self-auto">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3.5 h-2.5 rounded-xs bg-brand-500/30 border border-brand-500 shrink-0" />
+              <span className="font-medium">{language === 'ko' ? '목표 밴드' : 'Target Band'}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rotate-45 bg-amber-400 border border-slate-900 dark:border-white shadow-xs shrink-0" />
+              <span className="font-medium">{language === 'ko' ? '중앙값' : 'Midpoint'}</span>
+            </div>
           </div>
         </div>
       </div>
