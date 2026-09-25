@@ -4,17 +4,23 @@ import { formatMetricValue } from '../../../utils/metricCalculations';
 import { HelpCircle } from 'lucide-react';
 import { useLanguage } from '../../../i18n/LanguageContext';
 
-interface MetricBarChartProps {
+export interface MetricBarChartItem {
+  company: Company;
+  observation: MetricObservation;
+  displayValue?: string;
+  tooltipValue?: string;
+  normalizedValue?: number;
+}
+
+export interface MetricBarChartProps {
   title: string;
   subtitle?: string;
-  observations: {
-    company: Company;
-    observation: MetricObservation;
-  }[];
+  observations: MetricBarChartItem[];
   unit: string;
   periodBadge?: string;
   sortByValue?: boolean;
   onSelectObservation?: (obs: MetricObservation) => void;
+  headerAction?: React.ReactNode;
 }
 
 export const MetricBarChart: React.FC<MetricBarChartProps> = ({
@@ -25,6 +31,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
   periodBadge,
   sortByValue = true,
   onSelectObservation,
+  headerAction,
 }) => {
   const { language } = useLanguage();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -40,15 +47,15 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
   // Sort observations in descending order (highest value first) by default
   const sortedObservations = sortByValue
     ? [...observations].sort((a, b) => {
-        const valA = a.observation.value ?? -Infinity;
-        const valB = b.observation.value ?? -Infinity;
+        const valA = a.normalizedValue ?? (a.observation.value ?? -Infinity);
+        const valB = b.normalizedValue ?? (b.observation.value ?? -Infinity);
         return valB - valA;
       })
     : observations;
 
   // Calculate scales
   const validValues = sortedObservations
-    .map((o) => o.observation.value)
+    .map((o) => o.normalizedValue ?? o.observation.value)
     .filter((v): v is number => v !== null && Number.isFinite(v));
 
   const maxVal = validValues.length > 0 ? Math.max(...validValues, 0) : 100;
@@ -79,21 +86,24 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
           {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
 
-        {/* Dynamic Hover/Active Status in Header */}
-        {hoveredIndex !== null && sortedObservations[hoveredIndex] && (
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-mono animate-fadeIn">
-            <span className="font-bold text-brand-700 dark:text-brand-300">
-              {sortedObservations[hoveredIndex].company.shortName}:
-            </span>
-            <span className={`font-extrabold ${
-              (sortedObservations[hoveredIndex].observation.value ?? 0) < 0
-                ? 'text-rose-600 dark:text-rose-400'
-                : 'text-slate-900 dark:text-slate-100'
-            }`}>
-              {formatMetricValue(sortedObservations[hoveredIndex].observation.value, unit, sortedObservations[hoveredIndex].observation.currency)}
-            </span>
-          </div>
-        )}
+        {/* Dynamic Header Action & Hover/Active Status */}
+        <div className="flex items-center gap-2 flex-wrap ml-auto">
+          {headerAction}
+          {hoveredIndex !== null && sortedObservations[hoveredIndex] && (
+            <div className="flex items-center gap-2 px-2.5 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-mono animate-fadeIn">
+              <span className="font-bold text-brand-700 dark:text-brand-300">
+                {sortedObservations[hoveredIndex].company.shortName}:
+              </span>
+              <span className={`font-extrabold ${
+                ((sortedObservations[hoveredIndex].normalizedValue ?? sortedObservations[hoveredIndex].observation.value) ?? 0) < 0
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-slate-900 dark:text-slate-100'
+              }`}>
+                {sortedObservations[hoveredIndex].tooltipValue ?? sortedObservations[hoveredIndex].displayValue ?? formatMetricValue(sortedObservations[hoveredIndex].observation.value, unit, sortedObservations[hoveredIndex].observation.currency)}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* SVG/HTML Bar Chart Container */}
@@ -106,7 +116,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
               {/* Zero reference line across columns */}
               <div className="w-full flex items-stretch justify-around gap-1 sm:gap-2 px-3">
                 {sortedObservations.map((item, idx) => {
-                  const val = item.observation.value;
+                  const rawObsVal = item.observation.value;
+                  const val = item.normalizedValue ?? rawObsVal;
                   const isNull = val === null || !Number.isFinite(val);
                   const valNum = isNull ? 0 : val;
                   const isPositive = !isNull && valNum > 0;
@@ -147,7 +158,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                             #{idx + 1} {item.company.shortName}:
                           </span>
                           <span className={`font-extrabold ${isNegative ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
-                            {formatMetricValue(val, unit, item.observation.currency)}
+                            {item.tooltipValue ?? item.displayValue ?? formatMetricValue(rawObsVal, unit, item.observation.currency)}
                           </span>
                           {isNegative && (
                             <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">
@@ -184,6 +195,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                           <div className="text-[10px] sm:text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold mb-1 truncate">
                             {isNull
                               ? 'N/R'
+                              : item.displayValue
+                              ? item.displayValue
                               : unit === 'percentage'
                               ? `${valNum.toFixed(1)}%`
                               : valNum.toFixed(1)}
@@ -235,7 +248,9 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                         {/* Negative Value Label */}
                         {isNegative && (
                           <div className="text-[10px] sm:text-[11px] font-mono text-rose-600 dark:text-rose-400 font-extrabold mt-1 truncate">
-                            {unit === 'percentage'
+                            {item.displayValue
+                              ? item.displayValue
+                              : unit === 'percentage'
                               ? `${valNum.toFixed(1)}%`
                               : valNum.toFixed(1)}
                           </div>
@@ -265,7 +280,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
             /* STANDARD POSITIVE-ONLY PLOT (e.g. Sales Volume) */
             <div className="w-full h-[220px] flex items-end justify-around gap-1 sm:gap-2 px-3 pb-8 pt-8 border-b border-slate-200 dark:border-slate-800 relative">
               {sortedObservations.map((item, idx) => {
-                const val = item.observation.value;
+                const rawObsVal = item.observation.value;
+                const val = item.normalizedValue ?? rawObsVal;
                 const isNull = val === null || !Number.isFinite(val);
                 const valNum = isNull ? 0 : val;
                 const barHeightPct = isNull ? 4 : Math.max(6, (valNum / (maxVal || 1)) * 125);
@@ -295,7 +311,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                           #{idx + 1} {item.company.shortName}:
                         </span>
                         <span className="font-extrabold text-slate-900 dark:text-white">
-                          {formatMetricValue(val, unit, item.observation.currency)}
+                          {item.tooltipValue ?? item.displayValue ?? formatMetricValue(rawObsVal, unit, item.observation.currency)}
                         </span>
                         {!item.observation.isComparable && (
                           <span className="text-amber-600 dark:text-amber-400 text-[10px] font-medium">
@@ -324,6 +340,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                     <div className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 mb-1.5 truncate group-hover:text-brand-600 dark:group-hover:text-brand-300 font-bold">
                       {isNull
                         ? 'N/R'
+                        : item.displayValue
+                        ? item.displayValue
                         : unit === 'percentage'
                         ? `${valNum.toFixed(1)}%`
                         : unit === 'thousand_units'

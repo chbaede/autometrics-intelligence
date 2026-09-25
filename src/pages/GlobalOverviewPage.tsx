@@ -19,6 +19,11 @@ import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
+  convertMillionsToKRW,
+  convertMillionsToUSD,
+  formatOriginalCurrencyCompact,
+} from '../utils/currencyUtils';
+import {
   ShieldCheck,
   Building2,
   Calendar,
@@ -37,6 +42,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>(() =>
     companies.map((c) => c.id)
   );
+  const [profitMetricType, setProfitMetricType] = useState<'operating_income' | 'revenue'>('operating_income');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
   const [showInlineTable, setShowInlineTable] = useState<boolean>(false);
   const [excludeMarginOutliers, setExcludeMarginOutliers] = useState<boolean>(true);
@@ -68,6 +74,59 @@ export const GlobalOverviewPage: React.FC = () => {
     }))
     .filter((o) => o.company)
     .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
+
+  // Observations for Actual Earnings Bar Chart (Operating Income or Revenue, ranked descending)
+  // Normalized to KRW Trillions (ko) or USD Billions (en) for cross-OEM comparability
+  const earningsObs = getObservations(
+    selectedCompanies.filter((cid) => !excludeMarginOutliers || cid !== 'rivian'),
+    [profitMetricType],
+    selectedPeriod
+  )
+    .map((obs) => {
+      const company = getCompanyById(obs.companyId)!;
+      const rawVal = obs.value;
+      const curr = obs.currency || company?.reportingCurrency || 'USD';
+
+      let normalizedValue: number | undefined;
+      let displayValue: string | undefined;
+      let tooltipValue: string | undefined;
+
+      if (rawVal !== null && rawVal !== undefined && Number.isFinite(rawVal)) {
+        if (language === 'ko') {
+          const krwWon = convertMillionsToKRW(rawVal, curr);
+          if (krwWon !== null) {
+            const trillion = krwWon / 1_000_000_000_000;
+            normalizedValue = trillion;
+            const sign = trillion < 0 ? '-' : '';
+            const absTrillion = Math.abs(trillion);
+            displayValue = `${sign}₩${absTrillion >= 10 ? absTrillion.toFixed(1) : absTrillion.toFixed(2)}조`;
+            const origCompact = formatOriginalCurrencyCompact(rawVal, curr);
+            tooltipValue = `${displayValue} (${origCompact})`;
+          }
+        } else {
+          const usd = convertMillionsToUSD(rawVal, curr);
+          if (usd !== null) {
+            const billion = usd / 1_000_000_000;
+            normalizedValue = billion;
+            const sign = billion < 0 ? '-' : '';
+            const absBillion = Math.abs(billion);
+            displayValue = `${sign}$${absBillion >= 10 ? absBillion.toFixed(1) : absBillion.toFixed(2)}B`;
+            const origCompact = formatOriginalCurrencyCompact(rawVal, curr);
+            tooltipValue = `${displayValue} (${origCompact})`;
+          }
+        }
+      }
+
+      return {
+        company,
+        observation: obs,
+        normalizedValue,
+        displayValue,
+        tooltipValue,
+      };
+    })
+    .filter((o) => o.company)
+    .sort((a, b) => (b.normalizedValue ?? (b.observation.value ?? -Infinity)) - (a.normalizedValue ?? (a.observation.value ?? -Infinity)));
 
   // Observations for Operating Margin Bar Chart (ranked descending)
   // When excludeMarginOutliers is true, filters out extreme outliers (e.g. Rivian -118.7%) for scale readability
@@ -364,6 +423,46 @@ export const GlobalOverviewPage: React.FC = () => {
           observations={salesObs}
           unit="thousand_units"
           periodBadge={selectedPeriod}
+          onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
+        />
+        <MetricBarChart
+          title={
+            profitMetricType === 'operating_income'
+              ? t.charts.earningsProfit
+              : t.charts.earningsRevenue
+          }
+          subtitle={
+            excludeMarginOutliers
+              ? `${profitMetricType === 'operating_income' ? t.charts.earningsProfitSubtitle : t.charts.earningsRevenueSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 제외됨' : 'Scale optimized: Rivian excluded'})`
+              : (profitMetricType === 'operating_income' ? t.charts.earningsProfitSubtitle : t.charts.earningsRevenueSubtitle)
+          }
+          observations={earningsObs}
+          unit={language === 'ko' ? '조원 (KRW)' : 'USD ($B)'}
+          periodBadge={selectedPeriod}
+          headerAction={
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+              <button
+                onClick={() => setProfitMetricType('operating_income')}
+                className={`px-2.5 py-1 rounded-md transition ${
+                  profitMetricType === 'operating_income'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                {language === 'ko' ? '영업이익 (EBIT)' : 'Operating Profit'}
+              </button>
+              <button
+                onClick={() => setProfitMetricType('revenue')}
+                className={`px-2.5 py-1 rounded-md transition ${
+                  profitMetricType === 'revenue'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                {language === 'ko' ? '총 매출액 (Revenue)' : 'Total Revenue'}
+              </button>
+            </div>
+          }
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
         <MetricBarChart

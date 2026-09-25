@@ -13,12 +13,13 @@ export const FX_RATES_TO_KRW: Record<string, number> = {
   CNY: 192.0,
   RMB: 192.0,
   GBP: 1750.0,
+  SEK: 130.0,
 };
 
 /**
  * Converts an amount in millions from the source currency to Korean Won (KRW).
  * @param amountInMillions Value in currency_millions (e.g. 2950 for €2,950M)
- * @param sourceCurrency ISO currency code (USD, EUR, JPY, CNY, KRW, etc.)
+ * @param sourceCurrency ISO currency code (USD, EUR, JPY, CNY, KRW, SEK, etc.)
  * @returns Total amount in KRW (won)
  */
 export function convertMillionsToKRW(
@@ -31,6 +32,21 @@ export function convertMillionsToKRW(
   const curr = sourceCurrency.toUpperCase();
   const rate = FX_RATES_TO_KRW[curr] ?? 1380.0;
   return amountInMillions * rate * 1_000_000;
+}
+
+/**
+ * Converts an amount in millions from the source currency to US Dollars (USD).
+ * @param amountInMillions Value in currency_millions
+ * @param sourceCurrency ISO currency code
+ * @returns Total amount in USD (dollars)
+ */
+export function convertMillionsToUSD(
+  amountInMillions: number | null | undefined,
+  sourceCurrency = 'USD'
+): number | null {
+  const krw = convertMillionsToKRW(amountInMillions, sourceCurrency);
+  if (krw === null) return null;
+  return krw / 1380.0;
 }
 
 /**
@@ -126,6 +142,13 @@ export function formatOriginalCurrencyCompact(
       return `€${(amountInMillions / 1000).toFixed(2)}B`;
     }
     return `€${amountInMillions}M`;
+  }
+
+  if (curr === 'SEK') {
+    if (amountInMillions >= 1000) {
+      return `SEK ${(amountInMillions / 1000).toFixed(1)}B`;
+    }
+    return `SEK ${amountInMillions}M`;
   }
 
   // Default USD

@@ -39,6 +39,10 @@ export interface Translations {
   charts: {
     salesVolume: string;
     salesSubtitle: string;
+    earningsProfit: string;
+    earningsProfitSubtitle: string;
+    earningsRevenue: string;
+    earningsRevenueSubtitle: string;
     operatingMargin: string;
     marginSubtitle: string;
     bevShare: string;
@@ -102,6 +106,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     charts: {
       salesVolume: 'Global Vehicle Deliveries',
       salesSubtitle: 'Customer deliveries and wholesale shipments (thousand units)',
+      earningsProfit: 'Global Automaker Operating Profit / EBIT',
+      earningsProfitSubtitle: 'Consolidated operating earnings converted for cross-OEM comparison (original currency in parentheses)',
+      earningsRevenue: 'Global Automaker Total Revenue',
+      earningsRevenueSubtitle: 'Consolidated top-line revenue converted for cross-OEM comparison (original currency in parentheses)',
       operatingMargin: 'Operating Profit / EBIT Margin',
       marginSubtitle: 'Core operating profitability as percentage of sales revenue (%)',
       bevShare: 'Battery Electric Vehicle (BEV) Delivery Share',
@@ -163,6 +171,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     charts: {
       salesVolume: '글로벌 완성차 판매량 및 인도 실적',
       salesSubtitle: '고객 인도량 및 도매 출하량 기준 (천 대 단위)',
+      earningsProfit: '글로벌 완성차 영업이익 (실제 수익)',
+      earningsProfitSubtitle: '환율 기준 통일 비교 (조원 단위 환산 · 괄호 안은 본국 공시 원문 통화)',
+      earningsRevenue: '글로벌 완성차 총 매출액 (수익)',
+      earningsRevenueSubtitle: '환율 기준 통일 비교 (조원 단위 환산 · 괄호 안은 본국 공시 원문 통화)',
       operatingMargin: '영업이익률 (EBIT Margin / Return on Sales)',
       marginSubtitle: '총 매출액 대비 본업 영업이익 비율 (%)',
       bevShare: '순수 배터리 전기차(BEV) 인도 비중',
