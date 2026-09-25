@@ -782,9 +782,9 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     notes: 'Q4 wholesale 1,178k units, revenue $46.0B, adjusted EBIT $2.6B (5.7% margin).',
   },
 
-  // =========================================================================
+  // ==========================================
   // 11. GEELY AUTOMOBILE HOLDINGS
-  // =========================================================================
+  // ==========================================
   {
     id: 'geely_2026_q2_results',
     companyId: 'geely',
@@ -798,10 +798,49 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     lastChecked: '2026-09-20',
     notes: 'Official HKEX interim disclosure: 1H 2026 delivery volume, revenue, operating profit, and 2026 annual guidance corridor.',
   },
+  {
+    id: 'geely_2026_q1_results',
+    companyId: 'geely',
+    title: 'Geely Automobile Holdings Limited Q1 2026 Operational & Financial Update',
+    docType: 'quarterly_report',
+    period: '2026-Q1',
+    publicationDate: '2026-05-15',
+    officialUrl: 'https://www.geelyauto.com.hk/en/investor-relations/results-announcements/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official HKEX Q1 sales and financial update.',
+  },
+  {
+    id: 'geely_2025_fy_report',
+    companyId: 'geely',
+    title: 'Geely Automobile Holdings Limited Annual Report 2025',
+    docType: 'annual_report',
+    period: '2025-FY',
+    publicationDate: '2026-03-20',
+    officialUrl: 'https://www.geelyauto.com.hk/en/investor-relations/annual-reports/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official HKEX annual report FY2025.',
+  },
+  {
+    id: 'geely_2024_fy_report',
+    companyId: 'geely',
+    title: 'Geely Automobile Holdings Limited Annual Report 2024',
+    docType: 'annual_report',
+    period: '2024-FY',
+    publicationDate: '2025-03-21',
+    officialUrl: 'https://www.geelyauto.com.hk/en/investor-relations/annual-reports/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official HKEX annual report FY2024.',
+  },
 
-  // =========================================================================
+  // ==========================================
   // 12. HONDA MOTOR CO., LTD.
-  // =========================================================================
+  // ==========================================
   {
     id: 'honda_2026_q1_statement',
     companyId: 'honda_motor',
@@ -815,10 +854,49 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     lastChecked: '2026-09-20',
     notes: 'Official Tokyo Stock Exchange disclosure: FY2026 Q1 operating profit, deliveries, and full-year FY2026 operating margin forecast.',
   },
+  {
+    id: 'honda_2026_q4_statement',
+    companyId: 'honda_motor',
+    title: 'Honda Motor Co., Ltd. FY2025 Fourth Quarter Results (Three Months Ended March 31, 2026)',
+    docType: 'quarterly_report',
+    period: '2026-Q1',
+    publicationDate: '2026-05-10',
+    officialUrl: 'https://global.honda/en/investors/financial-results.html',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2025 Q4 operating results and wholesale delivery figures.',
+  },
+  {
+    id: 'honda_2025_fy_statement',
+    companyId: 'honda_motor',
+    title: 'Honda Motor Co., Ltd. Financial Results for Fiscal Year Ended March 31, 2025',
+    docType: 'annual_report',
+    period: '2025-FY',
+    publicationDate: '2025-05-10',
+    officialUrl: 'https://global.honda/en/investors/financial-results.html',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2025 full-year consolidated financial results.',
+  },
+  {
+    id: 'honda_2024_fy_statement',
+    companyId: 'honda_motor',
+    title: 'Honda Motor Co., Ltd. Financial Results for Fiscal Year Ended March 31, 2024',
+    docType: 'annual_report',
+    period: '2024-FY',
+    publicationDate: '2024-05-10',
+    officialUrl: 'https://global.honda/en/investors/financial-results.html',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2024 full-year consolidated financial results.',
+  },
 
-  // =========================================================================
+  // ==========================================
   // 13. NISSAN MOTOR CO., LTD.
-  // =========================================================================
+  // ==========================================
   {
     id: 'nissan_2026_q1_statement',
     companyId: 'nissan_motor',
@@ -831,6 +909,101 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official Tokyo Stock Exchange disclosure: FY2026 Q1 operating results and The Arc mid-term plan guidance corridor.',
+  },
+  {
+    id: 'nissan_2026_q4_statement',
+    companyId: 'nissan_motor',
+    title: 'Nissan Motor Co., Ltd. Fourth Quarter Financial Results for FY2025',
+    docType: 'quarterly_report',
+    period: '2026-Q1',
+    publicationDate: '2026-05-09',
+    officialUrl: 'https://www.nissan-global.com/EN/IR/FINANCIAL/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2025 Q4 operating results.',
+  },
+  {
+    id: 'nissan_2025_fy_statement',
+    companyId: 'nissan_motor',
+    title: 'Nissan Motor Co., Ltd. Financial Results for Fiscal Year 2024 (Ended March 31, 2025)',
+    docType: 'annual_report',
+    period: '2025-FY',
+    publicationDate: '2025-05-09',
+    officialUrl: 'https://www.nissan-global.com/EN/IR/FINANCIAL/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2024 full-year operating results.',
+  },
+  {
+    id: 'nissan_2024_fy_statement',
+    companyId: 'nissan_motor',
+    title: 'Nissan Motor Co., Ltd. Financial Results for Fiscal Year 2023 (Ended March 31, 2024)',
+    docType: 'annual_report',
+    period: '2024-FY',
+    publicationDate: '2024-05-09',
+    officialUrl: 'https://www.nissan-global.com/EN/IR/FINANCIAL/',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tokyo Stock Exchange disclosure: FY2023 full-year operating results.',
+  },
+
+  // ==========================================
+  // 14. KIA CORPORATION
+  // ==========================================
+  {
+    id: 'kia_2026_q2_presentation',
+    companyId: 'kia',
+    title: 'Kia Corporation 2Q 2026 Business Results Presentation',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    publicationDate: '2026-07-25',
+    officialUrl: 'https://worldwide.kia.com/int/investor-relations/quarterly-results',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Korea Exchange disclosure: Q2 2026 global wholesale sales, revenue, operating profit, and EV deliveries.',
+  },
+  {
+    id: 'kia_2026_q1_presentation',
+    companyId: 'kia',
+    title: 'Kia Corporation 1Q 2026 Business Results Presentation',
+    docType: 'quarterly_report',
+    period: '2026-Q1',
+    publicationDate: '2026-04-26',
+    officialUrl: 'https://worldwide.kia.com/int/investor-relations/quarterly-results',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Korea Exchange disclosure: Q1 2026 business results and wholesale delivery figures.',
+  },
+  {
+    id: 'kia_2025_fy_report',
+    companyId: 'kia',
+    title: 'Kia Corporation 2025 Annual Business Results & Financial Statement',
+    docType: 'annual_report',
+    period: '2025-FY',
+    publicationDate: '2026-01-24',
+    officialUrl: 'https://worldwide.kia.com/int/investor-relations/annual-reports',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Korea Exchange disclosure: FY2025 full-year audited consolidated financial statements.',
+  },
+  {
+    id: 'kia_2024_fy_report',
+    companyId: 'kia',
+    title: 'Kia Corporation 2024 Annual Business Results & Financial Statement',
+    docType: 'annual_report',
+    period: '2024-FY',
+    publicationDate: '2025-01-25',
+    officialUrl: 'https://worldwide.kia.com/int/investor-relations/annual-reports',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Korea Exchange disclosure: FY2024 full-year audited consolidated financial statements.',
   },
 ];
 

@@ -59,7 +59,7 @@ export const RegionalAnalysisPage: React.FC = () => {
         </h1>
         <p className="text-slate-600 dark:text-slate-300 text-sm max-w-3xl leading-relaxed">
           {language === 'ko'
-            ? '전 세계 글로벌 총 인도량부터 유럽, 북미, 중국, 남미, 아시아 등 핵심 대륙별 시장에서의 10대 완성차 OEM 실적을 공식 IR 공시 기준으로 왜곡 없이 직접 비교 분석합니다.'
+            ? '전 세계 글로벌 총 인도량부터 유럽, 북미, 중국, 남미, 아시아 등 핵심 대륙별 시장에서의 주요 완성차 OEM 실적을 공식 IR 공시 기준으로 왜곡 없이 직접 비교 분석합니다.'
             : 'Explore consolidated global totals and audited regional delivery footprints across Europe, North America, China, South America, and Asia with 100% official IR backing.'}
         </p>
       </div>

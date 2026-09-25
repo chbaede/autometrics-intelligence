@@ -20,8 +20,8 @@ export const Footer: React.FC = () => {
             </div>
             <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed max-w-md">
               {language === 'ko'
-                ? '글로벌 10대 완성차 OEM(VW, Toyota, Tesla, BYD, BMW, Mercedes, Stellantis, Hyundai, Ford, GM)의 공식 IR 실적 및 공시 데이터를 실시간 비교/분석하는 전문 금융 및 엔지니어링 인텔리전스 플랫폼입니다.'
-                : 'Source-backed quantitative intelligence dashboard for global automotive OEMs (VW, Toyota, Tesla, BYD, BMW, Mercedes, Stellantis, Hyundai, Ford, GM). Built exclusively on verified investor relations disclosures, SEC filings, and quarterly earnings presentations.'}
+                ? '글로벌 주요 완성차 OEM(VW, Toyota, Tesla, BYD, BMW, Mercedes, Stellantis, Hyundai, Kia, Ford, GM, Geely, Honda, Nissan)의 공식 IR 실적 및 공시 데이터를 실시간 비교/분석하는 전문 금융 및 엔지니어링 인텔리전스 플랫폼입니다.'
+                : 'Source-backed quantitative intelligence dashboard for major global automotive OEMs (VW, Toyota, Tesla, BYD, BMW, Mercedes, Stellantis, Hyundai, Kia, Ford, GM, Geely, Honda, Nissan). Built exclusively on verified investor relations disclosures, SEC filings, and quarterly earnings presentations.'}
             </p>
             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
               <ShieldCheck className="w-4 h-4 text-brand-500 dark:text-brand-400" />
