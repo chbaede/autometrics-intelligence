@@ -164,37 +164,47 @@ export const GlobalOverviewPage: React.FC = () => {
 
         {/* Global Summary Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
               {t.global.coveredOems}
             </span>
             <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {companies.length} Global OEMs
+              {companies.length} {language === 'ko' ? '개 완성차' : 'Global OEMs'}
             </span>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
               {t.global.reportingPeriod}
             </span>
-            <span className="text-xl font-bold font-mono text-brand-600 dark:text-brand-400">
+            <span className="text-xl font-bold font-mono text-brand-600 dark:text-brand-400 truncate">
               {formatPeriodLabel(selectedPeriod, language)}
             </span>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
               {t.global.bevLeader}
             </span>
-            <span className="text-base sm:text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
-              Tesla 100% • BYD 47.5%
-            </span>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                Tesla 100%
+              </span>
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                • BYD 47.5%
+              </span>
+            </div>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-              {t.global.marginLeader} (영업이익률 / RoS)
+              {t.global.marginLeader}
             </span>
-            <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
-              Toyota 10.6% • Hyundai 8.6%
-            </span>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                Toyota 10.6%
+              </span>
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                • Hyundai 8.6%
+              </span>
+            </div>
           </div>
         </div>
       </div>

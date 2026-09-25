@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Company } from '../../../types/metrics';
 import { TermBadge } from '../TermBadge';
 import { useLanguage } from '../../../i18n/LanguageContext';
-import { Layers, DollarSign, RefreshCw } from 'lucide-react';
+import { Layers, DollarSign, RefreshCw, ExternalLink, X } from 'lucide-react';
 import { formatLocalizedProfit } from '../../../utils/currencyUtils';
 
 export interface ScatterPoint {
@@ -29,16 +30,19 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 }) => {
   const { language } = useLanguage();
   const [hovered, setHovered] = useState<ScatterPoint | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<ScatterPoint | null>(null);
+
+  const activePoint = selectedPoint || hovered;
 
   if (!points || points.length === 0) return null;
 
   // Chart dimensions with generous padding for explicit axis titles
   const width = 1060;
-  const height = 580;
-  const padLeft = 80;
-  const padBottom = 75; // Expanded for explicit X-axis title
+  const height = 600;
+  const padLeft = 85;
+  const padBottom = 80; // Expanded for explicit X-axis title
   const padRight = 55;
-  const padTop = 50;    // Expanded for explicit Y-axis title
+  const padTop = 55;    // Expanded for explicit Y-axis title
 
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
@@ -126,26 +130,26 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       : `${Math.round(pt.volumeThousand)}k`;
     
     // Width and height of the modern mini-card
-    const boxW = 152;
-    const boxH = 40;
+    const boxW = 162;
+    const boxH = 44;
     const color = getOemColor(pt.company.name);
 
     // Smart candidate offsets relative to (px, py)
     const candidates = [
-      { dx: 16, dy: -46, hasLeader: true },
-      { dx: -boxW - 16, dy: -46, hasLeader: true },
-      { dx: 16, dy: 16, hasLeader: true },
-      { dx: -boxW - 16, dy: 16, hasLeader: true },
-      { dx: -boxW / 2, dy: -52, hasLeader: true },
+      { dx: 18, dy: -50, hasLeader: true },
+      { dx: -boxW - 18, dy: -50, hasLeader: true },
+      { dx: 18, dy: 18, hasLeader: true },
+      { dx: -boxW - 18, dy: 18, hasLeader: true },
+      { dx: -boxW / 2, dy: -56, hasLeader: true },
       { dx: -boxW / 2, dy: 24, hasLeader: true },
-      { dx: 22, dy: -66, hasLeader: true },
-      { dx: -boxW - 22, dy: -66, hasLeader: true },
-      { dx: 22, dy: 44, hasLeader: true },
-      { dx: -boxW - 22, dy: 44, hasLeader: true },
-      { dx: -boxW / 2, dy: -78, hasLeader: true },
-      { dx: -boxW / 2, dy: 60, hasLeader: true },
-      { dx: 30, dy: -20, hasLeader: true },
-      { dx: -boxW - 30, dy: -20, hasLeader: true },
+      { dx: 24, dy: -70, hasLeader: true },
+      { dx: -boxW - 24, dy: -70, hasLeader: true },
+      { dx: 24, dy: 44, hasLeader: true },
+      { dx: -boxW - 24, dy: 44, hasLeader: true },
+      { dx: -boxW / 2, dy: -80, hasLeader: true },
+      { dx: -boxW / 2, dy: 64, hasLeader: true },
+      { dx: 32, dy: -22, hasLeader: true },
+      { dx: -boxW - 32, dy: -22, hasLeader: true },
     ];
 
     let bestCandidate = candidates[0];
@@ -172,13 +176,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
         }
       }
 
-      // Check overlap with bubble markers
+      // Check overlap with bubble markers with safe buffer
       for (const p of points) {
         const pointX = getX(p.volumeThousand);
         const pointY = getY(p.marginPercent);
-        if (bx <= pointX + 14 && bx + boxW >= pointX - 14 && by <= pointY + 14 && by + boxH >= pointY - 14) {
+        if (bx <= pointX + 16 && bx + boxW >= pointX - 16 && by <= pointY + 16 && by + boxH >= pointY - 16) {
           if (p.company.id !== pt.company.id) {
-            penalty += 1000;
+            penalty += 1200;
           }
         }
       }
@@ -318,37 +322,78 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             className="opacity-40"
           />
 
-          {/* Quadrant Header Watermarks */}
-          <text
-            x={width - padRight - 15}
-            y={padTop + 24}
-            textAnchor="end"
-            className="fill-emerald-600 dark:fill-emerald-400 font-extrabold text-[12px] font-sans tracking-wide"
-          >
-            {language === 'ko' ? '★ 규모 & 고수익 리더 (Scale & Profit Leaders)' : '★ Scale & Profit Leaders'}
-          </text>
-          <text
-            x={padLeft + 15}
-            y={padTop + 24}
-            className="fill-brand-600 dark:fill-brand-400 font-extrabold text-[12px] font-sans tracking-wide"
-          >
-            {language === 'ko' ? '프리미엄 럭셔리 & 고수익 (Premium & High Margin)' : 'Premium & High Margin'}
-          </text>
-          <text
-            x={padLeft + 15}
-            y={height - padBottom - 16}
-            className="fill-slate-500 dark:fill-slate-400 font-bold text-[11px] font-sans tracking-wide"
-          >
-            {language === 'ko' ? '전환 및 구조개편 (Transition & Restructuring)' : 'Transition & Restructuring'}
-          </text>
-          <text
-            x={width - padRight - 15}
-            y={height - padBottom - 16}
-            textAnchor="end"
-            className="fill-amber-600 dark:fill-amber-400 font-bold text-[11px] font-sans tracking-wide"
-          >
-            {language === 'ko' ? '대량생산 볼륨 집중 (Mass Market Scale)' : 'Mass Market Scale'}
-          </text>
+          {/* Quadrant Watermark Badges with Rounded Pill Containers */}
+          {/* Top-Right: Scale & Profit Leaders */}
+          <g transform={`translate(${width - padRight - (language === 'ko' ? 245 : 185)}, ${padTop + 10})`}>
+            <rect
+              width={language === 'ko' ? 235 : 175}
+              height={22}
+              rx={6}
+              className="fill-emerald-500/10 dark:fill-emerald-500/15 stroke-emerald-500/25"
+            />
+            <text
+              x={(language === 'ko' ? 235 : 175) / 2}
+              y={15}
+              textAnchor="middle"
+              className="fill-emerald-700 dark:fill-emerald-300 font-bold text-[10.5px] font-sans"
+            >
+              {language === 'ko' ? '★ 규모 & 고수익 리더 (Scale & Profit)' : '★ Scale & Profit Leaders'}
+            </text>
+          </g>
+
+          {/* Top-Left: Premium & High Margin */}
+          <g transform={`translate(${padLeft + 12}, ${padTop + 10})`}>
+            <rect
+              width={language === 'ko' ? 235 : 175}
+              height={22}
+              rx={6}
+              className="fill-brand-500/10 dark:fill-brand-500/15 stroke-brand-500/25"
+            />
+            <text
+              x={(language === 'ko' ? 235 : 175) / 2}
+              y={15}
+              textAnchor="middle"
+              className="fill-brand-700 dark:fill-brand-300 font-bold text-[10.5px] font-sans"
+            >
+              {language === 'ko' ? '프리미엄 럭셔리 & 고수익 (Premium)' : 'Premium & High Margin'}
+            </text>
+          </g>
+
+          {/* Bottom-Left: Transition & Restructuring */}
+          <g transform={`translate(${padLeft + 12}, ${height - padBottom - 32})`}>
+            <rect
+              width={language === 'ko' ? 235 : 185}
+              height={22}
+              rx={6}
+              className="fill-slate-500/10 dark:fill-slate-500/15 stroke-slate-500/25"
+            />
+            <text
+              x={(language === 'ko' ? 235 : 185) / 2}
+              y={15}
+              textAnchor="middle"
+              className="fill-slate-700 dark:fill-slate-300 font-bold text-[10.5px] font-sans"
+            >
+              {language === 'ko' ? '전동화 전환 & 체질 개선 (Transition)' : 'Transition & Restructuring'}
+            </text>
+          </g>
+
+          {/* Bottom-Right: Mass Market Scale */}
+          <g transform={`translate(${width - padRight - (language === 'ko' ? 220 : 160)}, ${height - padBottom - 32})`}>
+            <rect
+              width={language === 'ko' ? 210 : 150}
+              height={22}
+              rx={6}
+              className="fill-amber-500/10 dark:fill-amber-500/15 stroke-amber-500/25"
+            />
+            <text
+              x={(language === 'ko' ? 210 : 150) / 2}
+              y={15}
+              textAnchor="middle"
+              className="fill-amber-700 dark:fill-amber-300 font-bold text-[10.5px] font-sans"
+            >
+              {language === 'ko' ? '대량 양산 볼륨 집중 (Mass Volume)' : 'Mass Market Scale'}
+            </text>
+          </g>
 
           {/* Axes Lines */}
           <line
@@ -438,18 +483,16 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
           {/* EXPLICIT AXIS TITLES */}
           {/* Y-Axis Title (Top Left) */}
-          <g>
+          <g transform={`translate(${padLeft - 75}, ${padTop - 40})`}>
             <rect
-              x={padLeft - 75}
-              y={padTop - 36}
-              width={140}
-              height={24}
-              rx={6}
-              className="fill-slate-100 dark:fill-slate-800/90 stroke-slate-300 dark:stroke-slate-700"
+              width={160}
+              height={26}
+              rx={7}
+              className="fill-white dark:fill-slate-800 shadow-xs stroke-slate-200 dark:stroke-slate-700"
             />
             <text
-              x={padLeft - 5}
-              y={padTop - 20}
+              x={80}
+              y={17.5}
               textAnchor="middle"
               className="fill-slate-800 dark:fill-slate-200 font-bold text-[11px] font-sans"
             >
@@ -458,23 +501,21 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           </g>
 
           {/* X-Axis Title (Bottom Center) */}
-          <g>
+          <g transform={`translate(${padLeft + chartW / 2 - 165}, ${height - padBottom + 36})`}>
             <rect
-              x={padLeft + chartW / 2 - 160}
-              y={height - padBottom + 35}
-              width={320}
-              height={26}
-              rx={6}
-              className="fill-slate-100 dark:fill-slate-800/90 stroke-slate-300 dark:stroke-slate-700"
+              width={330}
+              height={28}
+              rx={7}
+              className="fill-white dark:fill-slate-800 shadow-xs stroke-slate-200 dark:stroke-slate-700"
             />
             <text
-              x={padLeft + chartW / 2}
-              y={height - padBottom + 52}
+              x={165}
+              y={18.5}
               textAnchor="middle"
               className="fill-slate-800 dark:fill-slate-200 font-bold text-[11.5px] font-sans"
             >
               {language === 'ko'
-                ? '➔ X축: 글로벌 분기 판매량 / 인도 실적 (단위: 천 대 / 백만 대)'
+                ? '➔ X축: 글로벌 분기 판매량 / 인도 실적 (천 대 / 백만 대)'
                 : '➔ X: Global Quarterly Vehicle Deliveries (k / M units)'}
             </text>
           </g>
@@ -505,6 +546,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             const x = lbl.x;
             const y = lbl.y;
             const isHovered = hovered?.company.id === pt.company.id;
+            const isSelected = selectedPoint?.company.id === pt.company.id;
+            const isActive = isHovered || isSelected;
             const color = lbl.color;
 
             return (
@@ -513,10 +556,14 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                 className="cursor-pointer transition-all duration-150"
                 onMouseEnter={() => setHovered(pt)}
                 onMouseLeave={() => setHovered(null)}
-                onClick={() => onSelectCompany?.(pt.company)}
+                onClick={() => {
+                  const next = selectedPoint?.company.id === pt.company.id ? null : pt;
+                  setSelectedPoint(next);
+                  onSelectCompany?.(pt.company);
+                }}
               >
-                {/* Connecting Axis Guides on Hover */}
-                {isHovered && (
+                {/* Connecting Axis Guides on Active */}
+                {isActive && (
                   <>
                     <line
                       x1={x}
@@ -543,9 +590,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                 <circle
                   cx={x}
                   cy={y}
-                  r={isHovered ? 22 : 15}
+                  r={isActive ? 22 : 15}
                   fill={color}
-                  fillOpacity={isHovered ? 0.35 : 0.16}
+                  fillOpacity={isActive ? 0.35 : 0.16}
                   className="transition-all duration-200"
                 />
 
@@ -553,7 +600,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                 <circle
                   cx={x}
                   cy={y}
-                  r={isHovered ? 11 : 8}
+                  r={isActive ? 11 : 8}
                   fill={color}
                   stroke="#ffffff"
                   strokeWidth={2}
@@ -562,36 +609,40 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
                 {/* Modern Institutional Financial Card */}
                 <g transform={`translate(${lbl.boxX}, ${lbl.boxY})`}>
-                  {/* Card Background */}
+                  {/* Card Background: clean white in light mode, sleek slate-800 in dark mode, NEVER pitch black */}
                   <rect
                     x="0"
                     y="0"
                     width={lbl.boxW}
                     height={lbl.boxH}
-                    rx="7"
+                    rx="8"
                     className={`transition-all shadow-sm ${
-                      isHovered
-                        ? 'fill-slate-900 text-white stroke-brand-500 stroke-2 filter drop-shadow-md'
+                      isActive
+                        ? 'fill-white dark:fill-slate-800 shadow-md'
                         : 'fill-white/95 dark:fill-slate-900/95 stroke-slate-200 dark:stroke-slate-700/90'
                     }`}
+                    style={{
+                      stroke: isActive ? color : undefined,
+                      strokeWidth: isActive ? 2 : 1,
+                    }}
                   />
                   
                   {/* Left Accent Color Indicator Bar */}
                   <rect
                     x="0"
                     y="4"
-                    width="3.5"
+                    width="4"
                     height={lbl.boxH - 8}
-                    rx="1.5"
+                    rx="2"
                     fill={color}
                   />
 
                   {/* Row 1: Company Short Name */}
                   <text
-                    x="10"
-                    y="15"
-                    className={`font-bold text-[11px] font-sans ${
-                      isHovered ? 'fill-white' : 'fill-slate-900 dark:fill-slate-100'
+                    x="12"
+                    y="17"
+                    className={`font-extrabold text-[11.5px] font-sans ${
+                      isActive ? 'fill-slate-950 dark:fill-white' : 'fill-slate-900 dark:fill-slate-100'
                     }`}
                   >
                     {pt.company.shortName}
@@ -599,27 +650,29 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
                   {/* Margin % Pill Badge */}
                   <rect
-                    x={lbl.boxW - 46}
-                    y="4"
-                    width="40"
+                    x={lbl.boxW - 48}
+                    y="5"
+                    width="42"
                     height="16"
                     rx="4"
                     className={
-                      isHovered
-                        ? 'fill-brand-500/40'
+                      isActive
+                        ? pt.marginPercent >= 7.0
+                          ? 'fill-emerald-100 dark:fill-emerald-950/70 stroke-emerald-400 dark:stroke-emerald-600 stroke-1'
+                          : 'fill-brand-100 dark:fill-brand-950/70 stroke-brand-400 dark:stroke-brand-600 stroke-1'
                         : pt.marginPercent >= 7.0
                         ? 'fill-emerald-500/15 dark:fill-emerald-400/20'
-                        : 'fill-brand-500/10 dark:fill-brand-400/20'
+                        : 'fill-slate-100 dark:fill-slate-800'
                     }
                   />
                   <text
-                    x={lbl.boxW - 26}
-                    y="15.5"
+                    x={lbl.boxW - 27}
+                    y="16.5"
                     textAnchor="middle"
                     className={`font-mono font-bold text-[10px] ${
                       pt.marginPercent >= 7.0
-                        ? 'fill-emerald-600 dark:fill-emerald-400'
-                        : 'fill-brand-600 dark:fill-brand-400'
+                        ? 'fill-emerald-700 dark:fill-emerald-400'
+                        : 'fill-brand-700 dark:fill-brand-400'
                     }`}
                   >
                     {pt.marginPercent.toFixed(1)}%
@@ -627,10 +680,10 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
                   {/* Row 2: Actual Profit Number & Deliveries */}
                   <text
-                    x="10"
-                    y="31"
+                    x="12"
+                    y="34"
                     className={`font-mono text-[9.5px] font-bold ${
-                      isHovered ? 'fill-emerald-300' : 'fill-emerald-600 dark:fill-emerald-400'
+                      isActive ? 'fill-emerald-600 dark:fill-emerald-400' : 'fill-emerald-700 dark:fill-emerald-400'
                     }`}
                   >
                     {lbl.profitStr}
@@ -638,11 +691,11 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
                   {/* Deliveries Count */}
                   <text
-                    x={lbl.boxW - 6}
-                    y="31"
+                    x={lbl.boxW - 8}
+                    y="34"
                     textAnchor="end"
-                    className={`font-mono text-[9px] ${
-                      isHovered ? 'fill-slate-300' : 'fill-slate-500 dark:fill-slate-400'
+                    className={`font-mono text-[9.5px] ${
+                      isActive ? 'fill-slate-700 dark:fill-slate-200 font-bold' : 'fill-slate-500 dark:fill-slate-400 font-semibold'
                     }`}
                   >
                     {lbl.volumeStr}
@@ -653,62 +706,100 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           })}
         </svg>
 
-        {/* Dynamic Interactive Detail Tooltip */}
-        {hovered && (
-          <div className="mt-3 p-4 bg-slate-900 text-white rounded-xl border border-slate-700 shadow-xl flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-200">
-            <div className="flex items-center gap-3">
-              <span
-                className="w-4 h-4 rounded-full ring-2 ring-white/30"
-                style={{ backgroundColor: getOemColor(hovered.company.name) }}
-              />
-              <div>
-                <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                  {hovered.company.name} ({hovered.company.shortName})
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-slate-300 font-normal">
-                    {hovered.company.hqCountry} • 공시통화: {hovered.company.reportingCurrency}
+        {/* Dynamic Interactive Detail Panel (Clean adaptive design, NOT pitch black in light mode) */}
+        {activePoint && (
+          <div className="mt-4 p-5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-850 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-200">
+            {/* Left: Company Identity, Badges & Strategic Quadrant Info */}
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div
+                className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0 ring-4 ring-slate-100 dark:ring-slate-800"
+                style={{ backgroundColor: getOemColor(activePoint.company.name) }}
+              >
+                {activePoint.company.shortName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                    {activePoint.company.name}
+                  </h4>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border border-slate-200 dark:border-slate-700">
+                    {activePoint.company.hqCountry} • {language === 'ko' ? '공시통화' : 'Currency'}: {activePoint.company.reportingCurrency}
                   </span>
-                </h4>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {hovered.marginPercent >= midMargin && hovered.volumeThousand >= midVol
+                  {selectedPoint && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                      {language === 'ko' ? '선택됨' : 'Selected'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+                  {activePoint.marginPercent >= midMargin && activePoint.volumeThousand >= midVol
                     ? (language === 'ko' ? '★ 글로벌 규모 및 최고 수익성 선도 기업' : '★ Global Scale & High Profitability Leader')
-                    : hovered.marginPercent >= midMargin
+                    : activePoint.marginPercent >= midMargin
                     ? (language === 'ko' ? '프리미엄 럭셔리 & 고수익 특화 기업' : 'Premium Luxury & High Margin Specialist')
-                    : hovered.volumeThousand >= midVol
+                    : activePoint.volumeThousand >= midVol
                     ? (language === 'ko' ? '글로벌 대량 양산 볼륨 리더' : 'Global Mass Volume Leader')
                     : (language === 'ko' ? '전동화 전환 및 사업 구조개편 단계' : 'Electrification Transition & Restructuring Phase')}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
-              <div className="bg-slate-800/90 px-3 py-1.5 rounded-lg border border-slate-700">
-                <span className="text-slate-400 text-[10px] block font-sans">
+            {/* Right: Key Financial & Volume Numbers + Quick Link */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* KRW Converted Profit */}
+              <div className="bg-white dark:bg-slate-800/90 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '영업이익 (KRW 환산)' : 'Operating Profit (EBIT)'}
                 </span>
-                <span className="text-emerald-400 font-bold text-sm">
-                  {formatLocalizedProfit(hovered.operatingIncome, hovered.currency || hovered.company.reportingCurrency, language, { showOriginal: true })}
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm sm:text-base">
+                  {formatLocalizedProfit(activePoint.operatingIncome, activePoint.currency || activePoint.company.reportingCurrency, language, { showOriginal: true })}
                 </span>
               </div>
 
-              <div className="bg-slate-800/90 px-3 py-1.5 rounded-lg border border-slate-700">
-                <span className="text-slate-400 text-[10px] block font-sans">
+              {/* Operating Margin */}
+              <div className="bg-white dark:bg-slate-800/90 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '영업이익률 (RoS)' : 'EBIT Margin (RoS)'}
                 </span>
-                <span className="text-brand-400 font-bold text-sm">
-                  {hovered.marginPercent.toFixed(1)}%
+                <span className="text-brand-600 dark:text-brand-400 font-bold font-mono text-sm sm:text-base">
+                  {activePoint.marginPercent.toFixed(1)}%
                 </span>
               </div>
 
-              <div className="bg-slate-800/90 px-3 py-1.5 rounded-lg border border-slate-700">
-                <span className="text-slate-400 text-[10px] block font-sans">
-                  {language === 'ko' ? '글로벌 인도량' : 'Global Deliveries'}
+              {/* Deliveries */}
+              <div className="bg-white dark:bg-slate-800/90 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
+                  {language === 'ko' ? '글로벌 인도량' : 'Deliveries'}
                 </span>
-                <span className="text-white font-bold text-sm">
-                  {hovered.volumeThousand >= 1000
-                    ? `${(hovered.volumeThousand / 1000).toFixed(2)}M (${Math.round(hovered.volumeThousand).toLocaleString()}k)`
-                    : `${Math.round(hovered.volumeThousand).toLocaleString()}k units`}
+                <span className="text-slate-900 dark:text-white font-bold font-mono text-sm sm:text-base">
+                  {activePoint.volumeThousand >= 1000
+                    ? `${(activePoint.volumeThousand / 1000).toFixed(2)}M`
+                    : `${Math.round(activePoint.volumeThousand).toLocaleString()}k`}
                 </span>
               </div>
+
+              {/* Direct Company Dossier Link */}
+              <Link
+                to={`/company/${activePoint.company.id}`}
+                className="px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+              >
+                <span>{language === 'ko' ? '상세 분석' : 'Deep Dive'}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+
+              {/* Dismiss Button if selected */}
+              {selectedPoint && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPoint(null);
+                  }}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition"
+                  title={language === 'ko' ? '선택 해제' : 'Deselect'}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         )}

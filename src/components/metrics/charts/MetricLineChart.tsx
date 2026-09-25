@@ -98,7 +98,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
               {title}
             </h3>
             <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold border border-brand-500/20">
-              {unit === 'percentage' ? '영업이익률 RoS (%)' : unit.replace('_', ' ')}
+              {unit === 'percentage' ? (language === 'ko' ? '영업이익률 RoS (%)' : 'Operating Margin RoS (%)') : unit.replace('_', ' ')}
             </span>
           </div>
           {subtitle && (

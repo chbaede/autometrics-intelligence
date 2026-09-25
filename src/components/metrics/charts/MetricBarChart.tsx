@@ -111,8 +111,18 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                 )}
 
                 {/* Value Label */}
-                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mb-1.5 truncate group-hover:text-brand-600 dark:group-hover:text-brand-300 font-semibold">
-                  {isNull ? 'N/R' : valNum >= 1000 ? `${(valNum / 1000).toFixed(1)}k` : valNum.toFixed(1)}
+                <div className="text-[10.5px] font-mono text-slate-500 dark:text-slate-400 mb-1.5 truncate group-hover:text-brand-600 dark:group-hover:text-brand-300 font-bold">
+                  {isNull
+                    ? 'N/R'
+                    : unit === 'percentage'
+                    ? `${valNum.toFixed(1)}%`
+                    : unit === 'thousand_units'
+                    ? valNum >= 1000
+                      ? `${(valNum / 1000).toFixed(2)}M`
+                      : `${Math.round(valNum).toLocaleString()}k`
+                    : valNum >= 1000
+                    ? `${(valNum / 1000).toFixed(1)}k`
+                    : valNum.toFixed(1)}
                 </div>
 
                 {/* Vertical Bar */}
@@ -132,10 +142,12 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                 </div>
 
                 {/* Company Label */}
-                <div className="mt-2 text-center">
-                  <span className={`text-[11px] font-semibold truncate block max-w-[55px] ${
-                    isHovered ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-700 dark:text-slate-300'
-                  }`}>
+                <div className="mt-2 text-center w-full px-0.5">
+                  <span
+                    className={`text-[11px] font-semibold truncate block mx-auto max-w-[64px] ${
+                      isHovered ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
                     {item.company.shortName}
                   </span>
                 </div>

@@ -56,7 +56,7 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
           </div>
           <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-semibold">
             <span className="w-2.5 h-2.5 rounded-xs bg-slate-300 dark:bg-slate-700" />
-            <span>{language === 'ko' ? '내연기관 / HEV (PHEV 미구분 포함)' : 'ICE / HEV'}</span>
+            <span>{language === 'ko' ? '내연기관 / 일반 HEV' : 'ICE / Conventional HEV'}</span>
           </div>
         </div>
       </div>

@@ -132,9 +132,9 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
       {/* Unified Horizontal Comparative Chart Area */}
       <div className="relative w-full bg-slate-50/70 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
         {/* Scale Top Axis — Perfectly aligned with the center corridor flex area */}
-        <div className="flex items-center gap-3 px-3 mb-2">
-          {/* Left spacer matching company header (180px) */}
-          <div className="w-[180px] shrink-0" />
+        <div className="flex items-center gap-2.5 sm:gap-3 px-3 mb-2">
+          {/* Left spacer matching company header */}
+          <div className="w-[145px] sm:w-[170px] shrink-0" />
 
           {/* Center axis ticks matching the exact corridor track width */}
           <div className="relative flex-1 h-6">
@@ -155,8 +155,8 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
             })}
           </div>
 
-          {/* Right spacer matching summary badge (120px) */}
-          <div className="w-[120px] shrink-0" />
+          {/* Right spacer matching summary badge */}
+          <div className="w-[95px] sm:w-[110px] shrink-0" />
         </div>
 
         {/* Unified OEM Rows */}
@@ -185,8 +185,8 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                     : 'bg-white/80 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800/60'
                 }`}
               >
-                {/* Left Column: Full Company Name & Status (180px fixed width, No Truncation) */}
-                <div className="w-[180px] shrink-0 flex items-center justify-between pr-2">
+                {/* Left Column: Full Company Name & Status */}
+                <div className="w-[145px] sm:w-[170px] shrink-0 flex items-center justify-between pr-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div
                       className="w-3 h-3 rounded-full shrink-0 shadow-xs"
@@ -236,9 +236,9 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                   </div>
                 </div>
 
-                {/* Right Summary Badge (120px fixed width, whitespace-nowrap prevents any wrapping) */}
-                <div className="w-[120px] shrink-0 text-right">
-                  <span className="inline-block whitespace-nowrap font-mono font-bold text-xs text-brand-700 dark:text-brand-300 bg-brand-500/10 px-2.5 py-1 rounded-md border border-brand-500/20 shadow-2xs">
+                {/* Right Summary Badge (whitespace-nowrap prevents any wrapping) */}
+                <div className="w-[95px] sm:w-[110px] shrink-0 text-right">
+                  <span className="inline-block whitespace-nowrap font-mono font-bold text-[11px] sm:text-xs text-brand-700 dark:text-brand-300 bg-brand-500/10 px-2 py-1 rounded-md border border-brand-500/20 shadow-2xs">
                     {min === max ? `${min}%` : `${min}% ~ ${max}%`}
                   </span>
                 </div>
