@@ -12,6 +12,8 @@ interface MetricBarChartProps {
     observation: MetricObservation;
   }[];
   unit: string;
+  periodBadge?: string;
+  sortByValue?: boolean;
   onSelectObservation?: (obs: MetricObservation) => void;
 }
 
@@ -20,6 +22,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
   subtitle,
   observations,
   unit,
+  periodBadge,
+  sortByValue = true,
   onSelectObservation,
 }) => {
   const { language } = useLanguage();
@@ -33,8 +37,17 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
     );
   }
 
+  // Sort observations in descending order (highest value first) by default
+  const sortedObservations = sortByValue
+    ? [...observations].sort((a, b) => {
+        const valA = a.observation.value ?? -Infinity;
+        const valB = b.observation.value ?? -Infinity;
+        return valB - valA;
+      })
+    : observations;
+
   // Calculate scales
-  const validValues = observations
+  const validValues = sortedObservations
     .map((o) => o.observation.value)
     .filter((v): v is number => v !== null && Number.isFinite(v));
 
@@ -45,25 +58,35 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
   return (
     <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col">
       {/* Chart Header */}
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            {title}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 whitespace-nowrap">
+              {title}
+            </h3>
             <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">
               {unit.replace('_', ' ')}
             </span>
-          </h3>
+            {periodBadge && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold border border-brand-500/20 whitespace-nowrap">
+                📅 {periodBadge}
+              </span>
+            )}
+            <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
+              {language === 'ko' ? '높은순 정렬' : 'Ranked'}
+            </span>
+          </div>
           {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
 
         {/* Dynamic Hover/Active Status in Header */}
-        {hoveredIndex !== null && observations[hoveredIndex] && (
-          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-mono animate-fadeIn">
+        {hoveredIndex !== null && sortedObservations[hoveredIndex] && (
+          <div className="flex items-center gap-2 px-2.5 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-mono animate-fadeIn">
             <span className="font-bold text-brand-700 dark:text-brand-300">
-              {observations[hoveredIndex].company.shortName}:
+              {sortedObservations[hoveredIndex].company.shortName}:
             </span>
             <span className="font-extrabold text-slate-900 dark:text-slate-100">
-              {formatMetricValue(observations[hoveredIndex].observation.value, unit, observations[hoveredIndex].observation.currency)}
+              {formatMetricValue(sortedObservations[hoveredIndex].observation.value, unit, sortedObservations[hoveredIndex].observation.currency)}
             </span>
           </div>
         )}
@@ -82,7 +105,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
             />
           )}
 
-          {observations.map((item, idx) => {
+          {sortedObservations.map((item, idx) => {
             const val = item.observation.value;
             const isNull = val === null || !Number.isFinite(val);
             const valNum = isNull ? 0 : val;
@@ -100,7 +123,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                 {/* Floating Tooltip inside container */}
                 {isHovered && (
                   <div className="absolute -top-7 z-30 px-2.5 py-1 bg-slate-900 text-white dark:bg-slate-800 dark:text-slate-100 rounded-lg shadow-xl text-[11px] font-mono border border-slate-700 whitespace-nowrap pointer-events-none flex items-center gap-1.5">
-                    <span className="font-bold text-brand-400">{item.company.shortName}:</span>
+                    <span className="font-bold text-brand-400">#{idx + 1} {item.company.shortName}:</span>
                     <span className="font-semibold text-white">
                       {formatMetricValue(val, unit, item.observation.currency)}
                     </span>
@@ -108,6 +131,21 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                       <span className="text-amber-400 text-[10px]">({language === 'ko' ? '비교주의' : 'Scope'})</span>
                     )}
                   </div>
+                )}
+
+                {/* Rank indicator for top 3 */}
+                {idx < 3 && !isNull && (
+                  <span
+                    className={`text-[9px] font-mono font-bold px-1 rounded mb-0.5 ${
+                      idx === 0
+                        ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60'
+                        : idx === 1
+                        ? 'bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                        : 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400'
+                    }`}
+                  >
+                    #{idx + 1}
+                  </span>
                 )}
 
                 {/* Value Label */}

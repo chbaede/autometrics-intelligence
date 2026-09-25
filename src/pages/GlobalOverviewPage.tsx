@@ -59,21 +59,23 @@ export const GlobalOverviewPage: React.FC = () => {
     }
   };
 
-  // Observations for Sales Bar Chart
+  // Observations for Sales Bar Chart (ranked descending)
   const salesObs = getObservations(selectedCompanies, ['deliveries_global'], selectedPeriod)
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
       observation: obs,
     }))
-    .filter((o) => o.company);
+    .filter((o) => o.company)
+    .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
 
-  // Observations for Operating Margin Bar Chart
+  // Observations for Operating Margin Bar Chart (ranked descending)
   const marginObs = getObservations(selectedCompanies, ['operating_margin'], selectedPeriod)
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
       observation: obs,
     }))
-    .filter((o) => o.company);
+    .filter((o) => o.company)
+    .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
 
   // OEM distinct brand colors helper for line chart
   const getOemColor = (compName: string, idx: number) => {
@@ -252,12 +254,12 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Interactive Filter Toolbar */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-wrap items-center justify-between gap-4 transition-colors">
+      {/* Interactive Filter Toolbar (Sticky so period & filters are always visible when scrolling) */}
+      <div className="sticky top-16 z-20 p-3 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-md flex flex-wrap items-center justify-between gap-3 transition-all">
         {/* Period Selector */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Calendar className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          <Calendar className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
             {t.global.periodFilter}
           </span>
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex-wrap">
@@ -275,6 +277,9 @@ export const GlobalOverviewPage: React.FC = () => {
               </button>
             ))}
           </div>
+          <span className="hidden lg:inline-flex text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 whitespace-nowrap">
+            {language === 'ko' ? `조회 공시 주기: ${selectedPeriod}` : `Active Period: ${selectedPeriod}`}
+          </span>
         </div>
 
         {/* Company Quick Toggles */}
@@ -303,7 +308,27 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* SECTION 1: 4-Quadrant Strategic Volume vs Margin Matrix */}
+      {/* SECTION 1: Core Volume & Profitability Benchmarks (Ranked Descending) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <MetricBarChart
+          title={t.charts.salesVolume}
+          subtitle={t.charts.salesSubtitle}
+          observations={salesObs}
+          unit="thousand_units"
+          periodBadge={selectedPeriod}
+          onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
+        />
+        <MetricBarChart
+          title={t.charts.operatingMargin}
+          subtitle={t.charts.marginSubtitle}
+          observations={marginObs}
+          unit="percentage"
+          periodBadge={selectedPeriod}
+          onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
+        />
+      </div>
+
+      {/* SECTION 2: 4-Quadrant Strategic Volume vs Margin Matrix */}
       <div className="w-full">
         <MarginScatterChart
           title={t.charts.revenueVsMargin}
@@ -312,25 +337,19 @@ export const GlobalOverviewPage: React.FC = () => {
         />
       </div>
 
-      {/* SECTION 2: Core Volume & Profitability Benchmarks */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <MetricBarChart
-          title={t.charts.salesVolume}
-          subtitle={t.charts.salesSubtitle}
-          observations={salesObs}
-          unit="thousand_units"
-          onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
-        />
-        <MetricBarChart
-          title={t.charts.operatingMargin}
-          subtitle={t.charts.marginSubtitle}
-          observations={marginObs}
+      {/* SECTION 3: Multi-Period Historical Trend Trajectory */}
+      <div className="w-full">
+        <MetricLineChart
+          title={t.charts.historicalTrend}
+          subtitle={t.charts.historicalSubtitle}
+          series={trendSeries}
           unit="percentage"
+          activePeriod={selectedPeriod}
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
       </div>
 
-      {/* SECTION 3: Strategic Guidance Corridors & Powertrain Electrification Mix */}
+      {/* SECTION 4: Strategic Guidance Corridors & Powertrain Electrification Mix */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <GuidanceRangeChart
           guidanceList={guidanceList}
@@ -339,17 +358,6 @@ export const GlobalOverviewPage: React.FC = () => {
           title={t.charts.powertrainMix}
           subtitle={t.charts.powertrainMixSubtitle}
           data={powertrainData}
-        />
-      </div>
-
-      {/* SECTION 4: Multi-Period Historical Trend Trajectory */}
-      <div className="w-full">
-        <MetricLineChart
-          title={t.charts.historicalTrend}
-          subtitle={t.charts.historicalSubtitle}
-          series={trendSeries}
-          unit="percentage"
-          onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
       </div>
 
