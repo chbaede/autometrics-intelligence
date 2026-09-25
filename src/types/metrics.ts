@@ -330,6 +330,10 @@ export interface ScopeExceptionEvidence {
   evidenceReference?: string;
   purpose?: EvidencePurpose;
   supports?: EvidenceSupportType[];
+  /**
+   * Optional claim-level locators or citations binding specific support types to evidence strings (STEP 4-14, Task 4).
+   */
+  supportEvidence?: Partial<Record<EvidenceSupportType, string>>;
 }
 
 export interface DocumentedReportedKpi {

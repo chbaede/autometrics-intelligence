@@ -991,7 +991,7 @@ interface EvidenceValidationOptions {
 }
 
 /** All known EvidenceSupportType values for unknown-type detection (STEP 4-13, Task 3 / Task 6). */
-const ALL_KNOWN_SUPPORT_TYPES: readonly EvidenceSupportType[] = [
+export const ALL_KNOWN_SUPPORT_TYPES: readonly EvidenceSupportType[] = [
   'revenue',
   'proxy_numerator',
   'target_semantic',
@@ -1003,9 +1003,30 @@ const ALL_KNOWN_SUPPORT_TYPES: readonly EvidenceSupportType[] = [
   'reported_kpi',
 ];
 
+/** All known EvidencePurpose values for runtime unknown-purpose detection (STEP 4-14, Task 2). */
+export const ALL_KNOWN_EVIDENCE_PURPOSES: readonly EvidencePurpose[] = [
+  'reported_kpi',
+  'scope_definition',
+  'numerator_definition',
+  'proxy_justification',
+];
+
+/** Allowed purpose(s) for each required evidence support type (STEP 4-14, Task 3). */
+export const ALLOWED_PURPOSES_BY_SUPPORT: Record<EvidenceSupportType, readonly EvidencePurpose[]> = {
+  proxy_numerator: ['numerator_definition', 'proxy_justification'],
+  revenue: ['numerator_definition'],
+  denominator: ['numerator_definition'],
+  target_semantic: ['scope_definition', 'proxy_justification'],
+  scope: ['scope_definition', 'proxy_justification'],
+  reported_kpi: ['reported_kpi'],
+  accounting_basis: ['numerator_definition', 'scope_definition', 'reported_kpi'],
+  period: ['numerator_definition', 'scope_definition', 'reported_kpi'],
+  period_type: ['numerator_definition', 'scope_definition', 'reported_kpi'],
+};
+
 /**
  * Validates a list of evidence items against membership, locator, purpose/support consistency,
- * empty-supports, unknown-support-type, and duplicate-supports invariants (STEP 4-13, Task 4).
+ * empty-supports, unknown-support-type, duplicate-supports, unknown-purpose, and claim-level locator invariants (STEP 4-13, Task 4; STEP 4-14, Tasks 2 & 4).
  *
  * Returns an object with arrays of mismatch codes and reasons collected across all evidence items.
  * Each mismatch code is emitted at most once globally; per-item reasons are always appended.
@@ -1018,6 +1039,8 @@ const ALL_KNOWN_SUPPORT_TYPES: readonly EvidenceSupportType[] = [
  *  5. If ev.purpose is set, ev.supports must be non-empty → `missingEvidenceSupports`
  *  6. ev.supports must not contain unknown types → `unknownEvidenceSupportType`
  *  7. ev.supports must not contain duplicate values → `duplicateEvidenceSupports`
+ *  8. ev.purpose must be a valid known EvidencePurpose → `unknownEvidencePurpose` (STEP 4-14, Task 2)
+ *  9. Claim-level locators in supportEvidence must be non-empty strings → `missingClaimEvidenceLocator` (STEP 4-14, Task 4)
  *
  * Does NOT emit mismatch codes already in the caller's mismatch list (uses push-once logic).
  */
@@ -1063,6 +1086,26 @@ export function validateEvidenceItems(
       reasons.push(`${parentLabel} evidence for source "${ev.sourceDocId}" lacks meaningful locators.`);
     }
 
+    // Task 2 (STEP 4-14): Unknown evidence purpose detection
+    let isPurposeKnown = true;
+    if (ev.purpose) {
+      if (!ALL_KNOWN_EVIDENCE_PURPOSES.includes(ev.purpose as EvidencePurpose)) {
+        isPurposeKnown = false;
+        addMismatch('unknownEvidencePurpose');
+        reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" contains unknown purpose "${ev.purpose}".`);
+      }
+    }
+
+    // Task 4 (STEP 4-14): Claim-level evidence locator validation
+    if (ev.supportEvidence) {
+      for (const [claimKey, locator] of Object.entries(ev.supportEvidence)) {
+        if (!locator || typeof locator !== 'string' || locator.trim().length === 0) {
+          addMismatch('missingClaimEvidenceLocator');
+          reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" has empty locator for claim "${claimKey}".`);
+        }
+      }
+    }
+
     // Task 3: purpose set but supports empty / missing → missingEvidenceSupports
     if (ev.purpose && (!ev.supports || ev.supports.length === 0)) {
       addMismatch('missingEvidenceSupports');
@@ -1070,7 +1113,7 @@ export function validateEvidenceItems(
     }
 
     // Task 4 / carried-forward purpose+support consistency
-    if (ev.purpose && ev.supports && ev.supports.length > 0) {
+    if (ev.purpose && isPurposeKnown && ev.supports && ev.supports.length > 0) {
       let isConsistent = true;
       let expectedHelp = '';
       switch (ev.purpose) {
@@ -1113,7 +1156,10 @@ export function validateEvidenceItems(
           reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" contains duplicate support value "${sup}".`);
         }
         seen.add(sup);
-        allSupports.add(sup as EvidenceSupportType);
+        // STEP 4-14 Task 2: Unknown purposes must NOT satisfy required support requirements
+        if (isPurposeKnown) {
+          allSupports.add(sup as EvidenceSupportType);
+        }
       }
     }
   }
@@ -1223,15 +1269,21 @@ export function validateDocumentedReportedKpiCompatibility(
           addMismatch('sourceCompanyMismatch');
           reasons.push(`Source document "${docId}" companyId "${doc.companyId}" does not match KPI companyId "${kpi.companyId}".`);
         }
-        if (doc.period) {
+        if (!doc.period) {
+          addMismatch('missingSourcePeriod');
+          reasons.push(`Source document "${docId}" referenced by KPI is missing required period.`);
+        } else {
           docPeriods.add(doc.period);
           if (expectedPeriod && doc.period !== expectedPeriod) {
             addMismatch('sourcePeriodMismatch');
             reasons.push(`Source document "${docId}" period "${doc.period}" does not match expected period "${expectedPeriod}".`);
           }
         }
-        // Task 2: periodType validation
-        if (doc.periodType) {
+        // Task 1 (STEP 4-14): periodType completeness check
+        if (!doc.periodType) {
+          addMismatch('missingSourcePeriodType');
+          reasons.push(`Source document "${docId}" referenced by KPI is missing required periodType.`);
+        } else {
           docPeriodTypes.add(doc.periodType);
           if (expectedPeriodType && doc.periodType !== expectedPeriodType) {
             addMismatch('sourcePeriodTypeMismatch');
@@ -1546,8 +1598,10 @@ export function validateProxyMappingCompatibility(
           mapping.evidence &&
           mapping.evidence.some(
             (ev) =>
-              ev.purpose === reqPurpose ||
+              (ev.purpose && ALL_KNOWN_EVIDENCE_PURPOSES.includes(ev.purpose) && ev.purpose === reqPurpose) ||
               (reqPurpose === 'scope_definition' &&
+                ev.purpose &&
+                ALL_KNOWN_EVIDENCE_PURPOSES.includes(ev.purpose) &&
                 (ev.purpose === 'reported_kpi' || ev.supports?.includes('scope')))
           );
         if (!hasPurpose) {
@@ -1569,12 +1623,37 @@ export function validateProxyMappingCompatibility(
     if (!mismatches.includes(m)) mismatches.push(m);
   }
   reasons.push(...evResult.reasons);
-  const allSupports = evResult.allSupports;
 
-  // Contract-driven requiredEvidenceSupports validation (STEP 4-11, Task 2 & 5; STEP 4-12, Task 1)
+  // Contract-driven requiredEvidenceSupports validation with purpose binding (STEP 4-11; STEP 4-12; STEP 4-14, Task 3)
   const requiredSupports = activeContract?.requiredEvidenceSupports ?? DEFAULT_REQUIRED_EVIDENCE_SUPPORTS;
   for (const reqSupport of requiredSupports) {
-    if (!allSupports.has(reqSupport)) {
+    const allowedPurposes = ALLOWED_PURPOSES_BY_SUPPORT[reqSupport];
+    const hasValidSupport =
+      mapping.evidence &&
+      mapping.evidence.some((ev) => {
+        if (!ev.purpose || !ALL_KNOWN_EVIDENCE_PURPOSES.includes(ev.purpose)) return false;
+        if (allowedPurposes && !allowedPurposes.includes(ev.purpose)) return false;
+        return ev.supports?.includes(reqSupport);
+      });
+
+    if (!hasValidSupport) {
+      const declaredUnderIncompatible =
+        mapping.evidence &&
+        mapping.evidence.some(
+          (ev) =>
+            ev.purpose &&
+            ALL_KNOWN_EVIDENCE_PURPOSES.includes(ev.purpose) &&
+            allowedPurposes &&
+            !allowedPurposes.includes(ev.purpose) &&
+            ev.supports?.includes(reqSupport)
+        );
+
+      if (declaredUnderIncompatible) {
+        if (!mismatches.includes('incompatibleEvidenceSupportPurpose')) {
+          mismatches.push('incompatibleEvidenceSupportPurpose');
+        }
+      }
+
       const specificMismatch = `missingEvidenceSupport:${reqSupport}`;
       if (!mismatches.includes(specificMismatch)) mismatches.push(specificMismatch);
 
@@ -1592,7 +1671,7 @@ export function validateProxyMappingCompatibility(
       }
 
       reasons.push(
-        `ProxyMapping [${mapping.id}] lacks required evidence support "${reqSupport}" mandated by contract for [${mapping.companyId} / ${targetSemantic}].`
+        `ProxyMapping [${mapping.id}] lacks required evidence support "${reqSupport}" with an allowed purpose [${allowedPurposes?.join(', ')}].`
       );
     }
   }
@@ -1723,7 +1802,7 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 8. Mandatory deep source document verification — including Task 2 periodType checks (STEP 4-13)
+  // 8. Mandatory deep source document verification — including Task 1 & 2 period/periodType checks (STEP 4-13 & STEP 4-14)
   const expectedPeriod = mapping.period ?? revObs.period;
   const expectedPeriodType = mapping.periodType ?? revObs.periodType;
   if (!sourcesMap) {
@@ -1750,15 +1829,22 @@ export function validateProxyMappingCompatibility(
           if (!mismatches.includes('sourceCompanyMismatch')) mismatches.push('sourceCompanyMismatch');
           reasons.push(`Source document "${docId}" companyId "${doc.companyId}" does not match mapping companyId "${mapping.companyId}".`);
         }
-        if (doc.period) {
+        // Task 1 (STEP 4-14): Source document period completeness
+        if (!doc.period) {
+          if (!mismatches.includes('missingSourcePeriod')) mismatches.push('missingSourcePeriod');
+          reasons.push(`Source document "${docId}" referenced by mapping is missing required period.`);
+        } else {
           docPeriods.add(doc.period);
           if (expectedPeriod && doc.period !== expectedPeriod) {
             if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
             reasons.push(`Source document "${docId}" period "${doc.period}" does not match expected period "${expectedPeriod}".`);
           }
         }
-        // Task 2: periodType validation (STEP 4-13)
-        if (doc.periodType) {
+        // Task 1 (STEP 4-14): Source document periodType completeness
+        if (!doc.periodType) {
+          if (!mismatches.includes('missingSourcePeriodType')) mismatches.push('missingSourcePeriodType');
+          reasons.push(`Source document "${docId}" referenced by mapping is missing required periodType.`);
+        } else {
           docPeriodTypes.add(doc.periodType);
           if (expectedPeriodType && doc.periodType !== expectedPeriodType) {
             if (!mismatches.includes('sourcePeriodTypeMismatch')) mismatches.push('sourcePeriodTypeMismatch');
