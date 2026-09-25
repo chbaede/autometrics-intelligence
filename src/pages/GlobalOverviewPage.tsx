@@ -26,6 +26,7 @@ import {
   Check,
   ExternalLink,
   TableProperties,
+  EyeOff,
 } from 'lucide-react';
 
 export const GlobalOverviewPage: React.FC = () => {
@@ -38,6 +39,7 @@ export const GlobalOverviewPage: React.FC = () => {
   );
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
   const [showInlineTable, setShowInlineTable] = useState<boolean>(false);
+  const [excludeMarginOutliers, setExcludeMarginOutliers] = useState<boolean>(true);
 
   // Toggle company filter
   const toggleCompany = (companyId: string) => {
@@ -58,7 +60,7 @@ export const GlobalOverviewPage: React.FC = () => {
     setSelectedCompanies(['toyota_motor', 'volkswagen_group', 'hyundai_motor', 'general_motors', 'stellantis']);
   };
 
-  // Observations for Sales Bar Chart (ranked descending)
+  // Observations for Sales Bar Chart (ranked descending) - keeps all OEMs including Rivian
   const salesObs = getObservations(selectedCompanies, ['deliveries_global'], selectedPeriod)
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
@@ -68,7 +70,12 @@ export const GlobalOverviewPage: React.FC = () => {
     .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
 
   // Observations for Operating Margin Bar Chart (ranked descending)
-  const marginObs = getObservations(selectedCompanies, ['operating_margin'], selectedPeriod)
+  // When excludeMarginOutliers is true, filters out extreme outliers (e.g. Rivian -118.7%) for scale readability
+  const marginObs = getObservations(
+    selectedCompanies.filter((cid) => !excludeMarginOutliers || cid !== 'rivian'),
+    ['operating_margin'],
+    selectedPeriod
+  )
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
       observation: obs,
@@ -99,23 +106,25 @@ export const GlobalOverviewPage: React.FC = () => {
     return palette[idx % palette.length];
   };
 
-  // Historical line series for ALL selected OEMs
-  const trendSeries = selectedCompanies.map((cid, idx) => {
-    const comp = getCompanyById(cid)!;
-    const companyObs = getObservations([cid], ['operating_margin']);
-    return {
-      company: comp,
-      data: periods.map((p) => {
-        const obs = companyObs.find((o) => o.period === p);
-        return {
-          period: p,
-          value: obs?.value ?? null,
-          observation: obs,
-        };
-      }),
-      color: getOemColor(comp?.name || cid, idx),
-    };
-  });
+  // Historical line series for selected OEMs (excluding margin outliers if enabled)
+  const trendSeries = selectedCompanies
+    .filter((cid) => !excludeMarginOutliers || cid !== 'rivian')
+    .map((cid, idx) => {
+      const comp = getCompanyById(cid)!;
+      const companyObs = getObservations([cid], ['operating_margin']);
+      return {
+        company: comp,
+        data: periods.map((p) => {
+          const obs = companyObs.find((o) => o.period === p);
+          return {
+            period: p,
+            value: obs?.value ?? null,
+            observation: obs,
+          };
+        }),
+        color: getOemColor(comp?.name || cid, idx),
+      };
+    });
 
   // Powertrain Mix Data for Stacked Bar Chart
   const powertrainData = selectedCompanies.map((cid) => {
@@ -293,7 +302,7 @@ export const GlobalOverviewPage: React.FC = () => {
           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mr-1">
             {t.global.oemFilter} ({selectedCompanies.length}/{companies.length})
           </span>
-          <div className="flex items-center gap-1 mr-2">
+          <div className="flex items-center gap-1 mr-2 flex-wrap">
             <button
               onClick={selectAllCompanies}
               className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline px-1.5 py-0.5 rounded bg-brand-500/10"
@@ -305,6 +314,26 @@ export const GlobalOverviewPage: React.FC = () => {
               className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800"
             >
               {language === 'ko' ? '상위 5개' : 'Top 5'}
+            </button>
+            <button
+              onClick={() => setExcludeMarginOutliers(!excludeMarginOutliers)}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded transition flex items-center gap-1 border ${
+                excludeMarginOutliers
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-bold'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+              }`}
+              title={
+                language === 'ko'
+                  ? '마진 차트에서 극단적 이상치(리비안 -118.7%)를 제외하여 15개 완성차의 가독성을 최적화합니다'
+                  : 'Exclude extreme outlier (Rivian -118.7%) from margin charts to optimize scale'
+              }
+            >
+              <EyeOff className="w-3 h-3" />
+              <span>
+                {language === 'ko'
+                  ? (excludeMarginOutliers ? '마진 이상치(리비안) 제외 중' : '마진 이상치(리비안) 포함')
+                  : (excludeMarginOutliers ? 'Outlier Excluded (Rivian)' : 'Outlier Included')}
+              </span>
             </button>
           </div>
           {companies.map((comp) => {
@@ -339,7 +368,11 @@ export const GlobalOverviewPage: React.FC = () => {
         />
         <MetricBarChart
           title={t.charts.operatingMargin}
-          subtitle={t.charts.marginSubtitle}
+          subtitle={
+            excludeMarginOutliers
+              ? `${t.charts.marginSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 -118.7% 제외됨' : 'Scale optimized: Rivian excluded'})`
+              : t.charts.marginSubtitle
+          }
           observations={marginObs}
           unit="percentage"
           periodBadge={selectedPeriod}
@@ -360,7 +393,11 @@ export const GlobalOverviewPage: React.FC = () => {
       <div className="w-full">
         <MetricLineChart
           title={t.charts.historicalTrend}
-          subtitle={t.charts.historicalSubtitle}
+          subtitle={
+            excludeMarginOutliers
+              ? `${t.charts.historicalSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 -118.7% 제외됨' : 'Scale optimized: Rivian excluded'})`
+              : t.charts.historicalSubtitle
+          }
           series={trendSeries}
           unit="percentage"
           activePeriod={selectedPeriod}
