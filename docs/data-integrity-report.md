@@ -174,6 +174,9 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 ### P0: Separation of Proxy Mapping from Verified Metric Relationships
 - **Invariant**: `group operating income ≠ segment EBIT by default`.
 - Standard validation strictly requires scope alignment; group operating income paired with segment margin fails validation by default (`status: 'invalid'`).
+- Added `DocumentedReportedKpi` and `ProxyMetricMapping` interfaces:
+  - `DOCUMENTED_REPORTED_KPIS`: Stores officially reported segment-level KPIs published by OEMs.
+  - `PROXY_METRIC_MAPPINGS`: Explicitly models proxy numerator substitutions (e.g. Group Operating Income -> Segment EBIT) with status `'proxy_only'`.
 - Added `mathematicallyVerified?: boolean` property to `MarginValidationResult` and `AuditFinding`:
   - `status === 'proxy_only'` produces `mathematicallyVerified: false`.
   - Incomplete, invalid, or needs_review triplets produce `mathematicallyVerified: false`.
@@ -186,6 +189,7 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 - In `DOCUMENTED_SCOPE_EXCEPTIONS`, classified all BMW and Mercedes evidence records with `purpose: 'reported_kpi'`.
 - Removed unsupported inferred accounting identities (e.g. `Automotive EBIT = Group EBIT - Financial Services EBIT`) from comments and rationales.
 - Rationales now explicitly state: the headline segment margin KPI is officially reported by the OEM; consolidated group operating income is an observable proxy numerator; mathematical reproduction is not verified; human review or official segment-level numerator data is required.
+- Enforced explicit P1-1 validation precedence: `valueValidity` -> `currency` -> `unit` -> `provenance` -> `metricDefinition` -> `period` / `periodType` -> `verificationStatus` -> `isProxy`.
 
 ---
 
@@ -200,5 +204,5 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 | `margin-triplet.test.ts` | Margin relationship rules & candidate triplets | 40 | ✅ All passed |
 | `provenance.test.ts` | Source provenance cross-validation | 23 | ✅ All passed |
 | `data-integrity-gate.test.ts` | Exit-code policy & regression guards | 34 | ✅ All passed |
-| `scope-exceptions.test.ts` | Proxy validation, observation binding, dimension revalidation, strict exit | 193 | ✅ All passed |
-| **Total** | | **2063** | ✅ **0 failures** |
+| `scope-exceptions.test.ts` | Proxy validation, observation binding, dimension revalidation, strict exit | 248 | ✅ All passed |
+| **Total** | | **2118** | ✅ **0 failures** |

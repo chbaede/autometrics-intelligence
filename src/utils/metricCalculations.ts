@@ -1092,7 +1092,9 @@ export function validateMarginTriplet(
         `Proxy exception [${options.exception.id}] rejected: dimensional mismatch (${exceptionDimResult?.mismatches.join(', ')}).`
       );
     } else {
-      // General integrity checks are NEVER waived for proxy exceptions (STEP 4-5, P0)
+      // General integrity checks are NEVER waived for proxy exceptions (STEP 4-5, STEP 4-6, P1-1)
+      // Explicit Precedence Policy (P1-1):
+      // 1. valueValidity
       if (!checks.valueValidity) {
         return {
           status: 'invalid',
@@ -1109,6 +1111,58 @@ export function validateMarginTriplet(
         };
       }
 
+      // 2. currency
+      if (!checks.currency) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          mathematicallyVerified: false,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['currency'],
+          checks,
+          diagnostic: `Currency mismatch in proxy exception: Revenue (${revObs.currency}), Profit (${profitObs.currency}). Currency mismatch cannot be overridden by exception.`,
+          reasons: ['Currency mismatch cannot be overridden by exception.'],
+        };
+      }
+
+      // 3. unit
+      if (!checks.unit) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          mathematicallyVerified: false,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['unit'],
+          checks,
+          diagnostic: `Unit mismatch in proxy exception: Revenue (${revObs.unit}), Profit (${profitObs.unit}), Margin (${marginObs.unit}). Unit mismatch cannot be overridden by exception.`,
+          reasons: ['Unit scale mismatch cannot be overridden by exception.'],
+        };
+      }
+
+      // 4. provenance
+      if (!checks.provenance) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          mathematicallyVerified: false,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['provenance'],
+          checks,
+          diagnostic: `Provenance missing in proxy exception: reported observations must link to a valid source document. Provenance cannot be overridden by exception.`,
+          reasons: ['Missing provenance cannot be overridden by exception.'],
+        };
+      }
+
+      // 5. metricDefinition
       if (!checks.metricDefinition) {
         return {
           status: 'invalid',
@@ -1125,6 +1179,7 @@ export function validateMarginTriplet(
         };
       }
 
+      // 6. period & 7. periodType
       if (!checks.period || !checks.periodType) {
         return {
           status: 'invalid',
@@ -1146,54 +1201,7 @@ export function validateMarginTriplet(
         };
       }
 
-      if (!checks.currency) {
-        return {
-          status: 'invalid',
-          calculatedMargin,
-          reportedMargin,
-          difference,
-          mathematicallyVerified: false,
-          selectedObservationIds,
-          selectedRuleId: matchingRule?.id,
-          failedChecks: ['currency'],
-          checks,
-          diagnostic: `Currency mismatch in proxy exception: Revenue (${revObs.currency}), Profit (${profitObs.currency}). Currency mismatch cannot be overridden by exception.`,
-          reasons: ['Currency mismatch cannot be overridden by exception.'],
-        };
-      }
-
-      if (!checks.unit) {
-        return {
-          status: 'invalid',
-          calculatedMargin,
-          reportedMargin,
-          difference,
-          mathematicallyVerified: false,
-          selectedObservationIds,
-          selectedRuleId: matchingRule?.id,
-          failedChecks: ['unit'],
-          checks,
-          diagnostic: `Unit mismatch in proxy exception: Revenue (${revObs.unit}), Profit (${profitObs.unit}), Margin (${marginObs.unit}). Unit mismatch cannot be overridden by exception.`,
-          reasons: ['Unit scale mismatch cannot be overridden by exception.'],
-        };
-      }
-
-      if (!checks.provenance) {
-        return {
-          status: 'invalid',
-          calculatedMargin,
-          reportedMargin,
-          difference,
-          mathematicallyVerified: false,
-          selectedObservationIds,
-          selectedRuleId: matchingRule?.id,
-          failedChecks: ['provenance'],
-          checks,
-          diagnostic: `Provenance missing in proxy exception: reported observations must link to a valid source document. Provenance cannot be overridden by exception.`,
-          reasons: ['Missing provenance cannot be overridden by exception.'],
-        };
-      }
-
+      // 8. verificationStatus
       if (!checks.verificationStatus) {
         return {
           status: 'needs_review',

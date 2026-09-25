@@ -24,6 +24,11 @@
 import {
   findDocumentedScopeException,
   DOCUMENTED_SCOPE_EXCEPTIONS,
+  DOCUMENTED_REPORTED_KPIS,
+  PROXY_METRIC_MAPPINGS,
+  findDocumentedReportedKpi,
+  findProxyMetricMapping,
+  hasProxyJustificationEvidence,
   hasMeaningfulEvidenceLocator,
 } from '../src/data/scopeExceptions';
 import {
@@ -1799,6 +1804,305 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 
   const finding = createAuditFindingFromMarginValidation(res, 'bmw_group', '2026-Q2', 'quarterly');
   check(finding === null, 'Test 48c: Clean verified actual segment triplet produces no audit finding');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 49: Mercedes-Benz group reported operating income used for Cars adjusted RoS (STEP 4-6, P0-2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const mbgException = DOCUMENTED_SCOPE_EXCEPTIONS.find(
+    (e) => e.id === 'mbg_cars_adjusted_ros_2026q2'
+  )!;
+
+  const rev = makeObs({
+    id: 'mbg_rev_49',
+    companyId: 'mercedes_benz',
+    metricId: 'revenue',
+    period: '2026-Q2',
+    value: 36743,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'mbg_2026_q2_results',
+  });
+  const profit = makeObs({
+    id: 'mbg_profit_49',
+    companyId: 'mercedes_benz',
+    metricId: 'operating_income',
+    period: '2026-Q2',
+    value: 4037,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'mbg_2026_q2_results',
+  });
+  const margin = makeObs({
+    id: 'mbg_margin_49',
+    companyId: 'mercedes_benz',
+    metricId: 'operating_margin',
+    period: '2026-Q2',
+    value: 8.4,
+    reportingScope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    unit: 'percentage',
+    sourceDocId: 'mbg_2026_q2_results',
+  });
+
+  const validation = validateMarginTriplet(rev, profit, margin, undefined, { exception: mbgException });
+  check(validation.status === 'proxy_only', 'Test 49a: Mercedes Cars RoS proxy validation returns status="proxy_only"');
+  check(validation.mathematicallyVerified === false, 'Test 49b: Mercedes Cars RoS proxy validation mathematicallyVerified=false');
+
+  const finding = createAuditFindingFromMarginValidation(validation, 'mercedes_benz', '2026-Q2', 'quarterly', mbgException);
+  check(finding !== null, 'Test 49c: Mercedes Cars RoS creates an audit finding');
+  check(finding?.disposition === 'review', 'Test 49d: Mercedes Cars RoS finding disposition is "review"');
+  check(finding?.disposition !== 'documented', 'Test 49e: Mercedes Cars RoS finding is NEVER documented');
+  check(finding?.isProxy === true, 'Test 49f: Mercedes Cars RoS finding has isProxy=true');
+  check(finding?.mathematicallyVerified === false, 'Test 49g: Mercedes Cars RoS finding mathematicallyVerified=false');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 50: DocumentedReportedKpi and ProxyMetricMapping conceptual separation (STEP 4-6, P0-1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  check(DOCUMENTED_REPORTED_KPIS.length === 8, 'Test 50a: DOCUMENTED_REPORTED_KPIS has 8 registered OEM KPIs');
+  check(PROXY_METRIC_MAPPINGS.length === 8, 'Test 50b: PROXY_METRIC_MAPPINGS has 8 registered proxy mappings');
+
+  const bmwKpi = findDocumentedReportedKpi('bmw_group', '2026-Q2', 'operating_margin');
+  check(bmwKpi !== undefined && bmwKpi.reportingScope === 'automotive_segment', 'Test 50c: BMW reported KPI found with automotive_segment scope');
+
+  const mbgProxy = findProxyMetricMapping('mercedes_benz', '2026-Q2', 'operating_income', 'operating_income');
+  check(mbgProxy !== undefined && mbgProxy.status === 'proxy_only', 'Test 50d: Mercedes proxy mapping found with status="proxy_only"');
+
+  // Verify all entries in DOCUMENTED_SCOPE_EXCEPTIONS link to both conceptual entities
+  for (const exc of DOCUMENTED_SCOPE_EXCEPTIONS) {
+    check(!!exc.reportedKpiId, `Test 50e: Exception [${exc.id}] links to reportedKpiId "${exc.reportedKpiId}"`);
+    check(!!exc.proxyMappingId, `Test 50f: Exception [${exc.id}] links to proxyMappingId "${exc.proxyMappingId}"`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 51: Proxy with invalid currency produces blocking error, not proxy_only (STEP 4-6, P1-1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS.find((e) => e.id === 'bmw_automotive_segment_ros_2026q2')!;
+  const rev = makeObs({
+    id: 'rev_51',
+    companyId: 'bmw_group',
+    metricId: 'revenue',
+    period: '2026-Q2',
+    value: 36944,
+    currency: 'USD', // mismatch: USD vs EUR
+    unit: 'currency_millions',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+  const profit = makeObs({
+    id: 'profit_51',
+    companyId: 'bmw_group',
+    metricId: 'operating_income',
+    period: '2026-Q2',
+    value: 2881,
+    currency: 'EUR',
+    unit: 'currency_millions',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+  const margin = makeObs({
+    id: 'margin_51',
+    companyId: 'bmw_group',
+    metricId: 'operating_margin',
+    period: '2026-Q2',
+    value: 7.8,
+    currency: undefined,
+    unit: 'percentage',
+    reportingScope: 'automotive_segment',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+
+  const val = validateMarginTriplet(rev, profit, margin, undefined, { exception: bmwException });
+  check(val.status === 'invalid', 'Test 51a: Currency mismatch under proxy exception returns status="invalid"');
+  check(val.status !== 'proxy_only', 'Test 51b: Currency mismatch under proxy exception is NOT proxy_only');
+  check(val.failedChecks.includes('currency'), 'Test 51c: failedChecks includes "currency"');
+
+  const finding = createAuditFindingFromMarginValidation(val, 'bmw_group', '2026-Q2', 'quarterly', bmwException);
+  check(finding !== null, 'Test 51d: Finding created for currency mismatch');
+  check(finding?.disposition === 'blocking', 'Test 51e: Currency mismatch finding is blocking');
+  check(finding?.disposition !== 'documented', 'Test 51f: Currency mismatch finding is NEVER documented');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 52: Proxy with invalid unit produces blocking error and cannot be documented (STEP 4-6, P1-1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS.find((e) => e.id === 'bmw_automotive_segment_ros_2026q2')!;
+  const rev = makeObs({
+    id: 'rev_52',
+    companyId: 'bmw_group',
+    metricId: 'revenue',
+    period: '2026-Q2',
+    value: 36944,
+    currency: 'EUR',
+    unit: 'currency_billions', // mismatch: billions vs millions
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+  const profit = makeObs({
+    id: 'profit_52',
+    companyId: 'bmw_group',
+    metricId: 'operating_income',
+    period: '2026-Q2',
+    value: 2881,
+    currency: 'EUR',
+    unit: 'currency_millions',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+  const margin = makeObs({
+    id: 'margin_52',
+    companyId: 'bmw_group',
+    metricId: 'operating_margin',
+    period: '2026-Q2',
+    value: 7.8,
+    currency: undefined,
+    unit: 'percentage',
+    reportingScope: 'automotive_segment',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+
+  const val = validateMarginTriplet(rev, profit, margin, undefined, { exception: bmwException });
+  check(val.status === 'invalid', 'Test 52a: Unit mismatch under proxy exception returns status="invalid"');
+  check(val.failedChecks.includes('unit'), 'Test 52b: failedChecks includes "unit"');
+
+  const finding = createAuditFindingFromMarginValidation(val, 'bmw_group', '2026-Q2', 'quarterly', bmwException);
+  check(finding?.disposition === 'blocking', 'Test 52c: Unit mismatch finding is blocking');
+  check(finding?.disposition !== 'documented', 'Test 52d: Unit mismatch finding is never documented');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 53: Proxy with unverified source observation requires review and is not documented (STEP 4-6, P1-1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS.find((e) => e.id === 'bmw_automotive_segment_ros_2026q2')!;
+  const rev = makeObs({
+    id: 'rev_53',
+    companyId: 'bmw_group',
+    metricId: 'revenue',
+    period: '2026-Q2',
+    value: 36944,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    verificationStatus: 'unverified', // unverified
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+  const profit = makeObs({
+    id: 'profit_53',
+    companyId: 'bmw_group',
+    metricId: 'operating_income',
+    period: '2026-Q2',
+    value: 2881,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+  const margin = makeObs({
+    id: 'margin_53',
+    companyId: 'bmw_group',
+    metricId: 'operating_margin',
+    period: '2026-Q2',
+    value: 7.8,
+    reportingScope: 'automotive_segment',
+    accountingBasis: 'reported',
+    unit: 'percentage',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+
+  const val = validateMarginTriplet(rev, profit, margin, undefined, { exception: bmwException });
+  check(val.status === 'needs_review', 'Test 53a: Unverified observation under proxy exception returns "needs_review"');
+  check(val.failedChecks.includes('verificationStatus'), 'Test 53b: failedChecks includes "verificationStatus"');
+
+  const finding = createAuditFindingFromMarginValidation(val, 'bmw_group', '2026-Q2', 'quarterly', bmwException);
+  check(finding?.disposition === 'review', 'Test 53c: Unverified proxy observation finding disposition is "review"');
+  check(finding?.disposition !== 'documented', 'Test 53d: Unverified proxy observation is never documented');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 54: Proxy with sourceDocId not matching candidate observation fails exception match (STEP 4-6, P1-2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const res = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', mockSourcesMap, DOCUMENTED_SCOPE_EXCEPTIONS,
+    {
+      revenueSourceDocId: 'bmw_2026_q2_statement',
+      numeratorSourceDocId: 'unrelated_source_xyz', // does not match exception sourceDocIds
+      marginSourceDocId: 'bmw_2026_q2_statement',
+    }
+  );
+  check(res.matched === false, 'Test 54a: Candidate observation with non-matching sourceDocId fails exception match');
+  check(res.structuredRejections?.includes('source_not_found') === true, 'Test 54b: Structured rejection includes source_not_found');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 55: Reported KPI evidence without proxy justification cannot validate proxy equivalence (STEP 4-6, P1-3)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // For each proxy exception in registry, evidence has purpose='reported_kpi' and hasProxyJustificationEvidence=false
+  for (const exc of DOCUMENTED_SCOPE_EXCEPTIONS) {
+    check(hasProxyJustificationEvidence(exc.evidence) === false, `Test 55a: Exception [${exc.id}] has no proxy_justification evidence`);
+  }
+
+  // Without proxy_justification, the invariant holds: proxy_only !== verified and proxy_only !== documented
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS[0];
+  check(bmwException.isProxy === true, 'Test 55b: Exception is marked isProxy=true');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 56: Clean triplets for peer OEMs remain verified with 0 findings (STEP 4-6, P1-4)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const vwRev = makeObs({
+    id: 'vw_rev',
+    companyId: 'volkswagen_group',
+    metricId: 'revenue',
+    period: '2026-Q2',
+    value: 80000,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'vw_2026_q2_results',
+  });
+  const vwProfit = makeObs({
+    id: 'vw_profit',
+    companyId: 'volkswagen_group',
+    metricId: 'operating_income',
+    period: '2026-Q2',
+    value: 5600,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'vw_2026_q2_results',
+  });
+  const vwMargin = makeObs({
+    id: 'vw_margin',
+    companyId: 'volkswagen_group',
+    metricId: 'operating_margin',
+    period: '2026-Q2',
+    value: 7.0, // 5600 / 80000 = 7.0%
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    unit: 'percentage',
+    sourceDocId: 'vw_2026_q2_results',
+  });
+
+  const res = validateMarginTriplet(vwRev, vwProfit, vwMargin);
+  check(res.status === 'verified', 'Test 56a: Peer OEM clean triplet validated as "verified"');
+  check(res.mathematicallyVerified === true, 'Test 56b: Clean triplet has mathematicallyVerified=true');
+
+  const finding = createAuditFindingFromMarginValidation(res, 'volkswagen_group', '2026-Q2', 'quarterly');
+  check(finding === null, 'Test 56c: Verified clean triplet produces null finding');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -305,6 +305,37 @@ export interface ScopeExceptionEvidence {
   purpose?: EvidencePurpose;
 }
 
+export interface DocumentedReportedKpi {
+  id: string;
+  companyId: string;
+  period?: string;
+  metricId: string;
+  reportingScope?: ReportingScope;
+  accountingBasis?: AccountingBasis;
+  sourceDocIds: string[];
+  evidence: ScopeExceptionEvidence[];
+}
+
+export interface ProxyMetricMapping {
+  id: string;
+  companyId: string;
+  period?: string;
+
+  targetMetricId: string;
+  targetScope: ReportingScope;
+  targetBasis: AccountingBasis;
+
+  proxyMetricId: string;
+  proxyScope: ReportingScope;
+  proxyBasis: AccountingBasis;
+
+  sourceDocIds: string[];
+  evidence: ScopeExceptionEvidence[];
+
+  status: 'proxy_only' | 'needs_review';
+  reason: string;
+}
+
 export interface Company {
   id: string;
   name: string;
