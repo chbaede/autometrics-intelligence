@@ -287,6 +287,14 @@ export type ScopeExceptionRejectionReason =
 
 export type ScopeExceptionNature = 'actual_segment' | 'proxy_numerator';
 
+export interface ScopeExceptionEvidence {
+  sourceDocId: string;
+  pageNumber?: number | string;
+  sectionReference?: string;
+  tableReference?: string;
+  evidenceReference?: string;
+}
+
 export interface Company {
   id: string;
   name: string;

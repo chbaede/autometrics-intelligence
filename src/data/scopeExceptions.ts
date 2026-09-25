@@ -30,6 +30,7 @@ import {
   SourceDocument,
   ScopeExceptionRejectionReason,
   ScopeExceptionNature,
+  ScopeExceptionEvidence,
 } from '../types/metrics';
 
 export interface DocumentedScopeException {
@@ -77,6 +78,12 @@ export interface DocumentedScopeException {
    * Must be non-empty and reference verified source documents.
    */
   sourceDocIds: string[];
+
+  /**
+   * Explicit evidence references per referenced source document (P1-2).
+   * Every sourceDocId must have at least one corresponding evidence record.
+   */
+  evidence: ScopeExceptionEvidence[];
 
   /**
    * Human-readable rationale citing the official reporting policy, section,
@@ -141,6 +148,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2026_q2_statement'],
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'Key Performance Indicators — Automotive Segment',
+        evidenceReference: 'Automotive EBIT margin 7.8%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -163,6 +178,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2026_q1_statement'],
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q1_statement',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'Key Performance Indicators — Automotive Segment',
+        evidenceReference: 'Automotive EBIT margin 7.2%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -182,6 +205,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2025_fy_statement'],
+    evidence: [
+      {
+        sourceDocId: 'bmw_2025_fy_statement',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'Automotive Segment Key Performance Indicators',
+        evidenceReference: 'Automotive EBIT margin 7.4%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -201,6 +232,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'reported',
     sourceDocIds: ['bmw_2024_fy_statement'],
+    evidence: [
+      {
+        sourceDocId: 'bmw_2024_fy_statement',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'Automotive Segment Key Performance Indicators',
+        evidenceReference: 'Automotive EBIT margin 6.3%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -229,6 +268,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2026_q2_results'],
+    evidence: [
+      {
+        sourceDocId: 'mbg_2026_q2_results',
+        sectionReference: 'Mercedes-Benz Cars',
+        tableReference: 'Mercedes-Benz Cars Division KPIs',
+        evidenceReference: 'Adjusted Return on Sales (RoS) 8.4%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -251,6 +298,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2026_q1_results'],
+    evidence: [
+      {
+        sourceDocId: 'mbg_2026_q1_results',
+        sectionReference: 'Mercedes-Benz Cars',
+        tableReference: 'Mercedes-Benz Cars Division KPIs',
+        evidenceReference: 'Adjusted Return on Sales (RoS) 7.9%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -270,6 +325,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2025_fy_results'],
+    evidence: [
+      {
+        sourceDocId: 'mbg_2025_fy_results',
+        sectionReference: 'Mercedes-Benz Cars',
+        tableReference: 'Mercedes-Benz Cars Division KPIs',
+        evidenceReference: 'Adjusted Return on Sales (RoS) 8.3%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -289,6 +352,14 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     denominatorBasis: 'reported',
     marginBasis: 'adjusted',
     sourceDocIds: ['mbg_2024_fy_results'],
+    evidence: [
+      {
+        sourceDocId: 'mbg_2024_fy_results',
+        sectionReference: 'Mercedes-Benz Cars',
+        tableReference: 'Mercedes-Benz Cars Division KPIs',
+        evidenceReference: 'Adjusted Return on Sales (RoS) 12.6%',
+      },
+    ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
@@ -332,7 +403,7 @@ export function findDocumentedScopeException(
   numeratorBasis: AccountingBasis | undefined,
   denominatorBasis: AccountingBasis | undefined,
   marginBasis: AccountingBasis | undefined,
-  sources: Map<string, SourceDocument> | Record<string, SourceDocument> | Set<string>
+  sources: ReadonlyMap<string, SourceDocument> | Record<string, SourceDocument>
 ): ScopeExceptionValidationResult {
   const candidates = DOCUMENTED_SCOPE_EXCEPTIONS.filter(
     (e) => e.companyId === companyId && (e.period === undefined || e.period === period)
@@ -398,23 +469,24 @@ export function findDocumentedScopeException(
         candidateReasons.push(`[${exc.id}] marginBasis mismatch: expected "${exc.marginBasis}", got "${marginBasis}"`);
     }
 
-    // 4. Source document deep verification
+    // 4. Source document deep verification & evidence checks (P1-1 & P1-2)
     if (exc.sourceDocIds.length === 0) {
       candidateStructured.add('missing_evidence_reference');
       candidateReasons.push(`[${exc.id}] Exception has no source documents — evidence is required.`);
     } else {
+      // Require every sourceDocId to have at least one explicit evidence record (P1-2)
+      for (const docId of exc.sourceDocIds) {
+        const hasEvidence = exc.evidence && exc.evidence.some((ev) => ev.sourceDocId === docId);
+        if (!hasEvidence) {
+          candidateStructured.add('missing_evidence_reference');
+          candidateReasons.push(`[${exc.id}] Source document "${docId}" missing explicit evidence reference.`);
+        }
+      }
+
       for (const docId of exc.sourceDocIds) {
         let doc: SourceDocument | undefined;
-        if (sources instanceof Map) {
-          doc = sources.get(docId);
-        } else if (sources instanceof Set) {
-          if (!sources.has(docId)) {
-            candidateStructured.add('source_not_found');
-            candidateReasons.push(`[${exc.id}] Source document "${docId}" not found in registry.`);
-            continue;
-          }
-          // Set does not carry metadata; bypass deep checks
-          continue;
+        if (sources instanceof Map || (sources && typeof (sources as ReadonlyMap<string, SourceDocument>).get === 'function')) {
+          doc = (sources as ReadonlyMap<string, SourceDocument>).get(docId);
         } else if (sources && typeof sources === 'object') {
           doc = (sources as Record<string, SourceDocument>)[docId];
         }

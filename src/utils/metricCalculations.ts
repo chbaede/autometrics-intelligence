@@ -24,6 +24,7 @@ import {
   SourceDocument,
   Company,
   ProvenanceValidationResult,
+  AuditFinding,
 } from '../types/metrics';
 import { DocumentedScopeException } from '../data/scopeExceptions';
 
@@ -631,8 +632,8 @@ export function selectCompatibleMarginTriplets(
           );
         }
 
-        const candidateRules = relevantRules.length > 0 ? relevantRules : rules;
-        let selectedCandidateRule = candidateRules[0];
+        const candidateRules = relevantRules;
+        let selectedCandidateRule = relevantRules.length === 1 ? relevantRules[0] : undefined;
 
         // Evaluate checks against the candidate rules
         const periodMatch = rev.period === profit.period && profit.period === margin.period;
@@ -919,13 +920,16 @@ export function validateMarginTriplet(
     reasons.push(`Unit scale mismatch: Revenue (${revObs.unit}), Profit (${profitObs.unit}), Margin (${marginObs.unit}).`);
   }
 
-  // Check 8: Verification status
-  checks.verificationStatus =
-    revObs.verificationStatus !== 'unverified' &&
-    profitObs.verificationStatus !== 'unverified' &&
-    marginObs.verificationStatus !== 'unverified';
+  // Check 8: Verification status (must be explicitly 'verified')
+  const allVerified =
+    revObs.verificationStatus === 'verified' &&
+    profitObs.verificationStatus === 'verified' &&
+    marginObs.verificationStatus === 'verified';
+  checks.verificationStatus = allVerified;
   if (!checks.verificationStatus) {
-    reasons.push('One or more observations are marked as unverified.');
+    reasons.push(
+      `Observation verification status is not verified: Revenue (${revObs.verificationStatus || 'unspecified'}), Profit (${profitObs.verificationStatus || 'unspecified'}), Margin (${marginObs.verificationStatus || 'unspecified'}).`
+    );
   }
 
   // Check 9: Provenance
@@ -961,7 +965,7 @@ export function validateMarginTriplet(
   const reportedMargin = marginObs.value;
   const difference = Math.round(Math.abs(calculatedMargin - reportedMargin!) * 100) / 100;
 
-  // Handle proxy exception
+  // Handle proxy exception (P0-1, P0-2)
   if (options?.exception?.isProxy) {
     if (!checks.metricDefinition) {
       return {
@@ -998,6 +1002,21 @@ export function validateMarginTriplet(
       };
     }
 
+    if (!checks.verificationStatus) {
+      return {
+        status: 'needs_review',
+        calculatedMargin: null,
+        reportedMargin: marginObs.value,
+        difference: null,
+        selectedObservationIds,
+        selectedRuleId: options.exception.id,
+        failedChecks: ['verificationStatus'],
+        checks,
+        diagnostic: `Proxy exception observation not verified: ${reasons.join('; ')}`,
+        reasons: ['Proxy exception observations must be verified.'],
+      };
+    }
+
     return {
       status: 'proxy_only',
       calculatedMargin: null,
@@ -1018,8 +1037,12 @@ export function validateMarginTriplet(
   const allChecksPass = failedChecks.length === 0;
 
   if (!allChecksPass) {
+    const isVerificationIssueOnly =
+      failedChecks.includes('verificationStatus') &&
+      !failedChecks.some((c) => c === 'valueValidity' || c === 'metricDefinition' || c === 'period' || c === 'periodType');
+
     return {
-      status: 'invalid',
+      status: isVerificationIssueOnly ? 'needs_review' : 'invalid',
       calculatedMargin,
       reportedMargin,
       difference,
@@ -1059,6 +1082,98 @@ export function validateMarginTriplet(
     diagnostic: `Margin verified under rule "${matchingRule?.name}". Calculated: ${calculatedMargin}%, Reported: ${reportedMargin}% (diff: ${difference}%p).`,
     reasons: ['Semantic margin triplet matched and verified within 0.35%p tolerance.'],
   };
+}
+
+/**
+ * Maps a MarginValidationResult into a unified AuditFinding (P2).
+ * Returns null if the triplet is clean verified.
+ */
+export function createAuditFindingFromMarginValidation(
+  validation: MarginValidationResult,
+  companyId: string,
+  period: string,
+  periodType?: string,
+  exception?: DocumentedScopeException | null
+): AuditFinding | null {
+  if (validation.status === 'verified') {
+    return null;
+  }
+
+  const observationIds = Object.values(validation.selectedObservationIds).filter(Boolean) as string[];
+  const item = `${companyId} (${period}${periodType ? `, ${periodType}` : ''})`;
+
+  if (validation.status === 'proxy_only') {
+    const excId = exception?.id || validation.selectedRuleId;
+    const rationale = exception?.rationale || validation.reasons.join('; ');
+    return {
+      severity: 'WARNING',
+      disposition: 'documented',
+      category: 'SCOPE_MISMATCH',
+      companyId,
+      period,
+      periodType,
+      metricId: 'operating_margin',
+      item,
+      exceptionId: excId,
+      sourceDocIds: exception?.sourceDocIds,
+      observationIds,
+      failedChecks: validation.failedChecks,
+      isProxy: true,
+      detail: `[PROXY LIMITATION] Documented scope exception [${excId}]: ${rationale} Note: consolidated operating income is a proxy substitute for segment EBIT; reported margin preserved from official filings but not independently verified mathematically.`,
+      documentationUrl: 'docs/data-audit-report.md',
+    };
+  }
+
+  if (validation.status === 'invalid') {
+    const isMathMismatch = validation.failedChecks.includes('valueValidity');
+    return {
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: isMathMismatch ? 'MATH_MISMATCH' : 'SCOPE_MISMATCH',
+      companyId,
+      period,
+      periodType,
+      metricId: 'operating_margin',
+      item,
+      observationIds,
+      failedChecks: validation.failedChecks,
+      detail: validation.diagnostic,
+    };
+  }
+
+  if (validation.status === 'needs_review') {
+    return {
+      severity: 'WARNING',
+      disposition: 'review',
+      category: 'SCOPE_MISMATCH',
+      companyId,
+      period,
+      periodType,
+      metricId: 'operating_margin',
+      item,
+      observationIds,
+      failedChecks: validation.failedChecks,
+      detail: validation.diagnostic,
+    };
+  }
+
+  if (validation.status === 'ambiguous') {
+    return {
+      severity: 'WARNING',
+      disposition: 'blocking',
+      category: 'AMBIGUOUS_SELECTION',
+      companyId,
+      period,
+      periodType,
+      metricId: 'operating_margin',
+      item,
+      observationIds,
+      failedChecks: validation.failedChecks,
+      detail: validation.diagnostic,
+    };
+  }
+
+  return null;
 }
 
 export interface ScopeMarginValidation {

@@ -20,13 +20,14 @@ import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 import {
   selectCompatibleMarginTriplets,
   validateMarginTriplet,
+  createAuditFindingFromMarginValidation,
   selectCompatibleBevShareTriplets,
   validateBEVShare,
   validateObservationProvenance,
   getDimensionalObservationKey,
 } from '../src/utils/metricCalculations';
 import { AuditFinding } from '../src/types/metrics';
-import { findDocumentedScopeException } from '../src/data/scopeExceptions';
+import { findDocumentedScopeException, DOCUMENTED_SCOPE_EXCEPTIONS } from '../src/data/scopeExceptions';
 
 const isStrict = process.argv.includes('--strict');
 
@@ -301,6 +302,7 @@ let marginSelectionAmbiguous = 0;
 let marginSelectionIncompatible = 0;
 
 let marginValidationVerified = 0;
+let marginValidationProxyOnly = 0;
 let marginValidationNeedsReview = 0;
 let marginValidationInvalid = 0;
 
@@ -320,28 +322,22 @@ companyPeriodTypes.forEach((cpt) => {
 
     if (validation.status === 'verified') {
       marginValidationVerified++;
-    } else if (validation.status === 'invalid') {
-      marginValidationInvalid++;
-      findings.push({
-        severity: 'ERROR',
-        disposition: 'blocking',
-        category: 'MATH_MISMATCH',
-        item: `${companyId} (${period}, ${periodType})`,
-        observationIds: Object.values(validation.selectedObservationIds).filter(Boolean) as string[],
-        failedChecks: validation.failedChecks,
-        detail: validation.diagnostic,
-      });
+    } else if (validation.status === 'proxy_only') {
+      marginValidationProxyOnly++;
     } else if (validation.status === 'needs_review') {
       marginValidationNeedsReview++;
-      findings.push({
-        severity: 'WARNING',
-        disposition: 'review',
-        category: 'SCOPE_MISMATCH',
-        item: `${companyId} (${period}, ${periodType})`,
-        observationIds: Object.values(validation.selectedObservationIds).filter(Boolean) as string[],
-        failedChecks: validation.failedChecks,
-        detail: validation.diagnostic,
-      });
+    } else if (validation.status === 'invalid') {
+      marginValidationInvalid++;
+    }
+
+    const finding = createAuditFindingFromMarginValidation(
+      validation,
+      companyId,
+      period,
+      periodType
+    );
+    if (finding) {
+      findings.push(finding);
     }
   } else if (selection.status === 'ambiguous') {
     marginSelectionAmbiguous++;
@@ -355,11 +351,16 @@ companyPeriodTypes.forEach((cpt) => {
   } else if (selection.status === 'incompatible') {
     marginSelectionIncompatible++;
 
-    // ── Evidence-backed documented exception check ────────────────────────────
-    // Use the actual candidate triplets preserved by selectCompatibleMarginTriplets()
-    // Never use arbitrary .find() or candidate array order (P0-3).
+    // ── Candidate resolution flow (P0-1, P1-3) ────────────────────────────────
+    // Use candidate triplets preserved by selectCompatibleMarginTriplets()
+    // Never use arbitrary candidate selection; resolve to single match or flag ambiguity.
     const candidateDiagnostics =
       selection.diagnostics && selection.diagnostics.length > 0 ? selection.diagnostics : [];
+
+    const validCandidateMatches: {
+      diagnostic: (typeof candidateDiagnostics)[number];
+      exception: (typeof DOCUMENTED_SCOPE_EXCEPTIONS)[number];
+    }[] = [];
 
     for (const diagnostic of candidateDiagnostics) {
       if (!diagnostic.margin || !diagnostic.profit || !diagnostic.revenue) continue;
@@ -379,47 +380,59 @@ companyPeriodTypes.forEach((cpt) => {
         SOURCES_MAP
       );
 
-      if (exceptionResult.matched) {
-        const isProxy = exceptionResult.isProxy ?? false;
-        const proxyPrefix = isProxy ? '[PROXY LIMITATION] ' : '';
-        const proxyDetail = isProxy
-          ? ' Note: consolidated operating income is a proxy substitute for segment EBIT; reported margin preserved from official filings but not independently verified mathematically.'
-          : '';
-
-        findings.push({
-          severity: 'WARNING',
-          disposition: 'documented',
-          category: 'SCOPE_MISMATCH',
-          item: `${companyId} (${period}, ${periodType})`,
-          exceptionId: exceptionResult.exceptionId,
-          sourceDocIds: exceptionResult.sourceDocIds,
-          observationIds: [diagnostic.margin.id, diagnostic.profit.id, diagnostic.revenue.id],
-          failedChecks: diagnostic.failedChecks,
-          isProxy,
-          detail: `${proxyPrefix}Documented scope exception [${exceptionResult.exceptionId}]: ${exceptionResult.rationale}${proxyDetail}`,
-          documentationUrl: 'docs/data-audit-report.md',
-        });
-      } else {
-        findings.push({
-          severity: 'WARNING',
-          disposition: 'blocking',
-          category: 'SCOPE_MISMATCH',
-          item: `${companyId} (${period}, ${periodType})`,
-          observationIds: [diagnostic.margin.id, diagnostic.profit.id, diagnostic.revenue.id],
-          failedChecks: diagnostic.failedChecks,
-          detail: `Incompatible margin triplet — no approved exception found for candidate triplet (${diagnostic.revenue.id}, ${diagnostic.profit.id}, ${diagnostic.margin.id}). Failed checks: ${diagnostic.failedChecks.join(', ')}. Rejection reasons: ${exceptionResult.rejectionReasons?.join('; ')}`,
-        });
+      if (exceptionResult.matched && exceptionResult.exceptionId) {
+        const exc = DOCUMENTED_SCOPE_EXCEPTIONS.find((e) => e.id === exceptionResult.exceptionId);
+        if (exc) {
+          validCandidateMatches.push({ diagnostic, exception: exc });
+        }
       }
     }
 
-    if (candidateDiagnostics.length === 0) {
+    if (validCandidateMatches.length === 1) {
+      const match = validCandidateMatches[0];
+      const validation = validateMarginTriplet(
+        match.diagnostic.revenue,
+        match.diagnostic.profit,
+        match.diagnostic.margin,
+        undefined,
+        { exception: match.exception }
+      );
+
+      if (validation.status === 'verified') {
+        marginValidationVerified++;
+      } else if (validation.status === 'proxy_only') {
+        marginValidationProxyOnly++;
+      } else if (validation.status === 'needs_review') {
+        marginValidationNeedsReview++;
+      } else if (validation.status === 'invalid') {
+        marginValidationInvalid++;
+      }
+
+      const finding = createAuditFindingFromMarginValidation(
+        validation,
+        companyId,
+        period,
+        periodType,
+        match.exception
+      );
+      if (finding) {
+        findings.push(finding);
+      }
+    } else if (validCandidateMatches.length > 1) {
+      findings.push({
+        severity: 'WARNING',
+        disposition: 'blocking',
+        category: 'AMBIGUOUS_SELECTION',
+        item: `${companyId} (${period}, ${periodType})`,
+        detail: `Ambiguous candidate exception match: ${validCandidateMatches.length} candidate triplets matched documented exceptions.`,
+      });
+    } else {
       findings.push({
         severity: 'WARNING',
         disposition: 'blocking',
         category: 'SCOPE_MISMATCH',
         item: `${companyId} (${period}, ${periodType})`,
-        failedChecks: selection.failedChecks,
-        detail: `Incompatible margin triplet — no candidate triplets were inspected. ${selection.reasons.join('; ')}`,
+        detail: `Incompatible margin triplet — no approved documented exception found for candidate observations. ${selection.reasons.join('; ')}`,
       });
     }
   } else if (selection.status === 'missing') {
@@ -557,6 +570,7 @@ console.log(`  incompatible: ${marginSelectionIncompatible}\n`);
 
 console.log(`Margin Validation:`);
 console.log(`  verified:     ${marginValidationVerified}`);
+console.log(`  proxy_only:   ${marginValidationProxyOnly}`);
 console.log(`  needs_review: ${marginValidationNeedsReview}`);
 console.log(`  invalid:      ${marginValidationInvalid}\n`);
 

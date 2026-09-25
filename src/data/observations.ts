@@ -1008,7 +1008,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "automotive_segment",
     "accountingBasis": "reported",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {
@@ -1119,7 +1119,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "automotive_segment",
     "accountingBasis": "reported",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {
@@ -1230,7 +1230,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "automotive_segment",
     "accountingBasis": "reported",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {
@@ -1346,7 +1346,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "automotive_segment",
     "accountingBasis": "reported",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {
@@ -1457,7 +1457,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "cars_segment",
     "accountingBasis": "adjusted",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {
@@ -1568,7 +1568,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "cars_segment",
     "accountingBasis": "adjusted",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {
@@ -1679,7 +1679,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "cars_segment",
     "accountingBasis": "adjusted",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {
@@ -1795,7 +1795,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "cars_segment",
     "accountingBasis": "adjusted",
-    "verificationStatus": "scope_warning",
+    "verificationStatus": "verified",
     "verificationMethod": "official_pdf_filing"
   },
   {

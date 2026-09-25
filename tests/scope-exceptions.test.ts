@@ -31,6 +31,7 @@ import {
   getCanonicalObservationKey,
   validateMarginTriplet,
   selectCompatibleMarginTriplets,
+  createAuditFindingFromMarginValidation,
 } from '../src/utils/metricCalculations';
 import {
   MetricObservation,
@@ -131,7 +132,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     'reported',
     'reported',
     'reported',
-    knownSourceDocIds
+    mockSourcesMap
   );
   check(result.matched === false, 'Test 1a: BMW with wrong numerator metricId is rejected');
   check(!!result.rejectionReasons && result.rejectionReasons.length > 0, 'Test 1b: Rejection includes reasons');
@@ -154,7 +155,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     'reported',
     'reported',
     'reported',
-    knownSourceDocIds
+    mockSourcesMap
   );
   check(result.matched === true, 'Test 2a: Exact BMW exception match succeeds');
   check(result.exceptionId === 'bmw_automotive_segment_ros_2026q2', 'Test 2b: Correct exception ID returned');
@@ -178,7 +179,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     'adjusted',              // Wrong basis
     'reported',
     'adjusted',
-    knownSourceDocIds
+    mockSourcesMap
   );
   check(result.matched === false, 'Test 3: Wrong numerator metric + adjusted basis is rejected for BMW');
   check(
@@ -203,7 +204,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     'adjusted',    // Wrong: BMW exception requires 'reported'
     'reported',
     'reported',
-    knownSourceDocIds
+    mockSourcesMap
   );
   check(result.matched === false, 'Test 4: Wrong numeratorBasis (adjusted vs reported) is rejected for BMW');
   check(
@@ -229,7 +230,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     'reported',
     'reported',
     'reported',
-    knownSourceDocIds
+    mockSourcesMap
   );
   check(result.matched === false, 'Test 5: Unknown company with scope mismatch is not approved as documented');
   check(
@@ -242,7 +243,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 // TEST 6: Missing source document prevents documented classification
 // ────────────────────────────────────────────────────────────────────────────
 {
-  const emptySourceDocs = new Set<string>(); // No known docs in registry
+  const emptySourceDocs = new Map<string, SourceDocument>(); // No known docs in registry
   const result = findDocumentedScopeException(
     'bmw_group',
     '2026-Q2',
@@ -260,7 +261,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(result.matched === false, 'Test 6: Missing source document prevents documented classification');
   check(
     result.rejectionReasons?.some(r =>
-      r.includes('not found in registry') || r.includes('no source') || r.includes('Source documents')
+      r.includes('not found in source registry') || r.includes('no source') || r.includes('Source documents')
     ) ?? false,
     'Test 6b: Rejection cites missing source document'
   );
@@ -511,7 +512,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     'reported',
     'reported',
     'reported',
-    knownSourceDocIds
+    mockSourcesMap
   );
   check(bevResult.matched === false, 'Test 17b: BEV triplet returns no documented exception (blocking by policy)');
 }
@@ -555,7 +556,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     'reported',               // Actual numerator basis
     'reported',
     'adjusted',               // Margin basis
-    knownSourceDocIds
+    mockSourcesMap
   );
   check(result.matched === true, 'Test 20a: Exact Mercedes Cars Adjusted RoS exception matches (updated registry)');
   check(result.exceptionId === 'mbg_cars_adjusted_ros_2026q2', 'Test 20b: Correct Mercedes exception ID returned');
@@ -874,6 +875,141 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 
   // Verify all 5 records preserved in map
   check(dimMap.get('key_1')?.length === 5, 'Test 28e: Map preserves all 5 dimensional candidates without overwriting');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 29: Proxy numerator never returns verified (P0-1, P0-2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const rev = makeObs({ id: 'bmw_rev_29', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', value: 36000 });
+  const profit = makeObs({ id: 'bmw_ebit_29', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', value: 2800 });
+  const margin = makeObs({ id: 'bmw_margin_29', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', value: 7.8, unit: 'percentage' });
+
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS.find(e => e.id === 'bmw_automotive_segment_ros_2026q2');
+  const res = validateMarginTriplet(rev, profit, margin, undefined, { exception: bmwException });
+
+  check(res.status !== 'verified', 'Test 29a: Proxy numerator triplet is never returned as verified');
+  check(res.status === 'proxy_only', 'Test 29b: Proxy numerator triplet returns proxy_only');
+  check(res.calculatedMargin === null, 'Test 29c: Proxy numerator calculatedMargin is strictly null');
+  check(res.reportedMargin === 7.8, 'Test 29d: Reported margin value is preserved as 7.8');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 30: Proxy numerator with unverified/needs_review observation returns needs_review (P0-2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const rev = makeObs({ id: 'bmw_rev_30', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', value: 36000 });
+  const profit = makeObs({ id: 'bmw_ebit_30', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', value: 2800, verificationStatus: 'needs_review' });
+  const margin = makeObs({ id: 'bmw_margin_30', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', value: 7.8, unit: 'percentage' });
+
+  const bmwException = DOCUMENTED_SCOPE_EXCEPTIONS.find(e => e.id === 'bmw_automotive_segment_ros_2026q2');
+  const res = validateMarginTriplet(rev, profit, margin, undefined, { exception: bmwException });
+
+  check(res.status !== 'verified', 'Test 30a: Unverified observation in proxy exception cannot be verified');
+  check(res.status === 'needs_review', 'Test 30b: Unverified observation in proxy exception produces needs_review');
+  check(res.failedChecks.includes('verificationStatus'), 'Test 30c: failedChecks includes verificationStatus');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 31: Observation with needs_review or scope_warning cannot produce verified (P0-3)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // Standard triplet (matching consolidated scopes)
+  const rev = makeObs({ id: 'rev_31', metricId: 'revenue', value: 100000 });
+  const profit = makeObs({ id: 'ebit_31', metricId: 'operating_income', value: 8000, verificationStatus: 'scope_warning' });
+  const margin = makeObs({ id: 'margin_31', metricId: 'operating_margin', value: 8.0, unit: 'percentage' });
+
+  const res = validateMarginTriplet(rev, profit, margin);
+  check(res.status !== 'verified', 'Test 31a: scope_warning observation cannot produce verified status');
+  check(res.checks.verificationStatus === false, 'Test 31b: checks.verificationStatus is false for scope_warning');
+  check(res.status === 'needs_review', 'Test 31c: Single verification issue produces needs_review status');
+
+  const unverifiedMargin = makeObs({ id: 'margin_31u', metricId: 'operating_margin', value: 8.0, unit: 'percentage', verificationStatus: 'unverified' });
+  const resU = validateMarginTriplet(rev, makeObs({ id: 'ebit_31v', metricId: 'operating_income', value: 8000 }), unverifiedMargin);
+  check(resU.status !== 'verified', 'Test 31d: unverified observation cannot produce verified status');
+  check(resU.checks.verificationStatus === false, 'Test 31e: checks.verificationStatus is false for unverified');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 32: Missing evidence reference in exception rejects exception (P1-2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // Check that all registered exceptions have evidence records for all sourceDocIds
+  for (const exc of DOCUMENTED_SCOPE_EXCEPTIONS) {
+    check(Array.isArray(exc.evidence) && exc.evidence.length > 0, `Test 32a: [${exc.id}] has explicit evidence array`);
+    for (const docId of exc.sourceDocIds) {
+      const hasEv = exc.evidence.some(ev => ev.sourceDocId === docId);
+      check(hasEv, `Test 32b: [${exc.id}] evidence contains record for sourceDocId "${docId}"`);
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 33: Deep source verification requires valid source in Map/Record (P1-1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const missingSourceMap = new Map<string, SourceDocument>();
+  const res = findDocumentedScopeException(
+    'bmw_group',
+    '2026-Q2',
+    'operating_margin',
+    'operating_income',
+    'revenue',
+    'consolidated_group',
+    'consolidated_group',
+    'automotive_segment',
+    'reported',
+    'reported',
+    'reported',
+    missingSourceMap
+  );
+  check(res.matched === false, 'Test 33a: Empty source map rejects exception lookup');
+  check(res.structuredRejections?.includes('source_not_found') ?? false, 'Test 33b: Structured rejection includes source_not_found');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 34: Unsupported metric relationship does not receive an unrelated rule ID (P1-4)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const invalidObs: MetricObservation[] = [
+    makeObs({ id: 'rev_34', metricId: 'revenue', value: 100000 }),
+    makeObs({ id: 'custom_34', metricId: 'custom_metric' as any, value: 5000 }),
+    makeObs({ id: 'margin_34', metricId: 'operating_margin', value: 5.0, unit: 'percentage' }),
+  ];
+
+  const sel = selectCompatibleMarginTriplets(invalidObs, 'volkswagen_group', '2026-Q2');
+  check(sel.status === 'missing' || sel.status === 'incompatible', 'Test 34a: Unsupported metric rejected from selection');
+  if (sel.diagnostics && sel.diagnostics.length > 0) {
+    check(sel.diagnostics[0].ruleId === undefined, 'Test 34b: Diagnostic ruleId is undefined when metricDefinition does not match any rule');
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 35: Unified finding mapping createAuditFindingFromMarginValidation (P2)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const exc = DOCUMENTED_SCOPE_EXCEPTIONS[0];
+  const proxyVal = validateMarginTriplet(
+    makeObs({ id: 'r_35', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', value: 10000 }),
+    makeObs({ id: 'p_35', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', value: 800 }),
+    makeObs({ id: 'm_35', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', value: 7.8, unit: 'percentage' }),
+    undefined,
+    { exception: exc }
+  );
+  const findingProxy = createAuditFindingFromMarginValidation(proxyVal, 'bmw_group', '2026-Q2', 'quarterly', exc);
+  check(findingProxy !== null, 'Test 35a: createAuditFindingFromMarginValidation returns finding for proxy_only');
+  check(findingProxy?.disposition === 'documented', 'Test 35b: Proxy finding has disposition documented');
+  check(findingProxy?.severity === 'WARNING', 'Test 35c: Proxy finding has severity WARNING');
+  check(findingProxy?.isProxy === true, 'Test 35d: Proxy finding has isProxy true');
+  check(findingProxy?.exceptionId === exc.id, 'Test 35e: Proxy finding preserves exceptionId');
+
+  // Verified triplet returns null
+  const verifiedVal = validateMarginTriplet(
+    makeObs({ id: 'r_35v', metricId: 'revenue', value: 10000 }),
+    makeObs({ id: 'p_35v', metricId: 'operating_income', value: 800 }),
+    makeObs({ id: 'm_35v', metricId: 'operating_margin', value: 8.0, unit: 'percentage' })
+  );
+  check(createAuditFindingFromMarginValidation(verifiedVal, 'volkswagen_group', '2026-Q2') === null, 'Test 35f: Verified validation returns null finding');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
