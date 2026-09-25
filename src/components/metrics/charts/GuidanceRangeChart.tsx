@@ -80,7 +80,7 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
     }
   };
 
-  // Sort: Mercedes first, then BMW, VW, GM, Stellantis, Hyundai
+  // Sort order: Mercedes, BMW, Volkswagen, Hyundai, GM, Stellantis
   const sortedGuidance = [...marginGuidanceList].sort((a, b) => {
     const order = ['mercedes_benz', 'bmw_group', 'volkswagen_group', 'hyundai_motor', 'general_motors', 'stellantis'];
     const idxA = order.indexOf(a.companyId);
@@ -120,20 +120,24 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
         <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
             <span className="w-3.5 h-2.5 rounded bg-brand-500/30 border border-brand-500" />
-            <span>{language === 'ko' ? '목표 밴드' : 'Target Band'}</span>
+            <span className="font-medium">{language === 'ko' ? '목표 밴드' : 'Target Band'}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rotate-45 bg-amber-400 border border-white dark:border-slate-900 shadow-xs" />
-            <span>{language === 'ko' ? '중앙값' : 'Midpoint'}</span>
+            <span className="w-2.5 h-2.5 rotate-45 bg-amber-400 border border-slate-900 dark:border-white shadow-xs" />
+            <span className="font-medium">{language === 'ko' ? '중앙값' : 'Midpoint'}</span>
           </div>
         </div>
       </div>
 
       {/* Unified Horizontal Comparative Chart Area */}
-      <div className="relative w-full overflow-x-auto bg-slate-50/70 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-        {/* Scale Top Axis */}
-        <div className="relative h-6 w-full pl-[185px] pr-[110px]">
-          <div className="relative w-full h-full">
+      <div className="relative w-full bg-slate-50/70 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+        {/* Scale Top Axis — Perfectly aligned with the center corridor flex area */}
+        <div className="flex items-center gap-3 px-3 mb-2">
+          {/* Left spacer matching company header (180px) */}
+          <div className="w-[180px] shrink-0" />
+
+          {/* Center axis ticks matching the exact corridor track width */}
+          <div className="relative flex-1 h-6">
             {tickSteps.map((tick) => {
               const leftPct = ((tick - scaleMin) / scaleSpan) * 100;
               return (
@@ -142,18 +146,21 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                   className="absolute top-0 bottom-0 flex flex-col items-center -translate-x-1/2"
                   style={{ left: `${leftPct}%` }}
                 >
-                  <span className="text-[10.5px] font-mono font-bold text-slate-500 dark:text-slate-400">
+                  <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
                     {tick}%
                   </span>
-                  <div className="w-px h-2 bg-slate-300 dark:bg-slate-700 mt-0.5" />
+                  <div className="w-px h-2 bg-slate-400 dark:bg-slate-600 mt-0.5" />
                 </div>
               );
             })}
           </div>
+
+          {/* Right spacer matching summary badge (120px) */}
+          <div className="w-[120px] shrink-0" />
         </div>
 
         {/* Unified OEM Rows */}
-        <div className="space-y-2.5 pt-1 pb-1">
+        <div className="space-y-2.5">
           {sortedGuidance.map((g) => {
             const company = getCompanyById(g.companyId);
             const min = g.min ?? g.target ?? 0;
@@ -172,20 +179,20 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                 onMouseEnter={() => setHoveredId(g.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onClick={() => onSelectGuidance?.(g)}
-                className={`flex items-center gap-3 py-2 px-2.5 rounded-xl transition cursor-pointer border ${
+                className={`flex items-center gap-3 py-2 px-3 rounded-xl transition cursor-pointer border ${
                   isHovered
                     ? 'bg-brand-50/90 dark:bg-brand-500/10 border-brand-300 dark:border-brand-500/40 shadow-xs'
-                    : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/80 hover:bg-slate-100/80 dark:hover:bg-slate-800/60'
+                    : 'bg-white/80 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800/60'
                 }`}
               >
-                {/* Left Column: Full Company Name & Status (175px width, No Truncation) */}
-                <div className="w-[175px] shrink-0 flex items-center justify-between pr-2">
-                  <div className="flex items-center gap-2">
+                {/* Left Column: Full Company Name & Status (180px fixed width, No Truncation) */}
+                <div className="w-[180px] shrink-0 flex items-center justify-between pr-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
                       className="w-3 h-3 rounded-full shrink-0 shadow-xs"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
                       {company?.shortName || g.companyId}
                     </span>
                   </div>
@@ -193,15 +200,15 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                 </div>
 
                 {/* Center Corridor Bar Column (Fluid flex-1) */}
-                <div className="relative flex-1 h-8">
+                <div className="relative flex-1 h-9">
                   {/* Background Track with Grid Guidelines */}
-                  <div className="relative w-full h-full bg-slate-100/80 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden shadow-inner flex items-center">
+                  <div className="relative w-full h-full bg-slate-100/90 dark:bg-slate-900/90 rounded-lg border border-slate-200/90 dark:border-slate-800 overflow-hidden shadow-inner flex items-center">
                     {tickSteps.map((tick) => {
                       const pos = ((tick - scaleMin) / scaleSpan) * 100;
                       return (
                         <div
                           key={tick}
-                          className="absolute top-0 bottom-0 w-px border-r border-dashed border-slate-300 dark:border-slate-800/80"
+                          className="absolute top-0 bottom-0 w-px border-r border-dashed border-slate-300 dark:border-slate-800"
                           style={{ left: `${pos}%` }}
                         />
                       );
@@ -214,26 +221,24 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                         left: `${leftPct}%`,
                         width: `${widthPct}%`,
                         backgroundColor: `${color}28`,
-                        border: `1.5px solid ${color}`,
+                        border: `2px solid ${color}`,
                       }}
-                    >
-                      {/* Visual bar content */}
-                    </div>
+                    />
 
                     {/* Midpoint Diamond Marker */}
                     <div
-                      className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-45 bg-amber-400 border-2 border-slate-900 dark:border-white shadow-md z-10 transition-transform"
+                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-amber-400 border-2 border-slate-950 dark:border-white shadow-md z-10 transition-transform"
                       style={{
-                        left: `calc(${midPct}% - 7px)`,
+                        left: `calc(${midPct}% - 8px)`,
                       }}
-                      title={`Midpoint: ${mid}%`}
+                      title={`중간값: ${mid}%`}
                     />
                   </div>
                 </div>
 
-                {/* Right Summary Badge (100px width) */}
-                <div className="w-[100px] shrink-0 text-right pr-1">
-                  <span className="font-mono font-bold text-xs sm:text-[13px] text-brand-700 dark:text-brand-300 bg-brand-500/10 px-2.5 py-1 rounded-md border border-brand-500/20">
+                {/* Right Summary Badge (120px fixed width, whitespace-nowrap prevents any wrapping) */}
+                <div className="w-[120px] shrink-0 text-right">
+                  <span className="inline-block whitespace-nowrap font-mono font-bold text-xs text-brand-700 dark:text-brand-300 bg-brand-500/10 px-2.5 py-1 rounded-md border border-brand-500/20 shadow-2xs">
                     {min === max ? `${min}%` : `${min}% ~ ${max}%`}
                   </span>
                 </div>
@@ -244,8 +249,8 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
 
         {/* Active Verbatim Statement Drawer on Hover */}
         {hoveredGuidance && (
-          <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs animate-fadeIn">
-            <p className="text-slate-600 dark:text-slate-300 italic text-[11px] line-clamp-1 pr-3">
+          <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs animate-in fade-in duration-150">
+            <p className="text-slate-600 dark:text-slate-300 italic text-[11.5px] line-clamp-1 pr-3">
               "{hoveredGuidance.originalText}"
             </p>
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 dark:text-brand-400 hover:underline shrink-0">

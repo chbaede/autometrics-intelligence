@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Company } from '../../../types/metrics';
 import { TermBadge } from '../TermBadge';
 import { useLanguage } from '../../../i18n/LanguageContext';
-import { Layers, DollarSign } from 'lucide-react';
+import { Layers, DollarSign, RefreshCw } from 'lucide-react';
+import { formatLocalizedProfit } from '../../../utils/currencyUtils';
 
 export interface ScatterPoint {
   company: Company;
@@ -31,13 +32,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
   if (!points || points.length === 0) return null;
 
-  // Chart dimensions
-  const width = 1040;
-  const height = 560;
-  const padLeft = 75;
-  const padBottom = 60;
+  // Chart dimensions with generous padding for explicit axis titles
+  const width = 1060;
+  const height = 580;
+  const padLeft = 80;
+  const padBottom = 75; // Expanded for explicit X-axis title
   const padRight = 55;
-  const padTop = 45;
+  const padTop = 50;    // Expanded for explicit Y-axis title
 
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
@@ -74,50 +75,6 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   for (let m = minMargin; m <= maxMargin; m += marginStep) {
     yTicks.push(m);
   }
-
-  // Format compact profit (EBIT/Operating Income)
-  const formatCompactProfit = (amountMillions?: number | null, currency = 'USD'): string => {
-    if (amountMillions === undefined || amountMillions === null) return '-';
-    const curr = currency.toUpperCase();
-    
-    if (curr === 'KRW') {
-      // Millions KRW: 1,000,000M = 1.00조
-      if (amountMillions >= 1000000) {
-        return `₩${(amountMillions / 1000000).toFixed(2)}조`;
-      }
-      return `₩${Math.round(amountMillions / 100).toLocaleString()}억`;
-    }
-    
-    if (curr === 'JPY') {
-      // Millions JPY: 1,000,000M = 1.00조엔
-      if (amountMillions >= 1000000) {
-        return `¥${(amountMillions / 1000000).toFixed(2)}조`;
-      }
-      return `¥${Math.round(amountMillions / 100).toLocaleString()}억`;
-    }
-    
-    if (curr === 'CNY') {
-      // Millions CNY: 10,000M = 100억元
-      if (amountMillions >= 10000) {
-        return `¥${(amountMillions / 1000).toFixed(1)}B`;
-      }
-      return `¥${(amountMillions / 1000).toFixed(2)}B`;
-    }
-
-    if (curr === 'EUR') {
-      // Millions EUR
-      if (amountMillions >= 1000) {
-        return `€${(amountMillions / 1000).toFixed(2)}B`;
-      }
-      return `€${amountMillions}M`;
-    }
-
-    // Default USD
-    if (amountMillions >= 1000) {
-      return `$${(amountMillions / 1000).toFixed(2)}B`;
-    }
-    return `$${amountMillions}M`;
-  };
 
   // OEM distinct brand colors
   const getOemColor = (compName: string) => {
@@ -160,7 +117,10 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   sortedPoints.forEach((pt) => {
     const px = getX(pt.volumeThousand);
     const py = getY(pt.marginPercent);
-    const profitStr = formatCompactProfit(pt.operatingIncome, pt.currency || pt.company.reportingCurrency);
+    const curr = pt.currency || pt.company.reportingCurrency;
+    
+    // Converted Korean Won (KRW) profit display in Korean mode
+    const profitStr = formatLocalizedProfit(pt.operatingIncome, curr, language);
     const volumeStr = pt.volumeThousand >= 1000
       ? `${(pt.volumeThousand / 1000).toFixed(2)}M`
       : `${Math.round(pt.volumeThousand)}k`;
@@ -170,7 +130,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
     const boxH = 40;
     const color = getOemColor(pt.company.name);
 
-    // 14 Smart candidate offsets relative to (px, py)
+    // Smart candidate offsets relative to (px, py)
     const candidates = [
       { dx: 16, dy: -46, hasLeader: true },
       { dx: -boxW - 16, dy: -46, hasLeader: true },
@@ -269,19 +229,25 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
         </div>
 
         {/* Legend / Metrics Guide */}
-        <div className="flex flex-wrap items-center gap-2.5 text-xs">
-          <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-brand-500" />
-            <span>X: {language === 'ko' ? '판매량 (천 대)' : 'Deliveries (k)'}</span>
+            <span className="font-semibold">X: {language === 'ko' ? '판매량 (천 대)' : 'Deliveries (k)'}</span>
           </div>
-          <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5 shadow-sm">
+          <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-amber-500" />
-            <span>Y: <TermBadge term="RoS" showIcon={false} /> {language === 'ko' ? '영업이익률 (%)' : 'Margin (%)'}</span>
+            <span className="font-semibold">Y: <TermBadge term="RoS" showIcon={false} /> {language === 'ko' ? '영업이익률 (%)' : 'Margin (%)'}</span>
           </div>
-          <div className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1.5 shadow-sm">
+          <div className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1.5 shadow-xs">
             <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-            <span>{language === 'ko' ? '카드: 실제 영업이익' : 'Card: Actual EBIT'}</span>
+            <span className="font-semibold">{language === 'ko' ? '카드: 한화(KRW) 환산 영업이익' : 'Card: EBIT in USD/Base'}</span>
           </div>
+          {language === 'ko' && (
+            <div className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 text-blue-600 dark:text-blue-400 text-[11px] font-mono flex items-center gap-1">
+              <RefreshCw className="w-3 h-3" />
+              <span>실시간 기준환율 (USD 1,380 · EUR 1,500 · JPY 9.2 · CNY 192)</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -355,7 +321,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           {/* Quadrant Header Watermarks */}
           <text
             x={width - padRight - 15}
-            y={padTop + 22}
+            y={padTop + 24}
             textAnchor="end"
             className="fill-emerald-600 dark:fill-emerald-400 font-extrabold text-[12px] font-sans tracking-wide"
           >
@@ -363,21 +329,21 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           </text>
           <text
             x={padLeft + 15}
-            y={padTop + 22}
+            y={padTop + 24}
             className="fill-brand-600 dark:fill-brand-400 font-extrabold text-[12px] font-sans tracking-wide"
           >
             {language === 'ko' ? '프리미엄 럭셔리 & 고수익 (Premium & High Margin)' : 'Premium & High Margin'}
           </text>
           <text
             x={padLeft + 15}
-            y={height - padBottom - 14}
+            y={height - padBottom - 16}
             className="fill-slate-500 dark:fill-slate-400 font-bold text-[11px] font-sans tracking-wide"
           >
             {language === 'ko' ? '전환 및 구조개편 (Transition & Restructuring)' : 'Transition & Restructuring'}
           </text>
           <text
             x={width - padRight - 15}
-            y={height - padBottom - 14}
+            y={height - padBottom - 16}
             textAnchor="end"
             className="fill-amber-600 dark:fill-amber-400 font-bold text-[11px] font-sans tracking-wide"
           >
@@ -391,7 +357,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             x2={width - padRight}
             y2={height - padBottom}
             stroke="#64748b"
-            strokeWidth="1.5"
+            strokeWidth="2"
           />
           <line
             x1={padLeft}
@@ -399,7 +365,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             x2={padLeft}
             y2={height - padBottom}
             stroke="#64748b"
-            strokeWidth="1.5"
+            strokeWidth="2"
           />
 
           {/* X Axis Grid & Ticks */}
@@ -416,11 +382,19 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   className="dark:stroke-slate-800/80 opacity-50"
                   strokeWidth="1"
                 />
+                <line
+                  x1={x}
+                  y1={height - padBottom}
+                  x2={x}
+                  y2={height - padBottom + 6}
+                  stroke="#64748b"
+                  strokeWidth="1.5"
+                />
                 <text
                   x={x}
-                  y={height - padBottom + 20}
+                  y={height - padBottom + 22}
                   textAnchor="middle"
-                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-semibold"
+                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
                 >
                   {vol >= 1000 ? `${(vol / 1000).toFixed(vol % 1000 === 0 ? 0 : 1)}M` : `${vol}k`}
                 </text>
@@ -442,17 +416,68 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   className="dark:stroke-slate-800/80 opacity-50"
                   strokeWidth="1"
                 />
+                <line
+                  x1={padLeft - 6}
+                  y1={y}
+                  x2={padLeft}
+                  y2={y}
+                  stroke="#64748b"
+                  strokeWidth="1.5"
+                />
                 <text
                   x={padLeft - 10}
                   y={y + 4}
                   textAnchor="end"
-                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-semibold"
+                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
                 >
                   {m}%
                 </text>
               </g>
             );
           })}
+
+          {/* EXPLICIT AXIS TITLES */}
+          {/* Y-Axis Title (Top Left) */}
+          <g>
+            <rect
+              x={padLeft - 75}
+              y={padTop - 36}
+              width={140}
+              height={24}
+              rx={6}
+              className="fill-slate-100 dark:fill-slate-800/90 stroke-slate-300 dark:stroke-slate-700"
+            />
+            <text
+              x={padLeft - 5}
+              y={padTop - 20}
+              textAnchor="middle"
+              className="fill-slate-800 dark:fill-slate-200 font-bold text-[11px] font-sans"
+            >
+              {language === 'ko' ? '▲ Y축: 영업이익률 RoS (%)' : '▲ Y: Operating Margin (%)'}
+            </text>
+          </g>
+
+          {/* X-Axis Title (Bottom Center) */}
+          <g>
+            <rect
+              x={padLeft + chartW / 2 - 160}
+              y={height - padBottom + 35}
+              width={320}
+              height={26}
+              rx={6}
+              className="fill-slate-100 dark:fill-slate-800/90 stroke-slate-300 dark:stroke-slate-700"
+            />
+            <text
+              x={padLeft + chartW / 2}
+              y={height - padBottom + 52}
+              textAnchor="middle"
+              className="fill-slate-800 dark:fill-slate-200 font-bold text-[11.5px] font-sans"
+            >
+              {language === 'ko'
+                ? '➔ X축: 글로벌 분기 판매량 / 인도 실적 (단위: 천 대 / 백만 대)'
+                : '➔ X: Global Quarterly Vehicle Deliveries (k / M units)'}
+            </text>
+          </g>
 
           {/* Leader Lines from Bubbles to Label Boxes */}
           {placedLabels.map((lbl) => {
@@ -604,7 +629,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   <text
                     x="10"
                     y="31"
-                    className={`font-mono text-[9.5px] font-semibold ${
+                    className={`font-mono text-[9.5px] font-bold ${
                       isHovered ? 'fill-emerald-300' : 'fill-emerald-600 dark:fill-emerald-400'
                     }`}
                   >
@@ -630,17 +655,17 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
         {/* Dynamic Interactive Detail Tooltip */}
         {hovered && (
-          <div className="mt-3 p-3.5 bg-slate-900 text-white rounded-xl border border-slate-700 shadow-xl flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-200">
+          <div className="mt-3 p-4 bg-slate-900 text-white rounded-xl border border-slate-700 shadow-xl flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-200">
             <div className="flex items-center gap-3">
               <span
-                className="w-3.5 h-3.5 rounded-full ring-2 ring-white/30"
+                className="w-4 h-4 rounded-full ring-2 ring-white/30"
                 style={{ backgroundColor: getOemColor(hovered.company.name) }}
               />
               <div>
                 <h4 className="text-sm font-bold text-white flex items-center gap-2">
                   {hovered.company.name} ({hovered.company.shortName})
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-slate-300 font-normal">
-                    {hovered.company.hqCountry} • {hovered.company.reportingCurrency}
+                    {hovered.company.hqCountry} • 공시통화: {hovered.company.reportingCurrency}
                   </span>
                 </h4>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -655,13 +680,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-mono">
+            <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
               <div className="bg-slate-800/90 px-3 py-1.5 rounded-lg border border-slate-700">
                 <span className="text-slate-400 text-[10px] block font-sans">
-                  {language === 'ko' ? '영업이익 (EBIT)' : 'Operating Profit (EBIT)'}
+                  {language === 'ko' ? '영업이익 (KRW 환산)' : 'Operating Profit (EBIT)'}
                 </span>
                 <span className="text-emerald-400 font-bold text-sm">
-                  {formatCompactProfit(hovered.operatingIncome, hovered.currency || hovered.company.reportingCurrency)}
+                  {formatLocalizedProfit(hovered.operatingIncome, hovered.currency || hovered.company.reportingCurrency, language, { showOriginal: true })}
                 </span>
               </div>
 
@@ -680,8 +705,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                 </span>
                 <span className="text-white font-bold text-sm">
                   {hovered.volumeThousand >= 1000
-                    ? `${(hovered.volumeThousand / 1000).toFixed(2)}M`
-                    : `${Math.round(hovered.volumeThousand).toLocaleString()}k`}
+                    ? `${(hovered.volumeThousand / 1000).toFixed(2)}M (${Math.round(hovered.volumeThousand).toLocaleString()}k)`
+                    : `${Math.round(hovered.volumeThousand).toLocaleString()}k units`}
                 </span>
               </div>
             </div>
