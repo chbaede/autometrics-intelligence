@@ -377,7 +377,13 @@ companyPeriodTypes.forEach((cpt) => {
         diagnostic.profit.accountingBasis,
         diagnostic.revenue.accountingBasis,
         diagnostic.margin.accountingBasis,
-        SOURCES_MAP
+        SOURCES_MAP,
+        DOCUMENTED_SCOPE_EXCEPTIONS,
+        {
+          revenueSourceDocId: diagnostic.revenue.sourceDocId,
+          numeratorSourceDocId: diagnostic.profit.sourceDocId,
+          marginSourceDocId: diagnostic.margin.sourceDocId,
+        }
       );
 
       if (exceptionResult.matched && exceptionResult.exceptionId) {
@@ -436,6 +442,10 @@ companyPeriodTypes.forEach((cpt) => {
       });
     }
   } else if (selection.status === 'missing') {
+    // marginSelectionMissing Definition (STEP 4-5, P2):
+    // Incomplete triplet where operating_margin was officially reported by the OEM,
+    // but the required revenue denominator or profit numerator is missing from the dataset.
+    // If no operating_margin was reported for this period, no finding is generated.
     const marginCands = periodObservations.filter(
       (o) => o.metricId === 'operating_margin' && o.value !== null
     );

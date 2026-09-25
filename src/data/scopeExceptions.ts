@@ -382,6 +382,15 @@ export interface ScopeExceptionValidationResult {
 }
 
 /**
+ * Provenance context from actual candidate observations to bind to the exception source registry (STEP 4-5, P1).
+ */
+export interface ExceptionObservationContext {
+  revenueSourceDocId?: string;
+  numeratorSourceDocId?: string;
+  marginSourceDocId?: string;
+}
+
+/**
  * Looks up a matching documented scope exception for a given set of observed
  * margin triplet dimensions and validates evidence against the source registry.
  *
@@ -415,7 +424,8 @@ export function findDocumentedScopeException(
   denominatorBasis: AccountingBasis | undefined,
   marginBasis: AccountingBasis | undefined,
   sources: ReadonlyMap<string, SourceDocument> | Record<string, SourceDocument>,
-  exceptions: DocumentedScopeException[] = DOCUMENTED_SCOPE_EXCEPTIONS
+  exceptions: DocumentedScopeException[] = DOCUMENTED_SCOPE_EXCEPTIONS,
+  observationContext?: ExceptionObservationContext
 ): ScopeExceptionValidationResult {
   const candidates = exceptions.filter(
     (e) => e.companyId === companyId && (e.period === undefined || e.period === period)
@@ -554,6 +564,29 @@ export function findDocumentedScopeException(
         if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
           candidateStructured.add('missing_official_url');
           candidateReasons.push(`[${exc.id}] Source document "${docId}" missing valid HTTPS officialUrl.`);
+        }
+      }
+    }
+
+    // 5. Candidate observation source binding (STEP 4-5, P1)
+    if (observationContext) {
+      const obsDocChecks = [
+        { role: 'revenue', docId: observationContext.revenueSourceDocId },
+        { role: 'numerator', docId: observationContext.numeratorSourceDocId },
+        { role: 'margin', docId: observationContext.marginSourceDocId },
+      ];
+
+      for (const obsCheck of obsDocChecks) {
+        if (!obsCheck.docId || obsCheck.docId.trim() === '') {
+          candidateStructured.add('missing_evidence_reference');
+          candidateReasons.push(
+            `[${exc.id}] Candidate ${obsCheck.role} observation is missing sourceDocId.`
+          );
+        } else if (!exc.sourceDocIds.includes(obsCheck.docId)) {
+          candidateStructured.add('source_not_found');
+          candidateReasons.push(
+            `[${exc.id}] Candidate ${obsCheck.role} observation sourceDocId "${obsCheck.docId}" is not present in exception sourceDocIds [${exc.sourceDocIds.join(', ')}].`
+          );
         }
       }
     }

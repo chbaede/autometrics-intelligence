@@ -752,6 +752,117 @@ export interface MarginValidationOptions {
   exception?: DocumentedScopeException | null;
 }
 
+export interface ExceptionDimensionValidationResult {
+  isValid: boolean;
+  reasons: string[];
+  mismatches: string[];
+}
+
+/**
+ * Revalidates that an exception's declared dimensions match the actual candidate observations (STEP 4-5, P1).
+ * An exception must never override unrelated metric, scope, or accounting-basis mismatches.
+ */
+export function validateExceptionDimensions(
+  exception: DocumentedScopeException,
+  revObs: MetricObservation,
+  profitObs: MetricObservation,
+  marginObs: MetricObservation
+): ExceptionDimensionValidationResult {
+  const reasons: string[] = [];
+  const mismatches: string[] = [];
+
+  // 1. Company ID
+  if (
+    exception.companyId !== revObs.companyId ||
+    exception.companyId !== profitObs.companyId ||
+    exception.companyId !== marginObs.companyId
+  ) {
+    mismatches.push('companyId');
+    reasons.push(
+      `Exception companyId "${exception.companyId}" does not match triplet observations: revenue (${revObs.companyId}), profit (${profitObs.companyId}), margin (${marginObs.companyId}).`
+    );
+  }
+
+  // 2. Period
+  if (
+    exception.period &&
+    (exception.period !== revObs.period ||
+      exception.period !== profitObs.period ||
+      exception.period !== marginObs.period)
+  ) {
+    mismatches.push('period');
+    reasons.push(
+      `Exception period "${exception.period}" does not match triplet observations: revenue (${revObs.period}), profit (${profitObs.period}), margin (${marginObs.period}).`
+    );
+  }
+
+  // 3. Metric IDs
+  if (exception.marginMetricId !== marginObs.metricId) {
+    mismatches.push('marginMetricId');
+    reasons.push(
+      `Exception marginMetricId "${exception.marginMetricId}" does not match margin observation "${marginObs.metricId}".`
+    );
+  }
+  if (exception.numeratorMetricId !== profitObs.metricId) {
+    mismatches.push('numeratorMetricId');
+    reasons.push(
+      `Exception numeratorMetricId "${exception.numeratorMetricId}" does not match profit observation "${profitObs.metricId}".`
+    );
+  }
+  if (exception.denominatorMetricId !== revObs.metricId) {
+    mismatches.push('denominatorMetricId');
+    reasons.push(
+      `Exception denominatorMetricId "${exception.denominatorMetricId}" does not match revenue observation "${revObs.metricId}".`
+    );
+  }
+
+  // 4. Reporting Scopes
+  if (exception.marginScope !== marginObs.reportingScope) {
+    mismatches.push('marginScope');
+    reasons.push(
+      `Exception marginScope "${exception.marginScope}" does not match margin observation "${marginObs.reportingScope}".`
+    );
+  }
+  if (exception.numeratorScope !== profitObs.reportingScope) {
+    mismatches.push('numeratorScope');
+    reasons.push(
+      `Exception numeratorScope "${exception.numeratorScope}" does not match profit observation "${profitObs.reportingScope}".`
+    );
+  }
+  if (exception.denominatorScope !== revObs.reportingScope) {
+    mismatches.push('denominatorScope');
+    reasons.push(
+      `Exception denominatorScope "${exception.denominatorScope}" does not match revenue observation "${revObs.reportingScope}".`
+    );
+  }
+
+  // 5. Accounting Bases
+  if (exception.marginBasis !== marginObs.accountingBasis) {
+    mismatches.push('marginBasis');
+    reasons.push(
+      `Exception marginBasis "${exception.marginBasis}" does not match margin observation "${marginObs.accountingBasis}".`
+    );
+  }
+  if (exception.numeratorBasis !== profitObs.accountingBasis) {
+    mismatches.push('numeratorBasis');
+    reasons.push(
+      `Exception numeratorBasis "${exception.numeratorBasis}" does not match profit observation "${profitObs.accountingBasis}".`
+    );
+  }
+  if (exception.denominatorBasis !== revObs.accountingBasis) {
+    mismatches.push('denominatorBasis');
+    reasons.push(
+      `Exception denominatorBasis "${exception.denominatorBasis}" does not match revenue observation "${revObs.accountingBasis}".`
+    );
+  }
+
+  return {
+    isValid: mismatches.length === 0,
+    reasons,
+    mismatches,
+  };
+}
+
 /**
  * Validates semantic and mathematical compatibility among revenue, operating profit, and reported margin.
  */
@@ -965,73 +1076,147 @@ export function validateMarginTriplet(
   const reportedMargin = marginObs.value;
   const difference = Math.round(Math.abs(calculatedMargin - reportedMargin!) * 100) / 100;
 
-  // Handle proxy exception (P0-1, P0-2)
+  // Validate exception dimensions against candidate observations (STEP 4-5, P1)
+  const exceptionDimResult = options?.exception
+    ? validateExceptionDimensions(options.exception, revObs, profitObs, marginObs)
+    : null;
+  const isExceptionApplicable = !options?.exception || (exceptionDimResult !== null && exceptionDimResult.isValid);
+
+  // Handle proxy exception (STEP 4-3, 4-4, 4-5)
   if (options?.exception?.isProxy) {
-    if (!checks.metricDefinition) {
-      return {
-        status: 'invalid',
-        calculatedMargin,
-        reportedMargin,
-        difference,
-        selectedObservationIds,
-        selectedRuleId: matchingRule?.id,
-        failedChecks: ['metricDefinition'],
-        checks,
-        diagnostic: `Invalid metric definition: exception cannot override invalid metric types. ${reasons.join('; ')}`,
-        reasons: ['Metric definition mismatch cannot be overridden by exception.'],
-      };
-    }
+    if (!isExceptionApplicable) {
+      // Dimensional mismatch: cannot apply exception, fall back to standard validation
+      reasons.push(
+        `Proxy exception [${options.exception.id}] rejected: dimensional mismatch (${exceptionDimResult?.mismatches.join(', ')}).`
+      );
+    } else {
+      // General integrity checks are NEVER waived for proxy exceptions (STEP 4-5, P0)
+      if (!checks.valueValidity) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['valueValidity'],
+          checks,
+          diagnostic: `Invalid value in proxy triplet: ${reasons.join('; ')}`,
+          reasons: ['Value validity failure cannot be overridden by proxy exception.'],
+        };
+      }
 
-    if (!checks.period || !checks.periodType) {
-      return {
-        status: 'invalid',
-        calculatedMargin,
-        reportedMargin,
-        difference,
-        selectedObservationIds,
-        selectedRuleId: matchingRule?.id,
-        failedChecks:
-          !checks.period && !checks.periodType
-            ? ['period', 'periodType']
-            : !checks.period
-            ? ['period']
-            : ['periodType'],
-        checks,
-        diagnostic: `Period mismatch in proxy exception: ${reasons.join('; ')}`,
-        reasons: ['Period mismatch cannot be overridden by exception.'],
-      };
-    }
+      if (!checks.metricDefinition) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['metricDefinition'],
+          checks,
+          diagnostic: `Invalid metric definition: exception cannot override invalid metric types. ${reasons.join('; ')}`,
+          reasons: ['Metric definition mismatch cannot be overridden by exception.'],
+        };
+      }
 
-    if (!checks.verificationStatus) {
+      if (!checks.period || !checks.periodType) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks:
+            !checks.period && !checks.periodType
+              ? ['period', 'periodType']
+              : !checks.period
+              ? ['period']
+              : ['periodType'],
+          checks,
+          diagnostic: `Period mismatch in proxy exception: ${reasons.join('; ')}`,
+          reasons: ['Period mismatch cannot be overridden by exception.'],
+        };
+      }
+
+      if (!checks.currency) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['currency'],
+          checks,
+          diagnostic: `Currency mismatch in proxy exception: Revenue (${revObs.currency}), Profit (${profitObs.currency}). Currency mismatch cannot be overridden by exception.`,
+          reasons: ['Currency mismatch cannot be overridden by exception.'],
+        };
+      }
+
+      if (!checks.unit) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['unit'],
+          checks,
+          diagnostic: `Unit mismatch in proxy exception: Revenue (${revObs.unit}), Profit (${profitObs.unit}), Margin (${marginObs.unit}). Unit mismatch cannot be overridden by exception.`,
+          reasons: ['Unit scale mismatch cannot be overridden by exception.'],
+        };
+      }
+
+      if (!checks.provenance) {
+        return {
+          status: 'invalid',
+          calculatedMargin,
+          reportedMargin,
+          difference,
+          selectedObservationIds,
+          selectedRuleId: matchingRule?.id,
+          failedChecks: ['provenance'],
+          checks,
+          diagnostic: `Provenance missing in proxy exception: reported observations must link to a valid source document. Provenance cannot be overridden by exception.`,
+          reasons: ['Missing provenance cannot be overridden by exception.'],
+        };
+      }
+
+      if (!checks.verificationStatus) {
+        return {
+          status: 'needs_review',
+          calculatedMargin: null,
+          reportedMargin: marginObs.value,
+          difference: null,
+          selectedObservationIds,
+          selectedRuleId: options.exception.id,
+          failedChecks: ['verificationStatus'],
+          checks,
+          diagnostic: `Proxy exception observation not verified: ${reasons.join('; ')}`,
+          reasons: ['Proxy exception observations must be verified.'],
+        };
+      }
+
       return {
-        status: 'needs_review',
+        status: 'proxy_only',
         calculatedMargin: null,
         reportedMargin: marginObs.value,
         difference: null,
         selectedObservationIds,
         selectedRuleId: options.exception.id,
-        failedChecks: ['verificationStatus'],
-        checks,
-        diagnostic: `Proxy exception observation not verified: ${reasons.join('; ')}`,
-        reasons: ['Proxy exception observations must be verified.'],
+        failedChecks: failedChecks.length > 0 ? failedChecks : ['scope'],
+        checks: { ...checks, scope: false },
+        diagnostic: `Proxy numerator limitation: consolidated operating income cannot automatically become verified segment EBIT. Reported margin (${marginObs.value}%) preserved without independent mathematical verification per exception [${options.exception.id}].`,
+        reasons: [
+          'Proxy numerator relationship — not classified as verified calculation.',
+          options.exception.rationale,
+        ],
       };
     }
-
-    return {
-      status: 'proxy_only',
-      calculatedMargin: null,
-      reportedMargin: marginObs.value,
-      difference: null,
-      selectedObservationIds,
-      selectedRuleId: options.exception.id,
-      failedChecks: failedChecks.length > 0 ? failedChecks : ['scope'],
-      checks: { ...checks, scope: false },
-      diagnostic: `Proxy numerator limitation: consolidated operating income cannot automatically become verified segment EBIT. Reported margin (${marginObs.value}%) preserved without independent mathematical verification per exception [${options.exception.id}].`,
-      reasons: [
-        'Proxy numerator relationship — not classified as verified calculation.',
-        options.exception.rationale,
-      ],
-    };
   }
 
   const allChecksPass = failedChecks.length === 0;

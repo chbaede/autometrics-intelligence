@@ -1,9 +1,9 @@
 # AutoMetrics Intelligence — Data Integrity Report
 
-## STEP 4-4 Completion Status
+## STEP 4-5 Completion Status
 
 **Commit:** (pending)  
-**Generated:** 2026-09-25T07:55:00+02:00  
+**Generated:** 2026-09-25T08:21:00+02:00  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -14,11 +14,11 @@
 | Command | Result |
 |---------|--------|
 | `npm run typecheck` | ✅ 0 errors |
-| `npm run test` | ✅ 1987 / 1987 assertions passed (8 suites, 117 in scope-exceptions) |
+| `npm run test` | ✅ 2032 / 2032 assertions passed (8 suites, 162 in scope-exceptions) |
 | `npm run validate-data` | ✅ 0 errors |
-| `npm run audit-data` | ✅ 0 blocking, 0 review, 8 documented exceptions, 0 corroborations |
-| `npm run audit-data -- --strict` | ✅ 0 blocking, 0 review, exit code 0 |
-| `npm run build` | ✅ built in 1.32s |
+| `npm run audit-data` | ✅ 0 blocking, 8 review, 0 documented exceptions, 0 corroborations (exit code 0) |
+| `npm run audit-data -- --strict` | ⚠️ 0 blocking, 8 review (exit code 1 as expected by strict policy) |
+| `npm run build` | ✅ built in 1.45s |
 
 ---
 
@@ -134,27 +134,38 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 
 ---
 
-## Architectural & Semantic Hardening (STEP 4-4 & Final Fix)
+## Architectural & Semantic Hardening (STEP 4-5)
 
-### P0: Proxy Only Disposition Policy (`proxy_only → review`)
-- In `createAuditFindingFromMarginValidation()`, `validation.status === 'proxy_only'` maps strictly to `disposition: 'review'`.
-- `proxy_only` never becomes `documented` and never becomes `verified`.
-- Preserves `severity: 'WARNING'`, `category: 'SCOPE_MISMATCH'`, `isProxy: true`, `exceptionId`, `sourceDocIds`, `observationIds`, and `failedChecks`.
-- Detail text explicitly documents that the headline KPI is documented by the OEM, the available numerator is a proxy, the margin is not independently verified mathematically, and human review or actual segment numerator data is required.
+### P0: Proxy Exception Integrity Guard (Never Waive General Data Integrity)
+- In `validateMarginTriplet()`, proxy exceptions only allow explicitly documented scope/numerator differences.
+- General data integrity checks are never waived:
+  - Missing, non-finite, or negative revenue denominator returns `status: 'invalid'`.
+  - Currency mismatch returns `status: 'invalid'`.
+  - Unit scale mismatch returns `status: 'invalid'`.
+  - Missing provenance (`sourceDocId`) returns `status: 'invalid'`.
+  - Period or periodType mismatch returns `status: 'invalid'`.
+  - Metric definition mismatch returns `status: 'invalid'`.
+  - Verification status not `'verified'` returns `status: 'needs_review'`.
+- Only when all general integrity checks pass does a proxy exception yield `status: 'proxy_only'`.
 
-### P1-1: Strict Dual Source Verification Requirement
-- In `findDocumentedScopeException()`, requires both `doc.isVerified === true && doc.verificationStatus === 'verified'`.
-- All 57 primary sources in `src/data/sources.ts` are populated with `isVerified: true` and `verificationStatus: 'verified'`.
-- If either condition is false, the source is rejected with structured rejection `source_not_verified`.
+### P1-1: Candidate Observation Source Binding
+- In `findDocumentedScopeException()`, added `observationContext: ExceptionObservationContext` parameter.
+- Triplet revenue, profit numerator, and margin candidate observations are strictly validated:
+  - Must have defined, non-empty `sourceDocId`.
+  - Must be explicitly present in exception `sourceDocIds`.
+  - Must be verified in the source registry.
 
-### P1-2: Meaningful Evidence Locators Requirement
-- Added `hasMeaningfulEvidenceLocator()` validating that every evidence record contains at least one meaningful locator: `pageNumber`, `sectionReference`, `tableReference`, or `evidenceReference`.
-- Records with only `{ sourceDocId }` are rejected with `missing_evidence_reference`.
-- Evidence records referencing unknown `sourceDocIds` not present in exception `sourceDocIds` are rejected.
+### P1-2: Central Exception Dimension Revalidation
+- Created `validateExceptionDimensions(exception, revObs, profitObs, marginObs)` to revalidate all 5 dimensional facets:
+  - `companyId`
+  - `period`
+  - metric IDs (`marginMetricId`, `numeratorMetricId`, `denominatorMetricId`)
+  - reporting scopes (`marginScope`, `numeratorScope`, `denominatorScope`)
+  - accounting bases (`marginBasis`, `numeratorBasis`, `denominatorBasis`)
+- If any dimension mismatches, the exception is rejected from being applied to the candidate triplet.
 
-### P1-3: Unified Proxy Validation & Candidate Resolution Flow
-- Evaluates candidate diagnostics against documented exceptions: exactly 1 match resolves candidate triplet and validates it with exception. Multiple matches flag `AMBIGUOUS_SELECTION`.
-- Triplet validation with `exception.isProxy: true` returns `status: 'proxy_only'` with `calculatedMargin: null`.
+### P2: Clarified `marginSelectionMissing` Definition
+- In `scripts/audit-data.ts`, documented that `marginSelectionMissing` represents an incomplete triplet where `operating_margin` was officially reported by the OEM, but the required revenue denominator or profit numerator is missing from the dataset.
 
 ---
 
@@ -169,5 +180,5 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 | `margin-triplet.test.ts` | Margin relationship rules & candidate triplets | 40 | ✅ All passed |
 | `provenance.test.ts` | Source provenance cross-validation | 23 | ✅ All passed |
 | `data-integrity-gate.test.ts` | Exit-code policy & regression guards | 34 | ✅ All passed |
-| `scope-exceptions.test.ts` | Proxy validation, deep source checks, meaningful evidence, review disposition | 141 | ✅ All passed |
-| **Total** | | **2011** | ✅ **0 failures** |
+| `scope-exceptions.test.ts` | Proxy validation, observation binding, dimension revalidation, strict exit | 162 | ✅ All passed |
+| **Total** | | **2032** | ✅ **0 failures** |
