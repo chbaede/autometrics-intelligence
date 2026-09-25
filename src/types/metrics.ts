@@ -274,6 +274,9 @@ export interface MarginValidationResult {
   proxyCompatibility?: boolean;
   mathematicalEquivalence?: boolean;
   limitations?: string[];
+  proxyLimitation?: boolean;
+  proxyScopeCompatibility?: boolean;
+  directMathematicalVerification?: boolean;
   selectedObservationIds: {
     revenue?: string;
     profit?: string;
@@ -308,6 +311,17 @@ export type EvidencePurpose =
   | 'numerator_definition'
   | 'proxy_justification';
 
+export type EvidenceSupportType =
+  | 'revenue'
+  | 'proxy_numerator'
+  | 'target_semantic'
+  | 'denominator'
+  | 'scope'
+  | 'accounting_basis'
+  | 'period'
+  | 'period_type'
+  | 'reported_kpi';
+
 export interface ScopeExceptionEvidence {
   sourceDocId: string;
   pageNumber?: number | string;
@@ -315,6 +329,7 @@ export interface ScopeExceptionEvidence {
   tableReference?: string;
   evidenceReference?: string;
   purpose?: EvidencePurpose;
+  supports?: EvidenceSupportType[];
 }
 
 export interface DocumentedReportedKpi {
@@ -372,6 +387,22 @@ export type MappingLookupResult =
   | { status: 'none' }
   | { status: 'unique'; mapping: ProxyMetricMapping }
   | { status: 'ambiguous'; mappings: ProxyMetricMapping[] };
+
+export type SourceRegistry =
+  | ReadonlyMap<string, SourceDocument>
+  | Map<string, SourceDocument>
+  | Record<string, SourceDocument>;
+
+export interface ProxySemanticContract {
+  companyId: string;
+  targetSemantic: string;
+  targetScope: ReportingScope;
+  targetAccountingBasis: AccountingBasis;
+  allowedProxyMetrics: string[];
+  requiredEvidencePurposes: EvidencePurpose[];
+  requiredEvidenceSupports?: EvidenceSupportType[];
+  status: 'active' | 'deprecated';
+}
 
 export interface DocumentedScopeException {
   id: string;

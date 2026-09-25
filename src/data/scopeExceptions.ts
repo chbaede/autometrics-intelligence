@@ -32,6 +32,7 @@ import {
   ScopeExceptionNature,
   ScopeExceptionEvidence,
   EvidencePurpose,
+  EvidenceSupportType,
   DocumentedReportedKpi,
   ProxyMetricMapping,
   ProxyMetricMappingQuery,
@@ -40,9 +41,22 @@ import {
   DocumentedScopeException,
   MarginValidationContext,
   MappingLookupResult,
+  SourceRegistry,
+  ProxySemanticContract,
 } from '../types/metrics';
 
-export type { EvidencePurpose, DocumentedReportedKpi, ProxyMetricMapping, ProxyMetricMappingQuery, DocumentedScopeException, MarginValidationContext, MappingLookupResult };
+export type {
+  EvidencePurpose,
+  EvidenceSupportType,
+  DocumentedReportedKpi,
+  ProxyMetricMapping,
+  ProxyMetricMappingQuery,
+  DocumentedScopeException,
+  MarginValidationContext,
+  MappingLookupResult,
+  SourceRegistry,
+  ProxySemanticContract,
+};
 
 
 /**
@@ -68,6 +82,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.8%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -87,6 +102,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.2%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -106,6 +122,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 7.4%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -125,6 +142,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 6.3%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -146,6 +164,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.4%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -165,6 +184,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 7.9%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -184,6 +204,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.3%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -203,6 +224,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 12.6%',
         purpose: 'reported_kpi',
+        supports: ['reported_kpi', 'scope', 'accounting_basis'],
       },
     ],
   },
@@ -238,6 +260,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.8%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Revenues and Operating Result',
+        evidenceReference: 'Revenues: 36,944 million EUR; Operating profit: 3,877 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -266,6 +297,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.2%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2026_q1_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Revenues and Operating Result',
+        evidenceReference: 'Revenues: 36,614 million EUR; Operating profit: 4,054 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -294,6 +334,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 7.4%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2025_fy_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Group Income Statement',
+        evidenceReference: 'Revenues: 142,380 million EUR; Operating profit: 11,241 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -322,6 +371,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 6.3%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2024_fy_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Group Income Statement',
+        evidenceReference: 'Revenues: 142,610 million EUR; Operating profit: 10,980 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -352,6 +410,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.4%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2026_q2_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 36,743 million EUR; EBIT: 4,037 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -380,6 +447,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 7.9%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2026_q1_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 35,873 million EUR; EBIT: 3,863 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -408,6 +484,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.3%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2025_fy_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 145,594 million EUR; EBIT: 13,636 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -436,6 +521,15 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 12.6%',
         purpose: 'scope_definition',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2024_fy_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 152,654 million EUR; EBIT: 19,660 million EUR',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     status: 'proxy_only',
@@ -494,6 +588,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.8%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Revenues and Operating Result',
+        evidenceReference: 'Revenues: 36,944 million EUR; Operating profit: 3,877 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -527,6 +630,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.2%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2026_q1_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Revenues and Operating Result',
+        evidenceReference: 'Revenues: 36,614 million EUR; Operating profit: 4,054 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -558,6 +670,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 7.4%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2025_fy_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Group Income Statement',
+        evidenceReference: 'Revenues: 142,380 million EUR; Operating profit: 11,241 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -589,6 +710,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 6.3%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'bmw_2024_fy_statement',
+        sectionReference: 'Group Income Statement',
+        tableReference: 'Group Income Statement',
+        evidenceReference: 'Revenues: 142,610 million EUR; Operating profit: 10,980 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -628,6 +758,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.4%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2026_q2_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 36,743 million EUR; EBIT: 4,037 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -661,6 +800,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 7.9%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2026_q1_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 35,873 million EUR; EBIT: 3,863 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -692,6 +840,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.3%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2025_fy_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 145,594 million EUR; EBIT: 13,636 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -723,6 +880,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 12.6%',
         purpose: 'reported_kpi',
+        supports: ['target_semantic', 'scope', 'reported_kpi'],
+      },
+      {
+        sourceDocId: 'mbg_2024_fy_results',
+        sectionReference: 'Group Financial Statements',
+        tableReference: 'Consolidated Statement of Income',
+        evidenceReference: 'Revenue: 152,654 million EUR; EBIT: 19,660 million EUR',
+        purpose: 'reported_kpi',
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
       },
     ],
     nature: 'proxy_numerator',
@@ -809,15 +975,21 @@ function lookupSourceDocInRegistry(
 }
 
 /**
- * Validates actual observation compatibility with a DocumentedReportedKpi (STEP 4-8, Task 6; STEP 4-9, Task 2).
+ * Validates actual observation compatibility with a DocumentedReportedKpi (STEP 4-8, Task 6; STEP 4-9, Task 2; STEP 4-11, Task 3).
+ * Source registry validation is strictly mandatory.
  */
 export function validateDocumentedReportedKpiCompatibility(
   kpi: DocumentedReportedKpi,
   marginObs: MetricObservation,
-  sourcesMap?: ReadonlyMap<string, SourceDocument> | Map<string, SourceDocument> | Record<string, SourceDocument>
+  sourcesMap: SourceRegistry
 ): DocumentedKpiValidationResult {
   const mismatches: string[] = [];
   const reasons: string[] = [];
+
+  if (!sourcesMap) {
+    mismatches.push('sourceMissing');
+    reasons.push('Source registry is mandatory for documented reported KPI validation.');
+  }
 
   if (kpi.companyId !== marginObs.companyId) {
     mismatches.push('companyId');
@@ -875,7 +1047,7 @@ export function validateDocumentedReportedKpiCompatibility(
     );
   }
 
-  // Deep source registry validation (STEP 4-9, Task 2)
+  // Deep source registry validation (STEP 4-9, Task 2; STEP 4-11, Task 3)
   if (sourcesMap) {
     for (const docId of kpi.sourceDocIds) {
       const doc = lookupSourceDocInRegistry(sourcesMap, docId);
@@ -911,7 +1083,7 @@ export function validateDocumentedReportedKpiCompatibility(
     }
   }
 
-  // Evidence source reference and locator validation (STEP 4-9 & STEP 4-10, Task 2)
+  // Evidence source reference and locator validation (STEP 4-9, STEP 4-10, Task 2 & STEP 4-11, Task 3)
   if (!kpi.evidence || kpi.evidence.length === 0) {
     if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
     reasons.push(`Reported KPI [${kpi.id}] has no evidence items.`);
@@ -935,10 +1107,10 @@ export function validateDocumentedReportedKpiCompatibility(
     }
   }
 
-  const hasReportedKpiEvidence = kpi.evidence && kpi.evidence.some((ev) => ev.purpose === 'reported_kpi');
+  const hasReportedKpiEvidence = kpi.evidence && kpi.evidence.some((ev) => ev.purpose === 'reported_kpi' || ev.supports?.includes('reported_kpi'));
   if (!hasReportedKpiEvidence) {
     mismatches.push('evidencePurpose');
-    reasons.push(`Reported KPI [${kpi.id}] does not contain evidence with purpose "reported_kpi".`);
+    reasons.push(`Reported KPI [${kpi.id}] does not contain evidence with purpose or support for "reported_kpi".`);
   }
 
   return {
@@ -1014,12 +1186,47 @@ export interface ProxyMappingValidationResult {
 }
 
 /**
- * Validates actual observation compatibility with a ProxyMetricMapping (STEP 4-7, P1-4; STEP 4-8, Task 2; STEP 4-9, Task 1 & 3).
- * Verifies:
- *  - Mapping invariants (status='proxy_only', non-empty id, reason, sourceDocIds, evidence, targetNumeratorSemantic)
+ * Explicit authorized Proxy Semantic Contracts (STEP 4-11, Task 4).
+ * Enforces company-level target semantic, scope, accounting basis, and evidence requirements.
+ */
+export const PROXY_SEMANTIC_CONTRACTS: readonly ProxySemanticContract[] = [
+  {
+    companyId: 'bmw_group',
+    targetSemantic: 'automotive_segment_ebit',
+    targetScope: 'automotive_segment',
+    targetAccountingBasis: 'reported',
+    allowedProxyMetrics: ['operating_income', 'ebit'],
+    requiredEvidencePurposes: ['scope_definition'],
+    requiredEvidenceSupports: ['revenue', 'proxy_numerator', 'target_semantic', 'scope', 'denominator'],
+    status: 'active',
+  },
+  {
+    companyId: 'mercedes_benz',
+    targetSemantic: 'cars_adjusted_ebit',
+    targetScope: 'cars_segment',
+    targetAccountingBasis: 'adjusted',
+    allowedProxyMetrics: ['operating_income', 'ebit'],
+    requiredEvidencePurposes: ['scope_definition'],
+    requiredEvidenceSupports: ['revenue', 'proxy_numerator', 'target_semantic', 'scope', 'denominator'],
+    status: 'active',
+  },
+];
+
 /**
- * Allowlist of authorized target numerator semantics per company (STEP 4-10, Task 4).
- * Rejects unsupported proxy companies and ensures explicit target semantics.
+ * Resolves an active proxy semantic contract for a company and target semantic.
+ */
+export function findProxySemanticContract(
+  companyId: string,
+  targetSemantic?: string
+): ProxySemanticContract | undefined {
+  return PROXY_SEMANTIC_CONTRACTS.find(
+    (c) => c.companyId === companyId && (!targetSemantic || c.targetSemantic === targetSemantic)
+  );
+}
+
+/**
+ * Allowlist of authorized target numerator semantics per company (STEP 4-10, Task 4; STEP 4-11, Task 4).
+ * Maintained for backward compatibility alongside PROXY_SEMANTIC_CONTRACTS.
  */
 export const TARGET_SEMANTICS_BY_COMPANY: Record<string, readonly string[]> = {
   bmw_group: ['automotive_segment_ebit'],
@@ -1044,7 +1251,7 @@ export function validateProxyMappingCompatibility(
   revObs: MetricObservation,
   profitObs: MetricObservation,
   marginObs: MetricObservation,
-  sourcesMap: ReadonlyMap<string, SourceDocument> | Map<string, SourceDocument> | Record<string, SourceDocument>
+  sourcesMap: SourceRegistry
 ): ProxyMappingValidationResult {
   const reasons: string[] = [];
   const mismatches: string[] = [];
@@ -1076,7 +1283,8 @@ export function validateProxyMappingCompatibility(
     reasons.push('ProxyMapping targetNumeratorSemantic must not be empty.');
   }
 
-  // Evidence validation (STEP 4-9, Task 1 & STEP 4-10, Task 2)
+  // Evidence validation & coverage (STEP 4-9, Task 1; STEP 4-10, Task 2; STEP 4-11, Tasks 1, 2, 5)
+  const allSupports = new Set<EvidenceSupportType>();
   if (mapping.evidence && mapping.evidence.length > 0) {
     for (const ev of mapping.evidence) {
       if (!mapping.sourceDocIds || !mapping.sourceDocIds.includes(ev.sourceDocId)) {
@@ -1094,7 +1302,34 @@ export function validateProxyMappingCompatibility(
         if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
         reasons.push(`ProxyMapping [${mapping.id}] evidence for source "${ev.sourceDocId}" lacks meaningful locator.`);
       }
+      if (ev.supports) {
+        for (const sup of ev.supports) {
+          allSupports.add(sup);
+        }
+      }
     }
+  }
+
+  // Validate metric-level evidence coverage (STEP 4-11, Task 2 & Task 5)
+  if (!allSupports.has('revenue')) {
+    mismatches.push('missingRevenueEvidence');
+    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "revenue".`);
+  }
+  if (!allSupports.has('proxy_numerator')) {
+    mismatches.push('missingProxyNumeratorEvidence');
+    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "proxy_numerator".`);
+  }
+  if (!allSupports.has('target_semantic')) {
+    mismatches.push('missingTargetSemanticEvidence');
+    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "target_semantic".`);
+  }
+  if (!allSupports.has('scope')) {
+    mismatches.push('missingScopeEvidence');
+    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "scope".`);
+  }
+  if (!allSupports.has('denominator')) {
+    mismatches.push('missingDenominatorEvidence');
+    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "denominator".`);
   }
 
   // 1. Company ID
@@ -1223,19 +1458,40 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 7. Company allowlist and target numerator semantic validation (STEP 4-8, Task 2; STEP 4-10, Task 4)
+  // 7. Company allowlist and explicit proxy semantic contract (STEP 4-8, Task 2; STEP 4-10, Task 4; STEP 4-11, Task 4)
+  const contract = findProxySemanticContract(mapping.companyId);
   const allowedSemantics = TARGET_SEMANTICS_BY_COMPANY[mapping.companyId];
-  if (!allowedSemantics) {
+  if (!contract || !allowedSemantics) {
     mismatches.push('unsupportedProxyCompany');
     reasons.push(
-      `Unsupported proxy company "${mapping.companyId}". Proxy mappings are only permitted for authorized OEM semantics.`
+      `Unsupported proxy company "${mapping.companyId}". Proxy mappings are only permitted for authorized OEM semantics with an explicit contract.`
     );
   } else {
-    if (!targetSemantic || !allowedSemantics.includes(targetSemantic)) {
+    if (contract.status !== 'active') {
+      mismatches.push('deprecatedProxyContract');
+      reasons.push(`Proxy semantic contract for company "${mapping.companyId}" is not active.`);
+    }
+    if (!targetSemantic || !allowedSemantics.includes(targetSemantic) || contract.targetSemantic !== targetSemantic) {
       mismatches.push('targetNumeratorSemantic');
       reasons.push(
-        `Invalid or missing targetNumeratorSemantic "${targetSemantic}" for company "${mapping.companyId}". Expected one of: [${allowedSemantics.join(', ')}].`
+        `Invalid or missing targetNumeratorSemantic "${targetSemantic}" for company "${mapping.companyId}". Expected contract target semantic "${contract.targetSemantic}".`
       );
+    }
+    if (contract.requiredEvidencePurposes) {
+      for (const reqPurpose of contract.requiredEvidencePurposes) {
+        const hasPurpose =
+          mapping.evidence &&
+          mapping.evidence.some(
+            (ev) =>
+              ev.purpose === reqPurpose ||
+              (reqPurpose === 'scope_definition' &&
+                (ev.purpose === 'reported_kpi' || ev.supports?.includes('scope')))
+          );
+        if (!hasPurpose) {
+          if (!mismatches.includes('evidencePurpose')) mismatches.push('evidencePurpose');
+          reasons.push(`ProxyMapping [${mapping.id}] lacks required evidence purpose "${reqPurpose}".`);
+        }
+      }
     }
   }
 
