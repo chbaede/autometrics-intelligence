@@ -391,6 +391,17 @@ export interface ScopeExceptionValidationResult {
  *
  * This function does NOT accept company name alone as a match criterion.
  */
+/**
+ * Checks whether an evidence record contains at least one meaningful locator (P1).
+ */
+export function hasMeaningfulEvidenceLocator(ev: ScopeExceptionEvidence): boolean {
+  const hasPage = ev.pageNumber !== undefined && ev.pageNumber !== null && String(ev.pageNumber).trim().length > 0;
+  const hasSection = ev.sectionReference !== undefined && ev.sectionReference.trim().length > 0;
+  const hasTable = ev.tableReference !== undefined && ev.tableReference.trim().length > 0;
+  const hasEvidenceRef = ev.evidenceReference !== undefined && ev.evidenceReference.trim().length > 0;
+  return hasPage || hasSection || hasTable || hasEvidenceRef;
+}
+
 export function findDocumentedScopeException(
   companyId: string,
   period: string,
@@ -403,9 +414,10 @@ export function findDocumentedScopeException(
   numeratorBasis: AccountingBasis | undefined,
   denominatorBasis: AccountingBasis | undefined,
   marginBasis: AccountingBasis | undefined,
-  sources: ReadonlyMap<string, SourceDocument> | Record<string, SourceDocument>
+  sources: ReadonlyMap<string, SourceDocument> | Record<string, SourceDocument>,
+  exceptions: DocumentedScopeException[] = DOCUMENTED_SCOPE_EXCEPTIONS
 ): ScopeExceptionValidationResult {
-  const candidates = DOCUMENTED_SCOPE_EXCEPTIONS.filter(
+  const candidates = exceptions.filter(
     (e) => e.companyId === companyId && (e.period === undefined || e.period === period)
   );
 
@@ -474,12 +486,32 @@ export function findDocumentedScopeException(
       candidateStructured.add('missing_evidence_reference');
       candidateReasons.push(`[${exc.id}] Exception has no source documents — evidence is required.`);
     } else {
-      // Require every sourceDocId to have at least one explicit evidence record (P1-2)
+      // 4a. Validate evidence references do not cite unknown source documents
+      if (exc.evidence) {
+        for (const ev of exc.evidence) {
+          if (!exc.sourceDocIds.includes(ev.sourceDocId)) {
+            candidateStructured.add('missing_evidence_reference');
+            candidateReasons.push(
+              `[${exc.id}] Evidence references unknown sourceDocId "${ev.sourceDocId}" not present in exception sourceDocIds.`
+            );
+          }
+        }
+      }
+
+      // 4b. Require every sourceDocId to have at least one explicit evidence record with a meaningful locator
       for (const docId of exc.sourceDocIds) {
-        const hasEvidence = exc.evidence && exc.evidence.some((ev) => ev.sourceDocId === docId);
-        if (!hasEvidence) {
+        const matchingEv = exc.evidence?.filter((ev) => ev.sourceDocId === docId) ?? [];
+        if (matchingEv.length === 0) {
           candidateStructured.add('missing_evidence_reference');
           candidateReasons.push(`[${exc.id}] Source document "${docId}" missing explicit evidence reference.`);
+        } else {
+          const hasMeaningful = matchingEv.some((ev) => hasMeaningfulEvidenceLocator(ev));
+          if (!hasMeaningful) {
+            candidateStructured.add('missing_evidence_reference');
+            candidateReasons.push(
+              `[${exc.id}] Evidence for source document "${docId}" lacks meaningful locators (requires at least one of pageNumber, sectionReference, tableReference, evidenceReference).`
+            );
+          }
         }
       }
 
@@ -497,9 +529,12 @@ export function findDocumentedScopeException(
           continue;
         }
 
-        if (!doc.isVerified && doc.verificationStatus !== 'verified') {
+        // Must satisfy BOTH isVerified === true and verificationStatus === 'verified' (P1)
+        if (doc.isVerified !== true || doc.verificationStatus !== 'verified') {
           candidateStructured.add('source_not_verified');
-          candidateReasons.push(`[${exc.id}] Source document "${docId}" is not verified.`);
+          candidateReasons.push(
+            `[${exc.id}] Source document "${docId}" is not verified (requires both isVerified=true and verificationStatus='verified', got isVerified=${doc.isVerified}, verificationStatus='${doc.verificationStatus}').`
+          );
         }
 
         if (doc.companyId !== exc.companyId) {

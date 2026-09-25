@@ -24,6 +24,7 @@
 import {
   findDocumentedScopeException,
   DOCUMENTED_SCOPE_EXCEPTIONS,
+  hasMeaningfulEvidenceLocator,
 } from '../src/data/scopeExceptions';
 import {
   getDimensionalObservationKey,
@@ -640,20 +641,60 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(res25a.matched === false, 'Test 25a-1: Missing source doc rejects exception');
   check(res25a.structuredRejections?.includes('source_not_found') === true, 'Test 25a-2: Rejection includes source_not_found');
 
-  // 25b: source_not_verified
-  const unverifiedSourcesMap = new Map<string, SourceDocument>(mockSourcesMap);
-  unverifiedSourcesMap.set('bmw_2026_q2_statement', {
+  // 25b: source_not_verified — test all 4 combinations (P1)
+  // 1. Both fields invalid: isVerified=false, verificationStatus='unverified' -> rejected
+  const unverifiedSourcesMap1 = new Map<string, SourceDocument>(mockSourcesMap);
+  unverifiedSourcesMap1.set('bmw_2026_q2_statement', {
     ...mockSourcesMap.get('bmw_2026_q2_statement')!,
     isVerified: false,
     verificationStatus: 'unverified',
   });
-  const res25b = findDocumentedScopeException(
+  const res25b1 = findDocumentedScopeException(
     'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
     'consolidated_group', 'consolidated_group', 'automotive_segment',
-    'reported', 'reported', 'reported', unverifiedSourcesMap
+    'reported', 'reported', 'reported', unverifiedSourcesMap1
   );
-  check(res25b.matched === false, 'Test 25b-1: Unverified source doc rejects exception');
-  check(res25b.structuredRejections?.includes('source_not_verified') === true, 'Test 25b-2: Rejection includes source_not_verified');
+  check(res25b1.matched === false, 'Test 25b-1: Both fields invalid (isVerified=false, unverified) rejects exception');
+  check(res25b1.structuredRejections?.includes('source_not_verified') === true, 'Test 25b-1: Rejection includes source_not_verified');
+
+  // 2. isVerified=true, verificationStatus='unverified' -> rejected
+  const unverifiedSourcesMap2 = new Map<string, SourceDocument>(mockSourcesMap);
+  unverifiedSourcesMap2.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    isVerified: true,
+    verificationStatus: 'unverified',
+  });
+  const res25b2 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', unverifiedSourcesMap2
+  );
+  check(res25b2.matched === false, 'Test 25b-2: isVerified=true but verificationStatus=unverified rejects exception');
+  check(res25b2.structuredRejections?.includes('source_not_verified') === true, 'Test 25b-2: Rejection includes source_not_verified');
+
+  // 3. isVerified=false, verificationStatus='verified' -> rejected
+  const unverifiedSourcesMap3 = new Map<string, SourceDocument>(mockSourcesMap);
+  unverifiedSourcesMap3.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    isVerified: false,
+    verificationStatus: 'verified',
+  });
+  const res25b3 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', unverifiedSourcesMap3
+  );
+  check(res25b3.matched === false, 'Test 25b-3: isVerified=false but verificationStatus=verified rejects exception');
+  check(res25b3.structuredRejections?.includes('source_not_verified') === true, 'Test 25b-3: Rejection includes source_not_verified');
+
+  // 4. Both fields valid: isVerified=true, verificationStatus='verified' -> accepted
+  const validSourcesMap = new Map<string, SourceDocument>(mockSourcesMap);
+  const res25b4 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', validSourcesMap
+  );
+  check(res25b4.matched === true, 'Test 25b-4: Both isVerified=true and verificationStatus=verified accepts exception');
 
   // 25c: source_company_mismatch
   const companyMismatchSourcesMap = new Map<string, SourceDocument>(mockSourcesMap);
@@ -985,7 +1026,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// TEST 35: Unified finding mapping createAuditFindingFromMarginValidation (P2)
+// TEST 35: Unified finding mapping createAuditFindingFromMarginValidation (P0, P1, P2)
 // ────────────────────────────────────────────────────────────────────────────
 {
   const exc = DOCUMENTED_SCOPE_EXCEPTIONS[0];
@@ -996,12 +1037,20 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     undefined,
     { exception: exc }
   );
+  check(proxyVal.status === 'proxy_only', 'Test 35a: validateMarginTriplet returns proxy_only for proxy exception');
+
   const findingProxy = createAuditFindingFromMarginValidation(proxyVal, 'bmw_group', '2026-Q2', 'quarterly', exc);
-  check(findingProxy !== null, 'Test 35a: createAuditFindingFromMarginValidation returns finding for proxy_only');
-  check(findingProxy?.disposition === 'documented', 'Test 35b: Proxy finding has disposition documented');
-  check(findingProxy?.severity === 'WARNING', 'Test 35c: Proxy finding has severity WARNING');
-  check(findingProxy?.isProxy === true, 'Test 35d: Proxy finding has isProxy true');
-  check(findingProxy?.exceptionId === exc.id, 'Test 35e: Proxy finding preserves exceptionId');
+  check(findingProxy !== null, 'Test 35b: createAuditFindingFromMarginValidation returns finding for proxy_only');
+  check(findingProxy?.disposition === 'review', 'Test 35c: Proxy finding has disposition review');
+  check(findingProxy?.disposition !== 'documented', 'Test 35d: Proxy finding disposition is NOT documented');
+  check(findingProxy?.severity === 'WARNING', 'Test 35e: Proxy finding has severity WARNING');
+  check(findingProxy?.category === 'SCOPE_MISMATCH', 'Test 35f: Proxy finding has category SCOPE_MISMATCH');
+  check(findingProxy?.isProxy === true, 'Test 35g: Proxy finding has isProxy true');
+  check(findingProxy?.exceptionId === exc.id, 'Test 35h: Proxy finding preserves exceptionId');
+  check(Array.isArray(findingProxy?.sourceDocIds) && findingProxy!.sourceDocIds!.length > 0, 'Test 35i: Proxy finding preserves sourceDocIds');
+  check(Array.isArray(findingProxy?.observationIds) && findingProxy!.observationIds!.length === 3, 'Test 35j: Proxy finding preserves observationIds');
+  check(Array.isArray(findingProxy?.failedChecks), 'Test 35k: Proxy finding preserves failedChecks');
+  check(findingProxy?.detail?.includes('Human review or actual segment-level numerator data is required') === true, 'Test 35l: Detail cites human review requirement');
 
   // Verified triplet returns null
   const verifiedVal = validateMarginTriplet(
@@ -1009,7 +1058,91 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     makeObs({ id: 'p_35v', metricId: 'operating_income', value: 800 }),
     makeObs({ id: 'm_35v', metricId: 'operating_margin', value: 8.0, unit: 'percentage' })
   );
-  check(createAuditFindingFromMarginValidation(verifiedVal, 'volkswagen_group', '2026-Q2') === null, 'Test 35f: Verified validation returns null finding');
+  check(createAuditFindingFromMarginValidation(verifiedVal, 'volkswagen_group', '2026-Q2') === null, 'Test 35m: Verified validation returns null finding');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 36: Meaningful Evidence Locators Validation (P1)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseExc = DOCUMENTED_SCOPE_EXCEPTIONS[0];
+
+  // Helper unit tests
+  check(hasMeaningfulEvidenceLocator({ sourceDocId: 'doc1' }) === false, 'Test 36a: Evidence with only sourceDocId has no meaningful locators');
+  check(hasMeaningfulEvidenceLocator({ sourceDocId: 'doc1', sectionReference: 'Automotive' }) === true, 'Test 36b: Evidence with sectionReference is meaningful');
+  check(hasMeaningfulEvidenceLocator({ sourceDocId: 'doc1', tableReference: 'KPIs' }) === true, 'Test 36c: Evidence with tableReference is meaningful');
+  check(hasMeaningfulEvidenceLocator({ sourceDocId: 'doc1', pageNumber: 42 }) === true, 'Test 36d: Evidence with pageNumber is meaningful');
+  check(hasMeaningfulEvidenceLocator({ sourceDocId: 'doc1', evidenceReference: '7.8% margin' }) === true, 'Test 36e: Evidence with evidenceReference is meaningful');
+
+  // 1. Evidence with only sourceDocId (no locators) -> rejected
+  const excOnlyDocId = {
+    ...baseExc,
+    id: 'test_exc_only_doc_id',
+    evidence: [{ sourceDocId: 'bmw_2026_q2_statement' }],
+  };
+  const res1 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', mockSourcesMap, [excOnlyDocId]
+  );
+  check(res1.matched === false, 'Test 36f: Exception with evidence lacking meaningful locators is rejected');
+  check(res1.structuredRejections?.includes('missing_evidence_reference') === true, 'Test 36g: Structured rejection is missing_evidence_reference');
+
+  // 2. Evidence with sectionReference -> accepted
+  const excSection = {
+    ...baseExc,
+    id: 'test_exc_section',
+    evidence: [{ sourceDocId: 'bmw_2026_q2_statement', sectionReference: 'Automotive Segment' }],
+  };
+  const res2 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', mockSourcesMap, [excSection]
+  );
+  check(res2.matched === true, 'Test 36h: Exception with sectionReference evidence is accepted');
+
+  // 3. Evidence with tableReference -> accepted
+  const excTable = {
+    ...baseExc,
+    id: 'test_exc_table',
+    evidence: [{ sourceDocId: 'bmw_2026_q2_statement', tableReference: 'KPI Table 1' }],
+  };
+  const res3 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', mockSourcesMap, [excTable]
+  );
+  check(res3.matched === true, 'Test 36i: Exception with tableReference evidence is accepted');
+
+  // 4. Evidence with pageNumber -> accepted
+  const excPage = {
+    ...baseExc,
+    id: 'test_exc_page',
+    evidence: [{ sourceDocId: 'bmw_2026_q2_statement', pageNumber: 15 }],
+  };
+  const res4 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', mockSourcesMap, [excPage]
+  );
+  check(res4.matched === true, 'Test 36j: Exception with pageNumber evidence is accepted');
+
+  // 5. Evidence referencing a sourceDocId not present in sourceDocIds -> rejected
+  const excUnknownDoc = {
+    ...baseExc,
+    id: 'test_exc_unknown_doc',
+    evidence: [
+      { sourceDocId: 'bmw_2026_q2_statement', sectionReference: 'Automotive' },
+      { sourceDocId: 'unknown_source_doc_xyz', sectionReference: 'External Note' },
+    ],
+  };
+  const res5 = findDocumentedScopeException(
+    'bmw_group', '2026-Q2', 'operating_margin', 'operating_income', 'revenue',
+    'consolidated_group', 'consolidated_group', 'automotive_segment',
+    'reported', 'reported', 'reported', mockSourcesMap, [excUnknownDoc]
+  );
+  check(res5.matched === false, 'Test 36k: Evidence referencing unlisted sourceDocId is rejected');
+  check(res5.structuredRejections?.includes('missing_evidence_reference') === true, 'Test 36l: Rejection includes missing_evidence_reference');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

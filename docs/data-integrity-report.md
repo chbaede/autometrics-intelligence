@@ -95,85 +95,66 @@
 | Category | Count | Strict Fails? |
 |----------|-------|---------------|
 | Blocking | 0 | Yes (all modes) |
-| Review | 0 | Yes (--strict only) |
-| Documented (with evidence) | 8 | No |
+| Review | 8 | Yes (--strict only) |
+| Documented (with evidence) | 0 | No |
 | Documented (without evidence) | 0 | Yes (promoted to blocking) |
 | Informational (corroborations) | 0 | No |
 
 ---
 
-## Documented Proxy Exceptions (8 total — evidence-backed)
+## Documented Proxy Exceptions & Review Findings (8 total)
 
-All 8 documented findings are automotive industry scope disclosure conventions where consolidated group operating income is used as an observable proxy approximation for segment EBIT. They are classified as `proxy_only` and are NOT treated as mathematically verified segment margins.
+All 8 documented findings are automotive industry scope disclosure conventions where consolidated group operating income is used as an observable proxy approximation for segment EBIT.
+Under the STEP 4-4 Final Fix policy, **`proxy_only` observations are classified as `disposition: 'review'`** (never `documented` and never `verified`). While the KPI and exception rationale are documented, the margin cannot be mathematically calculated from available group figures without actual segment-level EBIT.
+
+- **Normal mode (`npm run audit-data`)**: Exits with code 0 (0 blocking findings).
+- **Strict mode (`npm run audit-data -- --strict`)**: Exits with code 1 (8 review findings requiring human verification or segment-level data).
 
 ### BMW Group Automotive Segment EBIT margin (4 periods)
 
 BMW Group reports its headline margin KPI ("Automotive EBIT margin") at the Automotive Segment level, while revenue and operating_income are reported at the consolidated group level. The group operating_income is a proxy substitute for segment EBIT.
 
-| Exception ID | Period | Nature | Proxy? | Source Doc | Evidence |
-|-------------|--------|--------|--------|------------|----------|
-| `bmw_automotive_segment_ros_2026q2` | 2026-Q2 | `proxy_numerator` | Yes | `bmw_2026_q2_statement` | Automotive Segment Key Performance Indicators |
-| `bmw_automotive_segment_ros_2026q1` | 2026-Q1 | `proxy_numerator` | Yes | `bmw_2026_q1_statement` | Automotive Segment Key Performance Indicators |
-| `bmw_automotive_segment_ros_2025fy` | 2025-FY | `proxy_numerator` | Yes | `bmw_2025_fy_statement` | Automotive Segment Key Performance Indicators |
-| `bmw_automotive_segment_ros_2024fy` | 2024-FY | `proxy_numerator` | Yes | `bmw_2024_fy_statement` | Automotive Segment Key Performance Indicators |
+| Exception ID | Period | Nature | Proxy? | Source Doc | Evidence | Disposition |
+|-------------|--------|--------|--------|------------|----------|-------------|
+| `bmw_automotive_segment_ros_2026q2` | 2026-Q2 | `proxy_numerator` | Yes | `bmw_2026_q2_statement` | Automotive Segment Key Performance Indicators | `review` |
+| `bmw_automotive_segment_ros_2026q1` | 2026-Q1 | `proxy_numerator` | Yes | `bmw_2026_q1_statement` | Automotive Segment Key Performance Indicators | `review` |
+| `bmw_automotive_segment_ros_2025fy` | 2025-FY | `proxy_numerator` | Yes | `bmw_2025_fy_statement` | Automotive Segment Key Performance Indicators | `review` |
+| `bmw_automotive_segment_ros_2024fy` | 2024-FY | `proxy_numerator` | Yes | `bmw_2024_fy_statement` | Automotive Segment Key Performance Indicators | `review` |
 
 ### Mercedes-Benz Cars Segment Adjusted RoS (4 periods)
 
 Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercedes-Benz Cars segment with adjusted accounting basis at the cars_segment level, while the observable numerator (operating_income) is at consolidated_group scope with reported basis.
 
-| Exception ID | Period | Nature | Proxy? | Source Doc | Evidence |
-|-------------|--------|--------|--------|------------|----------|
-| `mbg_cars_adjusted_ros_2026q2` | 2026-Q2 | `proxy_numerator` | Yes | `mbg_2026_q2_results` | Mercedes-Benz Cars Division KPIs |
-| `mbg_cars_adjusted_ros_2026q1` | 2026-Q1 | `proxy_numerator` | Yes | `mbg_2026_q1_results` | Mercedes-Benz Cars Division KPIs |
-| `mbg_cars_adjusted_ros_2025fy` | 2025-FY | `proxy_numerator` | Yes | `mbg_2025_fy_results` | Mercedes-Benz Cars Division KPIs |
-| `mbg_cars_adjusted_ros_2024fy` | 2024-FY | `proxy_numerator` | Yes | `mbg_2024_fy_results` | Mercedes-Benz Cars Division KPIs |
+| Exception ID | Period | Nature | Proxy? | Source Doc | Evidence | Disposition |
+|-------------|--------|--------|--------|------------|----------|-------------|
+| `mbg_cars_adjusted_ros_2026q2` | 2026-Q2 | `proxy_numerator` | Yes | `mbg_2026_q2_results` | Mercedes-Benz Cars Division KPIs | `review` |
+| `mbg_cars_adjusted_ros_2026q1` | 2026-Q1 | `proxy_numerator` | Yes | `mbg_2026_q1_results` | Mercedes-Benz Cars Division KPIs | `review` |
+| `mbg_cars_adjusted_ros_2025fy` | 2025-FY | `proxy_numerator` | Yes | `mbg_2025_fy_results` | Mercedes-Benz Cars Division KPIs | `review` |
+| `mbg_cars_adjusted_ros_2024fy` | 2024-FY | `proxy_numerator` | Yes | `mbg_2024_fy_results` | Mercedes-Benz Cars Division KPIs | `review` |
 
 ---
 
-## Architectural & Semantic Hardening (STEP 4-4)
+## Architectural & Semantic Hardening (STEP 4-4 & Final Fix)
 
-### P0-1: Unified Proxy Validation Flow
-- In `scripts/audit-data.ts`, candidate evaluation feeds resolved documented exceptions directly into `validateMarginTriplet(rev, profit, margin, undefined, { exception })`.
-- Derives audit status and findings strictly from `validation.status` via `createAuditFindingFromMarginValidation()`.
-- Added `marginValidationProxyOnly` counter to distinguish clean mathematical margin verifications (32) from proxy-approximated reported margins (8).
+### P0: Proxy Only Disposition Policy (`proxy_only → review`)
+- In `createAuditFindingFromMarginValidation()`, `validation.status === 'proxy_only'` maps strictly to `disposition: 'review'`.
+- `proxy_only` never becomes `documented` and never becomes `verified`.
+- Preserves `severity: 'WARNING'`, `category: 'SCOPE_MISMATCH'`, `isProxy: true`, `exceptionId`, `sourceDocIds`, `observationIds`, and `failedChecks`.
+- Detail text explicitly documents that the headline KPI is documented by the OEM, the available numerator is a proxy, the margin is not independently verified mathematically, and human review or actual segment numerator data is required.
 
-### P0-2: Strict Proxy Numerator Semantics
+### P1-1: Strict Dual Source Verification Requirement
+- In `findDocumentedScopeException()`, requires both `doc.isVerified === true && doc.verificationStatus === 'verified'`.
+- All 57 primary sources in `src/data/sources.ts` are populated with `isVerified: true` and `verificationStatus: 'verified'`.
+- If either condition is false, the source is rejected with structured rejection `source_not_verified`.
+
+### P1-2: Meaningful Evidence Locators Requirement
+- Added `hasMeaningfulEvidenceLocator()` validating that every evidence record contains at least one meaningful locator: `pageNumber`, `sectionReference`, `tableReference`, or `evidenceReference`.
+- Records with only `{ sourceDocId }` are rejected with `missing_evidence_reference`.
+- Evidence records referencing unknown `sourceDocIds` not present in exception `sourceDocIds` are rejected.
+
+### P1-3: Unified Proxy Validation & Candidate Resolution Flow
+- Evaluates candidate diagnostics against documented exceptions: exactly 1 match resolves candidate triplet and validates it with exception. Multiple matches flag `AMBIGUOUS_SELECTION`.
 - Triplet validation with `exception.isProxy: true` returns `status: 'proxy_only'` with `calculatedMargin: null`.
-- Proxy numerator relationships can NEVER produce `status: 'verified'`.
-- Preserves the reported margin value without asserting independent mathematical equality.
-
-### P0-3: Strict VerificationStatus Requirement
-- In `validateMarginTriplet()`, tightened observation verification check: all three observations (revenue, profit, margin) must explicitly have `verificationStatus === 'verified'`.
-- Any observation with `needs_review`, `scope_warning`, or `unverified` fails verification and sets `checks.verificationStatus = false`, returning `status: 'needs_review'`.
-
-### P1-1: Removal of Set<string> Bypass
-- In `findDocumentedScopeException()`, removed `Set<string>` from the parameter signature.
-- Requires `ReadonlyMap<string, SourceDocument> | Record<string, SourceDocument>`, ensuring all source documents undergo deep verification (verified status, companyId match, period match, valid HTTPS official URL).
-
-### P1-2: Explicit Evidence Record Requirement
-- Added `ScopeExceptionEvidence` interface (`sourceDocId`, `pageNumber?`, `sectionReference?`, `tableReference?`, `evidenceReference?`).
-- Required all documented exceptions in `DOCUMENTED_SCOPE_EXCEPTIONS` to contain explicit evidence records for every referenced `sourceDocId`.
-- Exceptions missing evidence are rejected with structured rejection `missing_evidence_reference`.
-
-### P1-3: Candidate Resolution Flow
-- Replaced indiscriminate finding emissions across all candidate diagnostics in `audit-data.ts`.
-- Evaluates candidate diagnostics against documented exceptions:
-  - Exactly 1 match: resolves candidate triplet and validates it with exception.
-  - Multiple matches: flags `AMBIGUOUS_SELECTION` (blocking).
-  - 0 matches: flags `SCOPE_MISMATCH` (blocking).
-
-### P1-4: Deterministic Rule Assignment
-- In `selectCompatibleMarginTriplets()`, removed arbitrary first-rule fallback `candidateRules[0]` when no relationship rule matches metric definitions.
-- Sets `ruleId = undefined` for unsupported metric combinations, preventing misleading rule attribution.
-
-### P2: Unified Audit Finding Mapping
-- Exported `createAuditFindingFromMarginValidation()` from `src/utils/metricCalculations.ts`.
-- Standardizes mapping from `MarginValidationResult` to `AuditFinding`:
-  - `verified` -> returns `null`
-  - `proxy_only` -> returns documented `SCOPE_MISMATCH` warning with full exception & evidence trail
-  - `needs_review` -> returns review `SCOPE_MISMATCH` warning
-  - `invalid` -> returns blocking `MATH_MISMATCH` or `SCOPE_MISMATCH` error
-  - `ambiguous` -> returns blocking `AMBIGUOUS_SELECTION` warning
 
 ---
 
@@ -188,5 +169,5 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 | `margin-triplet.test.ts` | Margin relationship rules & candidate triplets | 40 | ✅ All passed |
 | `provenance.test.ts` | Source provenance cross-validation | 23 | ✅ All passed |
 | `data-integrity-gate.test.ts` | Exit-code policy & regression guards | 34 | ✅ All passed |
-| `scope-exceptions.test.ts` | Proxy validation, deep source checks, duplicate map, unified findings | 117 | ✅ All passed |
-| **Total** | | **1987** | ✅ **0 failures** |
+| `scope-exceptions.test.ts` | Proxy validation, deep source checks, meaningful evidence, review disposition | 141 | ✅ All passed |
+| **Total** | | **2011** | ✅ **0 failures** |

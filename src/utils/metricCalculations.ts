@@ -1107,7 +1107,7 @@ export function createAuditFindingFromMarginValidation(
     const rationale = exception?.rationale || validation.reasons.join('; ');
     return {
       severity: 'WARNING',
-      disposition: 'documented',
+      disposition: 'review',
       category: 'SCOPE_MISMATCH',
       companyId,
       period,
@@ -1119,7 +1119,7 @@ export function createAuditFindingFromMarginValidation(
       observationIds,
       failedChecks: validation.failedChecks,
       isProxy: true,
-      detail: `[PROXY LIMITATION] Documented scope exception [${excId}]: ${rationale} Note: consolidated operating income is a proxy substitute for segment EBIT; reported margin preserved from official filings but not independently verified mathematically.`,
+      detail: `[PROXY LIMITATION] Documented scope exception [${excId}]: ${rationale} The headline margin KPI is officially documented by the OEM, but the available operating profit numerator is a consolidated group proxy. The margin is not independently verified mathematically. Human review or actual segment-level numerator data is required.`,
       documentationUrl: 'docs/data-audit-report.md',
     };
   }
