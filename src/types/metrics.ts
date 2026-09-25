@@ -521,6 +521,8 @@ export interface SourceDocument {
   issuer?: string;
   docType: DocumentType;
   period: string; // e.g., '2024-Q3', '2024-Q4', '2024-FY', '2025-Q1', '2025-Q2'
+  /** Optional period type for source-level period type validation (STEP 4-13, Task 2). */
+  periodType?: PeriodType;
   publicationDate: string; // YYYY-MM-DD
   officialUrl: string;
   isVerified: boolean;

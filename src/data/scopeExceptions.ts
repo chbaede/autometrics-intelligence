@@ -977,6 +977,152 @@ function lookupSourceDocInRegistry(
 }
 
 /**
+ * Options for shared evidence validation (STEP 4-13, Task 4).
+ */
+interface EvidenceValidationOptions {
+  /** All valid evidence support types. Used for unknown-type detection. */
+  readonly knownSupportTypes: readonly EvidenceSupportType[];
+  /** Source doc IDs the evidence items must belong to. */
+  readonly parentSourceDocIds: readonly string[];
+  /** Human-readable parent entity label for error messages. */
+  readonly parentLabel: string;
+  /** Source registry for existence checks. */
+  readonly sourcesMap: SourceRegistry | null | undefined;
+}
+
+/** All known EvidenceSupportType values for unknown-type detection (STEP 4-13, Task 3 / Task 6). */
+const ALL_KNOWN_SUPPORT_TYPES: readonly EvidenceSupportType[] = [
+  'revenue',
+  'proxy_numerator',
+  'target_semantic',
+  'denominator',
+  'scope',
+  'accounting_basis',
+  'period',
+  'period_type',
+  'reported_kpi',
+];
+
+/**
+ * Validates a list of evidence items against membership, locator, purpose/support consistency,
+ * empty-supports, unknown-support-type, and duplicate-supports invariants (STEP 4-13, Task 4).
+ *
+ * Returns an object with arrays of mismatch codes and reasons collected across all evidence items.
+ * Each mismatch code is emitted at most once globally; per-item reasons are always appended.
+ *
+ * Invariants enforced:
+ *  1. ev.sourceDocId must be included in parentSourceDocIds → `evidenceSourceNotInMapping`
+ *  2. ev.sourceDocId must exist in sourcesMap (when provided) → `evidenceSourceMissing`
+ *  3. ev must have at least one meaningful locator → `missingEvidenceLocator`
+ *  4. ev.purpose + ev.supports must be consistent → `evidencePurposeSupportMismatch`
+ *  5. If ev.purpose is set, ev.supports must be non-empty → `missingEvidenceSupports`
+ *  6. ev.supports must not contain unknown types → `unknownEvidenceSupportType`
+ *  7. ev.supports must not contain duplicate values → `duplicateEvidenceSupports`
+ *
+ * Does NOT emit mismatch codes already in the caller's mismatch list (uses push-once logic).
+ */
+export function validateEvidenceItems(
+  evidence: ScopeExceptionEvidence[] | undefined | null,
+  options: EvidenceValidationOptions
+): { mismatches: string[]; reasons: string[]; allSupports: Set<EvidenceSupportType> } {
+  const { knownSupportTypes, parentSourceDocIds, parentLabel, sourcesMap } = options;
+  const mismatches: string[] = [];
+  const reasons: string[] = [];
+  const allSupports = new Set<EvidenceSupportType>();
+
+  function addMismatch(code: string): void {
+    if (!mismatches.includes(code)) mismatches.push(code);
+  }
+
+  if (!evidence || evidence.length === 0) {
+    addMismatch('missingEvidenceLocator');
+    reasons.push(`${parentLabel} has no evidence items.`);
+    return { mismatches, reasons, allSupports };
+  }
+
+  for (const ev of evidence) {
+    // Task 1: evidence source must be in parent sourceDocIds (new precise token; evidenceSourceDocMismatch preserved for backward compat)
+    if (!parentSourceDocIds.includes(ev.sourceDocId)) {
+      addMismatch('evidenceSourceNotInMapping');
+      addMismatch('evidenceSourceDocMismatch'); // backward-compat alias
+      reasons.push(`${parentLabel} evidence sourceDocId "${ev.sourceDocId}" is not included in sourceDocIds [${parentSourceDocIds.join(', ')}].`);
+    }
+
+    // evidence source must exist in registry
+    if (sourcesMap) {
+      const evDoc = lookupSourceDocInRegistry(sourcesMap, ev.sourceDocId);
+      if (!evDoc) {
+        addMismatch('evidenceSourceMissing');
+        reasons.push(`${parentLabel} evidence sourceDocId "${ev.sourceDocId}" was not found in source registry.`);
+      }
+    }
+
+    // meaningful locator
+    if (!hasMeaningfulEvidenceLocator(ev)) {
+      addMismatch('missingEvidenceLocator');
+      reasons.push(`${parentLabel} evidence for source "${ev.sourceDocId}" lacks meaningful locators.`);
+    }
+
+    // Task 3: purpose set but supports empty / missing → missingEvidenceSupports
+    if (ev.purpose && (!ev.supports || ev.supports.length === 0)) {
+      addMismatch('missingEvidenceSupports');
+      reasons.push(`${parentLabel} evidence for source "${ev.sourceDocId}" declares purpose "${ev.purpose}" but has no supports values.`);
+    }
+
+    // Task 4 / carried-forward purpose+support consistency
+    if (ev.purpose && ev.supports && ev.supports.length > 0) {
+      let isConsistent = true;
+      let expectedHelp = '';
+      switch (ev.purpose) {
+        case 'scope_definition':
+          isConsistent = ev.supports.some((s) => s === 'scope' || s === 'target_semantic' || s === 'reported_kpi');
+          expectedHelp = 'must support "scope", "target_semantic", or "reported_kpi"';
+          break;
+        case 'numerator_definition':
+          isConsistent = ev.supports.some((s) => s === 'revenue' || s === 'proxy_numerator' || s === 'denominator' || s === 'accounting_basis');
+          expectedHelp = 'must support "revenue", "proxy_numerator", "denominator", or "accounting_basis"';
+          break;
+        case 'reported_kpi':
+          isConsistent = ev.supports.some((s) => s === 'reported_kpi');
+          expectedHelp = 'must support "reported_kpi"';
+          break;
+        case 'proxy_justification':
+          isConsistent = ev.supports.some((s) => s === 'proxy_numerator' || s === 'target_semantic' || s === 'scope');
+          expectedHelp = 'must support "proxy_numerator", "target_semantic", or "scope"';
+          break;
+      }
+      if (!isConsistent) {
+        addMismatch('evidencePurposeSupportMismatch');
+        reasons.push(
+          `${parentLabel} evidence for "${ev.sourceDocId}" has purpose "${ev.purpose}" which contradicts its declared supports [${ev.supports.join(', ')}]. Evidence with purpose "${ev.purpose}" ${expectedHelp}.`
+        );
+      }
+    }
+
+    if (ev.supports) {
+      // Task 6 (unknown support type)
+      const seen = new Set<string>();
+      for (const sup of ev.supports) {
+        if (!(knownSupportTypes as readonly string[]).includes(sup)) {
+          addMismatch('unknownEvidenceSupportType');
+          reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" contains unknown support type "${sup}".`);
+        }
+        // Task 7 (duplicate supports)
+        if (seen.has(sup)) {
+          addMismatch('duplicateEvidenceSupports');
+          reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" contains duplicate support value "${sup}".`);
+        }
+        seen.add(sup);
+        allSupports.add(sup as EvidenceSupportType);
+      }
+    }
+  }
+
+  return { mismatches, reasons, allSupports };
+}
+
+
+/**
  * Validates actual observation compatibility with a DocumentedReportedKpi (STEP 4-8, Task 6; STEP 4-9, Task 2; STEP 4-11, Task 3).
  * Source registry validation is strictly mandatory.
  */
@@ -988,144 +1134,149 @@ export function validateDocumentedReportedKpiCompatibility(
   const mismatches: string[] = [];
   const reasons: string[] = [];
 
+  function addMismatch(code: string): void {
+    if (!mismatches.includes(code)) mismatches.push(code);
+  }
+
   if (!sourcesMap) {
-    mismatches.push('sourceMissing');
+    addMismatch('sourceMissing');
     reasons.push('Source registry is mandatory for documented reported KPI validation.');
   }
 
   if (kpi.companyId !== marginObs.companyId) {
-    mismatches.push('companyId');
+    addMismatch('companyId');
     reasons.push(
       `Reported KPI companyId "${kpi.companyId}" does not match margin observation "${marginObs.companyId}".`
     );
   }
 
   if (kpi.period && kpi.period !== marginObs.period) {
-    mismatches.push('period');
+    addMismatch('period');
     reasons.push(
       `Reported KPI period "${kpi.period}" does not match margin observation "${marginObs.period}".`
     );
   }
 
   if (kpi.periodType && kpi.periodType !== marginObs.periodType) {
-    mismatches.push('periodType');
+    addMismatch('periodType');
     reasons.push(
       `Reported KPI periodType "${kpi.periodType}" does not match margin observation "${marginObs.periodType}".`
     );
   }
 
   if (kpi.metricId !== marginObs.metricId) {
-    mismatches.push('metricId');
+    addMismatch('metricId');
     reasons.push(
       `Reported KPI metricId "${kpi.metricId}" does not match margin observation "${marginObs.metricId}".`
     );
   }
 
   if (kpi.reportingScope && kpi.reportingScope !== marginObs.reportingScope) {
-    mismatches.push('reportingScope');
+    addMismatch('reportingScope');
     reasons.push(
       `Reported KPI scope "${kpi.reportingScope}" does not match margin observation "${marginObs.reportingScope}".`
     );
   }
 
   if (kpi.accountingBasis && kpi.accountingBasis !== marginObs.accountingBasis) {
-    mismatches.push('accountingBasis');
+    addMismatch('accountingBasis');
     reasons.push(
       `Reported KPI accountingBasis "${kpi.accountingBasis}" does not match margin observation "${marginObs.accountingBasis}".`
     );
   }
 
   if (!marginObs.sourceDocId || !kpi.sourceDocIds.includes(marginObs.sourceDocId)) {
-    mismatches.push('sourceDocId');
+    addMismatch('sourceDocId');
     reasons.push(
       `Margin observation sourceDocId "${marginObs.sourceDocId}" is not present in KPI sourceDocIds [${kpi.sourceDocIds.join(', ')}].`
     );
   }
 
   if (marginObs.verificationStatus !== 'verified') {
-    mismatches.push('verificationStatus');
+    addMismatch('verificationStatus');
     reasons.push(
       `Margin observation verification status is "${marginObs.verificationStatus}", expected "verified".`
     );
   }
 
-  // Deep source registry validation (STEP 4-9, Task 2; STEP 4-11, Task 3; STEP 4-12, Task 3)
+  // Deep source registry validation — including Task 2 periodType checks (STEP 4-13)
   const expectedPeriod = kpi.period ?? marginObs.period;
+  const expectedPeriodType = kpi.periodType ?? marginObs.periodType;
   if (sourcesMap) {
     const docPeriods = new Set<string>();
+    const docPeriodTypes = new Set<string>();
     for (const docId of kpi.sourceDocIds) {
       const doc = lookupSourceDocInRegistry(sourcesMap, docId);
       if (!doc) {
-        if (!mismatches.includes('sourceMissing')) mismatches.push('sourceMissing');
+        addMismatch('sourceMissing');
         reasons.push(`Source document "${docId}" referenced by KPI was not found in registry.`);
       } else {
         if (doc.isVerified !== true) {
-          if (!mismatches.includes('sourceUnverified')) mismatches.push('sourceUnverified');
+          addMismatch('sourceUnverified');
           reasons.push(`Source document "${docId}" referenced by KPI is not verified (isVerified !== true).`);
         }
         if (doc.verificationStatus !== 'verified') {
-          if (!mismatches.includes('sourceVerificationStatus')) mismatches.push('sourceVerificationStatus');
+          addMismatch('sourceVerificationStatus');
           reasons.push(`Source document "${docId}" verificationStatus is "${doc.verificationStatus}", expected "verified".`);
         }
         if (doc.companyId !== kpi.companyId) {
-          if (!mismatches.includes('sourceCompanyMismatch')) mismatches.push('sourceCompanyMismatch');
+          addMismatch('sourceCompanyMismatch');
           reasons.push(`Source document "${docId}" companyId "${doc.companyId}" does not match KPI companyId "${kpi.companyId}".`);
         }
         if (doc.period) {
           docPeriods.add(doc.period);
           if (expectedPeriod && doc.period !== expectedPeriod) {
-            if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+            addMismatch('sourcePeriodMismatch');
             reasons.push(`Source document "${docId}" period "${doc.period}" does not match expected period "${expectedPeriod}".`);
           }
         }
+        // Task 2: periodType validation
+        if (doc.periodType) {
+          docPeriodTypes.add(doc.periodType);
+          if (expectedPeriodType && doc.periodType !== expectedPeriodType) {
+            addMismatch('sourcePeriodTypeMismatch');
+            reasons.push(`Source document "${docId}" periodType "${doc.periodType}" does not match expected periodType "${expectedPeriodType}".`);
+          }
+        }
         if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
-          if (!mismatches.includes('sourceOfficialUrl')) mismatches.push('sourceOfficialUrl');
+          addMismatch('sourceOfficialUrl');
           reasons.push(`Source document "${docId}" officialUrl must be a valid HTTPS URL.`);
         }
         if (!doc.publicationDate || !/^\d{4}-\d{2}-\d{2}$/.test(doc.publicationDate)) {
-          if (!mismatches.includes('sourcePublicationDate')) mismatches.push('sourcePublicationDate');
+          addMismatch('sourcePublicationDate');
           reasons.push(`Source document "${docId}" publicationDate "${doc.publicationDate}" is not a valid ISO date.`);
         }
       }
     }
     if (docPeriods.size > 1) {
-      if (!mismatches.includes('inconsistentSourcePeriods')) mismatches.push('inconsistentSourcePeriods');
-      if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+      addMismatch('inconsistentSourcePeriods');
+      addMismatch('sourcePeriodMismatch');
       reasons.push(`Multiple source documents referenced by KPI [${kpi.id}] have inconsistent periods: [${Array.from(docPeriods).join(', ')}].`);
     }
-  }
-
-  // Evidence source reference and locator validation (STEP 4-9, STEP 4-10, Task 2 & STEP 4-11, Task 3; STEP 4-12, Task 4)
-  if (!kpi.evidence || kpi.evidence.length === 0) {
-    if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
-    reasons.push(`Reported KPI [${kpi.id}] has no evidence items.`);
-  } else {
-    for (const ev of kpi.evidence) {
-      if (!kpi.sourceDocIds.includes(ev.sourceDocId)) {
-        if (!mismatches.includes('evidenceSourceDocMismatch')) mismatches.push('evidenceSourceDocMismatch');
-        reasons.push(`Reported KPI [${kpi.id}] evidence sourceDocId "${ev.sourceDocId}" is not included in sourceDocIds [${kpi.sourceDocIds.join(', ')}].`);
-      }
-      if (sourcesMap) {
-        const evDoc = lookupSourceDocInRegistry(sourcesMap, ev.sourceDocId);
-        if (!evDoc) {
-          if (!mismatches.includes('evidenceSourceMissing')) mismatches.push('evidenceSourceMissing');
-          reasons.push(`Reported KPI [${kpi.id}] evidence sourceDocId "${ev.sourceDocId}" was not found in source registry.`);
-        }
-      }
-      if (!hasMeaningfulEvidenceLocator(ev)) {
-        if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
-        reasons.push(`Reported KPI [${kpi.id}] evidence for source "${ev.sourceDocId}" lacks meaningful locators.`);
-      }
-      if (ev.purpose === 'reported_kpi' && ev.supports && ev.supports.length > 0 && !ev.supports.includes('reported_kpi')) {
-        if (!mismatches.includes('evidencePurposeSupportMismatch')) mismatches.push('evidencePurposeSupportMismatch');
-        reasons.push(`Reported KPI [${kpi.id}] evidence for "${ev.sourceDocId}" has purpose "reported_kpi" but does not support "reported_kpi".`);
-      }
+    // Task 2: inconsistent periodTypes across multiple source docs
+    if (docPeriodTypes.size > 1) {
+      addMismatch('inconsistentSourcePeriodTypes');
+      addMismatch('sourcePeriodTypeMismatch');
+      reasons.push(`Multiple source documents referenced by KPI [${kpi.id}] have inconsistent periodTypes: [${Array.from(docPeriodTypes).join(', ')}].`);
     }
   }
 
-  const hasReportedKpiEvidence = kpi.evidence && kpi.evidence.some((ev) => ev.purpose === 'reported_kpi' || ev.supports?.includes('reported_kpi'));
+  // Evidence validation via shared helper (Task 4 — STEP 4-13)
+  const evResult = validateEvidenceItems(kpi.evidence, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: kpi.sourceDocIds,
+    parentLabel: `Reported KPI [${kpi.id}]`,
+    sourcesMap,
+  });
+  for (const m of evResult.mismatches) {
+    addMismatch(m);
+  }
+  reasons.push(...evResult.reasons);
+
+  const hasReportedKpiEvidence =
+    kpi.evidence && kpi.evidence.some((ev) => ev.purpose === 'reported_kpi' || ev.supports?.includes('reported_kpi'));
   if (!hasReportedKpiEvidence) {
-    mismatches.push('evidencePurpose');
+    addMismatch('evidencePurpose');
     reasons.push(`Reported KPI [${kpi.id}] does not contain evidence with purpose or support for "reported_kpi".`);
   }
 
@@ -1380,11 +1531,9 @@ export function validateProxyMappingCompatibility(
     }
     reasons.push(contractLookup.reason);
   } else {
+    // Task 5 (STEP 4-13): lookupProxySemanticContract only returns 'unique' for active contracts;
+    // an inactive-contract branch here is unreachable and has been removed.
     activeContract = contractLookup.contract;
-    if (activeContract.status !== 'active') {
-      if (!mismatches.includes('deprecatedProxyContract')) mismatches.push('deprecatedProxyContract');
-      reasons.push(`Proxy semantic contract for company "${mapping.companyId}" is not active.`);
-    }
     if (!targetSemantic || !allowedSemantics || !allowedSemantics.includes(targetSemantic) || activeContract.targetSemantic !== targetSemantic) {
       if (!mismatches.includes('targetNumeratorSemantic')) mismatches.push('targetNumeratorSemantic');
       reasons.push(
@@ -1409,63 +1558,18 @@ export function validateProxyMappingCompatibility(
     }
   }
 
-  // Evidence validation & coverage (STEP 4-9, Task 1; STEP 4-10, Task 2; STEP 4-11, Tasks 1, 2, 5; STEP 4-12, Tasks 1 & 4)
-  const allSupports = new Set<EvidenceSupportType>();
-  if (mapping.evidence && mapping.evidence.length > 0) {
-    for (const ev of mapping.evidence) {
-      if (!mapping.sourceDocIds || !mapping.sourceDocIds.includes(ev.sourceDocId)) {
-        if (!mismatches.includes('evidenceSourceDocMismatch')) mismatches.push('evidenceSourceDocMismatch');
-        reasons.push(`ProxyMapping [${mapping.id}] evidence sourceDocId "${ev.sourceDocId}" is not included in sourceDocIds [${(mapping.sourceDocIds || []).join(', ')}].`);
-      }
-      if (sourcesMap) {
-        const evDoc = lookupSourceDocInRegistry(sourcesMap, ev.sourceDocId);
-        if (!evDoc) {
-          if (!mismatches.includes('evidenceSourceMissing')) mismatches.push('evidenceSourceMissing');
-          reasons.push(`ProxyMapping [${mapping.id}] evidence source "${ev.sourceDocId}" was not found in source registry.`);
-        }
-      }
-      if (!hasMeaningfulEvidenceLocator(ev)) {
-        if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
-        reasons.push(`ProxyMapping [${mapping.id}] evidence for source "${ev.sourceDocId}" lacks meaningful locator.`);
-      }
-
-      // Purpose/support consistency validation (STEP 4-12, Task 4)
-      if (ev.purpose && ev.supports && ev.supports.length > 0) {
-        let isConsistent = true;
-        let expectedHelp = '';
-        switch (ev.purpose) {
-          case 'scope_definition':
-            isConsistent = ev.supports.some((s) => s === 'scope' || s === 'target_semantic' || s === 'reported_kpi');
-            expectedHelp = 'must support "scope", "target_semantic", or "reported_kpi"';
-            break;
-          case 'numerator_definition':
-            isConsistent = ev.supports.some((s) => s === 'revenue' || s === 'proxy_numerator' || s === 'denominator' || s === 'accounting_basis');
-            expectedHelp = 'must support "revenue", "proxy_numerator", "denominator", or "accounting_basis"';
-            break;
-          case 'reported_kpi':
-            isConsistent = ev.supports.some((s) => s === 'reported_kpi');
-            expectedHelp = 'must support "reported_kpi"';
-            break;
-          case 'proxy_justification':
-            isConsistent = ev.supports.some((s) => s === 'proxy_numerator' || s === 'target_semantic' || s === 'scope');
-            expectedHelp = 'must support "proxy_numerator", "target_semantic", or "scope"';
-            break;
-        }
-        if (!isConsistent) {
-          if (!mismatches.includes('evidencePurposeSupportMismatch')) mismatches.push('evidencePurposeSupportMismatch');
-          reasons.push(
-            `ProxyMapping [${mapping.id}] evidence for "${ev.sourceDocId}" has purpose "${ev.purpose}" which contradicts its declared supports [${ev.supports.join(', ')}]. Evidence with purpose "${ev.purpose}" ${expectedHelp}.`
-          );
-        }
-      }
-
-      if (ev.supports) {
-        for (const sup of ev.supports) {
-          allSupports.add(sup);
-        }
-      }
-    }
+  // Evidence validation via shared helper (Task 4 — STEP 4-13; replaces inline loop from STEP 4-12)
+  const evResult = validateEvidenceItems(mapping.evidence, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: mapping.sourceDocIds ?? [],
+    parentLabel: `ProxyMapping [${mapping.id}]`,
+    sourcesMap,
+  });
+  for (const m of evResult.mismatches) {
+    if (!mismatches.includes(m)) mismatches.push(m);
   }
+  reasons.push(...evResult.reasons);
+  const allSupports = evResult.allSupports;
 
   // Contract-driven requiredEvidenceSupports validation (STEP 4-11, Task 2 & 5; STEP 4-12, Task 1)
   const requiredSupports = activeContract?.requiredEvidenceSupports ?? DEFAULT_REQUIRED_EVIDENCE_SUPPORTS;
@@ -1619,13 +1723,15 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 8. Mandatory deep source document verification with sourcesMap (STEP 4-9 & STEP 4-10, Task 1; STEP 4-12, Task 3)
+  // 8. Mandatory deep source document verification — including Task 2 periodType checks (STEP 4-13)
   const expectedPeriod = mapping.period ?? revObs.period;
+  const expectedPeriodType = mapping.periodType ?? revObs.periodType;
   if (!sourcesMap) {
     if (!mismatches.includes('sourceMissing')) mismatches.push('sourceMissing');
     reasons.push('Source registry is required for proxy mapping validation.');
   } else if (mapping.sourceDocIds) {
     const docPeriods = new Set<string>();
+    const docPeriodTypes = new Set<string>();
     for (const docId of mapping.sourceDocIds) {
       const doc = lookupSourceDocInRegistry(sourcesMap, docId);
       if (!doc) {
@@ -1651,6 +1757,14 @@ export function validateProxyMappingCompatibility(
             reasons.push(`Source document "${docId}" period "${doc.period}" does not match expected period "${expectedPeriod}".`);
           }
         }
+        // Task 2: periodType validation (STEP 4-13)
+        if (doc.periodType) {
+          docPeriodTypes.add(doc.periodType);
+          if (expectedPeriodType && doc.periodType !== expectedPeriodType) {
+            if (!mismatches.includes('sourcePeriodTypeMismatch')) mismatches.push('sourcePeriodTypeMismatch');
+            reasons.push(`Source document "${docId}" periodType "${doc.periodType}" does not match expected periodType "${expectedPeriodType}".`);
+          }
+        }
         if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
           if (!mismatches.includes('sourceOfficialUrl')) mismatches.push('sourceOfficialUrl');
           reasons.push(`Source document "${docId}" officialUrl must be a valid HTTPS URL.`);
@@ -1666,6 +1780,14 @@ export function validateProxyMappingCompatibility(
       if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
       reasons.push(
         `Multiple source documents referenced by mapping [${mapping.id}] have inconsistent periods: [${Array.from(docPeriods).join(', ')}].`
+      );
+    }
+    // Task 2: inconsistent periodTypes across multiple source docs (STEP 4-13)
+    if (docPeriodTypes.size > 1) {
+      if (!mismatches.includes('inconsistentSourcePeriodTypes')) mismatches.push('inconsistentSourcePeriodTypes');
+      if (!mismatches.includes('sourcePeriodTypeMismatch')) mismatches.push('sourcePeriodTypeMismatch');
+      reasons.push(
+        `Multiple source documents referenced by mapping [${mapping.id}] have inconsistent periodTypes: [${Array.from(docPeriodTypes).join(', ')}].`
       );
     }
   }

@@ -34,12 +34,14 @@ import {
   TARGET_SEMANTICS_BY_COMPANY,
   PROXY_SEMANTIC_CONTRACTS,
   findProxySemanticContract,
+  lookupProxySemanticContract,
   hasProxyJustificationEvidence,
   hasMeaningfulEvidenceLocator,
   isProxyException,
   normalizeProxyException,
   validateProxyMappingCompatibility,
   validateDocumentedReportedKpiCompatibility,
+  validateEvidenceItems,
   DocumentedScopeException,
   DocumentedReportedKpi,
 } from '../src/data/scopeExceptions';
@@ -4804,6 +4806,341 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(val178.status !== 'invalid', 'Test 178e: Proxy inconsistent context → not invalid (legacy normalization path)');
 }
 
+
+// ────────────────────────────────────────────────────────────────────────────
+// TESTS 179–188 (STEP 4-13): Evidence provenance chain and period-type integrity
+// ────────────────────────────────────────────────────────────────────────────
+
+// TEST 179: Evidence sourceDocId not included in proxy mapping sourceDocIds → evidenceSourceNotInMapping
+{
+  const bmwMapping = PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!;
+  const mappingWithBadEvidence = {
+    ...bmwMapping,
+    evidence: [
+      ...bmwMapping.evidence,
+      {
+        sourceDocId: 'completely_unrelated_doc',
+        sectionReference: 'Unknown Section',
+        evidenceReference: 'Unrelated ref',
+        purpose: 'scope_definition' as const,
+        supports: ['scope', 'target_semantic'] as const,
+      },
+    ],
+  };
+
+  const rev179 = makeObs({ id: 'rev_179', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit179 = makeObs({ id: 'profit_179', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin179 = makeObs({ id: 'margin_179', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat179 = validateProxyMappingCompatibility(mappingWithBadEvidence as any, rev179, profit179, margin179, mockSourcesMap);
+  check(compat179.isValid === false, 'Test 179a: Evidence sourceDocId not in mapping sourceDocIds → isValid false');
+  check(compat179.mismatches.includes('evidenceSourceNotInMapping'), 'Test 179b: Mismatch evidenceSourceNotInMapping emitted');
+  check(compat179.mismatches.includes('evidenceSourceDocMismatch'), 'Test 179c: Backward-compat evidenceSourceDocMismatch also emitted');
+}
+
+// TEST 180: Evidence sourceDocId not included in KPI sourceDocIds → evidenceSourceNotInMapping
+{
+  const bmwKpi = DOCUMENTED_REPORTED_KPIS.find(k => k.id === 'bmw_automotive_segment_ros_2026q2_kpi')!;
+  const kpiWithBadEvidence = {
+    ...bmwKpi,
+    evidence: [
+      ...bmwKpi.evidence,
+      {
+        sourceDocId: 'unrelated_kpi_doc',
+        sectionReference: 'Unknown',
+        evidenceReference: 'Unrelated ref',
+        purpose: 'reported_kpi' as const,
+        supports: ['reported_kpi'] as const,
+      },
+    ],
+  };
+
+  const margin180 = makeObs({ id: 'margin_180', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement', verificationStatus: 'verified' });
+
+  const compat180 = validateDocumentedReportedKpiCompatibility(kpiWithBadEvidence as any, margin180, mockSourcesMap);
+  check(compat180.isValid === false, 'Test 180a: KPI evidence sourceDocId not in sourceDocIds → isValid false');
+  check(compat180.mismatches.includes('evidenceSourceNotInMapping'), 'Test 180b: Mismatch evidenceSourceNotInMapping emitted for KPI');
+  check(compat180.mismatches.includes('evidenceSourceDocMismatch'), 'Test 180c: Backward-compat evidenceSourceDocMismatch also emitted for KPI');
+}
+
+// TEST 181: Source document periodType mismatch → sourcePeriodTypeMismatch
+{
+  const periodTypeSourcesMap = new Map(mockSourcesMap);
+  periodTypeSourcesMap.set('bmw_2026_q2_quarterly', {
+    id: 'bmw_2026_q2_quarterly',
+    companyId: 'bmw_group',
+    title: 'BMW Q2 2026 Quarterly',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'annual', // Wrong: source says annual but mapping expects quarterly
+    publicationDate: '2026-05-01',
+    officialUrl: 'https://ir.bmw.com/2026-q2-quarterly.pdf',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+  });
+
+  const mappingWithPeriodTypeDoc = {
+    ...PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!,
+    periodType: 'quarterly' as const,
+    sourceDocIds: ['bmw_2026_q2_quarterly'],
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_quarterly',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'KPIs',
+        evidenceReference: 'EBIT margin 7.8%',
+        purpose: 'scope_definition' as const,
+        supports: ['target_semantic', 'scope', 'reported_kpi'] as const,
+      },
+      {
+        sourceDocId: 'bmw_2026_q2_quarterly',
+        sectionReference: 'Income Statement',
+        tableReference: 'Results',
+        evidenceReference: 'Revenue 36,944M; Profit 3,877M',
+        purpose: 'numerator_definition' as const,
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'] as const,
+      },
+    ],
+  };
+
+  const rev181 = makeObs({ id: 'rev_181', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_quarterly' });
+  const profit181 = makeObs({ id: 'profit_181', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_quarterly' });
+  const margin181 = makeObs({ id: 'margin_181', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_quarterly' });
+
+  const compat181 = validateProxyMappingCompatibility(mappingWithPeriodTypeDoc as any, rev181, profit181, margin181, periodTypeSourcesMap);
+  check(compat181.isValid === false, 'Test 181a: Source doc periodType mismatch → isValid false');
+  check(compat181.mismatches.includes('sourcePeriodTypeMismatch'), 'Test 181b: Mismatch sourcePeriodTypeMismatch emitted');
+}
+
+// TEST 182: Inconsistent source periodTypes across multiple source documents → inconsistentSourcePeriodTypes
+{
+  const mixedPeriodTypeSources = new Map(mockSourcesMap);
+  mixedPeriodTypeSources.set('bmw_doc_quarterly', {
+    id: 'bmw_doc_quarterly',
+    companyId: 'bmw_group',
+    title: 'BMW Q2 Quarterly',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-05-01',
+    officialUrl: 'https://ir.bmw.com/q2-quarterly.pdf',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+  });
+  mixedPeriodTypeSources.set('bmw_doc_annual', {
+    id: 'bmw_doc_annual',
+    companyId: 'bmw_group',
+    title: 'BMW Q2 Annual Summary',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'annual', // different periodType
+    publicationDate: '2026-05-01',
+    officialUrl: 'https://ir.bmw.com/q2-annual.pdf',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+  });
+
+  const multiPeriodTypeMapping = {
+    ...PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!,
+    sourceDocIds: ['bmw_doc_quarterly', 'bmw_doc_annual'],
+    evidence: [
+      {
+        sourceDocId: 'bmw_doc_quarterly',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'KPIs',
+        evidenceReference: 'EBIT margin 7.8%',
+        purpose: 'scope_definition' as const,
+        supports: ['target_semantic', 'scope', 'reported_kpi'] as const,
+      },
+      {
+        sourceDocId: 'bmw_doc_annual',
+        sectionReference: 'Income Statement',
+        tableReference: 'Results',
+        evidenceReference: 'Revenue 36,944M',
+        purpose: 'numerator_definition' as const,
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'] as const,
+      },
+    ],
+  };
+
+  const rev182 = makeObs({ id: 'rev_182', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_doc_quarterly' });
+  const profit182 = makeObs({ id: 'profit_182', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_doc_quarterly' });
+  const margin182 = makeObs({ id: 'margin_182', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_doc_quarterly' });
+
+  const compat182 = validateProxyMappingCompatibility(multiPeriodTypeMapping as any, rev182, profit182, margin182, mixedPeriodTypeSources);
+  check(compat182.isValid === false, 'Test 182a: Inconsistent source periodTypes → isValid false');
+  check(compat182.mismatches.includes('inconsistentSourcePeriodTypes'), 'Test 182b: Mismatch inconsistentSourcePeriodTypes emitted');
+  check(compat182.mismatches.includes('sourcePeriodTypeMismatch'), 'Test 182c: Mismatch sourcePeriodTypeMismatch also emitted');
+}
+
+// TEST 183: Evidence with purpose set but supports empty → missingEvidenceSupports
+{
+  const evResult183 = validateEvidenceItems(
+    [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Automotive Segment',
+        evidenceReference: 'EBIT margin 7.8%',
+        purpose: 'scope_definition',
+        supports: [], // empty!
+      },
+    ],
+    {
+      knownSupportTypes: ['revenue', 'proxy_numerator', 'target_semantic', 'denominator', 'scope', 'accounting_basis', 'period', 'period_type', 'reported_kpi'],
+      parentSourceDocIds: ['bmw_2026_q2_statement'],
+      parentLabel: 'Test 183 evidence',
+      sourcesMap: null,
+    }
+  );
+  check(evResult183.mismatches.includes('missingEvidenceSupports'), 'Test 183a: Empty supports with purpose set → missingEvidenceSupports');
+  check(evResult183.reasons.some(r => r.includes('scope_definition')), 'Test 183b: Reason references the declared purpose');
+}
+
+// TEST 184: Evidence with unknown support type → unknownEvidenceSupportType
+{
+  const evResult184 = validateEvidenceItems(
+    [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Income Statement',
+        evidenceReference: 'Revenue 36,944M',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'totally_unknown_support_xyz'] as any,
+      },
+    ],
+    {
+      knownSupportTypes: ['revenue', 'proxy_numerator', 'target_semantic', 'denominator', 'scope', 'accounting_basis', 'period', 'period_type', 'reported_kpi'],
+      parentSourceDocIds: ['bmw_2026_q2_statement'],
+      parentLabel: 'Test 184 evidence',
+      sourcesMap: null,
+    }
+  );
+  check(evResult184.mismatches.includes('unknownEvidenceSupportType'), 'Test 184a: Unknown support type → unknownEvidenceSupportType');
+  check(evResult184.reasons.some(r => r.includes('totally_unknown_support_xyz')), 'Test 184b: Reason names the unknown type');
+}
+
+// TEST 185: Evidence with duplicate support values → duplicateEvidenceSupports
+{
+  const evResult185 = validateEvidenceItems(
+    [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Income Statement',
+        evidenceReference: 'Revenue 36,944M',
+        purpose: 'numerator_definition',
+        supports: ['revenue', 'proxy_numerator', 'revenue'] as any, // duplicate 'revenue'
+      },
+    ],
+    {
+      knownSupportTypes: ['revenue', 'proxy_numerator', 'target_semantic', 'denominator', 'scope', 'accounting_basis', 'period', 'period_type', 'reported_kpi'],
+      parentSourceDocIds: ['bmw_2026_q2_statement'],
+      parentLabel: 'Test 185 evidence',
+      sourcesMap: null,
+    }
+  );
+  check(evResult185.mismatches.includes('duplicateEvidenceSupports'), 'Test 185a: Duplicate support value → duplicateEvidenceSupports');
+  check(evResult185.reasons.some(r => r.includes('"revenue"')), 'Test 185b: Reason names the duplicate value');
+}
+
+// TEST 186: Valid mapping with matching period and periodType (no period mismatch)
+{
+  const correctPeriodTypeSources = new Map(mockSourcesMap);
+  correctPeriodTypeSources.set('bmw_q2_correct', {
+    id: 'bmw_q2_correct',
+    companyId: 'bmw_group',
+    title: 'BMW Q2 2026 Quarterly (Correct)',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly', // matches mapping.periodType
+    publicationDate: '2026-05-01',
+    officialUrl: 'https://ir.bmw.com/q2-correct.pdf',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+  });
+
+  const correctMapping = {
+    ...PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!,
+    periodType: 'quarterly' as const,
+    sourceDocIds: ['bmw_q2_correct'],
+    evidence: [
+      {
+        sourceDocId: 'bmw_q2_correct',
+        sectionReference: 'Automotive Segment',
+        tableReference: 'KPIs',
+        evidenceReference: 'EBIT margin 7.8%',
+        purpose: 'scope_definition' as const,
+        supports: ['target_semantic', 'scope', 'reported_kpi'] as const,
+      },
+      {
+        sourceDocId: 'bmw_q2_correct',
+        sectionReference: 'Income Statement',
+        tableReference: 'Results',
+        evidenceReference: 'Revenue 36,944M; Profit 3,877M',
+        purpose: 'numerator_definition' as const,
+        supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'] as const,
+      },
+    ],
+  };
+
+  const rev186 = makeObs({ id: 'rev_186', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_q2_correct' });
+  const profit186 = makeObs({ id: 'profit_186', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_q2_correct' });
+  const margin186 = makeObs({ id: 'margin_186', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_q2_correct' });
+
+  const compat186 = validateProxyMappingCompatibility(correctMapping as any, rev186, profit186, margin186, correctPeriodTypeSources);
+  check(!compat186.mismatches.includes('sourcePeriodTypeMismatch'), 'Test 186a: Matching period and periodType → no sourcePeriodTypeMismatch');
+  check(!compat186.mismatches.includes('inconsistentSourcePeriodTypes'), 'Test 186b: Single source doc → no inconsistentSourcePeriodTypes');
+}
+
+// TEST 187: Ambiguous contract (two active contracts for same company+semantic) remains rejected
+{
+  const ambiguousContracts = [
+    {
+      companyId: 'bmw_group',
+      targetSemantic: 'automotive_segment_ebit',
+      targetScope: 'automotive_segment' as const,
+      targetAccountingBasis: 'reported' as const,
+      allowedProxyMetrics: ['operating_income'],
+      requiredEvidencePurposes: ['scope_definition'] as const,
+      requiredEvidenceSupports: ['revenue', 'proxy_numerator', 'target_semantic', 'scope', 'denominator'] as const,
+      status: 'active' as const,
+    },
+    {
+      companyId: 'bmw_group',
+      targetSemantic: 'automotive_segment_ebit',
+      targetScope: 'automotive_segment' as const,
+      targetAccountingBasis: 'adjusted' as const, // slightly different
+      allowedProxyMetrics: ['ebit'],
+      requiredEvidencePurposes: ['proxy_justification'] as const,
+      requiredEvidenceSupports: ['revenue', 'proxy_numerator', 'target_semantic', 'scope', 'denominator'] as const,
+      status: 'active' as const,
+    },
+  ];
+
+  const result187 = lookupProxySemanticContract('bmw_group', 'automotive_segment_ebit', ambiguousContracts as any);
+  check(result187.status === 'ambiguous', 'Test 187a: Two matching active contracts → ambiguous status');
+  check('contracts' in result187, 'Test 187b: Ambiguous result contains contracts array');
+  check('reason' in result187, 'Test 187c: Ambiguous result contains reason string');
+}
+
+// TEST 188: Proxy result invariants — proxy_only and mathematicallyVerified: false
+{
+  const bmwMapping = PROXY_METRIC_MAPPINGS.find(m => m.id === 'bmw_group_operating_income_proxy_2026q2')!;
+  const rev188 = makeObs({ id: 'rev_188', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit188 = makeObs({ id: 'profit_188', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin188 = makeObs({ id: 'margin_188', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const val188 = validateMarginTriplet(rev188, profit188, margin188, undefined, { proxyMapping: bmwMapping, sourcesMap: mockSourcesMap });
+  check(val188.status === 'proxy_only', 'Test 188a: Valid proxy mapping → status is proxy_only (invariant preserved)');
+  check(val188.mathematicallyVerified === false, 'Test 188b: Valid proxy mapping → mathematicallyVerified is always false');
+  check(val188.status !== 'verified', 'Test 188c: Valid proxy mapping → status never verified');
+  check(val188.directMathematicalVerification === false, 'Test 188d: Valid proxy mapping → directMathematicalVerification always false');
+  check(val188.proxyLimitation === true, 'Test 188e: Valid proxy mapping → proxyLimitation is true');
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 console.log(`\nScope Exception & Policy Test Results: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {
@@ -4811,5 +5148,6 @@ if (failed > 0) {
 } else {
   console.log('🎉 All scope exception and policy tests passed!\n');
 }
+
 
 
