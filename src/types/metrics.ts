@@ -357,9 +357,9 @@ export interface ProxyMetricMapping {
   proxyScope: ReportingScope;
   proxyBasis: AccountingBasis;
 
-  denominatorMetricId?: string;
-  denominatorScope?: ReportingScope;
-  denominatorBasis?: AccountingBasis;
+  denominatorMetricId: string;
+  denominatorScope: ReportingScope;
+  denominatorBasis: AccountingBasis;
 
   sourceDocIds: string[];
   evidence: ScopeExceptionEvidence[];
@@ -367,6 +367,11 @@ export interface ProxyMetricMapping {
   status: 'proxy_only' | 'needs_review';
   reason: string;
 }
+
+export type MappingLookupResult =
+  | { status: 'none' }
+  | { status: 'unique'; mapping: ProxyMetricMapping }
+  | { status: 'ambiguous'; mappings: ProxyMetricMapping[] };
 
 export interface DocumentedScopeException {
   id: string;

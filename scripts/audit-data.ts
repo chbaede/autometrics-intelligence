@@ -31,7 +31,7 @@ import { AuditFinding, PeriodType } from '../src/types/metrics';
 import {
   findDocumentedScopeException,
   findDocumentedReportedKpis,
-  findProxyMetricMappings,
+  lookupProxyMetricMapping,
   DOCUMENTED_SCOPE_EXCEPTIONS,
   DOCUMENTED_REPORTED_KPIS,
   PROXY_METRIC_MAPPINGS,
@@ -327,9 +327,9 @@ companyPeriodTypes.forEach((cpt) => {
   if (selection.status === 'matched') {
     marginSelectionMatched++;
 
-    // Resolve proxy mapping or documented KPI if applicable (STEP 4-8, Task 2 & Task 3)
-    const proxyMatches = (selection.profit && selection.margin)
-      ? findProxyMetricMappings(
+    // Resolve proxy mapping or documented KPI if applicable (STEP 4-8, Task 2 & Task 3; STEP 4-10, Task 6)
+    const proxyLookup = (selection.profit && selection.margin)
+      ? lookupProxyMetricMapping(
           companyId,
           period,
           undefined,
@@ -340,9 +340,9 @@ companyPeriodTypes.forEach((cpt) => {
           selection.profit.reportingScope,
           selection.profit.accountingBasis
         )
-      : [];
+      : { status: 'none' as const };
 
-    if (proxyMatches.length > 1) {
+    if (proxyLookup.status === 'ambiguous') {
       findings.push({
         severity: 'WARNING',
         disposition: 'review',
@@ -351,11 +351,11 @@ companyPeriodTypes.forEach((cpt) => {
         period,
         periodType,
         item: `${companyId} (${period}, ${periodType})`,
-        detail: `Ambiguous proxy metric mapping lookup: ${proxyMatches.length} candidates matched. Human review required.`,
+        detail: `Ambiguous proxy metric mapping lookup: ${proxyLookup.mappings.length} candidates matched. Human review required.`,
       });
     }
 
-    const proxyMapping = proxyMatches.length === 1 ? proxyMatches[0] : undefined;
+    const proxyMapping = proxyLookup.status === 'unique' ? proxyLookup.mapping : undefined;
 
     const kpiMatches = selection.margin
       ? findDocumentedReportedKpis(
