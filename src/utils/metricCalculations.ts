@@ -1335,10 +1335,10 @@ export function validateMarginTriplet(
         ...failedChecks,
         ...(uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope' || m === 'denominatorScope') ? ['scope' as keyof MarginValidationChecks] : []),
         ...(uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis' || m === 'denominatorBasis') ? ['accountingBasis' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'period' || m === 'sourcePeriodMismatch' || m === 'missingSourcePeriod' || m === 'inconsistentSourcePeriods') ? ['period' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'periodType' || m === 'sourcePeriodTypeMismatch' || m === 'missingSourcePeriodType' || m === 'inconsistentSourcePeriodTypes') ? ['periodType' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'sourcePeriodTypeMismatch' || m === 'inconsistentSourcePeriods' || m === 'inconsistentSourcePeriodTypes' || m === 'missingSourcePeriod' || m === 'missingSourcePeriodType' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator' || m === 'missingClaimEvidenceLocator') ? ['provenance' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'targetNumeratorSemantic' || m === 'ambiguousProxyContract' || m === 'unsupportedProxyCompany' || m === 'deprecatedProxyContract' || m === 'evidencePurposeSupportMismatch' || m === 'unknownEvidencePurpose' || m === 'incompatibleEvidenceSupportPurpose' || m.startsWith('missingEvidenceSupport:') || m === 'proxyMetricId' || m === 'denominatorMetricId' || m === 'invalidMappingStatus' || m === 'emptyMappingId' || m === 'emptyMappingReason' || m === 'emptySourceDocIds' || m === 'emptyEvidence' || m === 'emptyTargetNumeratorSemantic' || m === 'missingClaimEvidenceLocator') ? ['metricDefinition' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'period' || m === 'sourcePeriodMismatch' || m === 'missingSourcePeriod' || m === 'inconsistentSourcePeriods' || m === 'invalidPeriodFormat' || m === 'invalidPeriodTypeCombination') ? ['period' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'periodType' || m === 'sourcePeriodTypeMismatch' || m === 'missingSourcePeriodType' || m === 'inconsistentSourcePeriodTypes' || m === 'invalidPeriodTypeCombination') ? ['periodType' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'sourcePeriodTypeMismatch' || m === 'inconsistentSourcePeriods' || m === 'inconsistentSourcePeriodTypes' || m === 'missingSourcePeriod' || m === 'missingSourcePeriodType' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator' || m === 'missingClaimEvidenceLocator' || m === 'missingClaimEvidence' || m.startsWith('missingClaimEvidence:')) ? ['provenance' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'targetNumeratorSemantic' || m === 'ambiguousProxyContract' || m === 'unsupportedProxyCompany' || m === 'deprecatedProxyContract' || m === 'evidencePurposeSupportMismatch' || m === 'unknownEvidencePurpose' || m === 'incompatibleEvidenceSupportPurpose' || m.startsWith('missingEvidenceSupport:') || m === 'proxyMetricId' || m === 'denominatorMetricId' || m === 'invalidMappingStatus' || m === 'emptyMappingId' || m === 'emptyMappingReason' || m === 'emptySourceDocIds' || m === 'emptyEvidence' || m === 'emptyTargetNumeratorSemantic' || m === 'missingClaimEvidenceLocator' || m === 'missingClaimEvidence' || m.startsWith('missingClaimEvidence:') || m === 'unknownClaimEvidenceType' || m === 'orphanClaimEvidence') ? ['metricDefinition' as keyof MarginValidationChecks] : []),
       ]));
 
       return {
@@ -1530,6 +1530,7 @@ export function validateMarginTriplet(
 
       return {
         status: 'proxy_only',
+        claimVerificationState: proxyCompat.claimVerificationState ?? 'locator_only',
         calculatedMargin: null,
         reportedMargin: marginObs.value,
         difference: null,
@@ -1708,6 +1709,7 @@ export function createAuditFindingFromMarginValidation(
       observationIds,
       failedChecks: validation.failedChecks,
       isProxy: true,
+      claimVerificationState: validation.claimVerificationState ?? 'locator_only',
       mathematicallyVerified: false,
       detail: `[PROXY LIMITATION] Documented scope exception${exceptionId ? ` [${exceptionId}]` : ''}${proxyMappingId ? ` (proxy mapping [${proxyMappingId}])` : ''}: ${rationale} The headline margin KPI is officially documented by the OEM, but the available operating profit numerator is a consolidated group proxy. The margin is not independently verified mathematically. Human review or actual segment-level numerator data is required.`,
       documentationUrl: 'docs/data-audit-report.md',

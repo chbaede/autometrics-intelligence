@@ -29,7 +29,22 @@ export type MetricUnit =
 
 export type MetricValueType = 'reported' | 'derived' | 'guidance' | 'estimated';
 
-export type PeriodType = 'quarterly' | 'annual' | 'semi_annual';
+export type PeriodType =
+  | 'quarterly'
+  | 'annual'
+  | 'semi_annual'
+  | 'nine_months'
+  | 'ytd'
+  | 'ttm';
+
+/**
+ * Claim-level evidence verification state (STEP 4-15, Task 4).
+ * Separates presence of locators from machine verification of source content.
+ */
+export type EvidenceClaimVerificationState =
+  | 'locator_only'
+  | 'source_verified'
+  | 'claim_verified';
 
 /**
  * Explicit reporting scope for financial and operational metrics.
@@ -196,6 +211,8 @@ export interface AuditFinding {
   isProxy?: boolean;
   /** Indicates whether the margin triplet was mathematically verified (recalculated value matches reported). */
   mathematicallyVerified?: boolean;
+  /** Evidence claim verification state (STEP 4-15, Task 4). */
+  claimVerificationState?: EvidenceClaimVerificationState;
 
   // ── Legacy fields (backward-compatible with existing audit-data.ts) ────────
   item?: string;
@@ -277,6 +294,8 @@ export interface MarginValidationResult {
   proxyLimitation?: boolean;
   proxyScopeCompatibility?: boolean;
   directMathematicalVerification?: boolean;
+  /** Evidence claim verification state (STEP 4-15, Task 4). */
+  claimVerificationState?: EvidenceClaimVerificationState;
   selectedObservationIds: {
     revenue?: string;
     profit?: string;
