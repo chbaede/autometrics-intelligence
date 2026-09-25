@@ -404,6 +404,11 @@ export interface ProxySemanticContract {
   status: 'active' | 'deprecated';
 }
 
+export type ContractLookupResult =
+  | { status: 'none'; reason: string }
+  | { status: 'unique'; contract: ProxySemanticContract }
+  | { status: 'ambiguous'; contracts: ProxySemanticContract[]; reason: string };
+
 export interface DocumentedScopeException {
   id: string;
   companyId: string;

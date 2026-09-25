@@ -43,6 +43,7 @@ import {
   MappingLookupResult,
   SourceRegistry,
   ProxySemanticContract,
+  ContractLookupResult,
 } from '../types/metrics';
 
 export type {
@@ -56,6 +57,7 @@ export type {
   MappingLookupResult,
   SourceRegistry,
   ProxySemanticContract,
+  ContractLookupResult,
 };
 
 
@@ -1047,8 +1049,10 @@ export function validateDocumentedReportedKpiCompatibility(
     );
   }
 
-  // Deep source registry validation (STEP 4-9, Task 2; STEP 4-11, Task 3)
+  // Deep source registry validation (STEP 4-9, Task 2; STEP 4-11, Task 3; STEP 4-12, Task 3)
+  const expectedPeriod = kpi.period ?? marginObs.period;
   if (sourcesMap) {
+    const docPeriods = new Set<string>();
     for (const docId of kpi.sourceDocIds) {
       const doc = lookupSourceDocInRegistry(sourcesMap, docId);
       if (!doc) {
@@ -1067,9 +1071,12 @@ export function validateDocumentedReportedKpiCompatibility(
           if (!mismatches.includes('sourceCompanyMismatch')) mismatches.push('sourceCompanyMismatch');
           reasons.push(`Source document "${docId}" companyId "${doc.companyId}" does not match KPI companyId "${kpi.companyId}".`);
         }
-        if (doc.period && kpi.period && doc.period !== kpi.period) {
-          if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
-          reasons.push(`Source document "${docId}" period "${doc.period}" does not match KPI period "${kpi.period}".`);
+        if (doc.period) {
+          docPeriods.add(doc.period);
+          if (expectedPeriod && doc.period !== expectedPeriod) {
+            if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+            reasons.push(`Source document "${docId}" period "${doc.period}" does not match expected period "${expectedPeriod}".`);
+          }
         }
         if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
           if (!mismatches.includes('sourceOfficialUrl')) mismatches.push('sourceOfficialUrl');
@@ -1081,9 +1088,14 @@ export function validateDocumentedReportedKpiCompatibility(
         }
       }
     }
+    if (docPeriods.size > 1) {
+      if (!mismatches.includes('inconsistentSourcePeriods')) mismatches.push('inconsistentSourcePeriods');
+      if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+      reasons.push(`Multiple source documents referenced by KPI [${kpi.id}] have inconsistent periods: [${Array.from(docPeriods).join(', ')}].`);
+    }
   }
 
-  // Evidence source reference and locator validation (STEP 4-9, STEP 4-10, Task 2 & STEP 4-11, Task 3)
+  // Evidence source reference and locator validation (STEP 4-9, STEP 4-10, Task 2 & STEP 4-11, Task 3; STEP 4-12, Task 4)
   if (!kpi.evidence || kpi.evidence.length === 0) {
     if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
     reasons.push(`Reported KPI [${kpi.id}] has no evidence items.`);
@@ -1103,6 +1115,10 @@ export function validateDocumentedReportedKpiCompatibility(
       if (!hasMeaningfulEvidenceLocator(ev)) {
         if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
         reasons.push(`Reported KPI [${kpi.id}] evidence for source "${ev.sourceDocId}" lacks meaningful locators.`);
+      }
+      if (ev.purpose === 'reported_kpi' && ev.supports && ev.supports.length > 0 && !ev.supports.includes('reported_kpi')) {
+        if (!mismatches.includes('evidencePurposeSupportMismatch')) mismatches.push('evidencePurposeSupportMismatch');
+        reasons.push(`Reported KPI [${kpi.id}] evidence for "${ev.sourceDocId}" has purpose "reported_kpi" but does not support "reported_kpi".`);
       }
     }
   }
@@ -1213,15 +1229,68 @@ export const PROXY_SEMANTIC_CONTRACTS: readonly ProxySemanticContract[] = [
 ];
 
 /**
- * Resolves an active proxy semantic contract for a company and target semantic.
+ * Standard default required evidence supports for proxy mappings.
+ */
+export const DEFAULT_REQUIRED_EVIDENCE_SUPPORTS: readonly EvidenceSupportType[] = [
+  'revenue',
+  'proxy_numerator',
+  'target_semantic',
+  'scope',
+  'denominator',
+];
+
+/**
+ * Looks up an active proxy semantic contract for a company and target semantic (STEP 4-12, Task 2).
+ * Strictly guards against ambiguous multiple matching contracts and unknown companies/semantics.
+ */
+export function lookupProxySemanticContract(
+  companyId: string,
+  targetSemantic?: string,
+  contracts: readonly ProxySemanticContract[] = PROXY_SEMANTIC_CONTRACTS
+): ContractLookupResult {
+  const matches = contracts.filter(
+    (c) => c.status === 'active' && c.companyId === companyId && (!targetSemantic || c.targetSemantic === targetSemantic)
+  );
+
+  if (matches.length === 0) {
+    const hasCompany = contracts.some((c) => c.status === 'active' && c.companyId === companyId);
+    if (!hasCompany) {
+      return {
+        status: 'none',
+        reason: `Unsupported proxy company "${companyId}". Proxy mappings are only permitted for authorized OEM semantics with an explicit contract.`,
+      };
+    }
+    return {
+      status: 'none',
+      reason: `No active proxy semantic contract found for company "${companyId}" with target semantic "${targetSemantic}".`,
+    };
+  }
+
+  if (matches.length > 1) {
+    return {
+      status: 'ambiguous',
+      contracts: matches,
+      reason: `Multiple active proxy semantic contracts match company "${companyId}" and target semantic "${targetSemantic ?? 'any'}". Ambiguous contract selection is rejected.`,
+    };
+  }
+
+  return {
+    status: 'unique',
+    contract: matches[0],
+  };
+}
+
+/**
+ * Resolves an active proxy semantic contract for a company and target semantic (STEP 4-11, Task 4; STEP 4-12, Task 2).
+ * Returns undefined if no unique active contract exists.
  */
 export function findProxySemanticContract(
   companyId: string,
-  targetSemantic?: string
+  targetSemantic?: string,
+  contracts: readonly ProxySemanticContract[] = PROXY_SEMANTIC_CONTRACTS
 ): ProxySemanticContract | undefined {
-  return PROXY_SEMANTIC_CONTRACTS.find(
-    (c) => c.companyId === companyId && (!targetSemantic || c.targetSemantic === targetSemantic)
-  );
+  const res = lookupProxySemanticContract(companyId, targetSemantic, contracts);
+  return res.status === 'unique' ? res.contract : undefined;
 }
 
 /**
@@ -1283,7 +1352,64 @@ export function validateProxyMappingCompatibility(
     reasons.push('ProxyMapping targetNumeratorSemantic must not be empty.');
   }
 
-  // Evidence validation & coverage (STEP 4-9, Task 1; STEP 4-10, Task 2; STEP 4-11, Tasks 1, 2, 5)
+  // 7. Resolve contract using companyId and targetSemantic (STEP 4-8, Task 2; STEP 4-10, Task 4; STEP 4-11, Task 4; STEP 4-12, Tasks 1 & 2)
+  const allowedSemantics = TARGET_SEMANTICS_BY_COMPANY[mapping.companyId];
+  if (!allowedSemantics) {
+    if (!mismatches.includes('unsupportedProxyCompany')) mismatches.push('unsupportedProxyCompany');
+    reasons.push(
+      `Unsupported proxy company "${mapping.companyId}". Proxy mappings are only permitted for authorized OEM semantics with an explicit contract.`
+    );
+  } else if (!targetSemantic || !allowedSemantics.includes(targetSemantic)) {
+    if (!mismatches.includes('targetNumeratorSemantic')) mismatches.push('targetNumeratorSemantic');
+    reasons.push(
+      `Invalid or missing targetNumeratorSemantic "${targetSemantic}" for company "${mapping.companyId}". Expected one of: [${allowedSemantics.join(', ')}].`
+    );
+  }
+
+  const contractLookup = lookupProxySemanticContract(mapping.companyId, targetSemantic);
+  let activeContract: ProxySemanticContract | undefined;
+
+  if (contractLookup.status === 'ambiguous') {
+    if (!mismatches.includes('ambiguousProxyContract')) mismatches.push('ambiguousProxyContract');
+    reasons.push(contractLookup.reason);
+  } else if (contractLookup.status === 'none') {
+    if (!allowedSemantics && !mismatches.includes('unsupportedProxyCompany')) {
+      mismatches.push('unsupportedProxyCompany');
+    } else if (allowedSemantics && !mismatches.includes('targetNumeratorSemantic')) {
+      mismatches.push('targetNumeratorSemantic');
+    }
+    reasons.push(contractLookup.reason);
+  } else {
+    activeContract = contractLookup.contract;
+    if (activeContract.status !== 'active') {
+      if (!mismatches.includes('deprecatedProxyContract')) mismatches.push('deprecatedProxyContract');
+      reasons.push(`Proxy semantic contract for company "${mapping.companyId}" is not active.`);
+    }
+    if (!targetSemantic || !allowedSemantics || !allowedSemantics.includes(targetSemantic) || activeContract.targetSemantic !== targetSemantic) {
+      if (!mismatches.includes('targetNumeratorSemantic')) mismatches.push('targetNumeratorSemantic');
+      reasons.push(
+        `Invalid or missing targetNumeratorSemantic "${targetSemantic}" for company "${mapping.companyId}". Expected contract target semantic "${activeContract.targetSemantic}".`
+      );
+    }
+    if (activeContract.requiredEvidencePurposes) {
+      for (const reqPurpose of activeContract.requiredEvidencePurposes) {
+        const hasPurpose =
+          mapping.evidence &&
+          mapping.evidence.some(
+            (ev) =>
+              ev.purpose === reqPurpose ||
+              (reqPurpose === 'scope_definition' &&
+                (ev.purpose === 'reported_kpi' || ev.supports?.includes('scope')))
+          );
+        if (!hasPurpose) {
+          if (!mismatches.includes('evidencePurpose')) mismatches.push('evidencePurpose');
+          reasons.push(`ProxyMapping [${mapping.id}] lacks required evidence purpose "${reqPurpose}".`);
+        }
+      }
+    }
+  }
+
+  // Evidence validation & coverage (STEP 4-9, Task 1; STEP 4-10, Task 2; STEP 4-11, Tasks 1, 2, 5; STEP 4-12, Tasks 1 & 4)
   const allSupports = new Set<EvidenceSupportType>();
   if (mapping.evidence && mapping.evidence.length > 0) {
     for (const ev of mapping.evidence) {
@@ -1302,6 +1428,37 @@ export function validateProxyMappingCompatibility(
         if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
         reasons.push(`ProxyMapping [${mapping.id}] evidence for source "${ev.sourceDocId}" lacks meaningful locator.`);
       }
+
+      // Purpose/support consistency validation (STEP 4-12, Task 4)
+      if (ev.purpose && ev.supports && ev.supports.length > 0) {
+        let isConsistent = true;
+        let expectedHelp = '';
+        switch (ev.purpose) {
+          case 'scope_definition':
+            isConsistent = ev.supports.some((s) => s === 'scope' || s === 'target_semantic' || s === 'reported_kpi');
+            expectedHelp = 'must support "scope", "target_semantic", or "reported_kpi"';
+            break;
+          case 'numerator_definition':
+            isConsistent = ev.supports.some((s) => s === 'revenue' || s === 'proxy_numerator' || s === 'denominator' || s === 'accounting_basis');
+            expectedHelp = 'must support "revenue", "proxy_numerator", "denominator", or "accounting_basis"';
+            break;
+          case 'reported_kpi':
+            isConsistent = ev.supports.some((s) => s === 'reported_kpi');
+            expectedHelp = 'must support "reported_kpi"';
+            break;
+          case 'proxy_justification':
+            isConsistent = ev.supports.some((s) => s === 'proxy_numerator' || s === 'target_semantic' || s === 'scope');
+            expectedHelp = 'must support "proxy_numerator", "target_semantic", or "scope"';
+            break;
+        }
+        if (!isConsistent) {
+          if (!mismatches.includes('evidencePurposeSupportMismatch')) mismatches.push('evidencePurposeSupportMismatch');
+          reasons.push(
+            `ProxyMapping [${mapping.id}] evidence for "${ev.sourceDocId}" has purpose "${ev.purpose}" which contradicts its declared supports [${ev.supports.join(', ')}]. Evidence with purpose "${ev.purpose}" ${expectedHelp}.`
+          );
+        }
+      }
+
       if (ev.supports) {
         for (const sup of ev.supports) {
           allSupports.add(sup);
@@ -1310,26 +1467,30 @@ export function validateProxyMappingCompatibility(
     }
   }
 
-  // Validate metric-level evidence coverage (STEP 4-11, Task 2 & Task 5)
-  if (!allSupports.has('revenue')) {
-    mismatches.push('missingRevenueEvidence');
-    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "revenue".`);
-  }
-  if (!allSupports.has('proxy_numerator')) {
-    mismatches.push('missingProxyNumeratorEvidence');
-    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "proxy_numerator".`);
-  }
-  if (!allSupports.has('target_semantic')) {
-    mismatches.push('missingTargetSemanticEvidence');
-    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "target_semantic".`);
-  }
-  if (!allSupports.has('scope')) {
-    mismatches.push('missingScopeEvidence');
-    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "scope".`);
-  }
-  if (!allSupports.has('denominator')) {
-    mismatches.push('missingDenominatorEvidence');
-    reasons.push(`ProxyMapping [${mapping.id}] lacks evidence explicitly supporting "denominator".`);
+  // Contract-driven requiredEvidenceSupports validation (STEP 4-11, Task 2 & 5; STEP 4-12, Task 1)
+  const requiredSupports = activeContract?.requiredEvidenceSupports ?? DEFAULT_REQUIRED_EVIDENCE_SUPPORTS;
+  for (const reqSupport of requiredSupports) {
+    if (!allSupports.has(reqSupport)) {
+      const specificMismatch = `missingEvidenceSupport:${reqSupport}`;
+      if (!mismatches.includes(specificMismatch)) mismatches.push(specificMismatch);
+
+      // Preserve backward-compatible mismatch tokens for existing tests
+      if (reqSupport === 'revenue' && !mismatches.includes('missingRevenueEvidence')) {
+        mismatches.push('missingRevenueEvidence');
+      } else if (reqSupport === 'proxy_numerator' && !mismatches.includes('missingProxyNumeratorEvidence')) {
+        mismatches.push('missingProxyNumeratorEvidence');
+      } else if (reqSupport === 'target_semantic' && !mismatches.includes('missingTargetSemanticEvidence')) {
+        mismatches.push('missingTargetSemanticEvidence');
+      } else if (reqSupport === 'scope' && !mismatches.includes('missingScopeEvidence')) {
+        mismatches.push('missingScopeEvidence');
+      } else if (reqSupport === 'denominator' && !mismatches.includes('missingDenominatorEvidence')) {
+        mismatches.push('missingDenominatorEvidence');
+      }
+
+      reasons.push(
+        `ProxyMapping [${mapping.id}] lacks required evidence support "${reqSupport}" mandated by contract for [${mapping.companyId} / ${targetSemantic}].`
+      );
+    }
   }
 
   // 1. Company ID
@@ -1458,48 +1619,13 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 7. Company allowlist and explicit proxy semantic contract (STEP 4-8, Task 2; STEP 4-10, Task 4; STEP 4-11, Task 4)
-  const contract = findProxySemanticContract(mapping.companyId);
-  const allowedSemantics = TARGET_SEMANTICS_BY_COMPANY[mapping.companyId];
-  if (!contract || !allowedSemantics) {
-    mismatches.push('unsupportedProxyCompany');
-    reasons.push(
-      `Unsupported proxy company "${mapping.companyId}". Proxy mappings are only permitted for authorized OEM semantics with an explicit contract.`
-    );
-  } else {
-    if (contract.status !== 'active') {
-      mismatches.push('deprecatedProxyContract');
-      reasons.push(`Proxy semantic contract for company "${mapping.companyId}" is not active.`);
-    }
-    if (!targetSemantic || !allowedSemantics.includes(targetSemantic) || contract.targetSemantic !== targetSemantic) {
-      mismatches.push('targetNumeratorSemantic');
-      reasons.push(
-        `Invalid or missing targetNumeratorSemantic "${targetSemantic}" for company "${mapping.companyId}". Expected contract target semantic "${contract.targetSemantic}".`
-      );
-    }
-    if (contract.requiredEvidencePurposes) {
-      for (const reqPurpose of contract.requiredEvidencePurposes) {
-        const hasPurpose =
-          mapping.evidence &&
-          mapping.evidence.some(
-            (ev) =>
-              ev.purpose === reqPurpose ||
-              (reqPurpose === 'scope_definition' &&
-                (ev.purpose === 'reported_kpi' || ev.supports?.includes('scope')))
-          );
-        if (!hasPurpose) {
-          if (!mismatches.includes('evidencePurpose')) mismatches.push('evidencePurpose');
-          reasons.push(`ProxyMapping [${mapping.id}] lacks required evidence purpose "${reqPurpose}".`);
-        }
-      }
-    }
-  }
-
-  // 8. Mandatory deep source document verification with sourcesMap (STEP 4-9 & STEP 4-10, Task 1)
+  // 8. Mandatory deep source document verification with sourcesMap (STEP 4-9 & STEP 4-10, Task 1; STEP 4-12, Task 3)
+  const expectedPeriod = mapping.period ?? revObs.period;
   if (!sourcesMap) {
     if (!mismatches.includes('sourceMissing')) mismatches.push('sourceMissing');
     reasons.push('Source registry is required for proxy mapping validation.');
   } else if (mapping.sourceDocIds) {
+    const docPeriods = new Set<string>();
     for (const docId of mapping.sourceDocIds) {
       const doc = lookupSourceDocInRegistry(sourcesMap, docId);
       if (!doc) {
@@ -1518,9 +1644,12 @@ export function validateProxyMappingCompatibility(
           if (!mismatches.includes('sourceCompanyMismatch')) mismatches.push('sourceCompanyMismatch');
           reasons.push(`Source document "${docId}" companyId "${doc.companyId}" does not match mapping companyId "${mapping.companyId}".`);
         }
-        if (doc.period && mapping.period && doc.period !== mapping.period) {
-          if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
-          reasons.push(`Source document "${docId}" period "${doc.period}" does not match mapping period "${mapping.period}".`);
+        if (doc.period) {
+          docPeriods.add(doc.period);
+          if (expectedPeriod && doc.period !== expectedPeriod) {
+            if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+            reasons.push(`Source document "${docId}" period "${doc.period}" does not match expected period "${expectedPeriod}".`);
+          }
         }
         if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
           if (!mismatches.includes('sourceOfficialUrl')) mismatches.push('sourceOfficialUrl');
@@ -1531,6 +1660,13 @@ export function validateProxyMappingCompatibility(
           reasons.push(`Source document "${docId}" publicationDate "${doc.publicationDate}" is not a valid ISO date.`);
         }
       }
+    }
+    if (docPeriods.size > 1) {
+      if (!mismatches.includes('inconsistentSourcePeriods')) mismatches.push('inconsistentSourcePeriods');
+      if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+      reasons.push(
+        `Multiple source documents referenced by mapping [${mapping.id}] have inconsistent periods: [${Array.from(docPeriods).join(', ')}].`
+      );
     }
   }
 

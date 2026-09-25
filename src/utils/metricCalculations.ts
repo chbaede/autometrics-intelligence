@@ -1206,50 +1206,78 @@ export function validateMarginTriplet(
     (key) => checks[key] === false
   );
 
-  // Inconsistent context check (STEP 4-7/4-8)
-  // An inconsistent exception (e.g. nature=proxy_numerator, isProxy=false) must be
-  // normalized to proxy_numerator — it cannot be treated as verified.
-  // The existing policy test (Test 62c) requires status=proxy_only, not invalid.
-  // So we re-resolve the context as proxy_numerator here.
+  // Inconsistent context check (STEP 4-7/4-8; STEP 4-12, Task 5)
+  // When an exception is explicitly marked with nature='proxy_numerator' but has contradictory
+  // flags (e.g. isProxy=false as tested in regression Tests 62 and 74), normalize it strictly
+  // to candidate proxy evaluation so it is never treated as verified or documented.
+  // Inconsistent non-proxy contexts remain strictly invalid and are never converted to proxy.
   let resolvedContext = context;
   if (context.kind === 'inconsistent_or_invalid') {
-    // Best-effort: if there's an exception or mapping, treat as proxy_numerator
-    if (context.mapping || context.exception) {
-      const syntheticMapping: ProxyMetricMapping | null = context.mapping ?? (context.exception
-        ? {
-            id: context.exception.proxyMappingId || context.exception.id,
-            companyId: context.exception.companyId,
-            period: context.exception.period,
-            periodType: context.exception.periodType,
-            targetMetricId: context.exception.marginMetricId,
-            targetNumeratorSemantic:
-              context.exception.companyId === 'bmw_group'
-                ? 'automotive_segment_ebit'
-                : context.exception.companyId === 'mercedes_benz'
-                ? 'cars_adjusted_ebit'
-                : context.exception.numeratorMetricId,
-            targetScope: context.exception.marginScope,
-            targetBasis: context.exception.marginBasis,
-            proxyMetricId: context.exception.numeratorMetricId,
-            proxyScope: context.exception.numeratorScope,
-            proxyBasis: context.exception.numeratorBasis,
-            denominatorMetricId: context.exception.denominatorMetricId,
-            denominatorScope: context.exception.denominatorScope,
-            denominatorBasis: context.exception.denominatorBasis,
-            sourceDocIds: context.exception.sourceDocIds,
-            evidence: context.exception.evidence,
-            status: 'proxy_only',
-            reason: context.exception.rationale,
-          }
-        : null);
-      if (syntheticMapping) {
-        resolvedContext = {
-          kind: 'proxy_numerator',
-          mapping: syntheticMapping,
-          reportedKpi: context.reportedKpi,
-          exception: context.exception,
-        };
-      }
+    const isLegacyInconsistentProxy =
+      context.exception &&
+      (context.exception.nature === 'proxy_numerator' || isProxyException(context.exception));
+
+    if (isLegacyInconsistentProxy) {
+      /* LEGACY FALLBACK (STEP 4-7 / STEP 4-8):
+       * Inconsistent proxy exceptions (nature='proxy_numerator', isProxy=false as tested in Tests 62 and 74)
+       * are normalized to candidate proxy evaluation so they can never be mistakenly accepted as standard verified exceptions.
+       * The original inconsistency reason is preserved, and full proxy semantic, denominator contract,
+       * and evidence validation are strictly enforced. Never allowed to produce verified or documented disposition.
+       */
+      const syntheticMapping: ProxyMetricMapping = context.mapping ?? {
+        id: context.exception!.proxyMappingId || context.exception!.id,
+        companyId: context.exception!.companyId,
+        period: context.exception!.period,
+        periodType: context.exception!.periodType,
+        targetMetricId: context.exception!.marginMetricId,
+        targetNumeratorSemantic:
+          context.exception!.companyId === 'bmw_group'
+            ? 'automotive_segment_ebit'
+            : context.exception!.companyId === 'mercedes_benz'
+            ? 'cars_adjusted_ebit'
+            : context.exception!.numeratorMetricId,
+        targetScope: context.exception!.marginScope,
+        targetBasis: context.exception!.marginBasis,
+        proxyMetricId: context.exception!.numeratorMetricId,
+        proxyScope: context.exception!.numeratorScope,
+        proxyBasis: context.exception!.numeratorBasis,
+        denominatorMetricId: context.exception!.denominatorMetricId,
+        denominatorScope: context.exception!.denominatorScope,
+        denominatorBasis: context.exception!.denominatorBasis,
+        sourceDocIds: context.exception!.sourceDocIds,
+        evidence: context.exception!.evidence,
+        status: 'proxy_only',
+        reason: context.exception!.rationale,
+      };
+
+      resolvedContext = {
+        kind: 'proxy_numerator',
+        mapping: syntheticMapping,
+        reportedKpi: context.reportedKpi,
+        exception: context.exception,
+      };
+    } else {
+      // Inconsistent non-proxy context remains strictly invalid (Task 5)
+      return {
+        status: 'invalid',
+        calculatedMargin: null,
+        reportedMargin: marginObs?.value ?? null,
+        difference: null,
+        mathematicallyVerified: false,
+        directMathematicalVerification: false,
+        proxyLimitation: false,
+        proxyScopeCompatibility: false,
+        selectedObservationIds,
+        failedChecks: ['exception_consistency', 'scope'],
+        checks: {
+          ...checks,
+          scope: false,
+          accountingBasis: false,
+        },
+        reasons: [context.reason || 'Context is inconsistent or invalid.'],
+        limitations: [context.reason || 'inconsistent_or_invalid'],
+        diagnostic: `Context rejected as inconsistent or invalid: ${context.reason}`,
+      };
     }
   }
 
@@ -1309,8 +1337,8 @@ export function validateMarginTriplet(
         ...(uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis' || m === 'denominatorBasis') ? ['accountingBasis' as keyof MarginValidationChecks] : []),
         ...(uniqueMismatches.some((m) => m === 'period') ? ['period' as keyof MarginValidationChecks] : []),
         ...(uniqueMismatches.some((m) => m === 'periodType') ? ['periodType' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator') ? ['provenance' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'targetNumeratorSemantic' || m === 'proxyMetricId' || m === 'denominatorMetricId' || m === 'invalidMappingStatus' || m === 'emptyMappingId' || m === 'emptyMappingReason' || m === 'emptySourceDocIds' || m === 'emptyEvidence' || m === 'emptyTargetNumeratorSemantic') ? ['metricDefinition' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'inconsistentSourcePeriods' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator') ? ['provenance' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'targetNumeratorSemantic' || m === 'ambiguousProxyContract' || m === 'unsupportedProxyCompany' || m === 'deprecatedProxyContract' || m === 'evidencePurposeSupportMismatch' || m.startsWith('missingEvidenceSupport:') || m === 'proxyMetricId' || m === 'denominatorMetricId' || m === 'invalidMappingStatus' || m === 'emptyMappingId' || m === 'emptyMappingReason' || m === 'emptySourceDocIds' || m === 'emptyEvidence' || m === 'emptyTargetNumeratorSemantic') ? ['metricDefinition' as keyof MarginValidationChecks] : []),
       ]));
 
       return {
@@ -1334,7 +1362,7 @@ export function validateMarginTriplet(
           ...checks,
           scope: uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope' || m === 'denominatorScope') ? false : checks.scope,
           accountingBasis: uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis' || m === 'denominatorBasis') ? false : checks.accountingBasis,
-          provenance: uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator') ? false : checks.provenance,
+          provenance: uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'inconsistentSourcePeriods' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator') ? false : checks.provenance,
         },
         diagnostic: `Proxy mapping [${proxyMapping.id}] rejected due to dimensional mismatch (${uniqueMismatches.join(', ')}): ${reasons.join('; ')}`,
         reasons: [
