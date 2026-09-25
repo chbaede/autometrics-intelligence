@@ -48,10 +48,18 @@ export const CompanyComparisonPage: React.FC = () => {
         setSelectedCompanies(selectedCompanies.filter((id) => id !== companyId));
       }
     } else {
-      if (selectedCompanies.length < 8) {
+      if (selectedCompanies.length < allCompanies.length) {
         setSelectedCompanies([...selectedCompanies, companyId]);
       }
     }
+  };
+
+  const selectAll = () => {
+    setSelectedCompanies(allCompanies.map((c) => c.id));
+  };
+
+  const selectTopSix = () => {
+    setSelectedCompanies(['toyota_motor', 'volkswagen_group', 'hyundai_motor', 'general_motors', 'stellantis', 'ford']);
   };
 
   const selectedMetricDef = getMetricById(selectedMetricId);
@@ -67,11 +75,15 @@ export const CompanyComparisonPage: React.FC = () => {
   // Check if there are non-comparable items
   const nonComparableItems = observations.filter((item) => !item.observation.isComparable);
 
-  // Multi-Company Line Series
-  const lineChartColors = ['#0c93e7', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7'];
+  // Multi-Company Line Series (distinct colors for all 16 OEMs)
+  const lineChartColors = [
+    '#dc2626', '#0284c7', '#0369a1', '#4f46e5', '#7c3aed', '#1d4ed8',
+    '#e11d48', '#2563eb', '#0891b2', '#0d9488', '#c8102e', '#0ea5e9',
+    '#b91c1c', '#991b1b', '#1e3a8a', '#d97706',
+  ];
   const trendPeriods = periods.slice(0, 5).reverse();
 
-  const lineSeries = selectedCompanies.slice(0, 5).map((cid, idx) => {
+  const lineSeries = selectedCompanies.map((cid, idx) => {
     const comp = getCompanyById(cid)!;
     const data = trendPeriods.map((p) => {
       const obs = getObservations([cid], [selectedMetricId], p)[0];
@@ -103,23 +115,37 @@ export const CompanyComparisonPage: React.FC = () => {
         </h1>
         <p className="text-slate-600 dark:text-slate-300 text-sm max-w-3xl leading-relaxed">
           {language === 'ko'
-            ? '2개에서 최대 8개 완성차 기업을 선택하여 판매량, 순수전기차 비중, 매출액, 영업이익률을 다각도로 비교 분석합니다. 회계 기준 차이에 따른 비교 한계 경고를 명확히 표시합니다.'
-            : 'Compare between 2 and 8 global automakers side-by-side. View reported volumes, electric vehicle mix, operating margins, and accounting provenance with strict comparability warnings.'}
+            ? '2개에서 전체 16개 완성차 기업을 자유롭게 선택하여 판매량, 순수전기차 비중, 매출액, 영업이익률을 다각도로 비교 분석합니다. 회계 기준 차이에 따른 비교 한계 경고를 명확히 표시합니다.'
+            : `Compare between 2 and all ${allCompanies.length} global automakers side-by-side. View reported volumes, electric vehicle mix, operating margins, and accounting provenance with strict comparability warnings.`}
         </p>
       </div>
 
       {/* Comparison Controls */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-5 shadow-md">
-        {/* 1. Company Multi-Select (2-8) */}
+        {/* 1. Company Multi-Select (2-16) */}
         <div>
           <div className="flex items-center justify-between mb-2.5">
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Filter className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-              {language === 'ko' ? '비교 대상 기업 선택' : 'Select Automakers'} ({selectedCompanies.length} / 8)
+              {language === 'ko' ? '비교 대상 기업 선택' : 'Select Automakers'} ({selectedCompanies.length} / {allCompanies.length})
             </label>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-              {language === 'ko' ? '2 ~ 8개 기업 선택' : '2 ~ 8 OEMs'}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={selectAll}
+                className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline px-2 py-0.5 rounded bg-brand-500/10"
+              >
+                {language === 'ko' ? '전체 선택 (16개)' : 'Select All'}
+              </button>
+              <button
+                onClick={selectTopSix}
+                className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800"
+              >
+                {language === 'ko' ? '상위 6개' : 'Top 6'}
+              </button>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono ml-1">
+                {language === 'ko' ? `2 ~ ${allCompanies.length}개 기업` : `2 ~ ${allCompanies.length} OEMs`}
+              </span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {allCompanies.map((c) => {

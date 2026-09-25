@@ -33,18 +33,9 @@ export const GlobalOverviewPage: React.FC = () => {
   const companies = getAllCompanies();
   const periods = getDistinctPeriods();
   const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
-  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([
-    'mercedes_benz',
-    'bmw_group',
-    'volkswagen_group',
-    'hyundai_motor',
-    'toyota_motor',
-    'tesla',
-    'byd',
-    'general_motors',
-    'stellantis',
-    'ford',
-  ]);
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>(() =>
+    companies.map((c) => c.id)
+  );
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
   const [showInlineTable, setShowInlineTable] = useState<boolean>(false);
 
@@ -57,6 +48,14 @@ export const GlobalOverviewPage: React.FC = () => {
     } else {
       setSelectedCompanies([...selectedCompanies, companyId]);
     }
+  };
+
+  const selectAllCompanies = () => {
+    setSelectedCompanies(companies.map((c) => c.id));
+  };
+
+  const selectTopFive = () => {
+    setSelectedCompanies(['toyota_motor', 'volkswagen_group', 'hyundai_motor', 'general_motors', 'stellantis']);
   };
 
   // Observations for Sales Bar Chart (ranked descending)
@@ -90,6 +89,12 @@ export const GlobalOverviewPage: React.FC = () => {
     if (n.includes('gm') || n.includes('general')) return '#4f46e5';
     if (n.includes('stellantis')) return '#7c3aed';
     if (n.includes('ford')) return '#1d4ed8';
+    if (n.includes('kia')) return '#c8102e';
+    if (n.includes('geely')) return '#0284c7';
+    if (n.includes('honda')) return '#b91c1c';
+    if (n.includes('nissan')) return '#991b1b';
+    if (n.includes('volvo')) return '#1e3a8a';
+    if (n.includes('rivian')) return '#d97706';
     const palette = ['#0c93e7', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
     return palette[idx % palette.length];
   };
@@ -117,8 +122,8 @@ export const GlobalOverviewPage: React.FC = () => {
     const comp = getCompanyById(cid)!;
     const totalDel = getObservations([cid], ['deliveries_global'], selectedPeriod)[0]?.value || 0;
     const bevVol = getObservations([cid], ['bev_deliveries'], selectedPeriod)[0]?.value || 0;
-    const phevVol = getObservations([cid], ['phev_deliveries'], selectedPeriod)[0]?.value || (cid === 'byd' ? 620 : 0);
-    const phevReported = cid === 'byd';
+    const phevVol = getObservations([cid], ['phev_deliveries'], selectedPeriod)[0]?.value || (cid === 'byd' ? 620 : cid === 'volvo_cars' ? 55.2 : 0);
+    const phevReported = cid === 'byd' || cid === 'volvo_cars';
 
     return {
       company: comp,
@@ -286,9 +291,23 @@ export const GlobalOverviewPage: React.FC = () => {
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mr-1">
-            {t.global.oemFilter}
+            {t.global.oemFilter} ({selectedCompanies.length}/{companies.length})
           </span>
-          {companies.slice(0, 8).map((comp) => {
+          <div className="flex items-center gap-1 mr-2">
+            <button
+              onClick={selectAllCompanies}
+              className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline px-1.5 py-0.5 rounded bg-brand-500/10"
+            >
+              {language === 'ko' ? '전체 선택' : 'All'}
+            </button>
+            <button
+              onClick={selectTopFive}
+              className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800"
+            >
+              {language === 'ko' ? '상위 5개' : 'Top 5'}
+            </button>
+          </div>
+          {companies.map((comp) => {
             const active = selectedCompanies.includes(comp.id);
             return (
               <button
@@ -296,7 +315,7 @@ export const GlobalOverviewPage: React.FC = () => {
                 onClick={() => toggleCompany(comp.id)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
                   active
-                    ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/30 font-bold'
+                    ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/30 font-bold shadow-xs'
                     : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-slate-300'
                 }`}
               >

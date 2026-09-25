@@ -114,7 +114,7 @@ export function getCoverageMatrix(): {
     >
   >;
 } {
-  const companies = COMPANIES_REGISTRY.slice(0, 10).map((c) => ({
+  const companies = COMPANIES_REGISTRY.map((c) => ({
     id: c.id,
     name: c.shortName,
     irUrl: c.financialResultsUrl || c.irUrl,

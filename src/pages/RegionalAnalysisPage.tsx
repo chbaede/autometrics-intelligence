@@ -176,7 +176,7 @@ export const RegionalAnalysisPage: React.FC = () => {
           </div>
 
           <div className="space-y-2.5 pt-2">
-            {filteredObservations.slice(0, 10).map((obs, idx) => {
+            {filteredObservations.map((obs, idx) => {
               const comp = getCompanyById(obs.companyId);
               const pctOfMax = (obs.value / maxVolume) * 100;
               const shareOfTotal = (obs.value / (totalVolume || 1)) * 100;
