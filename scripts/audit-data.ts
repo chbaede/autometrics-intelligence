@@ -383,7 +383,9 @@ companyPeriodTypes.forEach((cpt) => {
 
     const documentedKpi = kpiMatches.length === 1 ? kpiMatches[0] : undefined;
 
-    const validationOptions: MarginValidationOptions = {};
+    const validationOptions: MarginValidationOptions = {
+      sourcesMap: SOURCES_MAP,
+    };
     if (proxyMapping) {
       validationOptions.proxyMapping = proxyMapping;
     }
@@ -494,6 +496,7 @@ companyPeriodTypes.forEach((cpt) => {
           proxyMapping: match.proxyMapping,
           documentedKpi: match.documentedKpi,
           exception: match.exception,
+          sourcesMap: SOURCES_MAP,
         }
       );
 

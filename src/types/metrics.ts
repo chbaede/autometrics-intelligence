@@ -271,6 +271,9 @@ export interface MarginValidationResult {
   reportedMargin: number | null;
   difference: number | null;
   mathematicallyVerified?: boolean;
+  proxyCompatibility?: boolean;
+  mathematicalEquivalence?: boolean;
+  limitations?: string[];
   selectedObservationIds: {
     revenue?: string;
     profit?: string;
@@ -326,6 +329,19 @@ export interface DocumentedReportedKpi {
   evidence: ScopeExceptionEvidence[];
 }
 
+export interface ProxyMetricMappingQuery {
+  companyId: string;
+  period?: string;
+  periodType?: PeriodType;
+  targetMetricId?: string;
+  targetNumeratorSemantic?: string;
+  proxyMetricId?: string;
+  targetScope?: ReportingScope;
+  targetBasis?: AccountingBasis;
+  proxyScope?: ReportingScope;
+  proxyBasis?: AccountingBasis;
+}
+
 export interface ProxyMetricMapping {
   id: string;
   companyId: string;
@@ -340,6 +356,10 @@ export interface ProxyMetricMapping {
   proxyMetricId: string;
   proxyScope: ReportingScope;
   proxyBasis: AccountingBasis;
+
+  denominatorMetricId?: string;
+  denominatorScope?: ReportingScope;
+  denominatorBasis?: AccountingBasis;
 
   sourceDocIds: string[];
   evidence: ScopeExceptionEvidence[];

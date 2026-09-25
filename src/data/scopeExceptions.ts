@@ -34,13 +34,14 @@ import {
   EvidencePurpose,
   DocumentedReportedKpi,
   ProxyMetricMapping,
+  ProxyMetricMappingQuery,
   PeriodType,
   MetricObservation,
   DocumentedScopeException,
   MarginValidationContext,
 } from '../types/metrics';
 
-export type { EvidencePurpose, DocumentedReportedKpi, ProxyMetricMapping, DocumentedScopeException, MarginValidationContext };
+export type { EvidencePurpose, DocumentedReportedKpi, ProxyMetricMapping, ProxyMetricMappingQuery, DocumentedScopeException, MarginValidationContext };
 
 
 /**
@@ -225,6 +226,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['bmw_2026_q2_statement'],
     evidence: [
       {
@@ -250,6 +254,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['bmw_2026_q1_statement'],
     evidence: [
       {
@@ -275,6 +282,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['bmw_2025_fy_statement'],
     evidence: [
       {
@@ -300,6 +310,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['bmw_2024_fy_statement'],
     evidence: [
       {
@@ -327,6 +340,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['mbg_2026_q2_results'],
     evidence: [
       {
@@ -352,6 +368,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['mbg_2026_q1_results'],
     evidence: [
       {
@@ -377,6 +396,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['mbg_2025_fy_results'],
     evidence: [
       {
@@ -402,6 +424,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     proxyMetricId: 'operating_income',
     proxyScope: 'consolidated_group',
     proxyBasis: 'reported',
+    denominatorMetricId: 'revenue',
+    denominatorScope: 'consolidated_group',
+    denominatorBasis: 'reported',
     sourceDocIds: ['mbg_2024_fy_results'],
     evidence: [
       {
@@ -770,12 +795,25 @@ export interface DocumentedKpiValidationResult {
 }
 
 /**
- * Validates actual observation compatibility with a DocumentedReportedKpi (STEP 4-8, Task 6).
+ * Helper to retrieve a source document from Map, ReadonlyMap, or Record.
+ */
+function lookupSourceDocInRegistry(
+  sourcesMap: ReadonlyMap<string, SourceDocument> | Map<string, SourceDocument> | Record<string, SourceDocument>,
+  docId: string
+): SourceDocument | undefined {
+  if (sourcesMap instanceof Map || typeof (sourcesMap as ReadonlyMap<string, SourceDocument>).get === 'function') {
+    return (sourcesMap as ReadonlyMap<string, SourceDocument>).get(docId);
+  }
+  return (sourcesMap as Record<string, SourceDocument>)[docId];
+}
+
+/**
+ * Validates actual observation compatibility with a DocumentedReportedKpi (STEP 4-8, Task 6; STEP 4-9, Task 2).
  */
 export function validateDocumentedReportedKpiCompatibility(
   kpi: DocumentedReportedKpi,
   marginObs: MetricObservation,
-  sourcesMap?: Map<string, SourceDocument>
+  sourcesMap?: ReadonlyMap<string, SourceDocument> | Map<string, SourceDocument> | Record<string, SourceDocument>
 ): DocumentedKpiValidationResult {
   const mismatches: string[] = [];
   const reasons: string[] = [];
@@ -836,20 +874,56 @@ export function validateDocumentedReportedKpiCompatibility(
     );
   }
 
+  // Deep source registry validation (STEP 4-9, Task 2)
   if (sourcesMap) {
     for (const docId of kpi.sourceDocIds) {
-      const doc = sourcesMap.get(docId);
+      const doc = lookupSourceDocInRegistry(sourcesMap, docId);
       if (!doc) {
-        mismatches.push('sourceMissing');
+        if (!mismatches.includes('sourceMissing')) mismatches.push('sourceMissing');
         reasons.push(`Source document "${docId}" referenced by KPI was not found in registry.`);
-      } else if (doc.isVerified === false) {
-        mismatches.push('sourceUnverified');
-        reasons.push(`Source document "${docId}" referenced by KPI is not verified.`);
+      } else {
+        if (doc.isVerified !== true) {
+          if (!mismatches.includes('sourceUnverified')) mismatches.push('sourceUnverified');
+          reasons.push(`Source document "${docId}" referenced by KPI is not verified (isVerified !== true).`);
+        }
+        if (doc.verificationStatus !== 'verified') {
+          if (!mismatches.includes('sourceVerificationStatus')) mismatches.push('sourceVerificationStatus');
+          reasons.push(`Source document "${docId}" verificationStatus is "${doc.verificationStatus}", expected "verified".`);
+        }
+        if (doc.companyId !== kpi.companyId) {
+          if (!mismatches.includes('sourceCompanyMismatch')) mismatches.push('sourceCompanyMismatch');
+          reasons.push(`Source document "${docId}" companyId "${doc.companyId}" does not match KPI companyId "${kpi.companyId}".`);
+        }
+        if (doc.period && kpi.period && doc.period !== kpi.period) {
+          if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+          reasons.push(`Source document "${docId}" period "${doc.period}" does not match KPI period "${kpi.period}".`);
+        }
+        if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
+          if (!mismatches.includes('sourceOfficialUrl')) mismatches.push('sourceOfficialUrl');
+          reasons.push(`Source document "${docId}" officialUrl must be a valid HTTPS URL.`);
+        }
+        if (!doc.publicationDate || !/^\d{4}-\d{2}-\d{2}$/.test(doc.publicationDate)) {
+          if (!mismatches.includes('sourcePublicationDate')) mismatches.push('sourcePublicationDate');
+          reasons.push(`Source document "${docId}" publicationDate "${doc.publicationDate}" is not a valid ISO date.`);
+        }
       }
     }
   }
 
-  const hasReportedKpiEvidence = kpi.evidence.some((ev) => ev.purpose === 'reported_kpi');
+  // Meaningful evidence locator validation (STEP 4-9, Task 2)
+  if (!kpi.evidence || kpi.evidence.length === 0) {
+    if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
+    reasons.push(`Reported KPI [${kpi.id}] has no evidence items.`);
+  } else {
+    for (const ev of kpi.evidence) {
+      if (!hasMeaningfulEvidenceLocator(ev)) {
+        if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
+        reasons.push(`Reported KPI [${kpi.id}] evidence for source "${ev.sourceDocId}" lacks meaningful locators.`);
+      }
+    }
+  }
+
+  const hasReportedKpiEvidence = kpi.evidence && kpi.evidence.some((ev) => ev.purpose === 'reported_kpi');
   if (!hasReportedKpiEvidence) {
     mismatches.push('evidencePurpose');
     reasons.push(`Reported KPI [${kpi.id}] does not contain evidence with purpose "reported_kpi".`);
@@ -919,7 +993,7 @@ export function normalizeProxyException(exception: DocumentedScopeException): {
 }
 
 /**
- * Compatibility validation result for ProxyMetricMapping (STEP 4-7, P1-4; STEP 4-8, Task 2).
+ * Compatibility validation result for ProxyMetricMapping (STEP 4-7, P1-4; STEP 4-8, Task 2; STEP 4-9, Task 1).
  */
 export interface ProxyMappingValidationResult {
   isValid: boolean;
@@ -928,21 +1002,63 @@ export interface ProxyMappingValidationResult {
 }
 
 /**
- * Validates actual observation compatibility with a ProxyMetricMapping (STEP 4-7, P1-4; STEP 4-8, Task 2).
+ * Validates actual observation compatibility with a ProxyMetricMapping (STEP 4-7, P1-4; STEP 4-8, Task 2; STEP 4-9, Task 1 & 3).
  * Verifies:
+ *  - Mapping invariants (status='proxy_only', non-empty id, reason, sourceDocIds, evidence, targetNumeratorSemantic)
+ *  - Evidence locators have at least one meaningful locator
+ *  - revObs matches denominator contract (denominatorMetricId, denominatorScope, denominatorBasis)
  *  - profitObs matches proxyMetricId, proxyScope, proxyBasis, and sourceDocIds
  *  - marginObs matches targetScope, targetBasis, and sourceDocIds
  *  - period and periodType match
  *  - targetNumeratorSemantic matches OEM requirements (BMW: automotive_segment_ebit, Mercedes: cars_adjusted_ebit)
+ *  - Deep source registry verification against sourcesMap
  */
 export function validateProxyMappingCompatibility(
   mapping: ProxyMetricMapping,
   revObs: MetricObservation,
   profitObs: MetricObservation,
-  marginObs: MetricObservation
+  marginObs: MetricObservation,
+  sourcesMap?: ReadonlyMap<string, SourceDocument> | Map<string, SourceDocument> | Record<string, SourceDocument>
 ): ProxyMappingValidationResult {
   const reasons: string[] = [];
   const mismatches: string[] = [];
+
+  // Mapping invariants (STEP 4-9, Task 5)
+  if (mapping.status !== 'proxy_only') {
+    mismatches.push('invalidMappingStatus');
+    reasons.push(`ProxyMapping status must be "proxy_only", got "${mapping.status}".`);
+  }
+  if (!mapping.id || mapping.id.trim().length === 0) {
+    mismatches.push('emptyMappingId');
+    reasons.push('ProxyMapping id must not be empty.');
+  }
+  if (!mapping.reason || mapping.reason.trim().length === 0) {
+    mismatches.push('emptyMappingReason');
+    reasons.push('ProxyMapping reason must not be empty.');
+  }
+  if (!mapping.sourceDocIds || mapping.sourceDocIds.length === 0) {
+    mismatches.push('emptySourceDocIds');
+    reasons.push('ProxyMapping sourceDocIds must not be empty.');
+  }
+  if (!mapping.evidence || mapping.evidence.length === 0) {
+    mismatches.push('emptyEvidence');
+    reasons.push('ProxyMapping evidence must not be empty.');
+  }
+  const targetSemantic = mapping.targetNumeratorSemantic || mapping.targetMetricId;
+  if (!targetSemantic || targetSemantic.trim().length === 0) {
+    mismatches.push('emptyTargetNumeratorSemantic');
+    reasons.push('ProxyMapping targetNumeratorSemantic must not be empty.');
+  }
+
+  // Meaningful evidence locator check (STEP 4-9, Task 1)
+  if (mapping.evidence && mapping.evidence.length > 0) {
+    for (const ev of mapping.evidence) {
+      if (!hasMeaningfulEvidenceLocator(ev)) {
+        if (!mismatches.includes('missingEvidenceLocator')) mismatches.push('missingEvidenceLocator');
+        reasons.push(`ProxyMapping [${mapping.id}] evidence for source "${ev.sourceDocId}" lacks meaningful locator.`);
+      }
+    }
+  }
 
   // 1. Company ID
   if (
@@ -1028,8 +1144,27 @@ export function validateProxyMappingCompatibility(
     );
   }
 
-  // 6. Target numerator semantic validation (STEP 4-8, Task 2)
-  const targetSemantic = mapping.targetNumeratorSemantic || mapping.targetMetricId;
+  // 6. Denominator contract validation against revObs (STEP 4-9, Task 3)
+  if (mapping.denominatorMetricId && revObs.metricId !== mapping.denominatorMetricId) {
+    mismatches.push('denominatorMetricId');
+    reasons.push(
+      `Candidate revenue metricId "${revObs.metricId}" does not match mapping denominatorMetricId "${mapping.denominatorMetricId}".`
+    );
+  }
+  if (mapping.denominatorScope && revObs.reportingScope !== mapping.denominatorScope) {
+    mismatches.push('denominatorScope');
+    reasons.push(
+      `Candidate revenue scope "${revObs.reportingScope}" does not match mapping denominatorScope "${mapping.denominatorScope}".`
+    );
+  }
+  if (mapping.denominatorBasis && revObs.accountingBasis !== mapping.denominatorBasis) {
+    mismatches.push('denominatorBasis');
+    reasons.push(
+      `Candidate revenue basis "${revObs.accountingBasis}" does not match mapping denominatorBasis "${mapping.denominatorBasis}".`
+    );
+  }
+
+  // 7. Target numerator semantic validation (STEP 4-8, Task 2)
   if (mapping.companyId === 'bmw_group') {
     if (targetSemantic !== 'automotive_segment_ebit') {
       mismatches.push('targetNumeratorSemantic');
@@ -1046,6 +1181,42 @@ export function validateProxyMappingCompatibility(
     }
   }
 
+  // 8. Deep source document verification with sourcesMap (STEP 4-9, Task 1)
+  if (sourcesMap && mapping.sourceDocIds) {
+    for (const docId of mapping.sourceDocIds) {
+      const doc = lookupSourceDocInRegistry(sourcesMap, docId);
+      if (!doc) {
+        if (!mismatches.includes('sourceMissing')) mismatches.push('sourceMissing');
+        reasons.push(`Source document "${docId}" referenced by mapping was not found in registry.`);
+      } else {
+        if (doc.isVerified !== true) {
+          if (!mismatches.includes('sourceUnverified')) mismatches.push('sourceUnverified');
+          reasons.push(`Source document "${docId}" referenced by mapping is not verified (isVerified !== true).`);
+        }
+        if (doc.verificationStatus !== 'verified') {
+          if (!mismatches.includes('sourceVerificationStatus')) mismatches.push('sourceVerificationStatus');
+          reasons.push(`Source document "${docId}" verificationStatus is "${doc.verificationStatus}", expected "verified".`);
+        }
+        if (doc.companyId !== mapping.companyId) {
+          if (!mismatches.includes('sourceCompanyMismatch')) mismatches.push('sourceCompanyMismatch');
+          reasons.push(`Source document "${docId}" companyId "${doc.companyId}" does not match mapping companyId "${mapping.companyId}".`);
+        }
+        if (doc.period && mapping.period && doc.period !== mapping.period) {
+          if (!mismatches.includes('sourcePeriodMismatch')) mismatches.push('sourcePeriodMismatch');
+          reasons.push(`Source document "${docId}" period "${doc.period}" does not match mapping period "${mapping.period}".`);
+        }
+        if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
+          if (!mismatches.includes('sourceOfficialUrl')) mismatches.push('sourceOfficialUrl');
+          reasons.push(`Source document "${docId}" officialUrl must be a valid HTTPS URL.`);
+        }
+        if (!doc.publicationDate || !/^\d{4}-\d{2}-\d{2}$/.test(doc.publicationDate)) {
+          if (!mismatches.includes('sourcePublicationDate')) mismatches.push('sourcePublicationDate');
+          reasons.push(`Source document "${docId}" publicationDate "${doc.publicationDate}" is not a valid ISO date.`);
+        }
+      }
+    }
+  }
+
   return {
     isValid: mismatches.length === 0,
     mismatches,
@@ -1054,8 +1225,14 @@ export function validateProxyMappingCompatibility(
 }
 
 /**
- * Finds all proxy metric mappings matching criteria (STEP 4-8, Task 3).
+ * Finds all proxy metric mappings matching criteria (STEP 4-8, Task 3; STEP 4-9, Task 4).
+ * Overloaded to support both query object and positional parameters.
+ * Ambiguous wildcard matching (targetMetricId === 'operating_income') has been removed.
  */
+export function findProxyMetricMappings(
+  query: ProxyMetricMappingQuery,
+  mappingsList?: ProxyMetricMapping[]
+): ProxyMetricMapping[];
 export function findProxyMetricMappings(
   companyId: string,
   period?: string,
@@ -1066,30 +1243,65 @@ export function findProxyMetricMappings(
   targetBasis?: AccountingBasis,
   proxyScope?: ReportingScope,
   proxyBasis?: AccountingBasis,
+  mappingsList?: ProxyMetricMapping[]
+): ProxyMetricMapping[];
+export function findProxyMetricMappings(
+  queryOrCompanyId: ProxyMetricMappingQuery | string,
+  periodOrList?: string | ProxyMetricMapping[],
+  targetMetricId?: string,
+  proxyMetricId?: string,
+  periodType?: PeriodType,
+  targetScope?: ReportingScope,
+  targetBasis?: AccountingBasis,
+  proxyScope?: ReportingScope,
+  proxyBasis?: AccountingBasis,
   mappingsList: ProxyMetricMapping[] = PROXY_METRIC_MAPPINGS
 ): ProxyMetricMapping[] {
-  return mappingsList.filter(
-    (m) =>
-      m.companyId === companyId &&
-      (period === undefined || m.period === undefined || m.period === period) &&
-      (periodType === undefined || m.periodType === undefined || m.periodType === periodType) &&
-      (targetMetricId === undefined ||
-        m.targetMetricId === targetMetricId ||
-        (targetMetricId === 'operating_income' &&
-          (m.targetMetricId === 'automotive_segment_ebit' || m.targetMetricId === 'cars_adjusted_ebit')) ||
-        (m.targetNumeratorSemantic && m.targetNumeratorSemantic === targetMetricId)) &&
-      (proxyMetricId === undefined || m.proxyMetricId === proxyMetricId) &&
-      (targetScope === undefined || m.targetScope === targetScope) &&
-      (targetBasis === undefined || m.targetBasis === targetBasis) &&
-      (proxyScope === undefined || m.proxyScope === proxyScope) &&
-      (proxyBasis === undefined || m.proxyBasis === proxyBasis)
-  );
+  let query: ProxyMetricMappingQuery;
+  let list = mappingsList;
+
+  if (typeof queryOrCompanyId === 'object' && queryOrCompanyId !== null) {
+    query = queryOrCompanyId;
+    if (Array.isArray(periodOrList)) {
+      list = periodOrList;
+    }
+  } else {
+    query = {
+      companyId: queryOrCompanyId,
+      period: typeof periodOrList === 'string' ? periodOrList : undefined,
+      targetMetricId,
+      proxyMetricId,
+      periodType,
+      targetScope,
+      targetBasis,
+      proxyScope,
+      proxyBasis,
+    };
+  }
+
+  return list.filter((m) => {
+    if (m.companyId !== query.companyId) return false;
+    if (query.period !== undefined && m.period !== undefined && m.period !== query.period) return false;
+    if (query.periodType !== undefined && m.periodType !== undefined && m.periodType !== query.periodType) return false;
+    if (query.targetMetricId !== undefined && m.targetMetricId !== query.targetMetricId) return false;
+    if (query.targetNumeratorSemantic !== undefined && m.targetNumeratorSemantic !== query.targetNumeratorSemantic) return false;
+    if (query.proxyMetricId !== undefined && m.proxyMetricId !== query.proxyMetricId) return false;
+    if (query.targetScope !== undefined && m.targetScope !== query.targetScope) return false;
+    if (query.targetBasis !== undefined && m.targetBasis !== query.targetBasis) return false;
+    if (query.proxyScope !== undefined && m.proxyScope !== query.proxyScope) return false;
+    if (query.proxyBasis !== undefined && m.proxyBasis !== query.proxyBasis) return false;
+    return true;
+  });
 }
 
 /**
- * Finds a unique proxy metric mapping (STEP 4-6, P0-1; STEP 4-7, P1-3; STEP 4-8, Task 3).
+ * Finds a unique proxy metric mapping (STEP 4-6, P0-1; STEP 4-7, P1-3; STEP 4-8, Task 3; STEP 4-9, Task 4).
  * Returns undefined if no match OR if multiple ambiguous matches occur.
  */
+export function findProxyMetricMapping(
+  query: ProxyMetricMappingQuery,
+  mappingsList?: ProxyMetricMapping[]
+): ProxyMetricMapping | undefined;
 export function findProxyMetricMapping(
   companyId: string,
   period?: string,
@@ -1100,20 +1312,35 @@ export function findProxyMetricMapping(
   targetBasis?: AccountingBasis,
   proxyScope?: ReportingScope,
   proxyBasis?: AccountingBasis,
+  mappingsList?: ProxyMetricMapping[]
+): ProxyMetricMapping | undefined;
+export function findProxyMetricMapping(
+  queryOrCompanyId: ProxyMetricMappingQuery | string,
+  periodOrList?: string | ProxyMetricMapping[],
+  targetMetricId?: string,
+  proxyMetricId?: string,
+  periodType?: PeriodType,
+  targetScope?: ReportingScope,
+  targetBasis?: AccountingBasis,
+  proxyScope?: ReportingScope,
+  proxyBasis?: AccountingBasis,
   mappingsList: ProxyMetricMapping[] = PROXY_METRIC_MAPPINGS
 ): ProxyMetricMapping | undefined {
-  const matches = findProxyMetricMappings(
-    companyId,
-    period,
-    targetMetricId,
-    proxyMetricId,
-    periodType,
-    targetScope,
-    targetBasis,
-    proxyScope,
-    proxyBasis,
-    mappingsList
-  );
+  const matches =
+    typeof queryOrCompanyId === 'object' && queryOrCompanyId !== null
+      ? findProxyMetricMappings(queryOrCompanyId, Array.isArray(periodOrList) ? periodOrList : mappingsList)
+      : findProxyMetricMappings(
+          queryOrCompanyId,
+          typeof periodOrList === 'string' ? periodOrList : undefined,
+          targetMetricId,
+          proxyMetricId,
+          periodType,
+          targetScope,
+          targetBasis,
+          proxyScope,
+          proxyBasis,
+          mappingsList
+        );
   if (matches.length === 1) {
     return matches[0];
   }

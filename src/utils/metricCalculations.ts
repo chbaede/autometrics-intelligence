@@ -39,6 +39,7 @@ import {
   DOCUMENTED_REPORTED_KPIS,
   PROXY_METRIC_MAPPINGS,
 } from '../data/scopeExceptions';
+import { SOURCES_MAP } from '../data/sources';
 
 export function calculateYoYGrowth(
   current: number | null | undefined,
@@ -779,6 +780,7 @@ export interface MarginValidationOptions {
   documentedKpi?: DocumentedReportedKpi | null;
   exception?: DocumentedScopeException | null;
   context?: MarginValidationContext | null;
+  sourcesMap?: ReadonlyMap<string, SourceDocument> | Map<string, SourceDocument> | Record<string, SourceDocument> | null;
 }
 
 /**
@@ -864,6 +866,9 @@ export function resolveMarginValidationContext(
         proxyMetricId: exception.numeratorMetricId,
         proxyScope: exception.numeratorScope,
         proxyBasis: exception.numeratorBasis,
+        denominatorMetricId: exception.denominatorMetricId,
+        denominatorScope: exception.denominatorScope,
+        denominatorBasis: exception.denominatorBasis,
         sourceDocIds: exception.sourceDocIds,
         evidence: exception.evidence,
         status: 'proxy_only',
@@ -1225,6 +1230,9 @@ export function validateMarginTriplet(
             proxyMetricId: context.exception.numeratorMetricId,
             proxyScope: context.exception.numeratorScope,
             proxyBasis: context.exception.numeratorBasis,
+            denominatorMetricId: context.exception.denominatorMetricId,
+            denominatorScope: context.exception.denominatorScope,
+            denominatorBasis: context.exception.denominatorBasis,
             sourceDocIds: context.exception.sourceDocIds,
             evidence: context.exception.evidence,
             status: 'proxy_only',
@@ -1266,14 +1274,15 @@ export function validateMarginTriplet(
   const reportedMargin = marginObs.value;
   const difference = Math.round(Math.abs(calculatedMargin - reportedMargin!) * 100) / 100;
 
-  // Handle proxy exception or mapping (STEP 4-3, 4-4, 4-5, 4-6, 4-7, 4-8)
+  // Handle proxy exception or mapping (STEP 4-3, 4-4, 4-5, 4-6, 4-7, 4-8, 4-9)
   if (resolvedContext.kind === 'proxy_numerator') {
     const proxyMapping = resolvedContext.mapping;
     const legacyException = resolvedContext.exception;
     let isExceptionApplicable = true;
     const dimensionMismatches: string[] = [];
 
-    const proxyCompat = validateProxyMappingCompatibility(proxyMapping, revObs, profitObs, marginObs);
+    const sourcesRegistry = options?.sourcesMap || SOURCES_MAP;
+    const proxyCompat = validateProxyMappingCompatibility(proxyMapping, revObs, profitObs, marginObs, sourcesRegistry);
     if (!proxyCompat.isValid) {
       isExceptionApplicable = false;
       dimensionMismatches.push(...proxyCompat.mismatches);
@@ -1293,12 +1302,12 @@ export function validateMarginTriplet(
       const uniqueMismatches = Array.from(new Set(dimensionMismatches));
       const failedProxyChecks = Array.from(new Set([
         ...failedChecks,
-        ...(uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope') ? ['scope' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis') ? ['accountingBasis' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope' || m === 'denominatorScope') ? ['scope' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis' || m === 'denominatorBasis') ? ['accountingBasis' as keyof MarginValidationChecks] : []),
         ...(uniqueMismatches.some((m) => m === 'period') ? ['period' as keyof MarginValidationChecks] : []),
         ...(uniqueMismatches.some((m) => m === 'periodType') ? ['periodType' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc') ? ['provenance' as keyof MarginValidationChecks] : []),
-        ...(uniqueMismatches.some((m) => m === 'targetNumeratorSemantic' || m === 'proxyMetricId') ? ['metricDefinition' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator') ? ['provenance' as keyof MarginValidationChecks] : []),
+        ...(uniqueMismatches.some((m) => m === 'targetNumeratorSemantic' || m === 'proxyMetricId' || m === 'denominatorMetricId' || m === 'invalidMappingStatus' || m === 'emptyMappingId' || m === 'emptyMappingReason' || m === 'emptySourceDocIds' || m === 'emptyEvidence' || m === 'emptyTargetNumeratorSemantic') ? ['metricDefinition' as keyof MarginValidationChecks] : []),
       ]));
 
       return {
@@ -1307,6 +1316,8 @@ export function validateMarginTriplet(
         reportedMargin: marginObs.value,
         difference: null,
         mathematicallyVerified: false,
+        proxyCompatibility: false,
+        limitations: uniqueMismatches,
         selectedObservationIds,
         selectedRuleId: matchingRule?.id,
         exceptionId: legacyException?.id,
@@ -1315,9 +1326,9 @@ export function validateMarginTriplet(
         failedChecks: failedProxyChecks.length > 0 ? failedProxyChecks : ['scope'],
         checks: {
           ...checks,
-          scope: uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope') ? false : checks.scope,
-          accountingBasis: uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis') ? false : checks.accountingBasis,
-          provenance: uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc') ? false : checks.provenance,
+          scope: uniqueMismatches.some((m) => m === 'proxyScope' || m === 'targetScope' || m === 'denominatorScope') ? false : checks.scope,
+          accountingBasis: uniqueMismatches.some((m) => m === 'proxyBasis' || m === 'targetBasis' || m === 'denominatorBasis') ? false : checks.accountingBasis,
+          provenance: uniqueMismatches.some((m) => m === 'profitSourceDoc' || m === 'marginSourceDoc' || m === 'sourceMissing' || m === 'sourceUnverified' || m === 'sourceVerificationStatus' || m === 'sourceCompanyMismatch' || m === 'sourcePeriodMismatch' || m === 'sourceOfficialUrl' || m === 'sourcePublicationDate' || m === 'missingEvidenceLocator') ? false : checks.provenance,
         },
         diagnostic: `Proxy mapping [${proxyMapping.id}] rejected due to dimensional mismatch (${uniqueMismatches.join(', ')}): ${reasons.join('; ')}`,
         reasons: [
@@ -1489,6 +1500,9 @@ export function validateMarginTriplet(
         reportedMargin: marginObs.value,
         difference: null,
         mathematicallyVerified: false,
+        proxyCompatibility: true,
+        mathematicalEquivalence: false,
+        limitations: ['proxy_numerator', 'mathematical_equivalence_unverified'],
         selectedObservationIds,
         selectedRuleId: matchingRule?.id,
         exceptionId: legacyException?.id,

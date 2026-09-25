@@ -54,6 +54,7 @@ import {
   AuditFinding,
   SourceDocument,
   ProxyMetricMapping,
+  ProxyMetricMappingQuery,
   MarginRelationshipRule,
 } from '../src/types/metrics';
 
@@ -1900,7 +1901,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const bmwKpi = findDocumentedReportedKpi('bmw_group', '2026-Q2', 'operating_margin');
   check(bmwKpi !== undefined && bmwKpi.reportingScope === 'automotive_segment', 'Test 50c: BMW reported KPI found with automotive_segment scope');
 
-  const mbgProxy = findProxyMetricMapping('mercedes_benz', '2026-Q2', 'operating_income', 'operating_income');
+  const mbgProxy = findProxyMetricMapping('mercedes_benz', '2026-Q2', 'cars_adjusted_ebit', 'operating_income');
   check(mbgProxy !== undefined && mbgProxy.status === 'proxy_only', 'Test 50d: Mercedes proxy mapping found with status="proxy_only"');
 
   // Verify all entries in DOCUMENTED_SCOPE_EXCEPTIONS link to both conceptual entities
@@ -3414,6 +3415,573 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const resInvalid = validateDocumentedReportedKpiCompatibility(kpis[0], invalidScopeMargin, mockSourcesMap);
   check(resInvalid.isValid === false, 'Test 117d: Mismatched scope fails documented KPI compatibility');
   check(resInvalid.mismatches.includes('reportingScope'), 'Test 117e: Mismatches includes reportingScope');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 118 (STEP 4-9, Scenario 1): Valid BMW proxy mapping with deep source validation
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  check(bmwMapping !== undefined, 'Test 118a: BMW Q2 2026 proxy mapping resolved');
+
+  const rev = makeObs({ id: 'rev_118', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_118', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_118', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, mockSourcesMap);
+  check(compat.isValid === true, 'Test 118b: Valid BMW proxy mapping passes deep source verification');
+  check(compat.mismatches.length === 0, 'Test 118c: No mismatches on valid BMW proxy mapping');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 119 (STEP 4-9, Scenario 2): Valid Mercedes proxy mapping with deep source validation
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const mbgMapping = findProxyMetricMapping('mercedes_benz', '2026-Q2', 'cars_adjusted_ebit', 'operating_income', 'quarterly')!;
+  check(mbgMapping !== undefined, 'Test 119a: Mercedes Q2 2026 proxy mapping resolved');
+
+  const rev = makeObs({ id: 'rev_119', companyId: 'mercedes_benz', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'mbg_2026_q2_results' });
+  const profit = makeObs({ id: 'profit_119', companyId: 'mercedes_benz', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'mbg_2026_q2_results' });
+  const margin = makeObs({ id: 'margin_119', companyId: 'mercedes_benz', metricId: 'operating_margin', reportingScope: 'cars_segment', accountingBasis: 'adjusted', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'mbg_2026_q2_results' });
+
+  const compat = validateProxyMappingCompatibility(mbgMapping, rev, profit, margin, mockSourcesMap);
+  check(compat.isValid === true, 'Test 119b: Valid Mercedes proxy mapping passes deep source verification');
+  check(compat.mismatches.length === 0, 'Test 119c: No mismatches on valid Mercedes proxy mapping');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 120 (STEP 4-9, Scenario 3): Missing source document in registry fails with sourceMissing
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_120', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_120', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_120', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const emptyRegistry = new Map<string, SourceDocument>();
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, emptyRegistry);
+  check(compat.isValid === false, 'Test 120a: Missing source document fails compatibility');
+  check(compat.mismatches.includes('sourceMissing'), 'Test 120b: Mismatches includes sourceMissing');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 121 (STEP 4-9, Scenario 4): Unverified source document (isVerified !== true) fails with sourceUnverified
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_121', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_121', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_121', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const unverifiedSources = new Map(mockSourcesMap);
+  unverifiedSources.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    isVerified: false,
+  });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, unverifiedSources);
+  check(compat.isValid === false, 'Test 121a: isVerified=false fails compatibility');
+  check(compat.mismatches.includes('sourceUnverified'), 'Test 121b: Mismatches includes sourceUnverified');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 122 (STEP 4-9, Scenario 5): Unverified verificationStatus fails with sourceVerificationStatus
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_122', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_122', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_122', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const unverifiedStatusSources = new Map(mockSourcesMap);
+  unverifiedStatusSources.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    verificationStatus: 'unverified' as any,
+  });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, unverifiedStatusSources);
+  check(compat.isValid === false, 'Test 122a: verificationStatus!=="verified" fails compatibility');
+  check(compat.mismatches.includes('sourceVerificationStatus'), 'Test 122b: Mismatches includes sourceVerificationStatus');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 123 (STEP 4-9, Scenario 6): Source company mismatch fails with sourceCompanyMismatch
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_123', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_123', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_123', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const mismatchCompanySources = new Map(mockSourcesMap);
+  mismatchCompanySources.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    companyId: 'toyota_motor',
+  });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, mismatchCompanySources);
+  check(compat.isValid === false, 'Test 123a: Source company mismatch fails compatibility');
+  check(compat.mismatches.includes('sourceCompanyMismatch'), 'Test 123b: Mismatches includes sourceCompanyMismatch');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 124 (STEP 4-9, Scenario 7): Source period mismatch fails with sourcePeriodMismatch
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_124', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_124', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_124', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const mismatchPeriodSources = new Map(mockSourcesMap);
+  mismatchPeriodSources.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    period: '2025-FY',
+  });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, mismatchPeriodSources);
+  check(compat.isValid === false, 'Test 124a: Source period mismatch fails compatibility');
+  check(compat.mismatches.includes('sourcePeriodMismatch'), 'Test 124b: Mismatches includes sourcePeriodMismatch');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 125 (STEP 4-9, Scenario 8): Insecure officialUrl fails with sourceOfficialUrl
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_125', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_125', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_125', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const insecureUrlSources = new Map(mockSourcesMap);
+  insecureUrlSources.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    officialUrl: 'http://insecure.example.com/report.pdf',
+  });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, insecureUrlSources);
+  check(compat.isValid === false, 'Test 125a: Insecure HTTP URL fails compatibility');
+  check(compat.mismatches.includes('sourceOfficialUrl'), 'Test 125b: Mismatches includes sourceOfficialUrl');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 126 (STEP 4-9, Scenario 9): Invalid publicationDate fails with sourcePublicationDate
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_126', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_126', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_126', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const invalidDateSources = new Map(mockSourcesMap);
+  invalidDateSources.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    publicationDate: '05/01/2026',
+  });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, rev, profit, margin, invalidDateSources);
+  check(compat.isValid === false, 'Test 126a: Non-ISO publicationDate fails compatibility');
+  check(compat.mismatches.includes('sourcePublicationDate'), 'Test 126b: Mismatches includes sourcePublicationDate');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 127 (STEP 4-9, Scenario 10): Evidence lacking meaningful locator fails with missingEvidenceLocator
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const mappingNoLocator: ProxyMetricMapping = {
+    ...baseMapping,
+    id: 'mapping_no_locator_test',
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        purpose: 'scope_definition',
+      },
+    ],
+  };
+
+  const rev = makeObs({ id: 'rev_127', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_127', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_127', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(mappingNoLocator, rev, profit, margin, mockSourcesMap);
+  check(compat.isValid === false, 'Test 127a: Evidence without locators fails compatibility');
+  check(compat.mismatches.includes('missingEvidenceLocator'), 'Test 127b: Mismatches includes missingEvidenceLocator');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 128 (STEP 4-9, Scenario 11): Evidence with pageNumber passes locator check
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const mappingWithPage: ProxyMetricMapping = {
+    ...baseMapping,
+    id: 'mapping_page_test',
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        pageNumber: 38,
+        purpose: 'scope_definition',
+      },
+    ],
+  };
+
+  const rev = makeObs({ id: 'rev_128', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_128', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_128', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(mappingWithPage, rev, profit, margin, mockSourcesMap);
+  check(!compat.mismatches.includes('missingEvidenceLocator'), 'Test 128: Evidence with pageNumber satisfies locator check');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 129 (STEP 4-9, Scenario 12): Evidence with sectionReference passes locator check
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const mappingWithSection: ProxyMetricMapping = {
+    ...baseMapping,
+    id: 'mapping_section_test',
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        sectionReference: 'Automotive Segment Report',
+        purpose: 'scope_definition',
+      },
+    ],
+  };
+
+  const rev = makeObs({ id: 'rev_129', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_129', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_129', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(mappingWithSection, rev, profit, margin, mockSourcesMap);
+  check(!compat.mismatches.includes('missingEvidenceLocator'), 'Test 129: Evidence with sectionReference satisfies locator check');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 130 (STEP 4-9, Scenario 13): Evidence with tableReference passes locator check
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const mappingWithTable: ProxyMetricMapping = {
+    ...baseMapping,
+    id: 'mapping_table_test',
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        tableReference: 'Segment Key Figures',
+        purpose: 'scope_definition',
+      },
+    ],
+  };
+
+  const rev = makeObs({ id: 'rev_130', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_130', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_130', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(mappingWithTable, rev, profit, margin, mockSourcesMap);
+  check(!compat.mismatches.includes('missingEvidenceLocator'), 'Test 130: Evidence with tableReference satisfies locator check');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 131 (STEP 4-9, Scenario 14): Evidence with evidenceReference passes locator check
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const mappingWithEvidenceRef: ProxyMetricMapping = {
+    ...baseMapping,
+    id: 'mapping_evref_test',
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        evidenceReference: 'Automotive EBIT margin 7.8%',
+        purpose: 'scope_definition',
+      },
+    ],
+  };
+
+  const rev = makeObs({ id: 'rev_131', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_131', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_131', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(mappingWithEvidenceRef, rev, profit, margin, mockSourcesMap);
+  check(!compat.mismatches.includes('missingEvidenceLocator'), 'Test 131: Evidence with evidenceReference satisfies locator check');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 132 (STEP 4-9, Scenario 15): Candidate revenue with wrong metricId fails denominatorMetricId
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const revWrongMetric = makeObs({ id: 'rev_132', companyId: 'bmw_group', metricId: 'gross_revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_132', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_132', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, revWrongMetric, profit, margin, mockSourcesMap);
+  check(compat.isValid === false, 'Test 132a: Wrong denominator metric fails compatibility');
+  check(compat.mismatches.includes('denominatorMetricId'), 'Test 132b: Mismatches includes denominatorMetricId');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 133 (STEP 4-9, Scenario 16): Candidate revenue with wrong scope fails denominatorScope
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const revWrongScope = makeObs({ id: 'rev_133', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'automotive_segment', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_133', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_133', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, revWrongScope, profit, margin, mockSourcesMap);
+  check(compat.isValid === false, 'Test 133a: Wrong denominator scope fails compatibility');
+  check(compat.mismatches.includes('denominatorScope'), 'Test 133b: Mismatches includes denominatorScope');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 134 (STEP 4-9, Scenario 17): Candidate revenue with wrong basis fails denominatorBasis
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const revWrongBasis = makeObs({ id: 'rev_134', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'adjusted', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_134', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_134', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(bmwMapping, revWrongBasis, profit, margin, mockSourcesMap);
+  check(compat.isValid === false, 'Test 134a: Wrong denominator basis fails compatibility');
+  check(compat.mismatches.includes('denominatorBasis'), 'Test 134b: Mismatches includes denominatorBasis');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 135 (STEP 4-9, Scenario 18): Triplet with wrong denominator metricId returns invalid
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const revWrongMetric = makeObs({ id: 'rev_135', companyId: 'bmw_group', metricId: 'gross_revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_135', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_135', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const val = validateMarginTriplet(revWrongMetric, profit, margin, undefined, { proxyMapping: bmwMapping, sourcesMap: mockSourcesMap });
+  check(val.status === 'invalid', 'Test 135a: Triplet with wrong denominator metricId is invalid');
+  check(val.failedChecks.includes('metricDefinition'), 'Test 135b: failedChecks includes metricDefinition');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 136 (STEP 4-9, Scenario 19): Triplet with wrong denominator scope returns invalid
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const revWrongScope = makeObs({ id: 'rev_136', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'automotive_segment', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_136', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_136', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const val = validateMarginTriplet(revWrongScope, profit, margin, undefined, { proxyMapping: bmwMapping, sourcesMap: mockSourcesMap });
+  check(val.status === 'invalid', 'Test 136a: Triplet with wrong denominator scope is invalid');
+  check(val.failedChecks.includes('scope'), 'Test 136b: failedChecks includes scope');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 137 (STEP 4-9, Scenario 20): Triplet with wrong denominator basis returns invalid
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const revWrongBasis = makeObs({ id: 'rev_137', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'adjusted', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_137', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_137', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const val = validateMarginTriplet(revWrongBasis, profit, margin, undefined, { proxyMapping: bmwMapping, sourcesMap: mockSourcesMap });
+  check(val.status === 'invalid', 'Test 137a: Triplet with wrong denominator basis is invalid');
+  check(val.failedChecks.includes('accountingBasis'), 'Test 137b: failedChecks includes accountingBasis');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 138 (STEP 4-9, Scenario 21): Object-based query in findProxyMetricMappings
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const query: ProxyMetricMappingQuery = {
+    companyId: 'bmw_group',
+    period: '2026-Q2',
+    targetMetricId: 'automotive_segment_ebit',
+  };
+  const mappings = findProxyMetricMappings(query);
+  check(mappings.length === 1, 'Test 138a: Object query resolves exactly 1 BMW mapping');
+  check(mappings[0].id === 'bmw_group_operating_income_proxy_2026q2', 'Test 138b: Resolved mapping has correct ID');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 139 (STEP 4-9, Scenario 22): Object-based query in findProxyMetricMapping
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const query: ProxyMetricMappingQuery = {
+    companyId: 'mercedes_benz',
+    period: '2026-Q2',
+    targetMetricId: 'cars_adjusted_ebit',
+  };
+  const mapping = findProxyMetricMapping(query);
+  check(mapping !== undefined, 'Test 139a: Object query resolves Mercedes mapping');
+  check(mapping?.id === 'mbg_group_operating_income_proxy_2026q2', 'Test 139b: Resolved mapping has correct ID');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 140 (STEP 4-9, Scenario 23): Positional lookup with targetMetricId 'operating_income' does NOT wildcard-match
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const noMatch = findProxyMetricMapping('bmw_group', '2026-Q2', 'operating_income');
+  check(noMatch === undefined, 'Test 140: targetMetricId="operating_income" does NOT wildcard-match automotive_segment_ebit');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 141 (STEP 4-9, Scenario 24): Multiple mapping matches in findProxyMetricMapping returns undefined
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const duplicateMapping: ProxyMetricMapping = {
+    ...PROXY_METRIC_MAPPINGS[0],
+    id: 'duplicate_bmw_q2_proxy',
+  };
+  const mappingsWithDuplicate = [...PROXY_METRIC_MAPPINGS, duplicateMapping];
+
+  const result = findProxyMetricMapping(
+    { companyId: 'bmw_group', period: '2026-Q2', targetMetricId: 'automotive_segment_ebit' },
+    mappingsWithDuplicate
+  );
+  check(result === undefined, 'Test 141: Multiple matches trigger ambiguity rejection (returns undefined)');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 142 (STEP 4-9, Scenario 25): Mapping with status !== 'proxy_only' rejected with invalidMappingStatus
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const invalidStatusMapping: ProxyMetricMapping = {
+    ...baseMapping,
+    id: 'invalid_status_test',
+    status: 'needs_review' as any,
+  };
+
+  const rev = makeObs({ id: 'rev_142', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_142', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_142', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(invalidStatusMapping, rev, profit, margin, mockSourcesMap);
+  check(compat.isValid === false, 'Test 142a: Mapping with status!=="proxy_only" fails compatibility');
+  check(compat.mismatches.includes('invalidMappingStatus'), 'Test 142b: Mismatches includes invalidMappingStatus');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 143 (STEP 4-9, Scenario 26): Mapping with empty id or reason rejected
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const emptyIdMapping: ProxyMetricMapping = {
+    ...baseMapping,
+    id: '',
+    reason: '',
+  };
+
+  const rev = makeObs({ id: 'rev_143', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_143', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_143', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(emptyIdMapping, rev, profit, margin, mockSourcesMap);
+  check(compat.isValid === false, 'Test 143a: Empty id/reason fails compatibility');
+  check(compat.mismatches.includes('emptyMappingId'), 'Test 143b: Mismatches includes emptyMappingId');
+  check(compat.mismatches.includes('emptyMappingReason'), 'Test 143c: Mismatches includes emptyMappingReason');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 144 (STEP 4-9, Scenario 27): Mapping with empty sourceDocIds or empty evidence rejected
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const baseMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const emptyDocsMapping: ProxyMetricMapping = {
+    ...baseMapping,
+    id: 'empty_docs_mapping',
+    sourceDocIds: [],
+    evidence: [],
+  };
+
+  const rev = makeObs({ id: 'rev_144', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_144', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_144', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const compat = validateProxyMappingCompatibility(emptyDocsMapping, rev, profit, margin, mockSourcesMap);
+  check(compat.isValid === false, 'Test 144a: Empty sourceDocIds/evidence fails compatibility');
+  check(compat.mismatches.includes('emptySourceDocIds'), 'Test 144b: Mismatches includes emptySourceDocIds');
+  check(compat.mismatches.includes('emptyEvidence'), 'Test 144c: Mismatches includes emptyEvidence');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 145 (STEP 4-9, Scenario 28): MarginValidationResult includes proxyCompatibility, mathematicalEquivalence, limitations
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const rev = makeObs({ id: 'rev_145', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_145', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_145', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const val = validateMarginTriplet(rev, profit, margin, undefined, { proxyMapping: bmwMapping, sourcesMap: mockSourcesMap });
+  check(val.status === 'proxy_only', 'Test 145a: Valid proxy triplet validates as proxy_only');
+  check(val.proxyCompatibility === true, 'Test 145b: proxyCompatibility is true');
+  check(val.mathematicalEquivalence === false, 'Test 145c: mathematicalEquivalence is strictly false');
+  check(val.limitations?.includes('proxy_numerator') === true, 'Test 145d: limitations includes proxy_numerator');
+  check(val.limitations?.includes('mathematical_equivalence_unverified') === true, 'Test 145e: limitations includes mathematical_equivalence_unverified');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 146 (STEP 4-9, Scenario 29): MarginValidationResult on proxy failure includes proxyCompatibility: false and limitations
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const bmwMapping = findProxyMetricMapping('bmw_group', '2026-Q2', 'automotive_segment_ebit', 'operating_income', 'quarterly')!;
+  const revWrongScope = makeObs({ id: 'rev_146', companyId: 'bmw_group', metricId: 'revenue', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const profit = makeObs({ id: 'profit_146', companyId: 'bmw_group', metricId: 'operating_income', reportingScope: 'consolidated_group', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', sourceDocId: 'bmw_2026_q2_statement' });
+  const margin = makeObs({ id: 'margin_146', companyId: 'bmw_group', metricId: 'operating_margin', reportingScope: 'automotive_segment', accountingBasis: 'reported', period: '2026-Q2', periodType: 'quarterly', unit: 'percentage', sourceDocId: 'bmw_2026_q2_statement' });
+
+  const val = validateMarginTriplet(revWrongScope, profit, margin, undefined, { proxyMapping: bmwMapping, sourcesMap: mockSourcesMap });
+  check(val.status === 'invalid', 'Test 146a: Failed proxy triplet returns invalid');
+  check(val.proxyCompatibility === false, 'Test 146b: proxyCompatibility is false');
+  check(val.limitations?.includes('denominatorScope') === true, 'Test 146c: limitations includes denominatorScope');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 147 (STEP 4-9, Scenario 30): DocumentedReportedKpi source validation rejects unverified source or missing locator
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const kpis = findDocumentedReportedKpis('bmw_group', '2026-Q2', 'operating_margin', 'automotive_segment', 'quarterly', 'reported');
+  check(kpis.length === 1, 'Test 147a: findDocumentedReportedKpis resolves exactly 1 KPI');
+
+  const validMargin = makeObs({
+    id: 'margin_147',
+    companyId: 'bmw_group',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    metricId: 'operating_margin',
+    reportingScope: 'automotive_segment',
+    accountingBasis: 'reported',
+    sourceDocId: 'bmw_2026_q2_statement',
+  });
+
+  const unverifiedSources = new Map(mockSourcesMap);
+  unverifiedSources.set('bmw_2026_q2_statement', {
+    ...mockSourcesMap.get('bmw_2026_q2_statement')!,
+    isVerified: false,
+  });
+
+  const resUnverified = validateDocumentedReportedKpiCompatibility(kpis[0], validMargin, unverifiedSources);
+  check(resUnverified.isValid === false, 'Test 147b: Unverified source rejected for documented KPI');
+  check(resUnverified.mismatches.includes('sourceUnverified'), 'Test 147c: Mismatches includes sourceUnverified');
+
+  const kpiNoLocator = {
+    ...kpis[0],
+    id: 'kpi_no_locator_test',
+    evidence: [
+      {
+        sourceDocId: 'bmw_2026_q2_statement',
+        purpose: 'reported_kpi' as const,
+      },
+    ],
+  };
+  const resNoLocator = validateDocumentedReportedKpiCompatibility(kpiNoLocator, validMargin, mockSourcesMap);
+  check(resNoLocator.isValid === false, 'Test 147d: Documented KPI without locators fails compatibility');
+  check(resNoLocator.mismatches.includes('missingEvidenceLocator'), 'Test 147e: Mismatches includes missingEvidenceLocator');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
