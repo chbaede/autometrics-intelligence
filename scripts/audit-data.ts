@@ -27,7 +27,12 @@ import {
   getDimensionalObservationKey,
 } from '../src/utils/metricCalculations';
 import { AuditFinding } from '../src/types/metrics';
-import { findDocumentedScopeException, DOCUMENTED_SCOPE_EXCEPTIONS } from '../src/data/scopeExceptions';
+import {
+  findDocumentedScopeException,
+  DOCUMENTED_SCOPE_EXCEPTIONS,
+  DOCUMENTED_REPORTED_KPIS,
+  PROXY_METRIC_MAPPINGS,
+} from '../src/data/scopeExceptions';
 
 const isStrict = process.argv.includes('--strict');
 
@@ -360,6 +365,8 @@ companyPeriodTypes.forEach((cpt) => {
     const validCandidateMatches: {
       diagnostic: (typeof candidateDiagnostics)[number];
       exception: (typeof DOCUMENTED_SCOPE_EXCEPTIONS)[number];
+      proxyMapping?: (typeof PROXY_METRIC_MAPPINGS)[number];
+      documentedKpi?: (typeof DOCUMENTED_REPORTED_KPIS)[number];
     }[] = [];
 
     for (const diagnostic of candidateDiagnostics) {
@@ -383,13 +390,20 @@ companyPeriodTypes.forEach((cpt) => {
           revenueSourceDocId: diagnostic.revenue.sourceDocId,
           numeratorSourceDocId: diagnostic.profit.sourceDocId,
           marginSourceDocId: diagnostic.margin.sourceDocId,
+          periodType: diagnostic.revenue.periodType,
         }
       );
 
       if (exceptionResult.matched && exceptionResult.exceptionId) {
         const exc = DOCUMENTED_SCOPE_EXCEPTIONS.find((e) => e.id === exceptionResult.exceptionId);
         if (exc) {
-          validCandidateMatches.push({ diagnostic, exception: exc });
+          const proxyMapping = exc.proxyMappingId
+            ? PROXY_METRIC_MAPPINGS.find((p) => p.id === exc.proxyMappingId)
+            : undefined;
+          const documentedKpi = exc.reportedKpiId
+            ? DOCUMENTED_REPORTED_KPIS.find((k) => k.id === exc.reportedKpiId)
+            : undefined;
+          validCandidateMatches.push({ diagnostic, exception: exc, proxyMapping, documentedKpi });
         }
       }
     }
@@ -401,7 +415,11 @@ companyPeriodTypes.forEach((cpt) => {
         match.diagnostic.profit,
         match.diagnostic.margin,
         undefined,
-        { exception: match.exception }
+        {
+          proxyMapping: match.proxyMapping,
+          documentedKpi: match.documentedKpi,
+          exception: match.exception,
+        }
       );
 
       if (validation.status === 'verified') {
@@ -419,7 +437,11 @@ companyPeriodTypes.forEach((cpt) => {
         companyId,
         period,
         periodType,
-        match.exception
+        {
+          proxyMapping: match.proxyMapping,
+          documentedKpi: match.documentedKpi,
+          exception: match.exception,
+        }
       );
       if (finding) {
         findings.push(finding);

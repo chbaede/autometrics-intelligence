@@ -271,7 +271,7 @@ export interface MarginValidationResult {
     margin?: string;
   };
   selectedRuleId?: string;
-  failedChecks: (keyof MarginValidationChecks)[];
+  failedChecks: (keyof MarginValidationChecks | string)[];
   checks: MarginValidationChecks;
   diagnostic: string;
   reasons: string[];
@@ -309,6 +309,7 @@ export interface DocumentedReportedKpi {
   id: string;
   companyId: string;
   period?: string;
+  periodType?: PeriodType;
   metricId: string;
   reportingScope?: ReportingScope;
   accountingBasis?: AccountingBasis;
@@ -320,8 +321,10 @@ export interface ProxyMetricMapping {
   id: string;
   companyId: string;
   period?: string;
+  periodType?: PeriodType;
 
   targetMetricId: string;
+  targetNumeratorSemantic?: 'automotive_segment_ebit' | 'cars_adjusted_ebit' | string;
   targetScope: ReportingScope;
   targetBasis: AccountingBasis;
 

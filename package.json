@@ -10,6 +10,7 @@
     "test": "tsx tests/calculations.test.ts && tsx tests/data-integrity.test.ts && tsx tests/comparability.test.ts && tsx tests/bev-share.test.ts && tsx tests/margin-triplet.test.ts && tsx tests/provenance.test.ts && tsx tests/data-integrity-gate.test.ts && tsx tests/scope-exceptions.test.ts",
     "validate-data": "tsx scripts/validate-data.ts",
     "audit-data": "tsx scripts/audit-data.ts",
+    "audit": "tsx scripts/audit-data.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/"
   },

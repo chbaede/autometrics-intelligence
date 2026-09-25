@@ -64,3 +64,4 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({
 };
 
 export default GoogleAdBanner;
+

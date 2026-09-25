@@ -25,8 +25,16 @@ import {
   Company,
   ProvenanceValidationResult,
   AuditFinding,
+  DocumentedReportedKpi,
+  ProxyMetricMapping,
 } from '../types/metrics';
-import { DocumentedScopeException } from '../data/scopeExceptions';
+import {
+  DocumentedScopeException,
+  isProxyException,
+  validateProxyMappingCompatibility,
+  DOCUMENTED_REPORTED_KPIS,
+  PROXY_METRIC_MAPPINGS,
+} from '../data/scopeExceptions';
 
 export function calculateYoYGrowth(
   current: number | null | undefined,
@@ -749,6 +757,8 @@ export function selectCompatibleMarginTriplets(
 }
 
 export interface MarginValidationOptions {
+  proxyMapping?: ProxyMetricMapping | null;
+  documentedKpi?: DocumentedReportedKpi | null;
   exception?: DocumentedScopeException | null;
 }
 
@@ -759,7 +769,7 @@ export interface ExceptionDimensionValidationResult {
 }
 
 /**
- * Revalidates that an exception's declared dimensions match the actual candidate observations (STEP 4-5, P1).
+ * Revalidates that an exception's declared dimensions match the actual candidate observations (STEP 4-5, P1; STEP 4-7, P2-1).
  * An exception must never override unrelated metric, scope, or accounting-basis mismatches.
  */
 export function validateExceptionDimensions(
@@ -793,6 +803,19 @@ export function validateExceptionDimensions(
     mismatches.push('period');
     reasons.push(
       `Exception period "${exception.period}" does not match triplet observations: revenue (${revObs.period}), profit (${profitObs.period}), margin (${marginObs.period}).`
+    );
+  }
+
+  // 2b. PeriodType (P2-1)
+  if (
+    exception.periodType &&
+    (exception.periodType !== revObs.periodType ||
+      exception.periodType !== profitObs.periodType ||
+      exception.periodType !== marginObs.periodType)
+  ) {
+    mismatches.push('periodType');
+    reasons.push(
+      `Exception periodType "${exception.periodType}" does not match triplet observations: revenue (${revObs.periodType}), profit (${profitObs.periodType}), margin (${marginObs.periodType}).`
     );
   }
 
@@ -1078,22 +1101,55 @@ export function validateMarginTriplet(
   const reportedMargin = marginObs.value;
   const difference = Math.round(Math.abs(calculatedMargin - reportedMargin!) * 100) / 100;
 
-  // Validate exception dimensions against candidate observations (STEP 4-5, P1)
-  const exceptionDimResult = options?.exception
-    ? validateExceptionDimensions(options.exception, revObs, profitObs, marginObs)
-    : null;
-  const isExceptionApplicable = !options?.exception || (exceptionDimResult !== null && exceptionDimResult.isValid);
+  // Normalize options into explicit validation context (STEP 4-7, P0-1)
+  let proxyMapping = options?.proxyMapping ?? null;
+  let documentedKpi = options?.documentedKpi ?? null;
+  const legacyException = options?.exception ?? null;
 
-  // Handle proxy exception (STEP 4-3, 4-4, 4-5)
-  if (options?.exception?.isProxy) {
+  if (legacyException) {
+    if (!proxyMapping && legacyException.proxyMappingId) {
+      proxyMapping = PROXY_METRIC_MAPPINGS.find((p) => p.id === legacyException.proxyMappingId) ?? null;
+    }
+    if (!documentedKpi && legacyException.reportedKpiId) {
+      documentedKpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === legacyException.reportedKpiId) ?? null;
+    }
+  }
+
+  // Centralized proxy detection (STEP 4-7, P1-2)
+  const isProxy = proxyMapping !== null || isProxyException(legacyException);
+
+  // Validate exception / proxy mapping dimensions against candidate observations (STEP 4-5, STEP 4-7, P1-4)
+  let isExceptionApplicable = true;
+  const dimensionMismatches: string[] = [];
+
+  if (proxyMapping) {
+    const proxyCompat = validateProxyMappingCompatibility(proxyMapping, revObs, profitObs, marginObs);
+    if (!proxyCompat.isValid) {
+      isExceptionApplicable = false;
+      dimensionMismatches.push(...proxyCompat.mismatches);
+      reasons.push(...proxyCompat.reasons);
+    }
+  }
+
+  if (legacyException) {
+    const exceptionDimResult = validateExceptionDimensions(legacyException, revObs, profitObs, marginObs);
+    if (!exceptionDimResult.isValid) {
+      isExceptionApplicable = false;
+      dimensionMismatches.push(...exceptionDimResult.mismatches);
+      reasons.push(...exceptionDimResult.reasons);
+    }
+  }
+
+  // Handle proxy exception or mapping (STEP 4-3, 4-4, 4-5, 4-6, 4-7)
+  if (isProxy) {
     if (!isExceptionApplicable) {
-      // Dimensional mismatch: cannot apply exception, fall back to standard validation
+      // Dimensional mismatch: cannot apply proxy mapping/exception, fall back to standard validation
       reasons.push(
-        `Proxy exception [${options.exception.id}] rejected: dimensional mismatch (${exceptionDimResult?.mismatches.join(', ')}).`
+        `Proxy mapping/exception rejected: dimensional mismatch (${Array.from(new Set(dimensionMismatches)).join(', ')}).`
       );
     } else {
-      // General integrity checks are NEVER waived for proxy exceptions (STEP 4-5, STEP 4-6, P1-1)
-      // Explicit Precedence Policy (P1-1):
+      // General integrity checks are NEVER waived for proxy exceptions (STEP 4-5, STEP 4-6, STEP 4-7, P1-5)
+      // Explicit Precedence Policy (P1-5):
       // 1. valueValidity
       if (!checks.valueValidity) {
         return {
@@ -1210,13 +1266,24 @@ export function validateMarginTriplet(
           difference: null,
           mathematicallyVerified: false,
           selectedObservationIds,
-          selectedRuleId: options.exception.id,
+          selectedRuleId: proxyMapping?.id || legacyException?.id,
           failedChecks: ['verificationStatus'],
           checks,
           diagnostic: `Proxy exception observation not verified: ${reasons.join('; ')}`,
           reasons: ['Proxy exception observations must be verified.'],
         };
       }
+
+      // P2-2: Add explicit proxy checks to failedChecks
+      const baseFailed = failedChecks.length > 0 ? failedChecks : ['scope'];
+      const combinedFailedChecks = Array.from(new Set([
+        ...baseFailed,
+        'proxy_numerator',
+        'mathematical_equivalence_unverified',
+      ]));
+
+      const ruleOrExceptionId = proxyMapping?.id || legacyException?.id || 'proxy_mapping';
+      const rationale = legacyException?.rationale || proxyMapping?.reason || 'Proxy numerator relationship';
 
       return {
         status: 'proxy_only',
@@ -1225,13 +1292,13 @@ export function validateMarginTriplet(
         difference: null,
         mathematicallyVerified: false,
         selectedObservationIds,
-        selectedRuleId: options.exception.id,
-        failedChecks: failedChecks.length > 0 ? failedChecks : ['scope'],
+        selectedRuleId: ruleOrExceptionId,
+        failedChecks: combinedFailedChecks,
         checks: { ...checks, scope: false },
-        diagnostic: `Proxy numerator limitation: consolidated operating income cannot automatically become verified segment EBIT. Reported margin (${marginObs.value}%) preserved without independent mathematical verification per exception [${options.exception.id}].`,
+        diagnostic: `Proxy numerator limitation: consolidated operating income cannot automatically become verified segment EBIT. Reported margin (${marginObs.value}%) preserved without independent mathematical verification per ${proxyMapping ? `proxy mapping [${proxyMapping.id}]` : `exception [${legacyException?.id}]`}.`,
         reasons: [
           'Proxy numerator relationship — not classified as verified calculation.',
-          options.exception.rationale,
+          rationale,
         ],
       };
     }
@@ -1299,7 +1366,7 @@ export function createAuditFindingFromMarginValidation(
   companyId: string,
   period: string,
   periodType?: string,
-  exception?: DocumentedScopeException | null
+  optionsOrException?: DocumentedScopeException | MarginValidationOptions | null
 ): AuditFinding | null {
   if (validation.status === 'verified') {
     return null;
@@ -1308,9 +1375,39 @@ export function createAuditFindingFromMarginValidation(
   const observationIds = Object.values(validation.selectedObservationIds).filter(Boolean) as string[];
   const item = `${companyId} (${period}${periodType ? `, ${periodType}` : ''})`;
 
+  let exception: DocumentedScopeException | null = null;
+  let proxyMapping: ProxyMetricMapping | null = null;
+  let documentedKpi: DocumentedReportedKpi | null = null;
+
+  if (optionsOrException) {
+    if ('id' in optionsOrException && 'numeratorScope' in optionsOrException) {
+      exception = optionsOrException as DocumentedScopeException;
+      if (exception.proxyMappingId) {
+        proxyMapping = PROXY_METRIC_MAPPINGS.find((p) => p.id === exception!.proxyMappingId) ?? null;
+      }
+      if (exception.reportedKpiId) {
+        documentedKpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === exception!.reportedKpiId) ?? null;
+      }
+    } else {
+      const opts = optionsOrException as MarginValidationOptions;
+      exception = opts.exception ?? null;
+      proxyMapping = opts.proxyMapping ?? null;
+      documentedKpi = opts.documentedKpi ?? null;
+      if (exception && !proxyMapping && exception.proxyMappingId) {
+        const proxyId = exception.proxyMappingId;
+        proxyMapping = PROXY_METRIC_MAPPINGS.find((p) => p.id === proxyId) ?? null;
+      }
+      if (exception && !documentedKpi && exception.reportedKpiId) {
+        const kpiId = exception.reportedKpiId;
+        documentedKpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === kpiId) ?? null;
+      }
+    }
+  }
+
   if (validation.status === 'proxy_only') {
-    const excId = exception?.id || validation.selectedRuleId;
-    const rationale = exception?.rationale || validation.reasons.join('; ');
+    const excId = exception?.id || proxyMapping?.id || validation.selectedRuleId;
+    const rationale = exception?.rationale || proxyMapping?.reason || validation.reasons.join('; ');
+    const sourceDocIds = exception?.sourceDocIds || proxyMapping?.sourceDocIds;
     return {
       severity: 'WARNING',
       disposition: 'review',
@@ -1321,11 +1418,11 @@ export function createAuditFindingFromMarginValidation(
       metricId: 'operating_margin',
       item,
       exceptionId: excId,
-      sourceDocIds: exception?.sourceDocIds,
+      sourceDocIds,
       observationIds,
       failedChecks: validation.failedChecks,
       isProxy: true,
-      mathematicallyVerified: validation.mathematicallyVerified ?? false,
+      mathematicallyVerified: false,
       detail: `[PROXY LIMITATION] Documented scope exception [${excId}]: ${rationale} The headline margin KPI is officially documented by the OEM, but the available operating profit numerator is a consolidated group proxy. The margin is not independently verified mathematically. Human review or actual segment-level numerator data is required.`,
       documentationUrl: 'docs/data-audit-report.md',
     };

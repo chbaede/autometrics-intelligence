@@ -34,6 +34,8 @@ import {
   EvidencePurpose,
   DocumentedReportedKpi,
   ProxyMetricMapping,
+  PeriodType,
+  MetricObservation,
 } from '../types/metrics';
 
 export type { EvidencePurpose, DocumentedReportedKpi, ProxyMetricMapping };
@@ -50,6 +52,9 @@ export interface DocumentedScopeException {
    * Undefined = applies to all periods for this company/metric combination.
    */
   period?: string;
+
+  /** Specific period type for this exception (e.g., 'quarterly', 'annual') */
+  periodType?: PeriodType;
 
   /** Metric ID for the reported margin (e.g., 'operating_margin') */
   marginMetricId: string;
@@ -124,6 +129,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'bmw_automotive_segment_ros_2026q2_kpi',
     companyId: 'bmw_group',
     period: '2026-Q2',
+    periodType: 'quarterly',
     metricId: 'operating_margin',
     reportingScope: 'automotive_segment',
     accountingBasis: 'reported',
@@ -142,6 +148,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'bmw_automotive_segment_ros_2026q1_kpi',
     companyId: 'bmw_group',
     period: '2026-Q1',
+    periodType: 'quarterly',
     metricId: 'operating_margin',
     reportingScope: 'automotive_segment',
     accountingBasis: 'reported',
@@ -160,6 +167,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'bmw_automotive_segment_ros_2025fy_kpi',
     companyId: 'bmw_group',
     period: '2025-FY',
+    periodType: 'annual',
     metricId: 'operating_margin',
     reportingScope: 'automotive_segment',
     accountingBasis: 'reported',
@@ -178,6 +186,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'bmw_automotive_segment_ros_2024fy_kpi',
     companyId: 'bmw_group',
     period: '2024-FY',
+    periodType: 'annual',
     metricId: 'operating_margin',
     reportingScope: 'automotive_segment',
     accountingBasis: 'reported',
@@ -198,6 +207,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'mbg_cars_adjusted_ros_2026q2_kpi',
     companyId: 'mercedes_benz',
     period: '2026-Q2',
+    periodType: 'quarterly',
     metricId: 'operating_margin',
     reportingScope: 'cars_segment',
     accountingBasis: 'adjusted',
@@ -216,6 +226,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'mbg_cars_adjusted_ros_2026q1_kpi',
     companyId: 'mercedes_benz',
     period: '2026-Q1',
+    periodType: 'quarterly',
     metricId: 'operating_margin',
     reportingScope: 'cars_segment',
     accountingBasis: 'adjusted',
@@ -234,6 +245,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'mbg_cars_adjusted_ros_2025fy_kpi',
     companyId: 'mercedes_benz',
     period: '2025-FY',
+    periodType: 'annual',
     metricId: 'operating_margin',
     reportingScope: 'cars_segment',
     accountingBasis: 'adjusted',
@@ -252,6 +264,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
     id: 'mbg_cars_adjusted_ros_2024fy_kpi',
     companyId: 'mercedes_benz',
     period: '2024-FY',
+    periodType: 'annual',
     metricId: 'operating_margin',
     reportingScope: 'cars_segment',
     accountingBasis: 'adjusted',
@@ -269,7 +282,7 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
 ];
 
 /**
- * PROXY_METRIC_MAPPINGS (STEP 4-6, P0-1)
+ * PROXY_METRIC_MAPPINGS (STEP 4-6, P0-1; STEP 4-7, P1-1 & P1-3)
  * Explicit mappings defining when an observable proxy metric is substituted for an unobserved segment metric.
  * These mappings always yield status 'proxy_only' and require human review.
  */
@@ -279,7 +292,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'bmw_group_operating_income_proxy_2026q2',
     companyId: 'bmw_group',
     period: '2026-Q2',
-    targetMetricId: 'operating_income',
+    periodType: 'quarterly',
+    targetMetricId: 'automotive_segment_ebit',
+    targetNumeratorSemantic: 'automotive_segment_ebit',
     targetScope: 'automotive_segment',
     targetBasis: 'reported',
     proxyMetricId: 'operating_income',
@@ -292,7 +307,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.8%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -302,7 +317,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'bmw_group_operating_income_proxy_2026q1',
     companyId: 'bmw_group',
     period: '2026-Q1',
-    targetMetricId: 'operating_income',
+    periodType: 'quarterly',
+    targetMetricId: 'automotive_segment_ebit',
+    targetNumeratorSemantic: 'automotive_segment_ebit',
     targetScope: 'automotive_segment',
     targetBasis: 'reported',
     proxyMetricId: 'operating_income',
@@ -315,7 +332,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.2%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -325,7 +342,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'bmw_group_operating_income_proxy_2025fy',
     companyId: 'bmw_group',
     period: '2025-FY',
-    targetMetricId: 'operating_income',
+    periodType: 'annual',
+    targetMetricId: 'automotive_segment_ebit',
+    targetNumeratorSemantic: 'automotive_segment_ebit',
     targetScope: 'automotive_segment',
     targetBasis: 'reported',
     proxyMetricId: 'operating_income',
@@ -338,7 +357,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 7.4%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -348,7 +367,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'bmw_group_operating_income_proxy_2024fy',
     companyId: 'bmw_group',
     period: '2024-FY',
-    targetMetricId: 'operating_income',
+    periodType: 'annual',
+    targetMetricId: 'automotive_segment_ebit',
+    targetNumeratorSemantic: 'automotive_segment_ebit',
     targetScope: 'automotive_segment',
     targetBasis: 'reported',
     proxyMetricId: 'operating_income',
@@ -361,7 +382,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 6.3%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -373,7 +394,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'mbg_group_operating_income_proxy_2026q2',
     companyId: 'mercedes_benz',
     period: '2026-Q2',
-    targetMetricId: 'operating_income',
+    periodType: 'quarterly',
+    targetMetricId: 'cars_adjusted_ebit',
+    targetNumeratorSemantic: 'cars_adjusted_ebit',
     targetScope: 'cars_segment',
     targetBasis: 'adjusted',
     proxyMetricId: 'operating_income',
@@ -386,7 +409,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.4%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -396,7 +419,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'mbg_group_operating_income_proxy_2026q1',
     companyId: 'mercedes_benz',
     period: '2026-Q1',
-    targetMetricId: 'operating_income',
+    periodType: 'quarterly',
+    targetMetricId: 'cars_adjusted_ebit',
+    targetNumeratorSemantic: 'cars_adjusted_ebit',
     targetScope: 'cars_segment',
     targetBasis: 'adjusted',
     proxyMetricId: 'operating_income',
@@ -409,7 +434,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 7.9%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -419,7 +444,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'mbg_group_operating_income_proxy_2025fy',
     companyId: 'mercedes_benz',
     period: '2025-FY',
-    targetMetricId: 'operating_income',
+    periodType: 'annual',
+    targetMetricId: 'cars_adjusted_ebit',
+    targetNumeratorSemantic: 'cars_adjusted_ebit',
     targetScope: 'cars_segment',
     targetBasis: 'adjusted',
     proxyMetricId: 'operating_income',
@@ -432,7 +459,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.3%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -442,7 +469,9 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
     id: 'mbg_group_operating_income_proxy_2024fy',
     companyId: 'mercedes_benz',
     period: '2024-FY',
-    targetMetricId: 'operating_income',
+    periodType: 'annual',
+    targetMetricId: 'cars_adjusted_ebit',
+    targetNumeratorSemantic: 'cars_adjusted_ebit',
     targetScope: 'cars_segment',
     targetBasis: 'adjusted',
     proxyMetricId: 'operating_income',
@@ -455,7 +484,7 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 12.6%',
-        purpose: 'reported_kpi',
+        purpose: 'scope_definition',
       },
     ],
     status: 'proxy_only',
@@ -496,6 +525,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'bmw_automotive_segment_ros_2026q2',
     companyId: 'bmw_group',
     period: '2026-Q2',
+    periodType: 'quarterly',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -528,6 +558,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'bmw_automotive_segment_ros_2026q1',
     companyId: 'bmw_group',
     period: '2026-Q1',
+    periodType: 'quarterly',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -558,6 +589,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'bmw_automotive_segment_ros_2025fy',
     companyId: 'bmw_group',
     period: '2025-FY',
+    periodType: 'annual',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -588,6 +620,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'bmw_automotive_segment_ros_2024fy',
     companyId: 'bmw_group',
     period: '2024-FY',
+    periodType: 'annual',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -626,6 +659,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'mbg_cars_adjusted_ros_2026q2',
     companyId: 'mercedes_benz',
     period: '2026-Q2',
+    periodType: 'quarterly',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -658,6 +692,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'mbg_cars_adjusted_ros_2026q1',
     companyId: 'mercedes_benz',
     period: '2026-Q1',
+    periodType: 'quarterly',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -688,6 +723,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'mbg_cars_adjusted_ros_2025fy',
     companyId: 'mercedes_benz',
     period: '2025-FY',
+    periodType: 'annual',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -718,6 +754,7 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
     id: 'mbg_cars_adjusted_ros_2024fy',
     companyId: 'mercedes_benz',
     period: '2024-FY',
+    periodType: 'annual',
     marginMetricId: 'operating_margin',
     numeratorMetricId: 'operating_income',
     denominatorMetricId: 'revenue',
@@ -763,19 +800,189 @@ export function findDocumentedReportedKpi(
 }
 
 /**
- * Finds a proxy metric mapping (STEP 4-6, P0-1).
+ * Canonical helper to detect whether an exception represents a proxy relationship (STEP 4-7, P1-2).
+ * Centralizes proxy detection across isProxy, nature, and proxyMappingId.
+ */
+export function isProxyException(
+  exception?: DocumentedScopeException | null
+): boolean {
+  if (!exception) return false;
+
+  return (
+    exception.isProxy === true ||
+    exception.nature === 'proxy_numerator' ||
+    !!exception.proxyMappingId
+  );
+}
+
+/**
+ * Normalizes proxy exception metadata and detects inconsistent registry states (STEP 4-7, P1-2).
+ * Detects states such as nature='proxy_numerator' with isProxy=false.
+ */
+export function normalizeProxyException(exception: DocumentedScopeException): {
+  isProxy: boolean;
+  isInconsistent: boolean;
+  error?: string;
+} {
+  if (exception.nature === 'proxy_numerator' && exception.isProxy === false) {
+    return {
+      isProxy: true,
+      isInconsistent: true,
+      error: `Inconsistent registry state: exception [${exception.id}] has nature='proxy_numerator' but isProxy=false.`,
+    };
+  }
+
+  if (exception.nature === 'actual_segment' && exception.isProxy === true) {
+    return {
+      isProxy: false,
+      isInconsistent: true,
+      error: `Inconsistent registry state: exception [${exception.id}] has nature='actual_segment' but isProxy=true.`,
+    };
+  }
+
+  const isProxy = isProxyException(exception);
+  return {
+    isProxy,
+    isInconsistent: false,
+  };
+}
+
+/**
+ * Compatibility validation result for ProxyMetricMapping (STEP 4-7, P1-4).
+ */
+export interface ProxyMappingValidationResult {
+  isValid: boolean;
+  mismatches: string[];
+  reasons: string[];
+}
+
+/**
+ * Validates actual observation compatibility with a ProxyMetricMapping (STEP 4-7, P1-4).
+ * Verifies:
+ *  - profitObs matches proxyMetricId, proxyScope, proxyBasis, and sourceDocIds
+ *  - marginObs matches targetScope, targetBasis, and sourceDocIds
+ *  - period and periodType match
+ */
+export function validateProxyMappingCompatibility(
+  mapping: ProxyMetricMapping,
+  revObs: MetricObservation,
+  profitObs: MetricObservation,
+  marginObs: MetricObservation
+): ProxyMappingValidationResult {
+  const reasons: string[] = [];
+  const mismatches: string[] = [];
+
+  // 1. Company ID
+  if (
+    mapping.companyId !== revObs.companyId ||
+    mapping.companyId !== profitObs.companyId ||
+    mapping.companyId !== marginObs.companyId
+  ) {
+    mismatches.push('companyId');
+    reasons.push(
+      `ProxyMapping companyId "${mapping.companyId}" does not match triplet observations: rev (${revObs.companyId}), profit (${profitObs.companyId}), margin (${marginObs.companyId}).`
+    );
+  }
+
+  // 2. Period
+  if (
+    mapping.period &&
+    (mapping.period !== revObs.period ||
+      mapping.period !== profitObs.period ||
+      mapping.period !== marginObs.period)
+  ) {
+    mismatches.push('period');
+    reasons.push(
+      `ProxyMapping period "${mapping.period}" does not match triplet observations: rev (${revObs.period}), profit (${profitObs.period}), margin (${marginObs.period}).`
+    );
+  }
+
+  // 3. PeriodType (P2-1)
+  if (
+    mapping.periodType &&
+    (mapping.periodType !== revObs.periodType ||
+      mapping.periodType !== profitObs.periodType ||
+      mapping.periodType !== marginObs.periodType)
+  ) {
+    mismatches.push('periodType');
+    reasons.push(
+      `ProxyMapping periodType "${mapping.periodType}" does not match triplet observations: rev (${revObs.periodType}), profit (${profitObs.periodType}), margin (${marginObs.periodType}).`
+    );
+  }
+
+  // 4. Candidate profit observation against proxy definition (P1-4)
+  if (profitObs.metricId !== mapping.proxyMetricId) {
+    mismatches.push('proxyMetricId');
+    reasons.push(
+      `Candidate profit metric "${profitObs.metricId}" does not match mapping proxyMetricId "${mapping.proxyMetricId}".`
+    );
+  }
+  if (profitObs.reportingScope !== mapping.proxyScope) {
+    mismatches.push('proxyScope');
+    reasons.push(
+      `Candidate profit scope "${profitObs.reportingScope}" does not match mapping proxyScope "${mapping.proxyScope}".`
+    );
+  }
+  if (profitObs.accountingBasis !== mapping.proxyBasis) {
+    mismatches.push('proxyBasis');
+    reasons.push(
+      `Candidate profit basis "${profitObs.accountingBasis}" does not match mapping proxyBasis "${mapping.proxyBasis}".`
+    );
+  }
+  if (!profitObs.sourceDocId || !mapping.sourceDocIds.includes(profitObs.sourceDocId)) {
+    mismatches.push('profitSourceDoc');
+    reasons.push(
+      `Candidate profit sourceDocId "${profitObs.sourceDocId}" is not present in mapping sourceDocIds [${mapping.sourceDocIds.join(', ')}].`
+    );
+  }
+
+  // 5. Candidate margin observation against target definition (P1-4)
+  if (marginObs.reportingScope !== mapping.targetScope) {
+    mismatches.push('targetScope');
+    reasons.push(
+      `Candidate margin scope "${marginObs.reportingScope}" does not match mapping targetScope "${mapping.targetScope}".`
+    );
+  }
+  if (marginObs.accountingBasis !== mapping.targetBasis) {
+    mismatches.push('targetBasis');
+    reasons.push(
+      `Candidate margin basis "${marginObs.accountingBasis}" does not match mapping targetBasis "${mapping.targetBasis}".`
+    );
+  }
+  if (!marginObs.sourceDocId || !mapping.sourceDocIds.includes(marginObs.sourceDocId)) {
+    mismatches.push('marginSourceDoc');
+    reasons.push(
+      `Candidate margin sourceDocId "${marginObs.sourceDocId}" is not present in mapping sourceDocIds [${mapping.sourceDocIds.join(', ')}].`
+    );
+  }
+
+  return {
+    isValid: mismatches.length === 0,
+    mismatches,
+    reasons,
+  };
+}
+
+/**
+ * Finds a proxy metric mapping (STEP 4-6, P0-1; STEP 4-7, P1-3).
  */
 export function findProxyMetricMapping(
   companyId: string,
   period?: string,
   targetMetricId?: string,
-  proxyMetricId?: string
+  proxyMetricId?: string,
+  periodType?: PeriodType
 ): ProxyMetricMapping | undefined {
   return PROXY_METRIC_MAPPINGS.find(
     (m) =>
       m.companyId === companyId &&
       (m.period === undefined || m.period === period) &&
-      (targetMetricId === undefined || m.targetMetricId === targetMetricId) &&
+      (periodType === undefined || m.periodType === undefined || m.periodType === periodType) &&
+      (targetMetricId === undefined ||
+        m.targetMetricId === targetMetricId ||
+        (targetMetricId === 'operating_income' &&
+          (m.targetMetricId === 'automotive_segment_ebit' || m.targetMetricId === 'cars_adjusted_ebit')) ||
+        (m.targetNumeratorSemantic && m.targetNumeratorSemantic === targetMetricId)) &&
       (proxyMetricId === undefined || m.proxyMetricId === proxyMetricId)
   );
 }
@@ -804,12 +1011,13 @@ export interface ScopeExceptionValidationResult {
 }
 
 /**
- * Provenance context from actual candidate observations to bind to the exception source registry (STEP 4-5, P1).
+ * Provenance context from actual candidate observations to bind to the exception source registry (STEP 4-5, P1; STEP 4-7, P2-1).
  */
 export interface ExceptionObservationContext {
   revenueSourceDocId?: string;
   numeratorSourceDocId?: string;
   marginSourceDocId?: string;
+  periodType?: PeriodType;
 }
 
 /**
@@ -867,6 +1075,22 @@ export function findDocumentedScopeException(
   for (const exc of candidates) {
     const candidateReasons: string[] = [];
     const candidateStructured = new Set<ScopeExceptionRejectionReason>();
+
+    // 0. PeriodType check (P2-1)
+    if (observationContext?.periodType && exc.periodType) {
+      if (exc.periodType !== observationContext.periodType) {
+        candidateStructured.add('scope_mismatch');
+        candidateReasons.push(
+          `[${exc.id}] periodType mismatch: expected "${exc.periodType}", got "${observationContext.periodType}"`
+        );
+      }
+    }
+
+    // Check registry consistency (P1-2)
+    const norm = normalizeProxyException(exc);
+    if (norm.isInconsistent && norm.error) {
+      candidateReasons.push(`[${exc.id}] ${norm.error}`);
+    }
 
     // 1. Metric definitions check
     if (
