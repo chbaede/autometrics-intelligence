@@ -188,6 +188,8 @@ export interface AuditFinding {
   documentationUrl?: string;
   /** Indicates the finding pertains to a proxy relationship rather than verified actual segment metric. */
   isProxy?: boolean;
+  /** Indicates whether the margin triplet was mathematically verified (recalculated value matches reported). */
+  mathematicallyVerified?: boolean;
 
   // ── Legacy fields (backward-compatible with existing audit-data.ts) ────────
   item?: string;
@@ -262,6 +264,7 @@ export interface MarginValidationResult {
   calculatedMargin: number | null;
   reportedMargin: number | null;
   difference: number | null;
+  mathematicallyVerified?: boolean;
   selectedObservationIds: {
     revenue?: string;
     profit?: string;
@@ -287,12 +290,19 @@ export type ScopeExceptionRejectionReason =
 
 export type ScopeExceptionNature = 'actual_segment' | 'proxy_numerator';
 
+export type EvidencePurpose =
+  | 'reported_kpi'
+  | 'scope_definition'
+  | 'numerator_definition'
+  | 'proxy_justification';
+
 export interface ScopeExceptionEvidence {
   sourceDocId: string;
   pageNumber?: number | string;
   sectionReference?: string;
   tableReference?: string;
   evidenceReference?: string;
+  purpose?: EvidencePurpose;
 }
 
 export interface Company {

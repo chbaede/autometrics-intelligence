@@ -169,6 +169,26 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 
 ---
 
+## Architectural & Semantic Hardening (STEP 4-6)
+
+### P0: Separation of Proxy Mapping from Verified Metric Relationships
+- **Invariant**: `group operating income ≠ segment EBIT by default`.
+- Standard validation strictly requires scope alignment; group operating income paired with segment margin fails validation by default (`status: 'invalid'`).
+- Added `mathematicallyVerified?: boolean` property to `MarginValidationResult` and `AuditFinding`:
+  - `status === 'proxy_only'` produces `mathematicallyVerified: false`.
+  - Incomplete, invalid, or needs_review triplets produce `mathematicallyVerified: false`.
+  - Only clean triplets verified within tolerance produce `mathematicallyVerified: true`.
+- Proxy mapping always produces `disposition: 'review'`, never `'documented'` and never `'verified'`.
+
+### P1: Evidence Purpose Classification & Non-Assertive Rationale
+- Added `export type EvidencePurpose = 'reported_kpi' | 'scope_definition' | 'numerator_definition' | 'proxy_justification';`.
+- Added `purpose?: EvidencePurpose` to `ScopeExceptionEvidence`.
+- In `DOCUMENTED_SCOPE_EXCEPTIONS`, classified all BMW and Mercedes evidence records with `purpose: 'reported_kpi'`.
+- Removed unsupported inferred accounting identities (e.g. `Automotive EBIT = Group EBIT - Financial Services EBIT`) from comments and rationales.
+- Rationales now explicitly state: the headline segment margin KPI is officially reported by the OEM; consolidated group operating income is an observable proxy numerator; mathematical reproduction is not verified; human review or official segment-level numerator data is required.
+
+---
+
 ## Test Coverage Summary
 
 | Test Suite | Description | Tests | Status |
@@ -180,5 +200,5 @@ Mercedes-Benz Group reports the "Adjusted Return on Sales (RoS)" for the Mercede
 | `margin-triplet.test.ts` | Margin relationship rules & candidate triplets | 40 | ✅ All passed |
 | `provenance.test.ts` | Source provenance cross-validation | 23 | ✅ All passed |
 | `data-integrity-gate.test.ts` | Exit-code policy & regression guards | 34 | ✅ All passed |
-| `scope-exceptions.test.ts` | Proxy validation, observation binding, dimension revalidation, strict exit | 162 | ✅ All passed |
-| **Total** | | **2032** | ✅ **0 failures** |
+| `scope-exceptions.test.ts` | Proxy validation, observation binding, dimension revalidation, strict exit | 193 | ✅ All passed |
+| **Total** | | **2063** | ✅ **0 failures** |

@@ -31,7 +31,10 @@ import {
   ScopeExceptionRejectionReason,
   ScopeExceptionNature,
   ScopeExceptionEvidence,
+  EvidencePurpose,
 } from '../types/metrics';
+
+export type { EvidencePurpose };
 
 export interface DocumentedScopeException {
   /** Unique exception identifier (used in AuditFinding.exceptionId) */
@@ -126,14 +129,11 @@ export interface DocumentedScopeException {
 export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
   // ── BMW Group: Automotive Segment EBIT margin (all covered periods) ──────────
   //
-  // Data reality: BMW reports group-level operating_income (consolidated_group)
-  // as the implicit numerator, and the reported margin metric is at automotive_segment
-  // scope. This is because BMW Group's "Automotive EBIT margin" is defined as
-  // Automotive Segment EBIT / Group Revenue, where Automotive Segment EBIT
-  // = Group EBIT minus Financial Services EBIT (implicit netting).
-  // The margin observation (scope: automotive_segment) therefore comes from
-  // a different reporting scope than the revenue denominator (consolidated_group).
-  // This is an established BMW Group reporting convention.
+  // Data reality: BMW reports its primary operating margin at automotive_segment scope
+  // ("Automotive EBIT margin"). In the dataset, group operating_income (consolidated_group)
+  // is available as an observable proxy numerator. Group operating income is not mathematically
+  // equivalent to segment EBIT by default. The reported margin KPI is documented officially,
+  // but mathematical reproduction using group operating income is not verified.
   {
     id: 'bmw_automotive_segment_ros_2026q2',
     companyId: 'bmw_group',
@@ -154,15 +154,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.8%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
       'BMW Group Q2 2026 Interim Statement: Automotive EBIT margin reported at Automotive Segment level ' +
-      '(label: "Automotive EBIT margin"). The margin (automotive_segment scope) is derived from ' +
-      'segment-level EBIT against group revenue. BMW Group uses group-level operating_income as ' +
-      'the observable numerator proxy. Disclosed BMW Group reporting convention per quarterly statement.',
+      '(label: "Automotive EBIT margin"). Consolidated group operating income is an observable proxy numerator, ' +
+      'not verified segment EBIT. Mathematical reproduction is not verified. Review required.',
   },
   {
     id: 'bmw_automotive_segment_ros_2026q1',
@@ -184,12 +184,13 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Key Performance Indicators — Automotive Segment',
         evidenceReference: 'Automotive EBIT margin 7.2%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
-      'BMW Group Q1 2026 Interim Statement: Automotive EBIT margin — same reporting convention as Q2 2026.',
+      'BMW Group Q1 2026 Interim Statement: Automotive EBIT margin — reported KPI documented, proxy numerator not mathematically verified. Review required.',
   },
   {
     id: 'bmw_automotive_segment_ros_2025fy',
@@ -211,12 +212,13 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 7.4%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
-      'BMW Group FY2025 Annual Report: Automotive EBIT margin — same BMW reporting convention.',
+      'BMW Group FY2025 Annual Report: Automotive EBIT margin — reported KPI documented, proxy numerator not mathematically verified. Review required.',
   },
   {
     id: 'bmw_automotive_segment_ros_2024fy',
@@ -238,22 +240,22 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Automotive Segment',
         tableReference: 'Automotive Segment Key Performance Indicators',
         evidenceReference: 'Automotive EBIT margin 6.3%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
-      'BMW Group FY2024 Annual Report: Automotive EBIT margin — same BMW reporting convention.',
+      'BMW Group FY2024 Annual Report: Automotive EBIT margin — reported KPI documented, proxy numerator not mathematically verified. Review required.',
   },
 
   // ── Mercedes-Benz Group: Cars Segment Adjusted RoS ──────────────────────────
   //
-  // Data reality: Mercedes reports group-level operating_income (consolidated_group, reported)
-  // as the observable numerator, and the margin metric is at cars_segment scope with
-  // adjusted accounting basis. The "Adjusted Return on Sales (RoS)" for Cars is a
-  // management-defined KPI derived from Cars Segment Adjusted EBIT / Cars Revenue.
-  // The available observation (operating_income, consolidated_group, reported) is a proxy
-  // for the Cars Adjusted EBIT since the segment data is embedded within the group filing.
+  // Data reality: Mercedes-Benz reports its primary margin as "Adjusted Return on Sales (RoS)"
+  // for the Mercedes-Benz Cars segment (cars_segment, adjusted). The available observation
+  // in the dataset is consolidated group operating income (consolidated_group, reported),
+  // which acts as a proxy numerator. Group operating income is not equivalent to Cars Adjusted EBIT,
+  // and mathematical reproduction is not verified. Review required.
   {
     id: 'mbg_cars_adjusted_ros_2026q2',
     companyId: 'mercedes_benz',
@@ -274,15 +276,15 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.4%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
       'Mercedes-Benz Group Q2 2026 Quarterly Statement: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars. ' +
-      'The margin (cars_segment, adjusted) represents the Cars Division KPI. The observable numerator ' +
-      '(operating_income, consolidated_group) is a proxy since segment-level adjusted EBIT is embedded ' +
-      'in the group quarterly filing. Mercedes-Benz disclosed reporting policy, consistent across quarters.',
+      'The margin (cars_segment, adjusted) represents the Cars Division KPI. Consolidated group operating income ' +
+      'is an observable proxy numerator, not verified segment EBIT. Mathematical reproduction is not verified. Review required.',
   },
   {
     id: 'mbg_cars_adjusted_ros_2026q1',
@@ -304,12 +306,13 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 7.9%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
-      'Mercedes-Benz Group Q1 2026: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — same policy as Q2 2026.',
+      'Mercedes-Benz Group Q1 2026: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — reported KPI documented, proxy numerator not mathematically verified. Review required.',
   },
   {
     id: 'mbg_cars_adjusted_ros_2025fy',
@@ -331,12 +334,13 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 8.3%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
-      'Mercedes-Benz Group FY2025 Annual Report: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — same policy.',
+      'Mercedes-Benz Group FY2025 Annual Report: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — reported KPI documented, proxy numerator not mathematically verified. Review required.',
   },
   {
     id: 'mbg_cars_adjusted_ros_2024fy',
@@ -358,12 +362,13 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         sectionReference: 'Mercedes-Benz Cars',
         tableReference: 'Mercedes-Benz Cars Division KPIs',
         evidenceReference: 'Adjusted Return on Sales (RoS) 12.6%',
+        purpose: 'reported_kpi',
       },
     ],
     nature: 'proxy_numerator',
     isProxy: true,
     rationale:
-      'Mercedes-Benz Group FY2024 Annual Report: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — same policy.',
+      'Mercedes-Benz Group FY2024 Annual Report: "Adjusted Return on Sales (RoS)" for Mercedes-Benz Cars — reported KPI documented, proxy numerator not mathematically verified. Review required.',
   },
 ];
 
