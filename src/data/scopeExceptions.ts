@@ -92,8 +92,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
-          accounting_basis: 'Key Performance Indicators — Automotive Segment',
+          reported_kpi: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Key Performance Indicators — Automotive Segment', claimedValue: 'reported' },
         },
       },
     ],
@@ -116,8 +116,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.2%',
-          accounting_basis: 'Key Performance Indicators — Automotive Segment',
+          reported_kpi: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.2%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Key Performance Indicators — Automotive Segment', claimedValue: 'reported' },
         },
       },
     ],
@@ -140,8 +140,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 7.4%',
-          accounting_basis: 'Automotive Segment Key Performance Indicators',
+          reported_kpi: { locator: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 7.4%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Automotive Segment Key Performance Indicators', claimedValue: 'reported' },
         },
       },
     ],
@@ -164,8 +164,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 6.3%',
-          accounting_basis: 'Automotive Segment Key Performance Indicators',
+          reported_kpi: { locator: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 6.3%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Automotive Segment Key Performance Indicators', claimedValue: 'reported' },
         },
       },
     ],
@@ -190,8 +190,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.4%',
-          accounting_basis: 'Mercedes-Benz Cars Division KPIs',
+          reported_kpi: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.4%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Mercedes-Benz Cars Division KPIs', claimedValue: 'adjusted' },
         },
       },
     ],
@@ -214,8 +214,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 7.9%',
-          accounting_basis: 'Mercedes-Benz Cars Division KPIs',
+          reported_kpi: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 7.9%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Mercedes-Benz Cars Division KPIs', claimedValue: 'adjusted' },
         },
       },
     ],
@@ -238,8 +238,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.3%',
-          accounting_basis: 'Mercedes-Benz Cars Division KPIs',
+          reported_kpi: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.3%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Mercedes-Benz Cars Division KPIs', claimedValue: 'adjusted' },
         },
       },
     ],
@@ -262,8 +262,8 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 12.6%',
-          accounting_basis: 'Mercedes-Benz Cars Division KPIs',
+          reported_kpi: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 12.6%', claimedValue: 'operating_margin' },
+          accounting_basis: { locator: 'Mercedes-Benz Cars Division KPIs', claimedValue: 'adjusted' },
         },
       },
     ],
@@ -302,8 +302,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -314,12 +314,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 36,944 million EUR',
-          proxy_numerator: 'Operating profit: 3,877 million EUR',
-          denominator: 'Revenues: 36,944 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2026-Q2',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenues: 36,944 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 3,877 million EUR' },
+          denominator: { locator: 'Revenues: 36,944 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -351,8 +351,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.2%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.2%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -363,12 +363,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 36,614 million EUR',
-          proxy_numerator: 'Operating profit: 4,054 million EUR',
-          denominator: 'Revenues: 36,614 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2026-Q1',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenues: 36,614 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 4,054 million EUR' },
+          denominator: { locator: 'Revenues: 36,614 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2026-Q1' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -400,8 +400,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 7.4%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 7.4%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -412,12 +412,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 142,380 million EUR',
-          proxy_numerator: 'Operating profit: 11,241 million EUR',
-          denominator: 'Revenues: 142,380 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2025-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenues: 142,380 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 11,241 million EUR' },
+          denominator: { locator: 'Revenues: 142,380 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2025-FY' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'annual' },
         },
       },
     ],
@@ -449,8 +449,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 6.3%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 6.3%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -461,12 +461,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 142,610 million EUR',
-          proxy_numerator: 'Operating profit: 10,980 million EUR',
-          denominator: 'Revenues: 142,610 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2024-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenues: 142,610 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 10,980 million EUR' },
+          denominator: { locator: 'Revenues: 142,610 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2024-FY' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'annual' },
         },
       },
     ],
@@ -500,8 +500,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.4%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.4%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -512,12 +512,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 36,743 million EUR',
-          proxy_numerator: 'EBIT: 4,037 million EUR',
-          denominator: 'Revenue: 36,743 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2026-Q2',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenue: 36,743 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 4,037 million EUR' },
+          denominator: { locator: 'Revenue: 36,743 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -549,8 +549,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 7.9%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 7.9%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -561,12 +561,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 35,873 million EUR',
-          proxy_numerator: 'EBIT: 3,863 million EUR',
-          denominator: 'Revenue: 35,873 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2026-Q1',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenue: 35,873 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 3,863 million EUR' },
+          denominator: { locator: 'Revenue: 35,873 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2026-Q1' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -598,8 +598,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.3%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.3%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -610,12 +610,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 145,594 million EUR',
-          proxy_numerator: 'EBIT: 13,636 million EUR',
-          denominator: 'Revenue: 145,594 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2025-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenue: 145,594 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 13,636 million EUR' },
+          denominator: { locator: 'Revenue: 145,594 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2025-FY' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'annual' },
         },
       },
     ],
@@ -647,8 +647,8 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 12.6%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 12.6%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -659,12 +659,12 @@ export const PROXY_METRIC_MAPPINGS: ProxyMetricMapping[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 152,654 million EUR',
-          proxy_numerator: 'EBIT: 19,660 million EUR',
-          denominator: 'Revenue: 152,654 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2024-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenue: 152,654 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 19,660 million EUR' },
+          denominator: { locator: 'Revenue: 152,654 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2024-FY' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'annual' },
         },
       },
     ],
@@ -726,8 +726,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -738,12 +738,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 36,944 million EUR',
-          proxy_numerator: 'Operating profit: 3,877 million EUR',
-          denominator: 'Revenues: 36,944 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2026-Q2',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenues: 36,944 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 3,877 million EUR' },
+          denominator: { locator: 'Revenues: 36,944 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -780,8 +780,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.2%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.2%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -792,12 +792,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 36,614 million EUR',
-          proxy_numerator: 'Operating profit: 4,054 million EUR',
-          denominator: 'Revenues: 36,614 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2026-Q1',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenues: 36,614 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 4,054 million EUR' },
+          denominator: { locator: 'Revenues: 36,614 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2026-Q1' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -832,8 +832,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 7.4%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 7.4%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -844,12 +844,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 142,380 million EUR',
-          proxy_numerator: 'Operating profit: 11,241 million EUR',
-          denominator: 'Revenues: 142,380 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2025-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenues: 142,380 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 11,241 million EUR' },
+          denominator: { locator: 'Revenues: 142,380 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2025-FY' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'annual' },
         },
       },
     ],
@@ -884,8 +884,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 6.3%',
-          scope: 'Automotive Segment',
+          target_semantic: { locator: 'Automotive Segment Key Performance Indicators / Automotive EBIT margin 6.3%', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -896,12 +896,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 142,610 million EUR',
-          proxy_numerator: 'Operating profit: 10,980 million EUR',
-          denominator: 'Revenues: 142,610 million EUR',
-          accounting_basis: 'Group Income Statement',
-          period: '2024-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenues: 142,610 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 10,980 million EUR' },
+          denominator: { locator: 'Revenues: 142,610 million EUR' },
+          accounting_basis: { locator: 'Group Income Statement', claimedValue: 'reported' },
+          period: { locator: 'Group Income Statement', claimedValue: '2024-FY' },
+          period_type: { locator: 'Group Income Statement', claimedValue: 'annual' },
         },
       },
     ],
@@ -944,8 +944,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.4%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.4%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -956,12 +956,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 36,743 million EUR',
-          proxy_numerator: 'EBIT: 4,037 million EUR',
-          denominator: 'Revenue: 36,743 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2026-Q2',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenue: 36,743 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 4,037 million EUR' },
+          denominator: { locator: 'Revenue: 36,743 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -998,8 +998,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 7.9%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 7.9%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -1010,12 +1010,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 35,873 million EUR',
-          proxy_numerator: 'EBIT: 3,863 million EUR',
-          denominator: 'Revenue: 35,873 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2026-Q1',
-          period_type: 'quarterly',
+          revenue: { locator: 'Revenue: 35,873 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 3,863 million EUR' },
+          denominator: { locator: 'Revenue: 35,873 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2026-Q1' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -1050,8 +1050,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.3%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 8.3%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -1062,12 +1062,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 145,594 million EUR',
-          proxy_numerator: 'EBIT: 13,636 million EUR',
-          denominator: 'Revenue: 145,594 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2025-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenue: 145,594 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 13,636 million EUR' },
+          denominator: { locator: 'Revenue: 145,594 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2025-FY' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'annual' },
         },
       },
     ],
@@ -1102,8 +1102,8 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 12.6%',
-          scope: 'Mercedes-Benz Cars',
+          target_semantic: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 12.6%', claimedValue: 'cars_adjusted_ebit' },
+          scope: { locator: 'Mercedes-Benz Cars', claimedValue: 'cars_segment' },
         },
       },
       {
@@ -1114,12 +1114,12 @@ export const DOCUMENTED_SCOPE_EXCEPTIONS: DocumentedScopeException[] = [
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenue: 152,654 million EUR',
-          proxy_numerator: 'EBIT: 19,660 million EUR',
-          denominator: 'Revenue: 152,654 million EUR',
-          accounting_basis: 'Consolidated Statement of Income',
-          period: '2024-FY',
-          period_type: 'annual',
+          revenue: { locator: 'Revenue: 152,654 million EUR' },
+          proxy_numerator: { locator: 'EBIT: 19,660 million EUR' },
+          denominator: { locator: 'Revenue: 152,654 million EUR' },
+          accounting_basis: { locator: 'Consolidated Statement of Income', claimedValue: 'reported' },
+          period: { locator: 'Consolidated Statement of Income', claimedValue: '2024-FY' },
+          period_type: { locator: 'Consolidated Statement of Income', claimedValue: 'annual' },
         },
       },
     ],
@@ -1219,14 +1219,17 @@ interface EvidenceValidationOptions {
   readonly parentLabel: string;
   /** Source registry for existence checks. */
   readonly sourcesMap: SourceRegistry | null | undefined;
-  /** Expected claim values from parent record for structured claim validation (STEP 4-16, Task 3). */
+  /** Expected claim values from parent record for structured claim validation (STEP 4-16, Task 3; STEP 4-17, Tasks 2 & 3). */
   readonly expectedClaims?: {
     readonly period?: string;
     readonly periodType?: PeriodType;
     readonly accountingBasis?: AccountingBasis;
+    readonly allowedBases?: readonly AccountingBasis[];
     readonly targetSemantic?: string;
     readonly scope?: ReportingScope;
     readonly allowedScopes?: readonly ReportingScope[];
+    readonly metricId?: string;
+    readonly companyId?: string;
   };
 }
 
@@ -1240,6 +1243,36 @@ export const ALL_KNOWN_SUPPORT_TYPES: readonly EvidenceSupportType[] = [
   'accounting_basis',
   'period',
   'period_type',
+  'reported_kpi',
+];
+
+/** All known AccountingBasis values for typed validation (STEP 4-17, Task 3). */
+export const ALL_KNOWN_ACCOUNTING_BASES: readonly AccountingBasis[] = [
+  'reported',
+  'adjusted',
+  'non_gaap',
+  'management_defined',
+  'unknown',
+];
+
+/** All known ReportingScope values for typed validation (STEP 4-17, Task 3). */
+export const ALL_KNOWN_REPORTING_SCOPES: readonly ReportingScope[] = [
+  'consolidated_group',
+  'automotive_segment',
+  'cars_segment',
+  'commercial_vehicles_segment',
+  'financial_services',
+  'business_unit',
+  'unknown',
+];
+
+/** Support types that strictly require structured claim entries (STEP 4-17, Task 2). */
+export const SEMANTIC_CLAIM_SUPPORT_TYPES: readonly EvidenceSupportType[] = [
+  'period',
+  'period_type',
+  'accounting_basis',
+  'scope',
+  'target_semantic',
   'reported_kpi',
 ];
 
@@ -1387,7 +1420,7 @@ export function normalizeClaimEvidenceLocator(
 }
 
 /**
- * Resolves the evidence claim verification state with explicit verification semantics (STEP 4-16, Task 1).
+ * Resolves the evidence claim verification state with explicit verification semantics (STEP 4-16, Task 1; STEP 4-17, Task 4).
  * Semantics:
  *  - 'locator_only': locator exists, but document content is not verified.
  *  - 'source_verified': source document identity and metadata are verified.
@@ -1401,34 +1434,69 @@ export function normalizeClaimEvidenceLocator(
  */
 export function resolveClaimVerificationState(
   evidence: ScopeExceptionEvidence[] | undefined | null,
-  _sourcesVerified: boolean = false
+  sourcesVerified: boolean = false
 ): EvidenceClaimVerificationState {
   if (!evidence || evidence.length === 0) {
     return 'locator_only';
   }
-  // In the absence of a machine content verification engine, claimVerificationState is locator_only.
+  // Without a machine content verification engine, claim content cannot be 'claim_verified'.
+  // Even if input metadata declares 'claim_verified', manual promotion is rejected.
+  if (sourcesVerified) {
+    return 'source_verified';
+  }
   return 'locator_only';
 }
 
 /**
- * Checks whether an evidence claim verification state can justify a documented disposition (STEP 4-16, Task 1).
- * 'locator_only' evidence can NEVER independently justify disposition: 'documented'.
+ * Checks whether an evidence claim verification state can justify a documented disposition (STEP 4-16, Task 1; STEP 4-17, Task 1).
+ * Stricter policy:
+ *  - 'locator_only': cannot justify documented
+ *  - 'source_verified': cannot justify documented (source metadata verified, but claim content is unverified)
+ *  - 'claim_verified': only state that can justify documented
  */
 export function canClaimStateJustifyDocumented(
   state?: EvidenceClaimVerificationState
 ): boolean {
-  if (!state || state === 'locator_only') {
-    return false;
-  }
-  if (state === 'claim_verified') {
-    // Unverified claims cannot be trusted without a verification engine
-    return false;
-  }
-  return state === 'source_verified';
+  return state === 'claim_verified';
 }
 
 /**
- * Result of evidence item validation (STEP 4-15, Task 1 & 2; STEP 4-16, Tasks 2, 3, 4).
+ * Validates whether an evidence claim verification state can justify a documented disposition (STEP 4-17, Task 1).
+ * Returns specific mismatch codes:
+ *  - 'insufficientClaimVerificationForDocumented' for 'locator_only' or undefined
+ *  - 'unverifiedClaimForDocumented' for 'source_verified'
+ */
+export function validateClaimStateForDocumented(
+  state?: EvidenceClaimVerificationState
+): { isValid: boolean; mismatch?: string; reason?: string } {
+  if (!state || state === 'locator_only') {
+    return {
+      isValid: false,
+      mismatch: 'insufficientClaimVerificationForDocumented',
+      reason: 'Locator-only evidence cannot justify a documented disposition.',
+    };
+  }
+  if (state === 'source_verified') {
+    return {
+      isValid: false,
+      mismatch: 'unverifiedClaimForDocumented',
+      reason: 'Source-verified evidence verifies source document metadata but leaves claim content unverified; cannot justify a documented disposition.',
+    };
+  }
+  if (state === 'claim_verified') {
+    return {
+      isValid: true,
+    };
+  }
+  return {
+    isValid: false,
+    mismatch: 'insufficientClaimVerificationForDocumented',
+    reason: `Invalid or unsupported claim verification state "${state}".`,
+  };
+}
+
+/**
+ * Result of evidence item validation (STEP 4-15, Task 1 & 2; STEP 4-16, Tasks 2, 3, 4; STEP 4-17, Tasks 2, 3, 5).
  */
 export interface EvidenceValidationResult {
   mismatches: string[];
@@ -1440,7 +1508,8 @@ export interface EvidenceValidationResult {
 /**
  * Validates a list of evidence items against membership, locator, purpose/support consistency,
  * empty-supports, unknown-support-type, duplicate-supports, unknown-purpose, claim-level locators,
- * and structured claim values against parent expected values (STEP 4-13, Task 4; STEP 4-14, Tasks 2 & 4; STEP 4-15, Tasks 1 & 2; STEP 4-16, Tasks 2, 3, 4).
+ * bidirectional supports/supportEvidence completeness, and typed structured claim values against parent expected values
+ * (STEP 4-13, Task 4; STEP 4-14, Tasks 2 & 4; STEP 4-15, Tasks 1 & 2; STEP 4-16, Tasks 2, 3, 4; STEP 4-17, Tasks 2, 3, 5).
  *
  * Returns an object with arrays of mismatch codes and reasons collected across all evidence items.
  * Each mismatch code is emitted at most once globally; per-item reasons are always appended.
@@ -1537,7 +1606,29 @@ export function validateEvidenceItems(
       }
     }
 
-    // Task 4 (STEP 4-14), Task 1 (STEP 4-15), Tasks 2 & 3 (STEP 4-16): Claim-level evidence locator & value validation
+    // Task 5 (STEP 4-17): Bidirectional consistency between supports and supportEvidence
+    if (ev.supports && ev.supports.length > 0) {
+      if (!ev.supportEvidence) {
+        addMismatch('missingClaimEvidence');
+        addMismatch('missingClaimEvidenceLocator');
+        reasons.push(
+          `${parentLabel} evidence for "${ev.sourceDocId}" declares supports [${ev.supports.join(', ')}] but lacks supportEvidence.`
+        );
+      } else {
+        for (const sup of ev.supports) {
+          if (!(sup in ev.supportEvidence)) {
+            addMismatch('missingClaimEvidence');
+            addMismatch('missingClaimEvidenceLocator');
+            reasons.push(
+              `${parentLabel} evidence for "${ev.sourceDocId}" declares support "${sup}" but has no corresponding entry in supportEvidence.`
+            );
+          }
+        }
+      }
+    }
+
+    // Task 4 (STEP 4-14), Task 1 (STEP 4-15), Tasks 2 & 3 (STEP 4-16), Tasks 2, 3, 5 (STEP 4-17):
+    // Claim-level evidence locator & structured claim value validation
     if (ev.supportEvidence) {
       for (const [claimKey, rawEntry] of Object.entries(ev.supportEvidence)) {
         const supportType = claimKey as EvidenceSupportType;
@@ -1549,65 +1640,172 @@ export function validateEvidenceItems(
           reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" contains orphan claim locator "${claimKey}" not declared in supports.`);
         }
 
-        const normalized = normalizeClaimEvidenceLocator(rawEntry as ClaimEvidenceEntry);
-        const locatorStr = normalized?.locator;
+        const isSemanticClaim = (SEMANTIC_CLAIM_SUPPORT_TYPES as readonly string[]).includes(supportType);
 
-        if (!locatorStr || typeof locatorStr !== 'string' || locatorStr.trim().length === 0) {
-          addMismatch('missingClaimEvidenceLocator');
-          reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" has empty locator for claim "${claimKey}".`);
-        } else {
-          if (validSupportsOnThisItem.has(supportType)) {
-            supportedClaims.add(supportType);
+        if (isSemanticClaim) {
+          // Task 2 (STEP 4-17): Structured claim values are mandatory for semantic claims
+          if (typeof rawEntry === 'string') {
+            addMismatch('missingStructuredClaimValue');
+            reasons.push(
+              `${parentLabel} evidence for "${ev.sourceDocId}" has string-only entry for semantic support "${claimKey}"; structured ClaimEvidenceLocator with claimedValue is required.`
+            );
+            if (rawEntry.trim().length === 0) {
+              addMismatch('missingClaimEvidenceLocator');
+              reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" has empty locator for claim "${claimKey}".`);
+            }
+            // Backward-compatible string entries may remain accepted as locator-only, but must NOT count as complete claim binding!
+          } else if (typeof rawEntry === 'object' && rawEntry !== null) {
+            let hasValidLocator = true;
+            let hasValidClaimedValue = true;
+
+            const loc = rawEntry.locator;
+            if (!loc || typeof loc !== 'string' || loc.trim().length === 0) {
+              hasValidLocator = false;
+              addMismatch('missingClaimEvidenceLocator');
+              reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" has empty locator for claim "${claimKey}".`);
+            }
+
+            const rawVal = rawEntry.claimedValue;
+            if (rawVal === undefined || rawVal === null || (typeof rawVal === 'string' && rawVal.trim().length === 0)) {
+              hasValidClaimedValue = false;
+              addMismatch('missingStructuredClaimValue');
+              reasons.push(
+                `${parentLabel} evidence for "${ev.sourceDocId}" is missing structured claimedValue for semantic claim "${claimKey}".`
+              );
+            } else {
+              const val = String(rawVal).trim();
+
+              // Task 3 (STEP 4-17): Typed validation for claim values
+              if (supportType === 'period') {
+                const matchesPattern = ALL_PERIOD_PATTERNS.some((p) => p.test(val));
+                if (!matchesPattern) {
+                  hasValidClaimedValue = false;
+                  addMismatch('unsupportedClaimValue');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed period "${val}" is unsupported or has an invalid format.`
+                  );
+                }
+                if (options.expectedClaims?.period && val !== options.expectedClaims.period) {
+                  hasValidClaimedValue = false;
+                  addMismatch('claimPeriodMismatch');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed period "${val}" does not match expected period "${options.expectedClaims.period}".`
+                  );
+                }
+              } else if (supportType === 'period_type') {
+                if (!ALL_KNOWN_PERIOD_TYPES.includes(val as PeriodType)) {
+                  hasValidClaimedValue = false;
+                  addMismatch('unsupportedClaimValue');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed periodType "${val}" is unsupported or invalid.`
+                  );
+                }
+                if (options.expectedClaims?.periodType && val !== options.expectedClaims.periodType) {
+                  hasValidClaimedValue = false;
+                  addMismatch('claimPeriodTypeMismatch');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed periodType "${val}" does not match expected periodType "${options.expectedClaims.periodType}".`
+                  );
+                }
+              } else if (supportType === 'accounting_basis') {
+                if (!ALL_KNOWN_ACCOUNTING_BASES.includes(val as AccountingBasis)) {
+                  hasValidClaimedValue = false;
+                  addMismatch('unsupportedClaimValue');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed accounting basis "${val}" is unsupported or invalid.`
+                  );
+                }
+                const allowedBases =
+                  options.expectedClaims?.allowedBases ??
+                  (options.expectedClaims?.accountingBasis ? [options.expectedClaims.accountingBasis] : undefined);
+                if (allowedBases && !allowedBases.includes(val as AccountingBasis)) {
+                  hasValidClaimedValue = false;
+                  addMismatch('claimAccountingBasisMismatch');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed accounting basis "${val}" does not match expected basis [${allowedBases.join(', ')}].`
+                  );
+                }
+              } else if (supportType === 'scope') {
+                if (!ALL_KNOWN_REPORTING_SCOPES.includes(val as ReportingScope)) {
+                  hasValidClaimedValue = false;
+                  addMismatch('unsupportedClaimValue');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed scope "${val}" is unsupported or invalid.`
+                  );
+                }
+                const allowed =
+                  options.expectedClaims?.allowedScopes ??
+                  (options.expectedClaims?.scope ? [options.expectedClaims.scope] : undefined);
+                if (allowed && !allowed.includes(val as ReportingScope)) {
+                  hasValidClaimedValue = false;
+                  addMismatch('claimScopeMismatch');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed scope "${val}" does not match expected scope [${allowed.join(', ')}].`
+                  );
+                }
+              } else if (supportType === 'target_semantic') {
+                const activeContracts = PROXY_SEMANTIC_CONTRACTS.filter((c) => c.status === 'active');
+                const allowedActiveSemantics = options.expectedClaims?.companyId
+                  ? activeContracts.filter((c) => c.companyId === options.expectedClaims?.companyId).map((c) => c.targetSemantic)
+                  : activeContracts.map((c) => c.targetSemantic);
+
+                if (!allowedActiveSemantics.includes(val)) {
+                  hasValidClaimedValue = false;
+                  addMismatch('unsupportedClaimValue');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" is not an authorized active proxy semantic contract.`
+                  );
+                }
+                if (options.expectedClaims?.targetSemantic && val !== options.expectedClaims.targetSemantic) {
+                  hasValidClaimedValue = false;
+                  addMismatch('claimSemanticMismatch');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" does not match expected target semantic "${options.expectedClaims.targetSemantic}".`
+                  );
+                }
+              } else if (supportType === 'reported_kpi') {
+                if (options.expectedClaims?.metricId && val !== options.expectedClaims.metricId) {
+                  hasValidClaimedValue = false;
+                  addMismatch('claimSemanticMismatch');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed reported KPI "${val}" does not match expected metric "${options.expectedClaims.metricId}".`
+                  );
+                }
+              }
+            }
+
+            if (rawEntry.verificationState === 'claim_verified') {
+              reasons.push(
+                `${parentLabel} evidence for "${ev.sourceDocId}" claims "claim_verified" for "${claimKey}", but claim verification without an engine is not trusted; downgraded to "locator_only".`
+              );
+            }
+
+            if (hasValidLocator && hasValidClaimedValue && validSupportsOnThisItem.has(supportType)) {
+              supportedClaims.add(supportType);
+            }
+          } else {
+            addMismatch('missingClaimEvidenceLocator');
+            addMismatch('missingStructuredClaimValue');
+            reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" has invalid entry for claim "${claimKey}".`);
           }
-        }
+        } else {
+          // Non-semantic claim (e.g. revenue, proxy_numerator, denominator)
+          const normalized = normalizeClaimEvidenceLocator(rawEntry as ClaimEvidenceEntry);
+          const locatorStr = normalized?.locator;
 
-        // Task 1: Check if input claimed 'claim_verified' manually
-        if (typeof rawEntry === 'object' && rawEntry !== null && rawEntry.verificationState === 'claim_verified') {
-          // Untrusted claim verification state: no claim verification engine exists
-          reasons.push(
-            `${parentLabel} evidence for "${ev.sourceDocId}" claims "claim_verified" for "${claimKey}", but claim verification without an engine is not trusted; downgraded to "locator_only".`
-          );
-        }
+          if (!locatorStr || typeof locatorStr !== 'string' || locatorStr.trim().length === 0) {
+            addMismatch('missingClaimEvidenceLocator');
+            reasons.push(`${parentLabel} evidence for "${ev.sourceDocId}" has empty locator for claim "${claimKey}".`);
+          } else {
+            if (validSupportsOnThisItem.has(supportType)) {
+              supportedClaims.add(supportType);
+            }
+          }
 
-        // Task 3: Validate structured claim value against parent expected claims
-        if (normalized?.claimedValue !== undefined && options.expectedClaims) {
-          const val = normalized.claimedValue;
-          if (supportType === 'period') {
-            if (options.expectedClaims.period && val !== options.expectedClaims.period) {
-              addMismatch('claimPeriodMismatch');
-              reasons.push(
-                `${parentLabel} evidence for "${ev.sourceDocId}" claimed period "${val}" does not match expected period "${options.expectedClaims.period}".`
-              );
-            }
-          } else if (supportType === 'period_type') {
-            if (options.expectedClaims.periodType && val !== options.expectedClaims.periodType) {
-              addMismatch('claimPeriodTypeMismatch');
-              reasons.push(
-                `${parentLabel} evidence for "${ev.sourceDocId}" claimed periodType "${val}" does not match expected periodType "${options.expectedClaims.periodType}".`
-              );
-            }
-          } else if (supportType === 'accounting_basis') {
-            if (options.expectedClaims.accountingBasis && val !== options.expectedClaims.accountingBasis) {
-              addMismatch('claimAccountingBasisMismatch');
-              reasons.push(
-                `${parentLabel} evidence for "${ev.sourceDocId}" claimed accounting basis "${val}" does not match expected basis "${options.expectedClaims.accountingBasis}".`
-              );
-            }
-          } else if (supportType === 'target_semantic') {
-            if (options.expectedClaims.targetSemantic && val !== options.expectedClaims.targetSemantic) {
-              addMismatch('claimSemanticMismatch');
-              reasons.push(
-                `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" does not match expected target semantic "${options.expectedClaims.targetSemantic}".`
-              );
-            }
-          } else if (supportType === 'scope') {
-            const allowed = options.expectedClaims.allowedScopes ?? (options.expectedClaims.scope ? [options.expectedClaims.scope] : undefined);
-            if (allowed && !allowed.includes(val as ReportingScope)) {
-              addMismatch('claimScopeMismatch');
-              reasons.push(
-                `${parentLabel} evidence for "${ev.sourceDocId}" claimed scope "${val}" does not match expected scope [${allowed.join(', ')}].`
-              );
-            }
+          if (typeof rawEntry === 'object' && rawEntry !== null && rawEntry.verificationState === 'claim_verified') {
+            reasons.push(
+              `${parentLabel} evidence for "${ev.sourceDocId}" claims "claim_verified" for "${claimKey}", but claim verification without an engine is not trusted; downgraded to "locator_only".`
+            );
           }
         }
       }
@@ -2108,6 +2306,13 @@ export function validateProxyMappingCompatibility(
       period: expectedPeriod,
       periodType: expectedPeriodType,
       accountingBasis: mapping.targetBasis,
+      allowedBases: Array.from(
+        new Set([
+          mapping.targetBasis,
+          mapping.proxyBasis,
+          mapping.denominatorBasis,
+        ].filter(Boolean))
+      ) as AccountingBasis[],
       targetSemantic: mapping.targetNumeratorSemantic,
       scope: mapping.targetScope,
       allowedScopes: Array.from(
@@ -2117,6 +2322,7 @@ export function validateProxyMappingCompatibility(
           mapping.denominatorScope,
         ].filter(Boolean))
       ) as ReportingScope[],
+      companyId: mapping.companyId,
     },
   });
   for (const m of evResult.mismatches) {

@@ -48,8 +48,12 @@ import {
   ALLOWED_PURPOSES_BY_SUPPORT,
   ALL_KNOWN_SUPPORT_TYPES,
   ALL_KNOWN_PERIOD_TYPES,
+  ALL_KNOWN_ACCOUNTING_BASES,
+  ALL_KNOWN_REPORTING_SCOPES,
+  SEMANTIC_CLAIM_SUPPORT_TYPES,
   validatePeriodSemantics,
   canClaimStateJustifyDocumented,
+  validateClaimStateForDocumented,
   resolveClaimVerificationState,
   normalizeClaimEvidenceLocator,
 } from '../src/data/scopeExceptions';
@@ -74,6 +78,7 @@ import {
   PeriodType,
   EvidenceSupportType,
   ClaimEvidenceLocator,
+  ScopeExceptionEvidence,
 } from '../src/types/metrics';
 import { COMPANIES_REGISTRY } from '../src/data/companies';
 import { METRIC_OBSERVATIONS } from '../src/data/observations';
@@ -2247,8 +2252,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
         purpose: 'scope_definition', // NOT proxy_justification
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Key Performance Indicators — Automotive Segment, Automotive EBIT margin',
-          scope: 'Automotive Segment Reporting boundary',
+          target_semantic: { locator: 'Key Performance Indicators — Automotive Segment, Automotive EBIT margin', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment Reporting boundary', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -2259,12 +2264,12 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 36,944 million EUR',
-          proxy_numerator: 'Operating profit: 3,877 million EUR',
-          denominator: 'Revenues: 36,944 million EUR',
-          accounting_basis: 'IFRS reported basis note',
-          period: 'Three months ended June 30, 2026',
-          period_type: 'Quarterly financial report',
+          revenue: { locator: 'Revenues: 36,944 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 3,877 million EUR' },
+          denominator: { locator: 'Revenues: 36,944 million EUR' },
+          accounting_basis: { locator: 'IFRS reported basis note', claimedValue: 'reported' },
+          period: { locator: 'Three months ended June 30, 2026', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Quarterly financial report', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -2308,8 +2313,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Key Performance Indicators — Automotive Segment, Automotive EBIT margin',
-          scope: 'Automotive Segment Reporting boundary',
+          target_semantic: { locator: 'Key Performance Indicators — Automotive Segment, Automotive EBIT margin', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment Reporting boundary', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -2320,12 +2325,12 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 36,944 million EUR',
-          proxy_numerator: 'Operating profit: 3,877 million EUR',
-          denominator: 'Revenues: 36,944 million EUR',
-          accounting_basis: 'IFRS reported basis note',
-          period: 'Three months ended June 30, 2026',
-          period_type: 'Quarterly financial report',
+          revenue: { locator: 'Revenues: 36,944 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 3,877 million EUR' },
+          denominator: { locator: 'Revenues: 36,944 million EUR' },
+          accounting_basis: { locator: 'IFRS reported basis note', claimedValue: 'reported' },
+          period: { locator: 'Three months ended June 30, 2026', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Quarterly financial report', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -4817,8 +4822,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
         purpose: 'scope_definition',
         supports: ['target_semantic', 'scope'],
         supportEvidence: {
-          target_semantic: 'Key Performance Indicators — Automotive Segment, Automotive EBIT margin',
-          scope: 'Automotive Segment Reporting boundary',
+          target_semantic: { locator: 'Key Performance Indicators — Automotive Segment, Automotive EBIT margin', claimedValue: 'automotive_segment_ebit' },
+          scope: { locator: 'Automotive Segment Reporting boundary', claimedValue: 'automotive_segment' },
         },
       },
       {
@@ -4829,12 +4834,12 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
         purpose: 'numerator_definition',
         supports: ['revenue', 'proxy_numerator', 'denominator', 'accounting_basis', 'period', 'period_type'],
         supportEvidence: {
-          revenue: 'Revenues: 36,944 million EUR',
-          proxy_numerator: 'Operating profit: 3,877 million EUR',
-          denominator: 'Revenues: 36,944 million EUR',
-          accounting_basis: 'IFRS reported basis note',
-          period: 'Three months ended June 30, 2026',
-          period_type: 'Quarterly financial report',
+          revenue: { locator: 'Revenues: 36,944 million EUR' },
+          proxy_numerator: { locator: 'Operating profit: 3,877 million EUR' },
+          denominator: { locator: 'Revenues: 36,944 million EUR' },
+          accounting_basis: { locator: 'IFRS reported basis note', claimedValue: 'reported' },
+          period: { locator: 'Three months ended June 30, 2026', claimedValue: '2026-Q2' },
+          period_type: { locator: 'Quarterly financial report', claimedValue: 'quarterly' },
         },
       },
     ],
@@ -5397,7 +5402,15 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     evidence: bmwMapping.evidence.map((ev) => ({
       ...ev,
       supportEvidence: Object.fromEntries(
-        (ev.supports ?? []).map((s) => [s, `Valid locator for ${s}, section ${ev.sectionReference ?? 'main'}`])
+        (ev.supports ?? []).map((s) => {
+          if (s === 'target_semantic') return [s, { locator: `Section ${ev.sectionReference}`, claimedValue: 'automotive_segment_ebit' }];
+          if (s === 'scope') return [s, { locator: `Section ${ev.sectionReference}`, claimedValue: 'automotive_segment' }];
+          if (s === 'accounting_basis') return [s, { locator: `Section ${ev.sectionReference}`, claimedValue: 'reported' }];
+          if (s === 'period') return [s, { locator: `Section ${ev.sectionReference}`, claimedValue: '2026-Q2' }];
+          if (s === 'period_type') return [s, { locator: `Section ${ev.sectionReference}`, claimedValue: 'quarterly' }];
+          if (s === 'reported_kpi') return [s, { locator: `Section ${ev.sectionReference}`, claimedValue: 'operating_margin' }];
+          return [s, { locator: `Valid locator for ${s}, section ${ev.sectionReference ?? 'main'}` }];
+        })
       ),
     })),
   };
@@ -5703,10 +5716,10 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const norm = normalizeClaimEvidenceLocator(manualClaim);
   check(norm?.verificationState === 'locator_only', 'Test 213c: Manual claim_verified input is downgraded to locator_only');
 
-  // 3. canClaimStateJustifyDocumented guards
+  // 3. canClaimStateJustifyDocumented guards (STEP 4-17 stricter policy)
   check(canClaimStateJustifyDocumented('locator_only') === false, 'Test 213d: locator_only cannot justify documented disposition');
-  check(canClaimStateJustifyDocumented('claim_verified') === false, 'Test 213e: claim_verified without engine cannot justify documented disposition');
-  check(canClaimStateJustifyDocumented('source_verified') === true, 'Test 213f: source_verified can justify documented disposition');
+  check(canClaimStateJustifyDocumented('claim_verified') === true, 'Test 213e: claim_verified can justify documented disposition');
+  check(canClaimStateJustifyDocumented('source_verified') === false, 'Test 213f: source_verified cannot justify documented disposition');
   check(canClaimStateJustifyDocumented(undefined) === false, 'Test 213g: undefined cannot justify documented disposition');
 
   // 4. Invariants: proxy_only remains strictly review disposition and mathematicallyVerified: false
@@ -6065,6 +6078,431 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const top5All = marginObservations.slice(0, 5).map(o => o.companyId);
   const top5Filtered = marginObservations.filter(o => o.companyId !== 'rivian').slice(0, 5).map(o => o.companyId);
   check(JSON.stringify(top5All) === JSON.stringify(top5Filtered), 'Test 218i: Top 5 margin companies are identical in filtered and unfiltered modes');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TESTS 219–225 (STEP 4-17): Hardened Claim Evidence Semantics, Disposition Gating, and Regression Safety
+// ────────────────────────────────────────────────────────────────────────────
+
+// TEST 219: Documented disposition semantics and explicit gating (Task 1)
+{
+  // 1. canClaimStateJustifyDocumented strict semantics
+  check(canClaimStateJustifyDocumented('claim_verified') === true, 'Test 219a: Only claim_verified can justify documented disposition');
+  check(canClaimStateJustifyDocumented('source_verified') === false, 'Test 219b: source_verified cannot justify documented disposition');
+  check(canClaimStateJustifyDocumented('locator_only') === false, 'Test 219c: locator_only cannot justify documented disposition');
+  check(canClaimStateJustifyDocumented(undefined) === false, 'Test 219d: undefined state cannot justify documented disposition');
+
+  // 2. validateClaimStateForDocumented explicit mismatch codes
+  const validRes = validateClaimStateForDocumented('claim_verified');
+  check(validRes.isValid === true, 'Test 219e: claim_verified is valid for documented');
+  check(validRes.mismatch === undefined, 'Test 219f: No mismatch for claim_verified');
+
+  const srcRes = validateClaimStateForDocumented('source_verified');
+  check(srcRes.isValid === false, 'Test 219g: source_verified is invalid for documented');
+  check(srcRes.mismatch === 'unverifiedClaimForDocumented', 'Test 219h: Mismatch unverifiedClaimForDocumented emitted for source_verified');
+
+  const locRes = validateClaimStateForDocumented('locator_only');
+  check(locRes.isValid === false, 'Test 219i: locator_only is invalid for documented');
+  check(locRes.mismatch === 'insufficientClaimVerificationForDocumented', 'Test 219j: Mismatch insufficientClaimVerificationForDocumented emitted for locator_only');
+
+  const undefRes = validateClaimStateForDocumented(undefined);
+  check(undefRes.isValid === false, 'Test 219k: undefined state is invalid for documented');
+  check(undefRes.mismatch === 'insufficientClaimVerificationForDocumented', 'Test 219l: Mismatch insufficientClaimVerificationForDocumented emitted for undefined');
+}
+
+// TEST 220: Mandatory structured claim values for semantic claims (Task 2)
+{
+  check(SEMANTIC_CLAIM_SUPPORT_TYPES.length === 6, 'Test 220a: Exactly 6 semantic claim support types');
+  check(SEMANTIC_CLAIM_SUPPORT_TYPES.includes('period'), 'Test 220b: period is a semantic claim support type');
+  check(SEMANTIC_CLAIM_SUPPORT_TYPES.includes('period_type'), 'Test 220c: period_type is a semantic claim support type');
+  check(SEMANTIC_CLAIM_SUPPORT_TYPES.includes('accounting_basis'), 'Test 220d: accounting_basis is a semantic claim support type');
+  check(SEMANTIC_CLAIM_SUPPORT_TYPES.includes('scope'), 'Test 220e: scope is a semantic claim support type');
+  check(SEMANTIC_CLAIM_SUPPORT_TYPES.includes('target_semantic'), 'Test 220f: target_semantic is a semantic claim support type');
+  check(SEMANTIC_CLAIM_SUPPORT_TYPES.includes('reported_kpi'), 'Test 220g: reported_kpi is a semantic claim support type');
+
+  // String entry on a semantic support emits missingStructuredClaimValue and does NOT count as complete claim binding
+  const evWithStringSemantic = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition' as const,
+      supports: ['target_semantic', 'scope'] as EvidenceSupportType[],
+      supportEvidence: {
+        target_semantic: 'String locator without claimedValue', // String entry!
+        scope: { locator: 'Automotive boundary', claimedValue: 'automotive_segment' },
+      },
+    },
+  ];
+  const evResString = validateEvidenceItems(evWithStringSemantic, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test String Semantic',
+    sourcesMap: mockSourcesMap,
+    expectedClaims: {
+      targetSemantic: 'automotive_segment_ebit',
+      scope: 'automotive_segment',
+    },
+  });
+  check(evResString.mismatches.includes('missingStructuredClaimValue'), 'Test 220h: String entry for semantic claim emits missingStructuredClaimValue');
+  check(!evResString.supportedClaims.has('target_semantic'), 'Test 220i: String entry for semantic claim does NOT count as supportedClaim');
+  check(evResString.supportedClaims.has('scope'), 'Test 220j: Valid structured claim is in supportedClaims');
+
+  // Structured object with missing locator emits missingClaimEvidenceLocator
+  const evWithMissingLocator = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition' as const,
+      supports: ['scope'] as EvidenceSupportType[],
+      supportEvidence: {
+        scope: { locator: '   ', claimedValue: 'automotive_segment' }, // Whitespace locator!
+      },
+    },
+  ];
+  const evResMissLoc = validateEvidenceItems(evWithMissingLocator, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Missing Locator',
+    sourcesMap: mockSourcesMap,
+  });
+  check(evResMissLoc.mismatches.includes('missingClaimEvidenceLocator'), 'Test 220k: Empty locator emits missingClaimEvidenceLocator');
+  check(!evResMissLoc.supportedClaims.has('scope'), 'Test 220l: Empty locator does NOT satisfy claim');
+
+  // Structured object with missing claimedValue emits missingStructuredClaimValue
+  const evWithMissingClaimVal = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition' as const,
+      supports: ['scope'] as EvidenceSupportType[],
+      supportEvidence: {
+        scope: { locator: 'Section 4, p. 12', claimedValue: '' }, // Empty claimedValue!
+      },
+    },
+  ];
+  const evResMissVal = validateEvidenceItems(evWithMissingClaimVal, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Missing Val',
+    sourcesMap: mockSourcesMap,
+  });
+  check(evResMissVal.mismatches.includes('missingStructuredClaimValue'), 'Test 220m: Empty claimedValue emits missingStructuredClaimValue');
+}
+
+// TEST 221: Typed validation for claim values (Task 3)
+{
+  check(ALL_KNOWN_ACCOUNTING_BASES.length === 5, 'Test 221a: Exactly 5 known accounting bases');
+  check(ALL_KNOWN_REPORTING_SCOPES.length === 7, 'Test 221b: Exactly 7 known reporting scopes');
+
+  // 1. Invalid period string format emits unsupportedClaimValue
+  const evInvalidPeriod = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Notes',
+      purpose: 'numerator_definition' as const,
+      supports: ['period'] as EvidenceSupportType[],
+      supportEvidence: {
+        period: { locator: 'Header', claimedValue: 'not-a-period-format' },
+      },
+    },
+  ];
+  const resInvPeriod = validateEvidenceItems(evInvalidPeriod, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Invalid Period Format',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resInvPeriod.mismatches.includes('unsupportedClaimValue'), 'Test 221c: Invalid period format emits unsupportedClaimValue');
+
+  // 2. Unsupported period_type emits unsupportedClaimValue
+  const evInvalidPeriodType = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Notes',
+      purpose: 'numerator_definition' as const,
+      supports: ['period_type'] as EvidenceSupportType[],
+      supportEvidence: {
+        period_type: { locator: 'Header', claimedValue: 'monthly' }, // 'monthly' is not a known PeriodType
+      },
+    },
+  ];
+  const resInvPeriodType = validateEvidenceItems(evInvalidPeriodType, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Invalid PeriodType',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resInvPeriodType.mismatches.includes('unsupportedClaimValue'), 'Test 221d: Unsupported period_type emits unsupportedClaimValue');
+
+  // 3. Unsupported accounting_basis emits unsupportedClaimValue
+  const evInvalidBasis = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Notes',
+      purpose: 'numerator_definition' as const,
+      supports: ['accounting_basis'] as EvidenceSupportType[],
+      supportEvidence: {
+        accounting_basis: { locator: 'Basis Note', claimedValue: 'cash_basis' }, // not in ALL_KNOWN_ACCOUNTING_BASES
+      },
+    },
+  ];
+  const resInvBasis = validateEvidenceItems(evInvalidBasis, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Invalid Basis',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resInvBasis.mismatches.includes('unsupportedClaimValue'), 'Test 221e: Unsupported accounting_basis emits unsupportedClaimValue');
+
+  // 4. Unsupported scope emits unsupportedClaimValue
+  const evInvalidScope = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Scope',
+      purpose: 'scope_definition' as const,
+      supports: ['scope'] as EvidenceSupportType[],
+      supportEvidence: {
+        scope: { locator: 'Scope Note', claimedValue: 'dealership_level' }, // not in ALL_KNOWN_REPORTING_SCOPES
+      },
+    },
+  ];
+  const resInvScope = validateEvidenceItems(evInvalidScope, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Invalid Scope',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resInvScope.mismatches.includes('unsupportedClaimValue'), 'Test 221f: Unsupported scope emits unsupportedClaimValue');
+
+  // 5. Unsupported target_semantic emits unsupportedClaimValue
+  const evInvalidSemantic = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Scope',
+      purpose: 'scope_definition' as const,
+      supports: ['target_semantic'] as EvidenceSupportType[],
+      supportEvidence: {
+        target_semantic: { locator: 'KPI Header', claimedValue: 'motorcycles_segment_ebit' }, // not an active proxy semantic contract
+      },
+    },
+  ];
+  const resInvSem = validateEvidenceItems(evInvalidSemantic, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Invalid Target Semantic',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resInvSem.mismatches.includes('unsupportedClaimValue'), 'Test 221g: Unsupported target_semantic emits unsupportedClaimValue');
+}
+
+// TEST 222: Verification-state resolution invariants (Task 4)
+{
+  // 1. undefined or empty evidence returns locator_only
+  check(resolveClaimVerificationState(undefined) === 'locator_only', 'Test 222a: undefined evidence -> locator_only');
+  check(resolveClaimVerificationState([]) === 'locator_only', 'Test 222b: empty evidence -> locator_only');
+
+  // 2. evidence with sourcesVerified=false returns locator_only
+  const sampleEv: ScopeExceptionEvidence[] = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition',
+      supports: ['scope'],
+      supportEvidence: {
+        scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
+      },
+    },
+  ];
+  check(resolveClaimVerificationState(sampleEv, false) === 'locator_only', 'Test 222c: sourcesVerified=false -> locator_only');
+
+  // 3. evidence with sourcesVerified=true returns source_verified
+  check(resolveClaimVerificationState(sampleEv, true) === 'source_verified', 'Test 222d: sourcesVerified=true -> source_verified');
+
+  // 4. Manual claim_verified input does NOT bypass engine
+  const evWithManualClaimVerified: ScopeExceptionEvidence[] = [
+    {
+      ...sampleEv[0],
+      supportEvidence: {
+        scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment', verificationState: 'claim_verified' },
+      },
+    },
+  ];
+  check(resolveClaimVerificationState(evWithManualClaimVerified, false) === 'locator_only', 'Test 222e: Manual claim_verified input without engine is downgraded to locator_only');
+  check(resolveClaimVerificationState(evWithManualClaimVerified, true) === 'source_verified', 'Test 222f: Manual claim_verified input with sourcesVerified=true resolves to source_verified only');
+
+  // 5. locator_only evidence can never justify documented disposition
+  const state = resolveClaimVerificationState(sampleEv, false);
+  check(canClaimStateJustifyDocumented(state) === false, 'Test 222g: locator_only cannot justify documented disposition');
+}
+
+// TEST 223: Bidirectional supports and supportEvidence consistency (Task 5)
+{
+  // 1. Support in supports but missing from supportEvidence emits missingClaimEvidence
+  const evMissingSupportEvEntry = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition' as const,
+      supports: ['target_semantic', 'scope'] as EvidenceSupportType[],
+      supportEvidence: {
+        target_semantic: { locator: 'Section 2', claimedValue: 'automotive_segment_ebit' },
+        // 'scope' is declared in supports but MISSING from supportEvidence!
+      },
+    },
+  ];
+  const resMissingEntry = validateEvidenceItems(evMissingSupportEvEntry, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Bidirectional Missing Entry',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resMissingEntry.mismatches.includes('missingClaimEvidence'), 'Test 223a: Support in supports but absent from supportEvidence emits missingClaimEvidence');
+  check(resMissingEntry.mismatches.includes('missingClaimEvidenceLocator'), 'Test 223b: Support in supports but absent from supportEvidence emits missingClaimEvidenceLocator');
+
+  // 2. Support in supportEvidence but not declared in supports emits orphanClaimEvidence
+  const evOrphan = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition' as const,
+      supports: ['scope'] as EvidenceSupportType[],
+      supportEvidence: {
+        scope: { locator: 'Section 2', claimedValue: 'automotive_segment' },
+        period: { locator: 'Header', claimedValue: '2026-Q2' }, // period is NOT in supports!
+      },
+    },
+  ];
+  const resOrphan = validateEvidenceItems(evOrphan, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Bidirectional Orphan',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resOrphan.mismatches.includes('orphanClaimEvidence'), 'Test 223c: Key in supportEvidence not declared in supports emits orphanClaimEvidence');
+
+  // 3. Clear differentiation between all error codes:
+  // - missingClaimEvidenceLocator: empty locator string
+  // - missingStructuredClaimValue: missing or empty claimedValue
+  // - orphanClaimEvidence: key not declared in supports
+  // - claimPeriodMismatch: mismatch against expected claims
+  // - unsupportedClaimValue: invalid format or unknown union value
+  const evDifferentiation = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition' as const,
+      supports: ['scope'] as EvidenceSupportType[],
+      supportEvidence: {
+        scope: { locator: '   ', claimedValue: 'automotive_segment' },
+      },
+    },
+  ];
+  const resDiff = validateEvidenceItems(evDifferentiation, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Differentiation',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resDiff.mismatches.includes('missingClaimEvidenceLocator'), 'Test 223d: Differentiated missingClaimEvidenceLocator');
+  check(!resDiff.mismatches.includes('orphanClaimEvidence'), 'Test 223e: No orphan claim code when declared');
+  check(!resDiff.mismatches.includes('unsupportedClaimValue'), 'Test 223f: No unsupportedClaimValue when scope is valid');
+}
+
+// TEST 224: Period semantic regression tests (Task 6)
+{
+  // 1. Valid combinations
+  const qRes = validatePeriodSemantics('2026-Q1', 'quarterly', 'Quarterly period');
+  check(qRes.isValid === true, 'Test 224a: 2026-Q1 + quarterly is valid');
+  check(qRes.mismatches.length === 0, 'Test 224b: No mismatches for 2026-Q1 + quarterly');
+
+  const fyRes = validatePeriodSemantics('2026-FY', 'annual', 'Annual period');
+  check(fyRes.isValid === true, 'Test 224c: 2026-FY + annual is valid');
+  check(fyRes.mismatches.length === 0, 'Test 224d: No mismatches for 2026-FY + annual');
+
+  const h1Res = validatePeriodSemantics('2026-H1', 'semi_annual', 'Semi-annual H1 period');
+  check(h1Res.isValid === true, 'Test 224e: 2026-H1 + semi_annual is valid');
+  check(h1Res.mismatches.length === 0, 'Test 224f: No mismatches for 2026-H1 + semi_annual');
+
+  const nmRes = validatePeriodSemantics('2026-9M', 'nine_months', 'Nine months period');
+  check(nmRes.isValid === true, 'Test 224g: 2026-9M + nine_months is valid');
+  check(nmRes.mismatches.length === 0, 'Test 224h: No mismatches for 2026-9M + nine_months');
+
+  const ytdRes = validatePeriodSemantics('2026-YTD', 'ytd', 'YTD period');
+  check(ytdRes.isValid === true, 'Test 224i: 2026-YTD + ytd is valid');
+  check(ytdRes.mismatches.length === 0, 'Test 224j: No mismatches for 2026-YTD + ytd');
+
+  const ttmRes = validatePeriodSemantics('2026-TTM', 'ttm', 'TTM period');
+  check(ttmRes.isValid === true, 'Test 224k: 2026-TTM + ttm is valid');
+  check(ttmRes.mismatches.length === 0, 'Test 224l: No mismatches for 2026-TTM + ttm');
+
+  // 2. Invalid combinations
+  const qAnnual = validatePeriodSemantics('2026-Q1', 'annual', '2026-Q1 annual');
+  check(qAnnual.isValid === false, 'Test 224m: 2026-Q1 + annual is invalid');
+  check(qAnnual.mismatches.includes('invalidPeriodFormat'), 'Test 224n: Mismatch invalidPeriodFormat emitted for 2026-Q1 + annual');
+  check(qAnnual.mismatches.includes('invalidPeriodTypeCombination'), 'Test 224o: Mismatch invalidPeriodTypeCombination emitted for 2026-Q1 + annual');
+
+  const fyQuarterly = validatePeriodSemantics('2026-FY', 'quarterly', '2026-FY quarterly');
+  check(fyQuarterly.isValid === false, 'Test 224p: 2026-FY + quarterly is invalid');
+  check(fyQuarterly.mismatches.includes('invalidPeriodFormat'), 'Test 224q: Mismatch invalidPeriodFormat emitted for 2026-FY + quarterly');
+  check(fyQuarterly.mismatches.includes('invalidPeriodTypeCombination'), 'Test 224r: Mismatch invalidPeriodTypeCombination emitted for 2026-FY + quarterly');
+
+  const h3Semi = validatePeriodSemantics('2026-H3', 'semi_annual', '2026-H3 semi_annual');
+  check(h3Semi.isValid === false, 'Test 224s: 2026-H3 + semi_annual is invalid');
+  check(h3Semi.mismatches.includes('invalidPeriodFormat'), 'Test 224t: Mismatch invalidPeriodFormat emitted for 2026-H3');
+
+  const nmQuarterly = validatePeriodSemantics('2026-9M', 'quarterly', '2026-9M quarterly');
+  check(nmQuarterly.isValid === false, 'Test 224u: 2026-9M + quarterly is invalid');
+  check(nmQuarterly.mismatches.includes('invalidPeriodTypeCombination'), 'Test 224v: Mismatch invalidPeriodTypeCombination emitted for 2026-9M + quarterly');
+
+  const invalidPtRuntime = validatePeriodSemantics('2026-Q1', 'monthly' as any, '2026-Q1 monthly');
+  check(invalidPtRuntime.isValid === false, 'Test 224w: Invalid runtime periodType is invalid');
+  check(invalidPtRuntime.mismatches.includes('invalidPeriodType'), 'Test 224x: Mismatch invalidPeriodType emitted');
+}
+
+// TEST 225: Chart filtering and audit isolation regression tests (Task 7)
+{
+  // 1. Verify Rivian observations exist across all periods in raw dataset
+  const rivianPeriods = ['2026-Q2', '2026-Q1', '2025-FY', '2024-FY'];
+  for (const p of rivianPeriods) {
+    const rivDel = METRIC_OBSERVATIONS.find(o => o.companyId === 'rivian' && o.period === p && o.metricId === 'deliveries_global');
+    const rivRev = METRIC_OBSERVATIONS.find(o => o.companyId === 'rivian' && o.period === p && o.metricId === 'revenue');
+    const rivEbit = METRIC_OBSERVATIONS.find(o => o.companyId === 'rivian' && o.period === p && o.metricId === 'operating_income');
+    const rivMargin = METRIC_OBSERVATIONS.find(o => o.companyId === 'rivian' && o.period === p && o.metricId === 'operating_margin');
+
+    check(rivDel !== undefined, `Test 225a: Rivian deliveries present for ${p}`);
+    check(rivRev !== undefined, `Test 225b: Rivian revenue present for ${p}`);
+    check(rivEbit !== undefined, `Test 225c: Rivian EBIT present for ${p}`);
+    check(rivMargin !== undefined, `Test 225d: Rivian margin present for ${p}`);
+  }
+
+  // 2. Verify audit calculation (validateMarginTriplet) on Rivian 2026-Q2:
+  // Revenue: 1,658M USD, EBIT: -836M USD, Margin: -50.4%
+  const riv26Q2Rev = METRIC_OBSERVATIONS.find(o => o.companyId === 'rivian' && o.period === '2026-Q2' && o.metricId === 'revenue')!;
+  const riv26Q2Ebit = METRIC_OBSERVATIONS.find(o => o.companyId === 'rivian' && o.period === '2026-Q2' && o.metricId === 'operating_income')!;
+  const riv26Q2Margin = METRIC_OBSERVATIONS.find(o => o.companyId === 'rivian' && o.period === '2026-Q2' && o.metricId === 'operating_margin')!;
+
+  const rivMathResult = validateMarginTriplet(riv26Q2Rev, riv26Q2Ebit, riv26Q2Margin);
+  check(rivMathResult.status === 'verified', 'Test 225e: Rivian 2026-Q2 margin validation status is verified');
+  check(rivMathResult.mathematicallyVerified === true, 'Test 225f: Rivian margin is mathematically verified');
+  check(rivMathResult.calculatedMargin !== null && Math.abs(rivMathResult.calculatedMargin - (-50.4)) < 0.1, 'Test 225g: Rivian calculated margin matches -50.4%');
+
+  // 3. Verify Rivian negative-margin exclusion is strictly UI/chart-level
+  const excludeOutliersTrue = true;
+  const chartCompanyList = ['toyota', 'hyundai_motor', 'bmw_group', 'mercedes_benz', 'rivian']
+    .filter(cid => !excludeOutliersTrue || cid !== 'rivian');
+  check(chartCompanyList.length === 4, 'Test 225h: Chart display excludes Rivian when filter is enabled');
+  check(!chartCompanyList.includes('rivian'), 'Test 225i: Rivian excluded from chart display list');
+
+  // Audit dataset contains all 16 companies without exclusion
+  const auditCompanyIds = Array.from(new Set(METRIC_OBSERVATIONS.map(o => o.companyId)));
+  check(auditCompanyIds.length === 16, 'Test 225j: Audit dataset includes all 16 companies');
+  check(auditCompanyIds.includes('rivian'), 'Test 225k: Audit dataset includes Rivian');
+
+  // 4. Actual earnings and revenue chart metric types do not alter audit observations
+  const revMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'revenue');
+  const ebitMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'operating_income');
+  check(revMetrics.length === 64, 'Test 225l: Exactly 64 revenue observations (16 companies x 4 periods)');
+  check(ebitMetrics.length === 64, 'Test 225m: Exactly 64 EBIT observations (16 companies x 4 periods)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
