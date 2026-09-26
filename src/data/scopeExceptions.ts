@@ -47,6 +47,9 @@ import {
   SourceRegistry,
   ProxySemanticContract,
   ContractLookupResult,
+  ClaimVerificationResult,
+  ClaimVerificationEngineMethod,
+  ClaimVerificationEngine,
 } from '../types/metrics';
 
 export type {
@@ -55,6 +58,9 @@ export type {
   EvidenceClaimVerificationState,
   ClaimEvidenceLocator,
   ClaimEvidenceEntry,
+  ClaimVerificationResult,
+  ClaimVerificationEngineMethod,
+  ClaimVerificationEngine,
   DocumentedReportedKpi,
   ProxyMetricMapping,
   ProxyMetricMappingQuery,
@@ -1424,23 +1430,27 @@ export function normalizeClaimEvidenceLocator(
  * Semantics:
  *  - 'locator_only': locator exists, but document content is not verified.
  *  - 'source_verified': source document identity and metadata are verified.
- *  - 'claim_verified': the specific claim has been verified against source content.
+ *  - 'claim_verified': the specific claim has been verified against source content by a dedicated verification engine.
  *
  * Invariants:
- *  1. 'claim_verified' must not be manually trusted from arbitrary input.
- *  2. If no real claim verification engine exists, do not automatically produce 'claim_verified'.
+ *  1. 'claim_verified' must NOT be manually trusted from arbitrary input metadata.
+ *  2. 'claim_verified' can ONLY be produced when an authentic ClaimVerificationResult is supplied.
  *  3. 'locator_only' evidence must not independently justify `disposition: 'documented'`.
  *  4. Preserves 'proxy_only' and mathematicallyVerified: false.
  */
 export function resolveClaimVerificationState(
   evidence: ScopeExceptionEvidence[] | undefined | null,
-  sourcesVerified: boolean = false
+  sourcesVerified: boolean = false,
+  verificationResult?: ClaimVerificationResult | null
 ): EvidenceClaimVerificationState {
   if (!evidence || evidence.length === 0) {
     return 'locator_only';
   }
-  // Without a machine content verification engine, claim content cannot be 'claim_verified'.
-  // Even if input metadata declares 'claim_verified', manual promotion is rejected.
+  // Dedicated verification engine result check: only an authentic engine result can yield claim_verified
+  if (verificationResult?.state === 'claim_verified') {
+    return 'claim_verified';
+  }
+  // Without an authentic verification engine result, manual claim_verified in metadata is strictly ignored/downgraded
   if (sourcesVerified) {
     return 'source_verified';
   }
@@ -1676,6 +1686,7 @@ export function validateEvidenceItems(
               const val = String(rawVal).trim();
 
               // Task 3 (STEP 4-17): Typed validation for claim values
+              // Task 3 (STEP 4-17; STEP 4-18): Typed validation for claim values
               if (supportType === 'period') {
                 const matchesPattern = ALL_PERIOD_PATTERNS.some((p) => p.test(val));
                 if (!matchesPattern) {
@@ -1692,6 +1703,25 @@ export function validateEvidenceItems(
                     `${parentLabel} evidence for "${ev.sourceDocId}" claimed period "${val}" does not match expected period "${options.expectedClaims.period}".`
                   );
                 }
+                // Task 2 (STEP 4-18): Check period/periodType combination
+                const ptClaimEntry = ev.supportEvidence['period_type'];
+                const ptClaimVal =
+                  typeof ptClaimEntry === 'object' && ptClaimEntry !== null
+                    ? ptClaimEntry.claimedValue
+                    : typeof ptClaimEntry === 'string'
+                      ? ptClaimEntry
+                      : undefined;
+                const effectivePeriodType = (ptClaimVal ? String(ptClaimVal).trim() : options.expectedClaims?.periodType) as PeriodType | undefined;
+                if (effectivePeriodType && ALL_KNOWN_PERIOD_TYPES.includes(effectivePeriodType)) {
+                  const comboCheck = validatePeriodSemantics(val, effectivePeriodType, `${parentLabel} evidence for "${ev.sourceDocId}" period/periodType combination`);
+                  if (!comboCheck.isValid) {
+                    hasValidClaimedValue = false;
+                    addMismatch('claimPeriodTypeCombinationMismatch');
+                    reasons.push(
+                      `${parentLabel} evidence for "${ev.sourceDocId}" claimed period "${val}" is incompatible with periodType "${effectivePeriodType}".`
+                    );
+                  }
+                }
               } else if (supportType === 'period_type') {
                 if (!ALL_KNOWN_PERIOD_TYPES.includes(val as PeriodType)) {
                   hasValidClaimedValue = false;
@@ -1706,6 +1736,25 @@ export function validateEvidenceItems(
                   reasons.push(
                     `${parentLabel} evidence for "${ev.sourceDocId}" claimed periodType "${val}" does not match expected periodType "${options.expectedClaims.periodType}".`
                   );
+                }
+                // Task 2 (STEP 4-18): Check period/periodType combination
+                const pClaimEntry = ev.supportEvidence['period'];
+                const pClaimVal =
+                  typeof pClaimEntry === 'object' && pClaimEntry !== null
+                    ? pClaimEntry.claimedValue
+                    : typeof pClaimEntry === 'string'
+                      ? pClaimEntry
+                      : undefined;
+                const effectivePeriod = pClaimVal ? String(pClaimVal).trim() : options.expectedClaims?.period;
+                if (effectivePeriod && ALL_KNOWN_PERIOD_TYPES.includes(val as PeriodType)) {
+                  const comboCheck = validatePeriodSemantics(effectivePeriod, val as PeriodType, `${parentLabel} evidence for "${ev.sourceDocId}" period/periodType combination`);
+                  if (!comboCheck.isValid) {
+                    hasValidClaimedValue = false;
+                    addMismatch('claimPeriodTypeCombinationMismatch');
+                    reasons.push(
+                      `${parentLabel} evidence for "${ev.sourceDocId}" claimed periodType "${val}" is incompatible with period "${effectivePeriod}".`
+                    );
+                  }
                 }
               } else if (supportType === 'accounting_basis') {
                 if (!ALL_KNOWN_ACCOUNTING_BASES.includes(val as AccountingBasis)) {
@@ -1744,24 +1793,32 @@ export function validateEvidenceItems(
                   );
                 }
               } else if (supportType === 'target_semantic') {
-                const activeContracts = PROXY_SEMANTIC_CONTRACTS.filter((c) => c.status === 'active');
-                const allowedActiveSemantics = options.expectedClaims?.companyId
-                  ? activeContracts.filter((c) => c.companyId === options.expectedClaims?.companyId).map((c) => c.targetSemantic)
-                  : activeContracts.map((c) => c.targetSemantic);
+                if (!options.expectedClaims?.companyId) {
+                  hasValidClaimedValue = false;
+                  addMismatch('missingClaimContext');
+                  reasons.push(
+                    `${parentLabel} evidence for "${ev.sourceDocId}" lacks companyId context required for target_semantic validation.`
+                  );
+                } else {
+                  const activeContracts = PROXY_SEMANTIC_CONTRACTS.filter(
+                    (c) => c.status === 'active' && c.companyId === options.expectedClaims?.companyId
+                  );
+                  const allowedActiveSemantics = activeContracts.map((c) => c.targetSemantic);
 
-                if (!allowedActiveSemantics.includes(val)) {
-                  hasValidClaimedValue = false;
-                  addMismatch('unsupportedClaimValue');
-                  reasons.push(
-                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" is not an authorized active proxy semantic contract.`
-                  );
-                }
-                if (options.expectedClaims?.targetSemantic && val !== options.expectedClaims.targetSemantic) {
-                  hasValidClaimedValue = false;
-                  addMismatch('claimSemanticMismatch');
-                  reasons.push(
-                    `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" does not match expected target semantic "${options.expectedClaims.targetSemantic}".`
-                  );
+                  if (!allowedActiveSemantics.includes(val)) {
+                    hasValidClaimedValue = false;
+                    addMismatch('unsupportedClaimValue');
+                    reasons.push(
+                      `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" is not an authorized active proxy semantic contract for company "${options.expectedClaims.companyId}".`
+                    );
+                  }
+                  if (options.expectedClaims?.targetSemantic && val !== options.expectedClaims.targetSemantic) {
+                    hasValidClaimedValue = false;
+                    addMismatch('claimSemanticMismatch');
+                    reasons.push(
+                      `${parentLabel} evidence for "${ev.sourceDocId}" claimed target semantic "${val}" does not match expected target semantic "${options.expectedClaims.targetSemantic}".`
+                    );
+                  }
                 }
               } else if (supportType === 'reported_kpi') {
                 if (options.expectedClaims?.metricId && val !== options.expectedClaims.metricId) {
@@ -1991,6 +2048,8 @@ export function validateDocumentedReportedKpiCompatibility(
       periodType: expectedPeriodType,
       accountingBasis: kpi.accountingBasis,
       scope: kpi.reportingScope,
+      metricId: kpi.metricId,
+      companyId: kpi.companyId,
     },
   });
   for (const m of evResult.mismatches) {

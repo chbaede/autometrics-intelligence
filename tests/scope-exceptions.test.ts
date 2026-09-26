@@ -79,6 +79,9 @@ import {
   EvidenceSupportType,
   ClaimEvidenceLocator,
   ScopeExceptionEvidence,
+  ClaimVerificationResult,
+  ClaimVerificationEngineMethod,
+  ClaimVerificationEngine,
 } from '../src/types/metrics';
 import { COMPANIES_REGISTRY } from '../src/data/companies';
 import { METRIC_OBSERVATIONS } from '../src/data/observations';
@@ -6274,7 +6277,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   });
   check(resInvScope.mismatches.includes('unsupportedClaimValue'), 'Test 221f: Unsupported scope emits unsupportedClaimValue');
 
-  // 5. Unsupported target_semantic emits unsupportedClaimValue
+  // 5. target_semantic without companyId emits missingClaimContext (Task 3)
   const evInvalidSemantic = [
     {
       sourceDocId: 'bmw_2026_q2_statement',
@@ -6286,11 +6289,21 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
       },
     },
   ];
+  const resNoCompany = validateEvidenceItems(evInvalidSemantic, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Missing Context Target Semantic',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resNoCompany.mismatches.includes('missingClaimContext'), 'Test 221g0: target_semantic without companyId emits missingClaimContext');
+
+  // With companyId provided, unsupported target_semantic emits unsupportedClaimValue
   const resInvSem = validateEvidenceItems(evInvalidSemantic, {
     knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
     parentSourceDocIds: ['bmw_2026_q2_statement'],
     parentLabel: 'Test Invalid Target Semantic',
     sourcesMap: mockSourcesMap,
+    expectedClaims: { companyId: 'bmw_group' },
   });
   check(resInvSem.mismatches.includes('unsupportedClaimValue'), 'Test 221g: Unsupported target_semantic emits unsupportedClaimValue');
 }
@@ -6503,6 +6516,384 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const ebitMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'operating_income');
   check(revMetrics.length === 64, 'Test 225l: Exactly 64 revenue observations (16 companies x 4 periods)');
   check(ebitMetrics.length === 64, 'Test 225m: Exactly 64 EBIT observations (16 companies x 4 periods)');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TESTS 226–231 (STEP 4-18): Evidence-Binding Gap Closure and Real Claim Verification Architecture
+// ────────────────────────────────────────────────────────────────────────────
+
+// TEST 226: reported_kpi metricId binding (Task 1)
+{
+  const bmwKpi = DOCUMENTED_REPORTED_KPIS.find(k => k.id === 'bmw_automotive_segment_ros_2026q2_kpi')!;
+  const marginObs = METRIC_OBSERVATIONS.find(
+    o => o.companyId === 'bmw_group' && o.period === '2026-Q2' && o.metricId === 'operating_margin'
+  )!;
+
+  // 1. claimedValue === kpi.metricId -> valid
+  const validCompat = validateDocumentedReportedKpiCompatibility(bmwKpi, marginObs, mockSourcesMap);
+  check(validCompat.isValid === true, 'Test 226a: claimedValue === kpi.metricId -> valid');
+  check(!validCompat.mismatches.includes('claimSemanticMismatch'), 'Test 226b: No claimSemanticMismatch for matching metricId');
+
+  // 2. claimedValue !== kpi.metricId -> claimSemanticMismatch
+  const mismatchedMetricKpi: DocumentedReportedKpi = {
+    ...bmwKpi,
+    evidence: bmwKpi.evidence.map(ev => ({
+      ...ev,
+      supportEvidence: {
+        ...ev.supportEvidence,
+        reported_kpi: { locator: 'Automotive EBIT margin 7.8%', claimedValue: 'ebitda_margin' }, // Mismatched metric!
+      },
+    })),
+  };
+  const mismatchCompat = validateDocumentedReportedKpiCompatibility(mismatchedMetricKpi, marginObs, mockSourcesMap);
+  check(mismatchCompat.isValid === false, 'Test 226c: claimedValue !== kpi.metricId -> isValid false');
+  check(mismatchCompat.mismatches.includes('claimSemanticMismatch'), 'Test 226d: Mismatch claimSemanticMismatch emitted for mismatched metricId');
+
+  // 3. missing claimedValue -> missingStructuredClaimValue
+  const missingClaimValKpi: DocumentedReportedKpi = {
+    ...bmwKpi,
+    evidence: bmwKpi.evidence.map(ev => ({
+      ...ev,
+      supportEvidence: {
+        ...ev.supportEvidence,
+        reported_kpi: { locator: 'Automotive EBIT margin 7.8%', claimedValue: '' }, // Empty claimedValue!
+      },
+    })),
+  };
+  const missingValCompat = validateDocumentedReportedKpiCompatibility(missingClaimValKpi, marginObs, mockSourcesMap);
+  check(missingValCompat.isValid === false, 'Test 226e: missing claimedValue -> isValid false');
+  check(missingValCompat.mismatches.includes('missingStructuredClaimValue'), 'Test 226f: Mismatch missingStructuredClaimValue emitted for missing claimedValue');
+
+  // 4. string-only reported_kpi -> missingStructuredClaimValue
+  const stringOnlyKpi: DocumentedReportedKpi = {
+    ...bmwKpi,
+    evidence: bmwKpi.evidence.map(ev => ({
+      ...ev,
+      supportEvidence: {
+        ...ev.supportEvidence,
+        reported_kpi: 'Automotive EBIT margin 7.8%', // String-only!
+      },
+    })),
+  };
+  const stringOnlyCompat = validateDocumentedReportedKpiCompatibility(stringOnlyKpi, marginObs, mockSourcesMap);
+  check(stringOnlyCompat.isValid === false, 'Test 226g: string-only reported_kpi -> isValid false');
+  check(stringOnlyCompat.mismatches.includes('missingStructuredClaimValue'), 'Test 226h: Mismatch missingStructuredClaimValue emitted for string-only');
+
+  // 5. valid locator + valid claimedValue + matching metricId -> supportedClaims includes reported_kpi
+  const evRes = validateEvidenceItems(bmwKpi.evidence, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: bmwKpi.sourceDocIds,
+    parentLabel: `Reported KPI [${bmwKpi.id}]`,
+    sourcesMap: mockSourcesMap,
+    expectedClaims: {
+      period: '2026-Q2',
+      periodType: 'quarterly',
+      accountingBasis: bmwKpi.accountingBasis,
+      scope: bmwKpi.reportingScope,
+      metricId: bmwKpi.metricId,
+      companyId: bmwKpi.companyId,
+    },
+  });
+  check(evRes.supportedClaims.has('reported_kpi'), 'Test 226i: supportedClaims includes reported_kpi for valid matching claim');
+}
+
+// TEST 227: Claim period/periodType combination validation (Task 2)
+{
+  // 1. period = "2026-Q2" and period_type = "annual" must fail with claimPeriodTypeCombinationMismatch
+  const evIncompatibleCombo = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Notes',
+      purpose: 'numerator_definition' as const,
+      supports: ['period', 'period_type'] as EvidenceSupportType[],
+      supportEvidence: {
+        period: { locator: 'Header', claimedValue: '2026-Q2' },
+        period_type: { locator: 'Header', claimedValue: 'annual' }, // Incompatible combination!
+      },
+    },
+  ];
+  const resIncompat = validateEvidenceItems(evIncompatibleCombo, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Incompatible Combo',
+    sourcesMap: mockSourcesMap,
+  });
+  check(resIncompat.mismatches.includes('claimPeriodTypeCombinationMismatch'), 'Test 227a: Incompatible period/periodType combination emits claimPeriodTypeCombinationMismatch');
+  check(!resIncompat.supportedClaims.has('period'), 'Test 227b: Incompatible combination does not satisfy period claim');
+  check(!resIncompat.supportedClaims.has('period_type'), 'Test 227c: Incompatible combination does not satisfy period_type claim');
+
+  // 2. period = "2026-Q2" and period_type = "quarterly" is valid
+  const evCompatCombo = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Notes',
+      purpose: 'numerator_definition' as const,
+      supports: ['period', 'period_type'] as EvidenceSupportType[],
+      supportEvidence: {
+        period: { locator: 'Header', claimedValue: '2026-Q2' },
+        period_type: { locator: 'Header', claimedValue: 'quarterly' },
+      },
+    },
+  ];
+  const resCompat = validateEvidenceItems(evCompatCombo, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test Compatible Combo',
+    sourcesMap: mockSourcesMap,
+  });
+  check(!resCompat.mismatches.includes('claimPeriodTypeCombinationMismatch'), 'Test 227d: Compatible combination emits no claimPeriodTypeCombinationMismatch');
+  check(resCompat.supportedClaims.has('period'), 'Test 227e: Compatible combination satisfies period claim');
+  check(resCompat.supportedClaims.has('period_type'), 'Test 227f: Compatible combination satisfies period_type claim');
+}
+
+// TEST 228: Strengthen target_semantic context and prevent cross-validation (Task 3)
+{
+  // 1. Without companyId context -> missingClaimContext
+  const evSemantic = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Scope',
+      purpose: 'scope_definition' as const,
+      supports: ['target_semantic'] as EvidenceSupportType[],
+      supportEvidence: {
+        target_semantic: { locator: 'KPI Header', claimedValue: 'automotive_segment_ebit' },
+      },
+    },
+  ];
+  const resNoCompany = validateEvidenceItems(evSemantic, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test No Company Context',
+    sourcesMap: mockSourcesMap,
+    // expectedClaims without companyId!
+  });
+  check(resNoCompany.mismatches.includes('missingClaimContext'), 'Test 228a: target_semantic without companyId emits missingClaimContext');
+
+  // 2. BMW with automotive_segment_ebit -> valid
+  const resBmwValid = validateEvidenceItems(evSemantic, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test BMW Valid Semantic',
+    sourcesMap: mockSourcesMap,
+    expectedClaims: {
+      companyId: 'bmw_group',
+      targetSemantic: 'automotive_segment_ebit',
+    },
+  });
+  check(resBmwValid.mismatches.length === 0, 'Test 228b: BMW with automotive_segment_ebit has no mismatches');
+  check(resBmwValid.supportedClaims.has('target_semantic'), 'Test 228c: BMW satisfies target_semantic claim');
+
+  // 3. Mercedes with cars_adjusted_ebit -> valid
+  const evMbgSemantic = [
+    {
+      sourceDocId: 'mbg_2026_q2_results',
+      sectionReference: 'Mercedes-Benz Cars',
+      purpose: 'scope_definition' as const,
+      supports: ['target_semantic'] as EvidenceSupportType[],
+      supportEvidence: {
+        target_semantic: { locator: 'RoS Header', claimedValue: 'cars_adjusted_ebit' },
+      },
+    },
+  ];
+  const resMbgValid = validateEvidenceItems(evMbgSemantic, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['mbg_2026_q2_results'],
+    parentLabel: 'Test MBG Valid Semantic',
+    sourcesMap: mockSourcesMap,
+    expectedClaims: {
+      companyId: 'mercedes_benz',
+      targetSemantic: 'cars_adjusted_ebit',
+    },
+  });
+  check(resMbgValid.mismatches.length === 0, 'Test 228d: Mercedes with cars_adjusted_ebit has no mismatches');
+  check(resMbgValid.supportedClaims.has('target_semantic'), 'Test 228e: Mercedes satisfies target_semantic claim');
+
+  // 4. Cross-validation: BMW with cars_adjusted_ebit fails
+  const evBmwCross = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Scope',
+      purpose: 'scope_definition' as const,
+      supports: ['target_semantic'] as EvidenceSupportType[],
+      supportEvidence: {
+        target_semantic: { locator: 'KPI Header', claimedValue: 'cars_adjusted_ebit' }, // MBG semantic on BMW!
+      },
+    },
+  ];
+  const resBmwCross = validateEvidenceItems(evBmwCross, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['bmw_2026_q2_statement'],
+    parentLabel: 'Test BMW Cross Semantic',
+    sourcesMap: mockSourcesMap,
+    expectedClaims: {
+      companyId: 'bmw_group',
+      targetSemantic: 'automotive_segment_ebit',
+    },
+  });
+  check(resBmwCross.mismatches.includes('unsupportedClaimValue'), 'Test 228f: BMW cross-validated with cars_adjusted_ebit emits unsupportedClaimValue');
+  check(resBmwCross.mismatches.includes('claimSemanticMismatch'), 'Test 228g: BMW cross-validated with cars_adjusted_ebit emits claimSemanticMismatch');
+
+  // 5. Cross-validation: Mercedes with automotive_segment_ebit fails
+  const evMbgCross = [
+    {
+      sourceDocId: 'mbg_2026_q2_results',
+      sectionReference: 'Mercedes-Benz Cars',
+      purpose: 'scope_definition' as const,
+      supports: ['target_semantic'] as EvidenceSupportType[],
+      supportEvidence: {
+        target_semantic: { locator: 'RoS Header', claimedValue: 'automotive_segment_ebit' }, // BMW semantic on MBG!
+      },
+    },
+  ];
+  const resMbgCross = validateEvidenceItems(evMbgCross, {
+    knownSupportTypes: ALL_KNOWN_SUPPORT_TYPES,
+    parentSourceDocIds: ['mbg_2026_q2_results'],
+    parentLabel: 'Test MBG Cross Semantic',
+    sourcesMap: mockSourcesMap,
+    expectedClaims: {
+      companyId: 'mercedes_benz',
+      targetSemantic: 'cars_adjusted_ebit',
+    },
+  });
+  check(resMbgCross.mismatches.includes('unsupportedClaimValue'), 'Test 228h: Mercedes cross-validated with automotive_segment_ebit emits unsupportedClaimValue');
+  check(resMbgCross.mismatches.includes('claimSemanticMismatch'), 'Test 228i: Mercedes cross-validated with automotive_segment_ebit emits claimSemanticMismatch');
+}
+
+// TEST 229: Design of real claim verification engine types and resolveClaimVerificationState (Task 4)
+{
+  const sampleEv: ScopeExceptionEvidence[] = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Automotive',
+      purpose: 'scope_definition',
+      supports: ['scope'],
+      supportEvidence: {
+        scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment' },
+      },
+    },
+  ];
+
+  // 1. Without verificationResult: sourcesVerified=false -> locator_only
+  check(resolveClaimVerificationState(sampleEv, false) === 'locator_only', 'Test 229a: No engine result + sourcesVerified=false -> locator_only');
+
+  // 2. Without verificationResult: sourcesVerified=true -> source_verified
+  check(resolveClaimVerificationState(sampleEv, true) === 'source_verified', 'Test 229b: No engine result + sourcesVerified=true -> source_verified');
+
+  // 3. Evidence claiming 'claim_verified' in metadata without verificationResult is NOT trusted
+  const manualClaimVerifiedEv: ScopeExceptionEvidence[] = [
+    {
+      ...sampleEv[0],
+      supportEvidence: {
+        scope: { locator: 'Automotive Segment', claimedValue: 'automotive_segment', verificationState: 'claim_verified' },
+      },
+    },
+  ];
+  check(resolveClaimVerificationState(manualClaimVerifiedEv, false) === 'locator_only', 'Test 229c: Declarative claim_verified metadata is not trusted -> locator_only');
+  check(resolveClaimVerificationState(manualClaimVerifiedEv, true) === 'source_verified', 'Test 229d: Declarative claim_verified metadata with sourcesVerified=true resolves to source_verified');
+
+  // 4. WITH authentic ClaimVerificationResult:
+  const engineResultVerified: ClaimVerificationResult = {
+    state: 'claim_verified',
+    verificationMethod: 'rule_engine',
+    verifiedValue: 'automotive_segment',
+    verifiedAt: '2026-09-26T09:00:00Z',
+    sourceContentHash: 'sha256-abcdef123456',
+  };
+  check(resolveClaimVerificationState(sampleEv, true, engineResultVerified) === 'claim_verified', 'Test 229e: Dedicated engine result with claim_verified resolves to claim_verified');
+
+  const engineResultSourceOnly: ClaimVerificationResult = {
+    state: 'source_verified',
+    verificationMethod: 'parser',
+    verifiedValue: 'bmw_2026_q2_statement',
+    verifiedAt: '2026-09-26T09:00:00Z',
+  };
+  check(resolveClaimVerificationState(sampleEv, false, engineResultSourceOnly) === 'locator_only', 'Test 229f: Engine result without claim_verified and sourcesVerified=false -> locator_only');
+
+  // 5. Test ClaimVerificationEngine interface typing contract
+  const testMethod: ClaimVerificationEngineMethod = 'rule_engine';
+  const testEngine: ClaimVerificationEngine = {
+    engineId: 'deterministic_rule_engine_v1',
+    method: testMethod,
+    verifyClaim: () => engineResultVerified,
+  };
+  check(testEngine.method === 'rule_engine', 'Test 229g: ClaimVerificationEngine interface contract verified');
+}
+
+// TEST 230: Regression test documented gating (Task 5)
+{
+  // 1. locator_only cannot justify documented
+  check(canClaimStateJustifyDocumented('locator_only') === false, 'Test 230a: locator_only cannot justify documented');
+  const locGating = validateClaimStateForDocumented('locator_only');
+  check(locGating.isValid === false, 'Test 230b: locator_only is invalid for documented disposition');
+  check(locGating.mismatch === 'insufficientClaimVerificationForDocumented', 'Test 230c: Mismatch insufficientClaimVerificationForDocumented for locator_only');
+
+  // 2. source_verified cannot justify documented
+  check(canClaimStateJustifyDocumented('source_verified') === false, 'Test 230d: source_verified cannot justify documented');
+  const srcGating = validateClaimStateForDocumented('source_verified');
+  check(srcGating.isValid === false, 'Test 230e: source_verified is invalid for documented disposition');
+  check(srcGating.mismatch === 'unverifiedClaimForDocumented', 'Test 230f: Mismatch unverifiedClaimForDocumented for source_verified');
+
+  // 3. claim_verified can justify documented
+  check(canClaimStateJustifyDocumented('claim_verified') === true, 'Test 230g: claim_verified can justify documented');
+  const claimGating = validateClaimStateForDocumented('claim_verified');
+  check(claimGating.isValid === true, 'Test 230h: claim_verified is valid for documented disposition');
+  check(claimGating.mismatch === undefined, 'Test 230i: No mismatch for claim_verified');
+
+  // 4. Manual verificationState: 'claim_verified' on evidence must NOT promote evidence
+  const rawManualClaim: ClaimEvidenceLocator = {
+    locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
+    claimedValue: 'operating_margin',
+    verificationState: 'claim_verified',
+  };
+  const norm = normalizeClaimEvidenceLocator(rawManualClaim);
+  check(norm?.verificationState === 'locator_only', 'Test 230j: normalizeClaimEvidenceLocator downgrades manual claim_verified to locator_only');
+  check(canClaimStateJustifyDocumented(norm?.verificationState) === false, 'Test 230k: Normalized claim cannot justify documented');
+}
+
+// TEST 231: Preserve proxy invariants across all 8 proxy metric mappings (Task 6)
+{
+  check(PROXY_METRIC_MAPPINGS.length === 8, 'Test 231a: Exactly 8 proxy metric mappings registered (4 BMW, 4 MBG)');
+
+  for (const mapping of PROXY_METRIC_MAPPINGS) {
+    // 1. status === 'proxy_only'
+    check(mapping.status === 'proxy_only', `Test 231b: Mapping [${mapping.id}] status is strictly proxy_only`);
+
+    // 2. Evaluate through validateMarginTriplet
+    const rev = METRIC_OBSERVATIONS.find(
+      o => o.companyId === mapping.companyId && o.period === mapping.period && o.metricId === 'revenue'
+    );
+    const profit = METRIC_OBSERVATIONS.find(
+      o => o.companyId === mapping.companyId && o.period === mapping.period && o.metricId === 'operating_income'
+    );
+    const margin = METRIC_OBSERVATIONS.find(
+      o => o.companyId === mapping.companyId && o.period === mapping.period && o.metricId === 'operating_margin'
+    );
+
+    if (rev && profit && margin) {
+      const val = validateMarginTriplet(rev, profit, margin, undefined, {
+        proxyMapping: mapping,
+        sourcesMap: mockSourcesMap,
+      });
+
+      check(val.status === 'proxy_only', `Test 231c: Triplet evaluation for [${mapping.id}] is proxy_only`);
+      check(val.mathematicallyVerified === false, `Test 231d: Triplet evaluation for [${mapping.id}] mathematicallyVerified is false`);
+      check(val.directMathematicalVerification === false, `Test 231e: Triplet evaluation for [${mapping.id}] directMathematicalVerification is false`);
+      check(val.calculatedMargin === null, `Test 231f: Triplet evaluation for [${mapping.id}] calculatedMargin is strictly null`);
+      check(val.proxyLimitation === true, `Test 231g: Triplet evaluation for [${mapping.id}] proxyLimitation is true`);
+
+      const finding = createAuditFindingFromMarginValidation(
+        val,
+        mapping.companyId,
+        mapping.period ?? '2026-Q2',
+        mapping.periodType ?? 'quarterly',
+        { proxyMapping: mapping }
+      );
+      check(finding !== null, `Test 231h: Audit finding created for [${mapping.id}]`);
+      check(finding?.disposition === 'review', `Test 231i: Finding disposition for [${mapping.id}] is strictly review`);
+      check(finding?.disposition !== 'documented', `Test 231j: Finding disposition for [${mapping.id}] is NEVER documented`);
+      check((finding?.disposition as string) !== 'verified', `Test 231k: Finding disposition for [${mapping.id}] is NEVER verified`);
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

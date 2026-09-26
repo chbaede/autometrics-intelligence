@@ -352,6 +352,43 @@ export interface ClaimEvidenceLocator {
 }
 
 /**
+ * Dedicated verification method for real claim content verification (STEP 4-18, Task 4).
+ */
+export type ClaimVerificationEngineMethod =
+  | 'manual'
+  | 'parser'
+  | 'rule_engine'
+  | 'llm';
+
+/**
+ * Dedicated verification result produced by an authentic claim verification engine (STEP 4-18, Task 4).
+ * Claim verification cannot be claimed through declarative metadata alone; only a real verification engine
+ * producing this result can yield state: 'claim_verified'.
+ */
+export interface ClaimVerificationResult {
+  state: 'source_verified' | 'claim_verified';
+  verificationMethod: ClaimVerificationEngineMethod;
+  verifiedValue?: string;
+  verifiedAt?: string;
+  sourceContentHash?: string;
+  engineVersion?: string;
+  diagnostics?: string[];
+}
+
+/**
+ * Contract specification for a future claim verification engine (STEP 4-18, Task 4).
+ */
+export interface ClaimVerificationEngine {
+  readonly engineId: string;
+  readonly method: ClaimVerificationEngineMethod;
+  verifyClaim(
+    claim: ClaimEvidenceLocator,
+    sourceDoc: SourceDocument,
+    expectedValue?: string
+  ): Promise<ClaimVerificationResult> | ClaimVerificationResult;
+}
+
+/**
  * Claim-level evidence entry: supports both backward-compatible string locators
  * and structured ClaimEvidenceLocator objects (STEP 4-16, Task 2).
  */
