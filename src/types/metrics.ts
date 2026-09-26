@@ -361,30 +361,64 @@ export type ClaimVerificationEngineMethod =
   | 'llm';
 
 /**
- * Dedicated verification result produced by an authentic claim verification engine (STEP 4-18, Task 4).
- * Claim verification cannot be claimed through declarative metadata alone; only a real verification engine
- * producing this result can yield state: 'claim_verified'.
+ * Base verification result properties shared by all verification states (STEP 4-19, Task 1).
  */
-export interface ClaimVerificationResult {
-  state: 'source_verified' | 'claim_verified';
+export interface BaseClaimVerificationResult {
   verificationMethod: ClaimVerificationEngineMethod;
-  verifiedValue?: string;
-  verifiedAt?: string;
+  engineId: string;
+  engineVersion: string;
+  sourceDocId: string;
+  claimSupportType: EvidenceSupportType;
+  expectedValue?: string;
+  verifiedAt: string;
   sourceContentHash?: string;
-  engineVersion?: string;
   diagnostics?: string[];
 }
 
 /**
- * Contract specification for a future claim verification engine (STEP 4-18, Task 4).
+ * Result indicating that a specific claim has been verified against source content (STEP 4-19, Task 1).
+ * verifiedValue is strictly required.
+ */
+export interface ClaimVerifiedResult extends BaseClaimVerificationResult {
+  state: 'claim_verified';
+  verifiedValue: string;
+}
+
+/**
+ * Result indicating that source identity and metadata are verified, but claim content is unverified (STEP 4-19, Task 1).
+ */
+export interface SourceVerifiedResult extends BaseClaimVerificationResult {
+  state: 'source_verified';
+  verifiedValue?: string;
+}
+
+/**
+ * Dedicated verification result produced by an authentic claim verification engine (STEP 4-18, Task 4; STEP 4-19, Task 1).
+ * Claim verification cannot be claimed through declarative metadata alone; only a real verification engine
+ * producing this result can yield state: 'claim_verified'.
+ */
+export type ClaimVerificationResult = ClaimVerifiedResult | SourceVerifiedResult;
+
+/**
+ * Validation result for checking a ClaimVerificationResult against its target claim and source (STEP 4-19, Task 3).
+ */
+export interface ClaimVerificationValidationResult {
+  valid: boolean;
+  mismatches: string[];
+}
+
+/**
+ * Contract specification for a claim verification engine (STEP 4-18, Task 4; STEP 4-19, Task 1).
  */
 export interface ClaimVerificationEngine {
   readonly engineId: string;
+  readonly version?: string;
   readonly method: ClaimVerificationEngineMethod;
   verifyClaim(
     claim: ClaimEvidenceLocator,
     sourceDoc: SourceDocument,
-    expectedValue?: string
+    expectedValue?: string,
+    supportType?: EvidenceSupportType
   ): Promise<ClaimVerificationResult> | ClaimVerificationResult;
 }
 

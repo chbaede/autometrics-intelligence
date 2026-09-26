@@ -56,6 +56,11 @@ import {
   validateClaimStateForDocumented,
   resolveClaimVerificationState,
   normalizeClaimEvidenceLocator,
+  verifyClaimEvidence,
+  validateClaimVerificationResult,
+  deterministicClaimVerifier,
+  DeterministicClaimVerificationEngine,
+  DETERMINISTIC_SOURCE_CONTENT_FIXTURES,
 } from '../src/data/scopeExceptions';
 import {
   getDimensionalObservationKey,
@@ -6795,6 +6800,10 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const engineResultVerified: ClaimVerificationResult = {
     state: 'claim_verified',
     verificationMethod: 'rule_engine',
+    engineId: 'deterministic_content_verifier',
+    engineVersion: '1.0.0',
+    sourceDocId: 'bmw_2026_q2_statement',
+    claimSupportType: 'scope',
     verifiedValue: 'automotive_segment',
     verifiedAt: '2026-09-26T09:00:00Z',
     sourceContentHash: 'sha256-abcdef123456',
@@ -6804,6 +6813,10 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const engineResultSourceOnly: ClaimVerificationResult = {
     state: 'source_verified',
     verificationMethod: 'parser',
+    engineId: 'deterministic_content_verifier',
+    engineVersion: '1.0.0',
+    sourceDocId: 'bmw_2026_q2_statement',
+    claimSupportType: 'scope',
     verifiedValue: 'bmw_2026_q2_statement',
     verifiedAt: '2026-09-26T09:00:00Z',
   };
@@ -6892,6 +6905,244 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
       check(finding?.disposition === 'review', `Test 231i: Finding disposition for [${mapping.id}] is strictly review`);
       check(finding?.disposition !== 'documented', `Test 231j: Finding disposition for [${mapping.id}] is NEVER documented`);
       check((finding?.disposition as string) !== 'verified', `Test 231k: Finding disposition for [${mapping.id}] is NEVER verified`);
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 232: STEP 4-19 Real Claim Verification Engine & Result Validation
+// ────────────────────────────────────────────────────────────────────────────
+{
+  const sourceDoc: SourceDocument = (mockSourcesMap.get('bmw_2026_q2_statement') as SourceDocument) ?? {
+    id: 'bmw_2026_q2_statement',
+    companyId: 'bmw_group',
+    title: 'BMW Group Quarterly Statement to 30 June 2026',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    publicationDate: '2026-08-01',
+    officialUrl: 'https://www.bmwgroup.com/statement-q2-2026.pdf',
+    isVerified: true,
+    lastChecked: '2026-09-01',
+  };
+
+  const sampleClaim: ClaimEvidenceLocator = {
+    locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
+    claimedValue: 'operating_margin',
+  };
+
+  const sampleEvidence: ScopeExceptionEvidence[] = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
+      purpose: 'reported_kpi',
+      supports: ['reported_kpi'],
+      supportEvidence: {
+        reported_kpi: sampleClaim,
+      },
+    },
+  ];
+
+  // A. A valid claim verification result produces claim_verified
+  const validResult = verifyClaimEvidence(
+    sampleClaim,
+    sourceDoc,
+    'operating_margin',
+    'reported_kpi'
+  );
+  check(validResult.state === 'claim_verified', 'Test 232a-1: verifyClaimEvidence produces claim_verified for matching fixture');
+  check(validResult.verifiedValue === 'operating_margin', 'Test 232a-2: verifyClaimEvidence sets verifiedValue');
+  check(validResult.sourceDocId === 'bmw_2026_q2_statement', 'Test 232a-3: verifyClaimEvidence binds sourceDocId');
+  check(validResult.claimSupportType === 'reported_kpi', 'Test 232a-4: verifyClaimEvidence binds claimSupportType');
+  check(validResult.engineId === 'deterministic_content_verifier', 'Test 232a-5: verifyClaimEvidence sets engineId');
+  check(validResult.engineVersion === '1.0.0', 'Test 232a-6: verifyClaimEvidence sets engineVersion');
+  check(Boolean(validResult.sourceContentHash), 'Test 232a-7: verifyClaimEvidence sets sourceContentHash');
+
+  const valA = validateClaimVerificationResult(
+    sampleClaim,
+    sourceDoc,
+    'operating_margin',
+    validResult,
+    'reported_kpi'
+  );
+  check(valA.valid === true, 'Test 232a-8: validateClaimVerificationResult accepts valid result');
+  check(valA.mismatches.length === 0, 'Test 232a-9: No mismatches for valid result');
+
+  const resolvedStateA = resolveClaimVerificationState(sampleEvidence, true, validResult);
+  check(resolvedStateA === 'claim_verified', 'Test 232a-10: resolveClaimVerificationState produces claim_verified with validated result');
+
+  // Also test deterministicClaimVerifier engine class instance
+  check(deterministicClaimVerifier.engineId === 'deterministic_content_verifier', 'Test 232a-11: deterministicClaimVerifier engineId');
+  const engineResult = deterministicClaimVerifier.verifyClaim(sampleClaim, sourceDoc, 'operating_margin', 'reported_kpi');
+  check(engineResult.state === 'claim_verified', 'Test 232a-12: deterministicClaimVerifier.verifyClaim produces claim_verified');
+  const customEngine = new DeterministicClaimVerificationEngine();
+  check(customEngine.version === '1.0.0', 'Test 232a-13: DeterministicClaimVerificationEngine instance version');
+  check(DETERMINISTIC_SOURCE_CONTENT_FIXTURES.length >= 7, 'Test 232a-14: Deterministic fixtures registered in repository');
+
+  // B. Result for the wrong sourceDocId is rejected
+  const wrongDocResult: ClaimVerificationResult = {
+    ...validResult,
+    sourceDocId: 'mbg_2026_q2_interim',
+  };
+  const valB = validateClaimVerificationResult(sampleClaim, sourceDoc, 'operating_margin', wrongDocResult, 'reported_kpi');
+  check(valB.valid === false, 'Test 232b-1: Result with wrong sourceDocId is rejected');
+  check(valB.mismatches.includes('verificationSourceDocMismatch'), 'Test 232b-2: Contains verificationSourceDocMismatch');
+  const resolvedStateB = resolveClaimVerificationState(sampleEvidence, true, wrongDocResult);
+  check(resolvedStateB === 'source_verified', 'Test 232b-3: resolveClaimVerificationState downgrades wrong sourceDocId to source_verified');
+
+  // C. Result for the wrong claimSupportType is rejected
+  const wrongTypeResult: ClaimVerificationResult = {
+    ...validResult,
+    claimSupportType: 'scope',
+  };
+  const valC = validateClaimVerificationResult(sampleClaim, sourceDoc, 'operating_margin', wrongTypeResult, 'reported_kpi');
+  check(valC.valid === false, 'Test 232c-1: Result with wrong claimSupportType is rejected');
+  check(valC.mismatches.includes('verificationSupportTypeMismatch'), 'Test 232c-2: Contains verificationSupportTypeMismatch');
+  const resolvedStateC = resolveClaimVerificationState(sampleEvidence, true, wrongTypeResult);
+  check(resolvedStateC === 'source_verified', 'Test 232c-3: resolveClaimVerificationState downgrades wrong claimSupportType to source_verified');
+
+  // D. Missing verifiedValue is rejected
+  const missingValueResult = {
+    ...validResult,
+    verifiedValue: '',
+  } as unknown as ClaimVerificationResult;
+  const valD = validateClaimVerificationResult(sampleClaim, sourceDoc, 'operating_margin', missingValueResult, 'reported_kpi');
+  check(valD.valid === false, 'Test 232d-1: Result with missing verifiedValue is rejected');
+  check(valD.mismatches.includes('verificationValueMissing'), 'Test 232d-2: Contains verificationValueMissing');
+  const resolvedStateD = resolveClaimVerificationState(sampleEvidence, true, missingValueResult);
+  check(resolvedStateD === 'source_verified', 'Test 232d-3: resolveClaimVerificationState downgrades missing verifiedValue');
+
+  // E. Mismatched verifiedValue is rejected
+  const mismatchedValueResult: ClaimVerificationResult = {
+    ...validResult,
+    verifiedValue: 'revenue',
+  };
+  const valE = validateClaimVerificationResult(sampleClaim, sourceDoc, 'operating_margin', mismatchedValueResult, 'reported_kpi');
+  check(valE.valid === false, 'Test 232e-1: Result with mismatched verifiedValue is rejected');
+  check(valE.mismatches.includes('verificationValueMismatch'), 'Test 232e-2: Contains verificationValueMismatch');
+  const resolvedStateE = resolveClaimVerificationState(sampleEvidence, true, mismatchedValueResult);
+  check(resolvedStateE === 'source_verified', 'Test 232e-3: resolveClaimVerificationState downgrades mismatched verifiedValue');
+
+  // F. Missing engineId is rejected
+  const missingEngineIdResult = {
+    ...validResult,
+    engineId: '',
+  } as unknown as ClaimVerificationResult;
+  const valF = validateClaimVerificationResult(sampleClaim, sourceDoc, 'operating_margin', missingEngineIdResult, 'reported_kpi');
+  check(valF.valid === false, 'Test 232f-1: Result with missing engineId is rejected');
+  check(valF.mismatches.includes('verificationEngineIdMissing'), 'Test 232f-2: Contains verificationEngineIdMissing');
+  const resolvedStateF = resolveClaimVerificationState(sampleEvidence, true, missingEngineIdResult);
+  check(resolvedStateF === 'source_verified', 'Test 232f-3: resolveClaimVerificationState downgrades missing engineId');
+
+  // G. Missing engineVersion is rejected
+  const missingVersionResult = {
+    ...validResult,
+    engineVersion: '',
+  } as unknown as ClaimVerificationResult;
+  const valG = validateClaimVerificationResult(sampleClaim, sourceDoc, 'operating_margin', missingVersionResult, 'reported_kpi');
+  check(valG.valid === false, 'Test 232g-1: Result with missing engineVersion is rejected');
+  check(valG.mismatches.includes('verificationEngineVersionMissing'), 'Test 232g-2: Contains verificationEngineVersionMissing');
+  const resolvedStateG = resolveClaimVerificationState(sampleEvidence, true, missingVersionResult);
+  check(resolvedStateG === 'source_verified', 'Test 232g-3: resolveClaimVerificationState downgrades missing engineVersion');
+
+  // H. Invalid verification timestamp is rejected
+  const invalidTimeResult: ClaimVerificationResult = {
+    ...validResult,
+    verifiedAt: 'not-a-valid-timestamp',
+  };
+  const valH = validateClaimVerificationResult(sampleClaim, sourceDoc, 'operating_margin', invalidTimeResult, 'reported_kpi');
+  check(valH.valid === false, 'Test 232h-1: Result with invalid timestamp is rejected');
+  check(valH.mismatches.includes('verificationTimestampInvalid'), 'Test 232h-2: Contains verificationTimestampInvalid');
+  const resolvedStateH = resolveClaimVerificationState(sampleEvidence, true, invalidTimeResult);
+  check(resolvedStateH === 'source_verified', 'Test 232h-3: resolveClaimVerificationState downgrades invalid timestamp');
+
+  // I. Manually supplied registry verificationState: 'claim_verified' without valid verification result is rejected or downgraded
+  const manualClaimVerifiedEvidence: ScopeExceptionEvidence[] = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionReference: 'KPIs',
+      purpose: 'reported_kpi',
+      supports: ['reported_kpi'],
+      supportEvidence: {
+        reported_kpi: {
+          locator: 'EBIT margin 7.8%',
+          claimedValue: 'operating_margin',
+          verificationState: 'claim_verified', // Manual claim!
+        },
+      },
+    },
+  ];
+  check(resolveClaimVerificationState(manualClaimVerifiedEvidence, false) === 'locator_only', 'Test 232i-1: Manual claim_verified metadata without engine result resolves to locator_only');
+  check(resolveClaimVerificationState(manualClaimVerifiedEvidence, true) === 'source_verified', 'Test 232i-2: Manual claim_verified metadata with sourcesVerified=true resolves to source_verified');
+
+  // J. source_verified result never becomes claim_verified
+  const unprovedClaim: ClaimEvidenceLocator = {
+    locator: 'Unindexed Section / Unverified Metric',
+    claimedValue: 'unknown_metric',
+  };
+  const unprovedResult = verifyClaimEvidence(unprovedClaim, sourceDoc, 'unknown_metric', 'reported_kpi');
+  check(unprovedResult.state === 'source_verified', 'Test 232j-1: Unproved claim returns source_verified');
+  const valJ = validateClaimVerificationResult(unprovedClaim, sourceDoc, 'unknown_metric', unprovedResult, 'reported_kpi');
+  check(valJ.valid === false, 'Test 232j-2: source_verified result is not valid for claim_verified');
+  check(valJ.mismatches.includes('resultNotClaimVerified'), 'Test 232j-3: Contains resultNotClaimVerified');
+  const resolvedStateJ = resolveClaimVerificationState(sampleEvidence, true, unprovedResult);
+  check(resolvedStateJ === 'source_verified', 'Test 232j-4: resolveClaimVerificationState returns source_verified for source_verified engine result');
+
+  // K. Result for another claim cannot be reused for this claim
+  const otherClaim: ClaimEvidenceLocator = {
+    locator: 'BMW Group Quarterly Statement to 30 June 2026',
+    claimedValue: '2026-Q2',
+  };
+  const otherEvidence: ScopeExceptionEvidence[] = [
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      supports: ['period'],
+      supportEvidence: {
+        period: otherClaim,
+      },
+    },
+  ];
+  // Attempting to reuse validResult (which was for reported_kpi: operating_margin) for period claim:
+  const valK = validateClaimVerificationResult(otherClaim, sourceDoc, '2026-Q2', validResult, 'period');
+  check(valK.valid === false, 'Test 232k-1: Result for reported_kpi cannot be reused for period claim');
+  check(valK.mismatches.includes('verificationSupportTypeMismatch'), 'Test 232k-2: Reused result fails support type check');
+  check(valK.mismatches.includes('verificationValueMismatch'), 'Test 232k-3: Reused result fails value check');
+  const resolvedStateK = resolveClaimVerificationState(otherEvidence, true, validResult);
+  check(resolvedStateK === 'source_verified', 'Test 232k-4: resolveClaimVerificationState downgrades cross-reused result to source_verified');
+
+  // L. Proxy mappings still produce status: 'proxy_only', mathematicallyVerified: false, calculatedMargin: null, and disposition: 'review'
+  for (const mapping of PROXY_METRIC_MAPPINGS) {
+    check(mapping.status === 'proxy_only', `Test 232l-1 [${mapping.id}]: mapping status is strictly proxy_only`);
+
+    const rev = METRIC_OBSERVATIONS.find(
+      (o) => o.companyId === mapping.companyId && o.period === mapping.period && o.metricId === 'revenue'
+    );
+    const profit = METRIC_OBSERVATIONS.find(
+      (o) => o.companyId === mapping.companyId && o.period === mapping.period && o.metricId === 'operating_income'
+    );
+    const margin = METRIC_OBSERVATIONS.find(
+      (o) => o.companyId === mapping.companyId && o.period === mapping.period && o.metricId === 'operating_margin'
+    );
+
+    if (rev && profit && margin) {
+      const val = validateMarginTriplet(rev, profit, margin, undefined, {
+        proxyMapping: mapping,
+        sourcesMap: mockSourcesMap,
+      });
+
+      check(val.status === 'proxy_only', `Test 232l-2 [${mapping.id}]: Triplet status is proxy_only`);
+      check(val.mathematicallyVerified === false, `Test 232l-3 [${mapping.id}]: mathematicallyVerified is false`);
+      check(val.calculatedMargin === null, `Test 232l-4 [${mapping.id}]: calculatedMargin is null`);
+      check(val.proxyLimitation === true, `Test 232l-5 [${mapping.id}]: proxyLimitation is true`);
+
+      const finding = createAuditFindingFromMarginValidation(
+        val,
+        mapping.companyId,
+        mapping.period ?? '2026-Q2',
+        mapping.periodType ?? 'quarterly',
+        { proxyMapping: mapping }
+      );
+      check(finding?.disposition === 'review', `Test 232l-6 [${mapping.id}]: Finding disposition is review`);
+      check(finding?.disposition !== 'documented', `Test 232l-7 [${mapping.id}]: Finding disposition is NOT documented`);
     }
   }
 }
