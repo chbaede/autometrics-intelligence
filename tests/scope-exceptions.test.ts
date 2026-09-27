@@ -80,6 +80,9 @@ import {
   validateSourceClaims,
   hasLocatorNumericContradiction,
   validateSourceContentFixtures,
+  hashFixtureContent,
+  normalizeFixtureExtractedText,
+  computeSha256,
 } from '../src/utils/metricCalculations';
 import { METRIC_DEFINITIONS } from '../src/data/metricDefinitions';
 import { getAuditCommitSha, buildAuditReportData, generateMarkdownAuditReport } from '../scripts/audit-data';
@@ -7698,9 +7701,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 
   // Test 235k: Generated markdown audit report incorporates metadata & exact counts
   const markdown = generateMarkdownAuditReport(auditData);
-  check(markdown.includes(`**Commit SHA**: ${auditData.commitSha}`), 'Test 235k-1: Markdown contains commit SHA');
+  check(markdown.includes(`**Audited Source Commit SHA**: ${auditData.sourceCommitSha}`), 'Test 235k-1: Markdown contains Audited Source Commit SHA');
   check(markdown.includes(`**Generated At**: ${auditData.generatedAt}`), 'Test 235k-2: Markdown contains generatedAt timestamp');
-  check(markdown.includes('Generated from commit') && markdown.includes(auditData.commitSha), 'Test 235k-3: Markdown contains provenance footer commit');
+  check(markdown.includes('Audited Source Commit SHA') && markdown.includes(auditData.sourceCommitSha), 'Test 235k-3: Markdown contains provenance footer commit');
   check(markdown.includes('Source claim validation') && markdown.includes('`PASS`'), 'Test 235k-4: Markdown contains source claim PASS');
   check(markdown.includes('Data audit') && markdown.includes('`PASS`'), 'Test 235k-5: Markdown contains data audit PASS');
   check(markdown.includes('fixture_verified'), 'Test 235k-6: Markdown documents fixture_verified policy');
@@ -7716,6 +7719,303 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
       check(diskJson.commitSha === resolvedSha, 'Test 235l-3: On-disk docs/audit-report.json matches current commit SHA in local repository');
     }
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 236: True Cryptographic Fixture Provenance & Strict Evidence Binding (STEP 4-23)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 236: True Cryptographic Fixture Provenance & Strict Evidence Binding (STEP 4-23) ---');
+
+  // Test 236a: Pure SHA-256 implementation matches standard test vectors
+  const emptyHash = computeSha256('');
+  check(emptyHash === 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'Test 236a-1: SHA-256 of empty string matches standard vector');
+  const abcHash = computeSha256('abc');
+  check(abcHash === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', 'Test 236a-2: SHA-256 of "abc" matches standard vector');
+
+  // Test 236b: Canonical text normalization and hash computation
+  const rawText1 = '   Line 1\r\nLine 2   ';
+  const normText1 = normalizeFixtureExtractedText(rawText1);
+  check(normText1 === 'Line 1\nLine 2', 'Test 236b-1: Normalization strips CRLF and trims outer whitespace');
+  const hash1 = hashFixtureContent(rawText1);
+  const hash2 = hashFixtureContent('Line 1\nLine 2');
+  check(hash1 === hash2, 'Test 236b-2: Text with different CRLF/whitespace normalizes to identical hash');
+  check(/^[0-9a-f]{64}$/.test(hash1), 'Test 236b-3: hashFixtureContent produces 64-char lowercase hex digest');
+
+  // Test 236c: All 10 production fixtures have genuine SHA-256 hashes matching their canonical text
+  check(DETERMINISTIC_SOURCE_CONTENT_FIXTURES.length === 10, 'Test 236c-1: Total production fixtures is 10');
+  for (let idx = 0; idx < DETERMINISTIC_SOURCE_CONTENT_FIXTURES.length; idx++) {
+    const f = DETERMINISTIC_SOURCE_CONTENT_FIXTURES[idx];
+    check(/^[0-9a-f]{64}$/.test(f.contentHash), `Test 236c-2-${idx}: Fixture ${f.sourceDocId} contentHash is 64-char hex`);
+    check(!f.contentHash.startsWith('sha256-'), `Test 236c-3-${idx}: Fixture ${f.sourceDocId} is not a placeholder`);
+    const expectedHash = hashFixtureContent(f.extractedText);
+    check(f.contentHash === expectedHash, `Test 236c-4-${idx}: Fixture ${f.sourceDocId} contentHash matches recomputed hash`);
+  }
+
+  // Test 236d: validateSourceContentFixtures passes on production fixtures
+  const prodValResult = validateSourceContentFixtures(
+    DETERMINISTIC_SOURCE_CONTENT_FIXTURES,
+    SOURCE_DOCUMENTS,
+    METRIC_DEFINITIONS
+  );
+  check(prodValResult.valid === true, 'Test 236d-1: validateSourceContentFixtures is valid for production fixtures');
+  check(prodValResult.errors.length === 0, 'Test 236d-2: validateSourceContentFixtures has 0 errors');
+
+  // Test 236e: Tamper regression tests (P0-4 Cases A, B, C, D)
+  const baseFixture = DETERMINISTIC_SOURCE_CONTENT_FIXTURES[0];
+
+  // Case A: Original fixture is valid
+  const caseA = validateSourceContentFixtures([baseFixture], SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
+  check(caseA.valid === true, 'Test 236e-1 Case A: Original fixture is valid');
+
+  // Case B: Tamper one character in extractedText -> fixtureContentHashMismatch and valid === false
+  const tamperedFixture = {
+    ...baseFixture,
+    extractedText: baseFixture.extractedText + '!',
+  };
+  const caseB = validateSourceContentFixtures([tamperedFixture], SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
+  check(caseB.valid === false, 'Test 236e-2 Case B: Tampered text makes fixture invalid');
+  check(caseB.errors.some((e) => e.code === 'fixtureContentHashMismatch'), 'Test 236e-3 Case B: Error code is fixtureContentHashMismatch');
+
+  // Case C: Non-SHA256 string as contentHash -> fixtureInvalidContentHash
+  const invalidHashFixture1 = {
+    ...baseFixture,
+    contentHash: 'sha256-bmw2026q2-automotive-scope-hash',
+  };
+  const caseC1 = validateSourceContentFixtures([invalidHashFixture1], SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
+  check(caseC1.valid === false, 'Test 236e-4 Case C1: Non-hex contentHash is invalid');
+  check(caseC1.errors.some((e) => e.code === 'fixtureInvalidContentHash'), 'Test 236e-5 Case C1: Error code is fixtureInvalidContentHash');
+
+  const invalidHashFixture2 = {
+    ...baseFixture,
+    contentHash: 'abcdef1234', // too short
+  };
+  const caseC2 = validateSourceContentFixtures([invalidHashFixture2], SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
+  check(caseC2.valid === false, 'Test 236e-6 Case C2: Short contentHash is invalid');
+  check(caseC2.errors.some((e) => e.code === 'fixtureInvalidContentHash'), 'Test 236e-7 Case C2: Error code is fixtureInvalidContentHash');
+
+  // Case D: Recompute correct hash after modifying extractedText -> valid === true
+  const modifiedText = baseFixture.extractedText + ' (recalculated)';
+  const recomputedHashFixture = {
+    ...baseFixture,
+    extractedText: modifiedText,
+    contentHash: hashFixtureContent(modifiedText),
+  };
+  const caseD = validateSourceContentFixtures([recomputedHashFixture], SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
+  check(caseD.valid === true, 'Test 236e-8 Case D: Correctly recomputed hash makes modified fixture valid');
+  check(caseD.errors.length === 0, 'Test 236e-9 Case D: 0 errors on recomputed fixture');
+
+  // Test 236f: Strict claim-to-fixture binding (P0-5)
+  const sampleDoc = SOURCE_DOCUMENTS.find((d) => d.id === 'bmw_2026_q2_statement')!;
+  const sampleFixture = DETERMINISTIC_SOURCE_CONTENT_FIXTURES.find(
+    (f) => f.sourceDocId === 'bmw_2026_q2_statement' && f.verifiedMetricId === 'operating_margin'
+  )!;
+
+  // 1. unitMismatch
+  const unitMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'currency_millions',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q2',
+    },
+    sampleDoc,
+    '2.3',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(unitMismatchRes.state === 'source_verified', 'Test 236f-1: unit mismatch yields source_verified');
+  check(unitMismatchRes.diagnostics?.failureReason === 'unitMismatch', 'Test 236f-2: failureReason is unitMismatch');
+
+  // 2. accountingBasisMismatch
+  const acctMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'percentage',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'adjusted',
+      claimedPeriod: '2026-Q2',
+    },
+    sampleDoc,
+    '2.3',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(acctMismatchRes.state === 'source_verified', 'Test 236f-3: accounting basis mismatch yields source_verified');
+  check(acctMismatchRes.diagnostics?.failureReason === 'accountingBasisMismatch', 'Test 236f-4: failureReason is accountingBasisMismatch');
+
+  // 3. periodMismatch
+  const periodMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'percentage',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q1',
+    },
+    sampleDoc,
+    '2.3',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(periodMismatchRes.state === 'source_verified', 'Test 236f-5: period mismatch yields source_verified');
+  check(periodMismatchRes.diagnostics?.failureReason === 'periodMismatch', 'Test 236f-6: failureReason is periodMismatch');
+
+  // 4. periodTypeMismatch
+  const periodTypeMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'percentage',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q2',
+      claimedPeriodType: 'annual',
+    },
+    sampleDoc,
+    '2.3',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(periodTypeMismatchRes.state === 'source_verified', 'Test 236f-7: periodType mismatch yields source_verified');
+  check(periodTypeMismatchRes.diagnostics?.failureReason === 'periodTypeMismatch', 'Test 236f-8: failureReason is periodTypeMismatch');
+
+  // 5. supportTypeMismatch
+  const supportTypeMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'percentage',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q2',
+    },
+    sampleDoc,
+    '2.3',
+    'scope',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(supportTypeMismatchRes.state === 'source_verified', 'Test 236f-9: supportType mismatch yields source_verified');
+  check(supportTypeMismatchRes.diagnostics?.failureReason === 'supportTypeMismatch', 'Test 236f-10: failureReason is supportTypeMismatch');
+
+  // 6. scopeMismatch
+  const scopeMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'percentage',
+      claimedScope: 'consolidated_group',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q2',
+    },
+    sampleDoc,
+    '2.3',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(scopeMismatchRes.state === 'source_verified', 'Test 236f-11: scope mismatch yields source_verified');
+  check(scopeMismatchRes.diagnostics?.failureReason === 'scopeMismatch', 'Test 236f-12: failureReason is scopeMismatch');
+
+  // 7. metricMismatch
+  const metricMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'revenue',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'percentage',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q2',
+    },
+    sampleDoc,
+    '2.3',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(metricMismatchRes.state === 'source_verified', 'Test 236f-13: metric mismatch yields source_verified');
+  check(metricMismatchRes.diagnostics?.failureReason === 'metricMismatch', 'Test 236f-14: failureReason is metricMismatch');
+
+  // 8. numericValueMismatch
+  const numericMismatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 9.9,
+      claimedUnit: 'percentage',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q2',
+    },
+    sampleDoc,
+    '9.9',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(numericMismatchRes.state === 'source_verified', 'Test 236f-15: numeric mismatch yields source_verified');
+  check(numericMismatchRes.diagnostics?.failureReason === 'numericValueMismatch', 'Test 236f-16: failureReason is numericValueMismatch');
+
+  // Test 236g: Successful exact verification attaches verificationOrigin: 'repository_fixture'
+  const exactMatchRes = verifyClaimEvidence(
+    {
+      sourceDocId: sampleDoc.id,
+      claimedMetricId: 'operating_margin',
+      claimedNumericValue: 2.3,
+      claimedUnit: 'percentage',
+      claimedScope: 'automotive_segment',
+      claimedAccountingBasis: 'reported',
+      claimedPeriod: '2026-Q2',
+      claimedPeriodType: 'quarterly',
+    },
+    sampleDoc,
+    '2.3',
+    'reported_kpi',
+    { contentFixtures: [sampleFixture] }
+  );
+  check(exactMatchRes.state === 'claim_verified', 'Test 236g-1: Exact match yields claim_verified');
+  check(exactMatchRes.verificationOrigin === 'repository_fixture', 'Test 236g-2: verificationOrigin is repository_fixture');
+  check(exactMatchRes.sourceContentHash === sampleFixture.contentHash, 'Test 236g-3: sourceContentHash is genuine SHA-256');
+
+  // Test 236h: validateClaimVerificationResult rejects unit, accounting basis, period, periodType mismatches
+  const v1 = validateClaimVerificationResult(
+    { sourceDocId: sampleDoc.id, claimedUnit: 'currency_millions' },
+    sampleDoc,
+    '2.3',
+    exactMatchRes
+  );
+  check(v1.valid === false && v1.mismatches.includes('verificationUnitMismatch'), 'Test 236h-1: validateClaimVerificationResult rejects unit mismatch');
+
+  const v2 = validateClaimVerificationResult(
+    { sourceDocId: sampleDoc.id, claimedAccountingBasis: 'adjusted' },
+    sampleDoc,
+    '2.3',
+    exactMatchRes
+  );
+  check(v2.valid === false && v2.mismatches.includes('verificationAccountingBasisMismatch'), 'Test 236h-2: validateClaimVerificationResult rejects accounting basis mismatch');
+
+  const v3 = validateClaimVerificationResult(
+    { sourceDocId: sampleDoc.id, claimedPeriod: '2025-FY' },
+    sampleDoc,
+    '2.3',
+    exactMatchRes
+  );
+  check(v3.valid === false && v3.mismatches.includes('verificationPeriodMismatch'), 'Test 236h-3: validateClaimVerificationResult rejects period mismatch');
+
+  // Test 236i: Audit report metadata contains Audited Source Commit SHA and fixture wording
+  const auditData236 = buildAuditReportData();
+  const markdownAudit = generateMarkdownAuditReport(auditData236);
+  check(markdownAudit.includes(`**Audited Source Commit SHA**: ${auditData236.sourceCommitSha}`), 'Test 236i-1: Markdown contains Audited Source Commit SHA');
+  check(markdownAudit.includes('Deterministic repository fixtures are protected by SHA-256 content integrity validation.'), 'Test 236i-2: Markdown contains fixture SHA-256 integrity notice');
+  check(markdownAudit.includes('These fixtures are not live HTTP retrievals.'), 'Test 236i-3: Markdown contains offline retrieval distinction');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

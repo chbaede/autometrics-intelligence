@@ -1,8 +1,8 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-09-27T13:14:39.425Z  
-**Commit SHA**: bd90bcdbed5ab2293a00a173ca3e21a525620c6c  
+**Generated At**: 2026-09-27T13:26:51.394Z  
+**Audited Source Commit SHA**: 180518fb57b88a5d33427d27d373d2f9f9078adf  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -62,12 +62,14 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 - **`production`**: Total assembled vehicles at manufacturing facilities.
 - **`registrations`**: Official government motor vehicle registry filings.
 
-### 2.4 Deterministic Fixture Provenance & Separation Policy (STEP 4-22)
-- **Deterministic Offline Fixtures (`fixture_verified`)**:
+### 2.4 Deterministic Fixture Provenance & Separation Policy (STEP 4-23)
+- **Deterministic Repository Fixtures (`fixture_verified` / `repository_fixture`)**:
+  - Deterministic repository fixtures are protected by SHA-256 content integrity validation.
+  - These fixtures are not live HTTP retrievals.
   - `DETERMINISTIC_SOURCE_CONTENT_FIXTURES` represent offline repository test and audit fixtures extracted from verified official publications.
-  - They are cryptographically hashed and schema-validated by `validateSourceContentFixtures`.
+  - They are cryptographically hashed and schema-validated by `validateSourceContentFixtures` against recomputed SHA-256 digests.
   - They MUST NOT be described as live or runtime HTTP downloads from corporate investor websites.
-- **Live Source Verification (`live_source_verified`)**:
+- **Live Source Verification (`live_source_verified` / `live_source`)**:
   - Live verification requires an active HTTPS retrieval probe, document content fetch, and cryptographic payload validation at execution time.
 - **Semantic vs Numeric Claim Verification Separation**:
   - Semantic fixtures without an exact `verifiedNumericValue` verify only document locator existence and metric semantic identity (`source_verified`).
@@ -108,12 +110,12 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 - **Zero Tolerance for Unbacked Claims**: Numeric claims cannot achieve `claim_verified` through declarative metadata alone; verification requires a deterministic content fixture or cryptographic extraction binding.
 - **Strict Source Binding**: Source claims are bound to the exact document, metric, period, unit, scope, and accounting basis.
 - **No Stale Historical Reuse**: All historical values reused across periods are audited, preventing copy-paste artifacts.
-- **Fixture Provenance Transparency**: Fixtures are explicitly identified as offline repository fixtures, not live HTTP retrievals.
+- **Fixture Provenance Transparency**: Fixtures are explicitly identified as offline repository fixtures, protected by SHA-256 content integrity validation, and not live HTTP retrievals.
 
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Generated from commit**: `bd90bcdbed5ab2293a00a173ca3e21a525620c6c`
-- **Generated at**: `2026-09-27T13:14:39.425Z`
+- **Audited Source Commit SHA**: `180518fb57b88a5d33427d27d373d2f9f9078adf`
+- **Generated at**: `2026-09-27T13:26:51.394Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`

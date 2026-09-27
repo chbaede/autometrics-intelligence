@@ -361,6 +361,7 @@ export interface ClaimEvidenceLocator {
   claimedScope?: ReportingScope;
   claimedAccountingBasis?: AccountingBasis;
   claimedPeriod?: string;
+  claimedPeriodType?: PeriodType;
   sourceDocId?: string;
   verificationState?: EvidenceClaimVerificationState;
 }
@@ -394,7 +395,7 @@ export interface ClaimVerificationDiagnosticDetails {
 }
 
 /**
- * Base verification result properties shared by all verification states (STEP 4-19, Task 1).
+ * Base verification result properties shared by all verification states (STEP 4-19, Task 1; STEP 4-23, P1).
  */
 export interface BaseClaimVerificationResult {
   verificationMethod: ClaimVerificationEngineMethod;
@@ -405,6 +406,7 @@ export interface BaseClaimVerificationResult {
   expectedValue?: string;
   verifiedAt: string;
   sourceContentHash?: string;
+  verificationOrigin?: 'repository_fixture' | 'live_source';
   diagnostics?: ClaimVerificationDiagnosticDetails;
 }
 
@@ -421,6 +423,7 @@ export interface ClaimVerifiedResult extends BaseClaimVerificationResult {
   verifiedScope?: ReportingScope;
   verifiedAccountingBasis?: AccountingBasis;
   verifiedPeriod?: string;
+  verifiedPeriodType?: PeriodType;
 }
 
 /**
@@ -447,11 +450,15 @@ export interface ClaimVerificationValidationResult {
 }
 
 /**
- * Single structured result object for entire audit suite (STEP 4-22, P1).
+ * Single structured result object for entire audit suite (STEP 4-22, P1; STEP 4-23, P1).
+ * Distinguishes the audited source commit tree (sourceCommitSha) from the commit containing the report.
  */
 export interface AuditReportData {
   generatedAt: string;
-  commitSha: string;
+  /** The repository source tree that was audited when this report was generated (STEP 4-23, P1) */
+  sourceCommitSha: string;
+  /** Backward-compatible alias for sourceCommitSha */
+  commitSha?: string;
   counts: {
     companies: number;
     observations: number;

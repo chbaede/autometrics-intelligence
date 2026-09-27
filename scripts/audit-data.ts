@@ -63,7 +63,7 @@ export function generateMarkdownAuditReport(data: AuditReportData): string {
 
 **Status**: Current (Generated)  
 **Generated At**: ${data.generatedAt}  
-**Commit SHA**: ${data.commitSha}  
+**Audited Source Commit SHA**: ${data.sourceCommitSha}  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -123,12 +123,14 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 - **\`production\`**: Total assembled vehicles at manufacturing facilities.
 - **\`registrations\`**: Official government motor vehicle registry filings.
 
-### 2.4 Deterministic Fixture Provenance & Separation Policy (STEP 4-22)
-- **Deterministic Offline Fixtures (\`fixture_verified\`)**:
+### 2.4 Deterministic Fixture Provenance & Separation Policy (STEP 4-23)
+- **Deterministic Repository Fixtures (\`fixture_verified\` / \`repository_fixture\`)**:
+  - Deterministic repository fixtures are protected by SHA-256 content integrity validation.
+  - These fixtures are not live HTTP retrievals.
   - \`DETERMINISTIC_SOURCE_CONTENT_FIXTURES\` represent offline repository test and audit fixtures extracted from verified official publications.
-  - They are cryptographically hashed and schema-validated by \`validateSourceContentFixtures\`.
+  - They are cryptographically hashed and schema-validated by \`validateSourceContentFixtures\` against recomputed SHA-256 digests.
   - They MUST NOT be described as live or runtime HTTP downloads from corporate investor websites.
-- **Live Source Verification (\`live_source_verified\`)**:
+- **Live Source Verification (\`live_source_verified\` / \`live_source\`)**:
   - Live verification requires an active HTTPS retrieval probe, document content fetch, and cryptographic payload validation at execution time.
 - **Semantic vs Numeric Claim Verification Separation**:
   - Semantic fixtures without an exact \`verifiedNumericValue\` verify only document locator existence and metric semantic identity (\`source_verified\`).
@@ -169,12 +171,12 @@ The ${data.findings.review} review findings represent legitimate, documented aut
 - **Zero Tolerance for Unbacked Claims**: Numeric claims cannot achieve \`claim_verified\` through declarative metadata alone; verification requires a deterministic content fixture or cryptographic extraction binding.
 - **Strict Source Binding**: Source claims are bound to the exact document, metric, period, unit, scope, and accounting basis.
 - **No Stale Historical Reuse**: All historical values reused across periods are audited, preventing copy-paste artifacts.
-- **Fixture Provenance Transparency**: Fixtures are explicitly identified as offline repository fixtures, not live HTTP retrievals.
+- **Fixture Provenance Transparency**: Fixtures are explicitly identified as offline repository fixtures, protected by SHA-256 content integrity validation, and not live HTTP retrievals.
 
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Generated from commit**: \`${data.commitSha}\`
+- **Audited Source Commit SHA**: \`${data.sourceCommitSha}\`
 - **Generated at**: \`${data.generatedAt}\`
 - **Source claim validation**: \`${data.sourceClaimValidation.mismatches === 0 ? 'PASS' : 'FAIL'}\`
 - **Data audit**: \`${data.findings.blocking === 0 ? 'PASS' : 'FAIL'}\`
@@ -182,6 +184,7 @@ The ${data.findings.review} review findings represent legitimate, documented aut
 }
 
 export function buildAuditReportData(options?: {
+  sourceCommitSha?: string;
   commitSha?: string;
   generatedAt?: string;
   blockingFindingsCount?: number;
@@ -189,13 +192,15 @@ export function buildAuditReportData(options?: {
   documentedFindingsCount?: number;
   informationalFindingsCount?: number;
 }): AuditReportData {
-  const commitSha = options?.commitSha ?? getAuditCommitSha();
+  const commitSha = options?.sourceCommitSha ?? options?.commitSha ?? getAuditCommitSha();
+  const sourceCommitSha = options?.sourceCommitSha ?? commitSha;
   const generatedAt = options?.generatedAt ?? new Date().toISOString();
   const scVal = validateSourceClaims(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS);
   const fixVal = validateSourceContentFixtures(DETERMINISTIC_SOURCE_CONTENT_FIXTURES, SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
 
   return {
     generatedAt,
+    sourceCommitSha,
     commitSha,
     counts: {
       companies: COMPANIES_REGISTRY.length,
@@ -1008,6 +1013,7 @@ const generatedAt = new Date().toISOString();
 
 const auditReportData: AuditReportData = {
   generatedAt,
+  sourceCommitSha: commitSha,
   commitSha,
   counts: {
     companies: COMPANIES_REGISTRY.length,
@@ -1047,9 +1053,9 @@ fs.writeFileSync(path.join(docsDir, 'data-audit-report.md'), markdownReport, 'ut
 fs.writeFileSync(path.join(docsDir, 'audit-report.json'), JSON.stringify(auditReportData, null, 2), 'utf-8');
 
 console.log('═════════════════════════════════════════════════════════════════════════════');
-console.log('📄 GENERATED AUDIT ARTIFACTS & PROVENANCE (STEP 4-22)');
+console.log('📄 GENERATED AUDIT ARTIFACTS & PROVENANCE (STEP 4-22 & 4-23)');
 console.log('═════════════════════════════════════════════════════════════════════════════');
-console.log(`Commit SHA:                ${auditReportData.commitSha}`);
+console.log(`Audited Source Commit SHA: ${auditReportData.sourceCommitSha}`);
 console.log(`Generated At:              ${auditReportData.generatedAt}`);
 console.log(`Markdown Report:           docs/data-audit-report.md`);
 console.log(`JSON Report:               docs/audit-report.json`);
