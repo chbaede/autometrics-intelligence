@@ -41,3 +41,4 @@ if (!result.valid) {
 
 console.log(`\n✨ All ${totalClaims} source claims across ${docsWithClaims} documents are 100% consistent with observations and document metadata.\n`);
 process.exit(0);
+

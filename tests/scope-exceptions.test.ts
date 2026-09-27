@@ -61,7 +61,11 @@ import {
   deterministicClaimVerifier,
   DeterministicClaimVerificationEngine,
   DETERMINISTIC_SOURCE_CONTENT_FIXTURES,
+  SourceDocumentContentSnippet,
 } from '../src/data/scopeExceptions';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   getDimensionalObservationKey,
   getEvidenceIdentityKey,
@@ -75,7 +79,10 @@ import {
   detectHistoricalValueReuse,
   validateSourceClaims,
   hasLocatorNumericContradiction,
+  validateSourceContentFixtures,
 } from '../src/utils/metricCalculations';
+import { METRIC_DEFINITIONS } from '../src/data/metricDefinitions';
+import { getAuditCommitSha, buildAuditReportData, generateMarkdownAuditReport } from '../scripts/audit-data';
 import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import { SOURCE_DOCUMENTS } from '../src/data/sources';
 import {
@@ -95,6 +102,9 @@ import {
   ClaimVerificationEngine,
 } from '../src/types/metrics';
 import { COMPANIES_REGISTRY } from '../src/data/companies';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let passed = 0;
 let failed = 0;
@@ -7461,6 +7471,251 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(res234J.diagnostics?.expectedValue === '2.3', 'Test 234J-3: diagnostics has expectedValue');
   check(res234J.diagnostics?.verifiedValue === '2.3', 'Test 234J-4: diagnostics has verifiedValue');
   check(res234J.diagnostics?.numericComparisonResult === 'match', 'Test 234J-5: diagnostics numericComparisonResult is match');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 235: Audit Reproducibility & Provenance Hardening (STEP 4-22)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 235: Audit Reproducibility & Provenance Hardening (STEP 4-22) ---');
+
+  // Test 235a: validateSourceContentFixtures on production fixtures returns valid with 0 errors
+  const fixtureVal = validateSourceContentFixtures(
+    DETERMINISTIC_SOURCE_CONTENT_FIXTURES,
+    SOURCE_DOCUMENTS,
+    METRIC_DEFINITIONS
+  );
+  check(fixtureVal.valid === true, 'Test 235a-1: Production fixtures pass validateSourceContentFixtures');
+  check(fixtureVal.errors.length === 0, 'Test 235a-2: Production fixtures have 0 validation errors');
+  check(DETERMINISTIC_SOURCE_CONTENT_FIXTURES.length > 0, 'Test 235a-3: DETERMINISTIC_SOURCE_CONTENT_FIXTURES is non-empty');
+
+  // Test 235b: Malformed fixtures are rejected with specific error codes
+  const malformedFixtures: SourceDocumentContentSnippet[] = [
+    // 1. Missing/unknown sourceDocId
+    {
+      sourceDocId: 'non_existent_doc_id',
+      sectionLocator: 'Page 1',
+      extractedText: 'Some extracted text',
+      contentHash: 'hash-1',
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+    // 2. Empty contentHash
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionLocator: 'Page 1',
+      extractedText: 'Some extracted text',
+      contentHash: '',
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+    // 3. Empty extractedText
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionLocator: 'Page 1',
+      extractedText: '   ',
+      contentHash: 'hash-3',
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+    // 4. Empty sectionLocator
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionLocator: '',
+      extractedText: 'Some text',
+      contentHash: 'hash-4',
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+    // 5. Period mismatch (BMW Q2 statement has period '2026-Q2', fixture has '2024-FY')
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionLocator: 'Page 1',
+      extractedText: 'Some text',
+      contentHash: 'hash-5',
+      verifiedPeriod: '2024-FY',
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+    // 6. PeriodType mismatch
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionLocator: 'Page 1',
+      extractedText: 'Some text',
+      contentHash: 'hash-6',
+      verifiedPeriodType: 'annual',
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+    // 7. Non-finite numeric value
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionLocator: 'Page 1',
+      extractedText: 'Some text',
+      contentHash: 'hash-7',
+      verifiedNumericValue: NaN,
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+    // 8. Unknown metricId
+    {
+      sourceDocId: 'bmw_2026_q2_statement',
+      sectionLocator: 'Page 1',
+      extractedText: 'Some text',
+      contentHash: 'hash-8',
+      verifiedMetricId: 'unknown_fake_metric_id',
+      verifiedValue: 'test',
+      supportType: 'reported_kpi',
+    },
+  ];
+
+  const malformedVal = validateSourceContentFixtures(
+    malformedFixtures,
+    SOURCE_DOCUMENTS,
+    METRIC_DEFINITIONS
+  );
+  check(malformedVal.valid === false, 'Test 235b-1: Malformed fixtures are invalid');
+  check(malformedVal.errors.some((e) => e.code === 'fixtureSourceDocNotFound'), 'Test 235b-2: Detects fixtureSourceDocNotFound');
+  check(malformedVal.errors.some((e) => e.code === 'fixtureEmptyContentHash'), 'Test 235b-3: Detects fixtureEmptyContentHash');
+  check(malformedVal.errors.some((e) => e.code === 'fixtureEmptyExtractedText'), 'Test 235b-4: Detects fixtureEmptyExtractedText');
+  check(malformedVal.errors.some((e) => e.code === 'fixtureEmptySectionLocator'), 'Test 235b-5: Detects fixtureEmptySectionLocator');
+  check(malformedVal.errors.some((e) => e.code === 'fixturePeriodMismatch'), 'Test 235b-6: Detects fixturePeriodMismatch');
+  check(malformedVal.errors.some((e) => e.code === 'fixturePeriodTypeMismatch'), 'Test 235b-7: Detects fixturePeriodTypeMismatch');
+  check(malformedVal.errors.some((e) => e.code === 'fixtureInvalidNumericValue'), 'Test 235b-8: Detects fixtureInvalidNumericValue');
+  check(malformedVal.errors.some((e) => e.code === 'fixtureUnknownMetricId'), 'Test 235b-9: Detects fixtureUnknownMetricId');
+
+  // Test 235c: Correct numeric claim (BMW Q2 2026 operating_margin 2.3%) -> claim_verified
+  const bmwDoc = SOURCE_DOCUMENTS.find((d) => d.id === 'bmw_2026_q2_statement')!;
+  const bmwCorrectLocator: ClaimEvidenceLocator = {
+    sourceDocId: 'bmw_2026_q2_statement',
+    pageNumber: 11,
+    tableReference: 'Key Figures',
+    originalLabel: 'Automotive EBIT margin',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 2.3,
+    claimedUnit: 'percentage',
+    claimedScope: 'automotive_segment',
+    claimedAccountingBasis: 'reported',
+  };
+  const res235c = verifyClaimEvidence(bmwCorrectLocator, bmwDoc, '2.3', 'numeric_margin_value');
+  check(res235c.state === 'claim_verified', 'Test 235c-1: Correct numeric claim verifies to claim_verified');
+  check(res235c.diagnostics?.failureReason === undefined, 'Test 235c-2: No failureReason on verified claim');
+  check(res235c.verificationMethod === 'rule_engine', 'Test 235c-3: Verification method is rule_engine');
+
+  // Test 235d: Wrong number (BMW Q2 2026 operating_margin 99.9%) -> source_verified (NOT claim_verified)
+  const bmwWrongNumberLocator: ClaimEvidenceLocator = {
+    ...bmwCorrectLocator,
+    claimedNumericValue: 99.9,
+  };
+  const res235d = verifyClaimEvidence(bmwWrongNumberLocator, bmwDoc, '99.9', 'numeric_margin_value');
+  check(res235d.state === 'source_verified', 'Test 235d-1: Wrong number claim downgrades to source_verified');
+  check(res235d.diagnostics?.failureReason === 'numericValueMismatch', 'Test 235d-2: failureReason is numericValueMismatch');
+
+  // Test 235e: Wrong metric (operating_income against margin fixture) -> source_verified
+  const bmwWrongMetricLocator: ClaimEvidenceLocator = {
+    ...bmwCorrectLocator,
+    claimedMetricId: 'operating_income',
+  };
+  const res235e = verifyClaimEvidence(bmwWrongMetricLocator, bmwDoc, '2.3', 'numeric_margin_value');
+  check(res235e.state === 'source_verified', 'Test 235e-1: Wrong metric claim downgrades to source_verified');
+  check(res235e.diagnostics?.failureReason === 'metricMismatch', 'Test 235e-2: failureReason is metricMismatch');
+
+  // Test 235f: Wrong period (Q1 claim against Q2 fixture) -> source_verified
+  const bmwQ1Doc = SOURCE_DOCUMENTS.find((d) => d.id === 'bmw_2026_q1_statement')!;
+  const bmwWrongPeriodLocator: ClaimEvidenceLocator = {
+    ...bmwCorrectLocator,
+    sourceDocId: 'bmw_2026_q1_statement',
+  };
+  const res235f = verifyClaimEvidence(bmwWrongPeriodLocator, bmwQ1Doc, '2.3', 'numeric_margin_value');
+  check(res235f.state === 'source_verified', 'Test 235f-1: Wrong period/doc downgrades to source_verified');
+
+  // Test 235g: Wrong scope (consolidated_group claimed vs automotive_segment fixture) -> source_verified
+  const bmwWrongScopeLocator: ClaimEvidenceLocator = {
+    ...bmwCorrectLocator,
+    claimedScope: 'consolidated_group',
+  };
+  const res235g = verifyClaimEvidence(bmwWrongScopeLocator, bmwDoc, '2.3', 'numeric_margin_value');
+  check(res235g.state === 'source_verified', 'Test 235g-1: Wrong scope claim downgrades to source_verified');
+  check(res235g.diagnostics?.failureReason === 'scopeMismatch', 'Test 235g-2: failureReason is scopeMismatch');
+
+  // Test 235h: Semantic-only fixture without verifiedNumericValue cannot produce claim_verified
+  const semanticOnlyFixtureDoc: SourceDocument = {
+    id: 'mock_semantic_doc',
+    companyId: 'bmw_group',
+    title: 'Mock Semantic Doc',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-08-01',
+    officialUrl: 'https://example.com/semantic',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+  };
+  const semanticOnlyLocator: ClaimEvidenceLocator = {
+    sourceDocId: 'mock_semantic_doc',
+    pageNumber: 5,
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 5.5,
+  };
+  const semanticSnippet: SourceDocumentContentSnippet = {
+    sourceDocId: 'mock_semantic_doc',
+    sectionLocator: 'Page 5',
+    extractedText: 'Operating margin discussion only',
+    contentHash: 'hash-semantic-only',
+    verifiedValue: 'operating_margin',
+    verifiedMetricId: 'operating_margin',
+    supportType: 'reported_kpi',
+  };
+  const res235h = verifyClaimEvidence(
+    semanticOnlyLocator,
+    semanticOnlyFixtureDoc,
+    '5.5',
+    'numeric_margin_value',
+    { contentFixtures: [semanticSnippet] }
+  );
+  check(res235h.state === 'source_verified', 'Test 235h-1: Semantic-only fixture cannot produce claim_verified');
+  check(res235h.diagnostics?.failureReason === 'numericValueMissing', 'Test 235h-2: failureReason is numericValueMissing');
+
+  // Test 235i: Provenance commit SHA resolution and anti-stale check
+  const resolvedSha = getAuditCommitSha();
+  check(typeof resolvedSha === 'string' && resolvedSha.length > 0, 'Test 235i-1: Commit SHA is non-empty string');
+  check(resolvedSha !== '32930daad67db959427555f35a90323cce68e247', 'Test 235i-2: Commit SHA is not the stale commit from prior step');
+
+  // Test 235j: Single AuditReportData result object integrity & dynamic derivation
+  const auditData = buildAuditReportData();
+  check(typeof auditData.generatedAt === 'string', 'Test 235j-1: generatedAt is string');
+  check(!isNaN(Date.parse(auditData.generatedAt)), 'Test 235j-2: generatedAt is valid ISO-8601');
+  check(auditData.commitSha === resolvedSha, 'Test 235j-3: auditData.commitSha matches getAuditCommitSha()');
+  check(auditData.counts.companies === COMPANIES_REGISTRY.length, 'Test 235j-4: companies count is dynamic');
+  check(auditData.counts.observations === METRIC_OBSERVATIONS.length, 'Test 235j-5: observations count is dynamic');
+  check(auditData.counts.sourceDocuments === SOURCE_DOCUMENTS.length, 'Test 235j-6: sourceDocuments count is dynamic');
+  check(auditData.counts.sourceClaims === 113, 'Test 235j-7: sourceClaims count matches actual audited count');
+  check(auditData.sourceClaimValidation.checked === 113, 'Test 235j-8: sourceClaimValidation.checked matches');
+  check(auditData.sourceClaimValidation.mismatches === 0, 'Test 235j-9: sourceClaimValidation.mismatches is 0');
+  check(auditData.fixtureValidation?.valid === true, 'Test 235j-10: fixtureValidation.valid is true');
+  check(auditData.fixtureValidation?.errors === 0, 'Test 235j-11: fixtureValidation.errors is 0');
+
+  // Test 235k: Generated markdown audit report incorporates metadata & exact counts
+  const markdown = generateMarkdownAuditReport(auditData);
+  check(markdown.includes(`**Commit SHA**: ${auditData.commitSha}`), 'Test 235k-1: Markdown contains commit SHA');
+  check(markdown.includes(`**Generated At**: ${auditData.generatedAt}`), 'Test 235k-2: Markdown contains generatedAt timestamp');
+  check(markdown.includes('Generated from commit') && markdown.includes(auditData.commitSha), 'Test 235k-3: Markdown contains provenance footer commit');
+  check(markdown.includes('Source claim validation') && markdown.includes('`PASS`'), 'Test 235k-4: Markdown contains source claim PASS');
+  check(markdown.includes('Data audit') && markdown.includes('`PASS`'), 'Test 235k-5: Markdown contains data audit PASS');
+  check(markdown.includes('fixture_verified'), 'Test 235k-6: Markdown documents fixture_verified policy');
+
+  // Test 235l: After generation, report.commitSha === current HEAD must be true
+  const freshReport = buildAuditReportData();
+  check(freshReport.commitSha === resolvedSha, 'Test 235l-1: After generation, report.commitSha === current HEAD');
+  const auditReportJsonPath = path.resolve(__dirname, '../docs/audit-report.json');
+  if (fs.existsSync(auditReportJsonPath)) {
+    const diskJson = JSON.parse(fs.readFileSync(auditReportJsonPath, 'utf-8'));
+    check(diskJson.commitSha !== '32930daad67db959427555f35a90323cce68e247', 'Test 235l-2: On-disk report is not the stale commit 32930da');
+    if (!process.env.GITHUB_SHA) {
+      check(diskJson.commitSha === resolvedSha, 'Test 235l-3: On-disk docs/audit-report.json matches current commit SHA in local repository');
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

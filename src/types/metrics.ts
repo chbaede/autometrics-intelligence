@@ -180,6 +180,7 @@ export interface AuditFinding {
     | 'SCOPE_MISMATCH'
     | 'SOURCE_METADATA'
     | 'SOURCE_CLAIM_INTEGRITY'
+    | 'FIXTURE_INTEGRITY'
     | 'AMBIGUOUS_SELECTION'
     | 'PROVENANCE_INFO'
     | 'UNCATEGORIZED';
@@ -443,6 +444,56 @@ export type ClaimVerificationResult = ClaimVerifiedResult | SourceVerifiedResult
 export interface ClaimVerificationValidationResult {
   valid: boolean;
   mismatches: string[];
+}
+
+/**
+ * Single structured result object for entire audit suite (STEP 4-22, P1).
+ */
+export interface AuditReportData {
+  generatedAt: string;
+  commitSha: string;
+  counts: {
+    companies: number;
+    observations: number;
+    regionalObservations: number;
+    guidance: number;
+    sourceDocuments: number;
+    documentsWithSourceClaims: number;
+    sourceClaims: number;
+  };
+  sourceClaimValidation: {
+    checked: number;
+    mismatches: number;
+  };
+  fixtureValidation?: {
+    totalFixtures: number;
+    valid: boolean;
+    errors: number;
+  };
+  findings: {
+    blocking: number;
+    review: number;
+    documented: number;
+    informational: number;
+  };
+}
+
+/**
+ * Validation error for deterministic source content fixtures (STEP 4-22, P1).
+ */
+export interface SourceContentFixtureValidationError {
+  code: string;
+  sourceDocId: string;
+  fixtureIndex: number;
+  detail: string;
+}
+
+/**
+ * Validation result for deterministic source content fixtures (STEP 4-22, P1).
+ */
+export interface SourceContentFixtureValidationResult {
+  valid: boolean;
+  errors: SourceContentFixtureValidationError[];
 }
 
 /**

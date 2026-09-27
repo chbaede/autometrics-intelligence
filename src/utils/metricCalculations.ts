@@ -35,9 +35,20 @@ import {
   SourceClaimValidationResult,
   NumericMatchOptions,
   ClaimEvidenceLocator,
+  SourceContentFixtureValidationError,
+  SourceContentFixtureValidationResult,
+  AuditReportData,
 } from '../types/metrics';
 import type { SourceClaim } from '../types/metrics';
-export type { SourceClaim, SourceClaimValidationError, SourceClaimValidationResult, NumericMatchOptions };
+export type {
+  SourceClaim,
+  SourceClaimValidationError,
+  SourceClaimValidationResult,
+  NumericMatchOptions,
+  SourceContentFixtureValidationError,
+  SourceContentFixtureValidationResult,
+  AuditReportData,
+};
 import {
   DocumentedScopeException,
   isProxyException,
@@ -45,6 +56,7 @@ import {
   validateProxyMappingCompatibility,
   DOCUMENTED_REPORTED_KPIS,
   PROXY_METRIC_MAPPINGS,
+  SourceDocumentContentSnippet,
 } from '../data/scopeExceptions';
 import { SOURCES_MAP } from '../data/sources';
 import { METRICS_MAP } from '../data/metricDefinitions';
@@ -2871,6 +2883,128 @@ export function validateSourceClaims(
     errors,
     checkedCount,
     mismatchCount: errors.length,
+  };
+}
+
+/**
+ * Validates deterministic source content fixtures against source documents and metric definitions (STEP 4-22, P1).
+ *
+ * Rules:
+ *  - sourceDocId must exist in sourceDocs
+ *  - contentHash must be non-empty
+ *  - extractedText must be non-empty
+ *  - sectionLocator must be non-empty
+ *  - verifiedPeriod must match sourceDocument.period when supplied
+ *  - verifiedPeriodType must match sourceDocument.periodType when supplied
+ *  - verifiedNumericValue must be finite when supplied
+ *  - verifiedUnit must be valid when supplied
+ *  - verifiedScope must be valid when supplied
+ *  - verifiedAccountingBasis must be valid when supplied
+ */
+export function validateSourceContentFixtures(
+  fixtures: SourceDocumentContentSnippet[],
+  sourceDocs: SourceDocument[],
+  metricDefs?: { id: string }[]
+): SourceContentFixtureValidationResult {
+  const errors: SourceContentFixtureValidationError[] = [];
+  const sourceDocMap: Record<string, SourceDocument> = {};
+  for (const doc of sourceDocs) {
+    sourceDocMap[doc.id] = doc;
+  }
+
+  const metricDefMap: Record<string, boolean> = {};
+  if (metricDefs) {
+    for (const m of metricDefs) {
+      metricDefMap[m.id] = true;
+    }
+  }
+
+  fixtures.forEach((f, idx) => {
+    // 1. sourceDocId exists
+    const doc = sourceDocMap[f.sourceDocId];
+    if (!doc) {
+      errors.push({
+        code: 'fixtureSourceDocNotFound',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture at index ${idx} references unknown sourceDocId "${f.sourceDocId}".`,
+      });
+    }
+
+    // 2. contentHash non-empty
+    if (!f.contentHash || typeof f.contentHash !== 'string' || f.contentHash.trim() === '') {
+      errors.push({
+        code: 'fixtureEmptyContentHash',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture at index ${idx} ("${f.sourceDocId}") has empty or missing contentHash.`,
+      });
+    }
+
+    // 3. extractedText non-empty
+    if (!f.extractedText || typeof f.extractedText !== 'string' || f.extractedText.trim() === '') {
+      errors.push({
+        code: 'fixtureEmptyExtractedText',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture at index ${idx} ("${f.sourceDocId}") has empty or missing extractedText.`,
+      });
+    }
+
+    // 4. sectionLocator non-empty
+    if (!f.sectionLocator || typeof f.sectionLocator !== 'string' || f.sectionLocator.trim() === '') {
+      errors.push({
+        code: 'fixtureEmptySectionLocator',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture at index ${idx} ("${f.sourceDocId}") has empty or missing sectionLocator.`,
+      });
+    }
+
+    // 5. verifiedPeriod matches sourceDocument.period
+    if (f.verifiedPeriod && doc && f.verifiedPeriod !== doc.period) {
+      errors.push({
+        code: 'fixturePeriodMismatch',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture verifiedPeriod "${f.verifiedPeriod}" does not match source document period "${doc.period}".`,
+      });
+    }
+
+    // 6. verifiedPeriodType matches sourceDocument.periodType
+    if (f.verifiedPeriodType && doc && f.verifiedPeriodType !== doc.periodType) {
+      errors.push({
+        code: 'fixturePeriodTypeMismatch',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture verifiedPeriodType "${f.verifiedPeriodType}" does not match source document periodType "${doc.periodType}".`,
+      });
+    }
+
+    // 7. verifiedNumericValue is finite
+    if (f.verifiedNumericValue !== undefined && (!Number.isFinite(f.verifiedNumericValue) || isNaN(f.verifiedNumericValue))) {
+      errors.push({
+        code: 'fixtureInvalidNumericValue',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture verifiedNumericValue "${f.verifiedNumericValue}" is not a finite number.`,
+      });
+    }
+
+    // 8. verifiedMetricId exists in metric definitions if supplied
+    if (f.verifiedMetricId && metricDefs && !metricDefMap[f.verifiedMetricId]) {
+      errors.push({
+        code: 'fixtureUnknownMetricId',
+        sourceDocId: f.sourceDocId,
+        fixtureIndex: idx,
+        detail: `Fixture verifiedMetricId "${f.verifiedMetricId}" does not exist in METRIC_DEFINITIONS.`,
+      });
+    }
+  });
+
+  return {
+    valid: errors.length === 0,
+    errors,
   };
 }
 

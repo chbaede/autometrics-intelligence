@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-09-27T13:14:16.319Z",
+  "commitSha": "f09ba913c11a7608b499f5398411ee5de8be5b19",
+  "counts": {
+    "companies": 16,
+    "observations": 384,
+    "regionalObservations": 344,
+    "guidance": 20,
+    "sourceDocuments": 82,
+    "documentsWithSourceClaims": 22,
+    "sourceClaims": 113
+  },
+  "sourceClaimValidation": {
+    "checked": 113,
+    "mismatches": 0
+  },
+  "fixtureValidation": {
+    "totalFixtures": 10,
+    "valid": true,
+    "errors": 0
+  },
+  "findings": {
+    "blocking": 0,
+    "review": 8,
+    "documented": 0,
+    "informational": 0
+  }
+}

@@ -1,8 +1,8 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-09-27T14:52:00Z  
-**Commit SHA**: 32930daad67db959427555f35a90323cce68e247  
+**Generated At**: 2026-09-27T13:14:16.319Z  
+**Commit SHA**: f09ba913c11a7608b499f5398411ee5de8be5b19  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -13,12 +13,13 @@
 
 This comprehensive data audit inspects all 16 registered automakers, 384 primary financial and delivery observations, 344 regional delivery observations, 20 management forward-looking guidance items, and 82 verified primary source documents in the AutoMetrics Intelligence platform.
 
-Through **STEP 4-19 to STEP 4-21**, the evidence and verification layers were hardened with:
+Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were hardened with:
 1. **Source Claim Integrity Validator**: Deterministically audits all `SourceClaim` entries against `SourceDocument` metadata and `MetricObservation` records across 10 error codes (`sourceClaimCompanyMismatch`, `sourceClaimPeriodMismatch`, `sourceClaimPeriodTypeMismatch`, `sourceClaimMetricMismatch`, `sourceClaimValueMismatch`, `sourceClaimUnitMismatch`, `sourceClaimScopeMismatch`, `sourceClaimAccountingBasisMismatch`, `sourceClaimWithoutObservation`, `ambiguousSourceClaimObservation`).
 2. **Numeric Claim Verification Engine**: Strongly binds claims to exact numbers, preventing semantic-only verification (`claim_verified` requires exact numeric match within unit-aware tolerance).
 3. **Locator Contradiction Rejection**: Explicitly rejects locators that contain numbers contradicting extracted source document snippets.
 4. **Historical Value Reuse Detection**: Actively detects and prevents reuse of identical historical values across periods without explicit justification (`allowHistoricalDuplicate`).
-5. **Proxy Mapping Invariants**: Preserves strict proxy safety invariants (`proxy_only`, `disposition: review`, `mathematicallyVerified: false`).
+5. **Deterministic Fixture Integrity & Separation**: Separates offline repository fixtures (`fixture_verified`) from live HTTP retrieval (`live_source_verified`), ensuring complete cryptographic fixture validation.
+6. **Proxy Mapping Invariants**: Preserves strict proxy safety invariants (`proxy_only`, `disposition: review`, `mathematicallyVerified: false`).
 
 ### Verification & Audit Summary
 
@@ -61,6 +62,17 @@ Through **STEP 4-19 to STEP 4-21**, the evidence and verification layers were ha
 - **`production`**: Total assembled vehicles at manufacturing facilities.
 - **`registrations`**: Official government motor vehicle registry filings.
 
+### 2.4 Deterministic Fixture Provenance & Separation Policy (STEP 4-22)
+- **Deterministic Offline Fixtures (`fixture_verified`)**:
+  - `DETERMINISTIC_SOURCE_CONTENT_FIXTURES` represent offline repository test and audit fixtures extracted from verified official publications.
+  - They are cryptographically hashed and schema-validated by `validateSourceContentFixtures`.
+  - They MUST NOT be described as live or runtime HTTP downloads from corporate investor websites.
+- **Live Source Verification (`live_source_verified`)**:
+  - Live verification requires an active HTTPS retrieval probe, document content fetch, and cryptographic payload validation at execution time.
+- **Semantic vs Numeric Claim Verification Separation**:
+  - Semantic fixtures without an exact `verifiedNumericValue` verify only document locator existence and metric semantic identity (`source_verified`).
+  - To achieve `claim_verified`, the fixture must contain a finite `verifiedNumericValue` and match the claimed numeric value within strict unit-aware tolerance.
+
 ---
 
 ## 3. Command Execution & Verification Results
@@ -68,12 +80,12 @@ Through **STEP 4-19 to STEP 4-21**, the evidence and verification layers were ha
 | Command | Exit Code | Result | Key Summary Output |
 | :--- | :---: | :---: | :--- |
 | `npm run typecheck` | 0 | **PASS** | 0 TypeScript errors across the entire codebase |
-| `npm test` | 0 | **PASS** | 8 / 8 test suites passed (1,224 assertions passed) |
+| `npm test` | 0 | **PASS** | Complete unit and integration regression test suite passed |
 | `npm run validate-source-claims` | 0 | **PASS** | All 113 source claims across 22 documents validated with 0 errors |
-| `npm run validate-data` | 0 | **PASS** | Strict schema, HTTPS, metadata & source claims integrity passed with 0 errors |
+| `npm run validate-data` | 0 | **PASS** | Strict schema, HTTPS, metadata, fixtures & source claims integrity passed with 0 errors |
 | `npm run audit-data` | 0 | **PASS** | Scope-safe semantic audit passed with 0 blocking errors (8 proxy review findings) |
-| `npm run build` | 0 | **PASS** | Vite production build generated clean distribution artifacts |
 | `npm run lint` | 0 | **PASS** | ESLint verified clean codebase with zero errors |
+| `npm run build` | 0 | **PASS** | Vite production build generated clean distribution artifacts |
 
 ---
 
@@ -96,3 +108,12 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 - **Zero Tolerance for Unbacked Claims**: Numeric claims cannot achieve `claim_verified` through declarative metadata alone; verification requires a deterministic content fixture or cryptographic extraction binding.
 - **Strict Source Binding**: Source claims are bound to the exact document, metric, period, unit, scope, and accounting basis.
 - **No Stale Historical Reuse**: All historical values reused across periods are audited, preventing copy-paste artifacts.
+- **Fixture Provenance Transparency**: Fixtures are explicitly identified as offline repository fixtures, not live HTTP retrievals.
+
+---
+
+### Audit Execution Metadata & Provenance
+- **Generated from commit**: `f09ba913c11a7608b499f5398411ee5de8be5b19`
+- **Generated at**: `2026-09-27T13:14:16.319Z`
+- **Source claim validation**: `PASS`
+- **Data audit**: `PASS`

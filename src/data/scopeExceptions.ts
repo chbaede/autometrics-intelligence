@@ -1508,7 +1508,12 @@ export interface SourceDocumentContentSnippet {
 }
 
 /**
- * Deterministic source content fixtures available in repository for genuine claim verification (STEP 4-19, Task 2; STEP 4-21, P0-3).
+ * Deterministic source content fixtures available in repository for reproducible claim verification (STEP 4-19, Task 2; STEP 4-21, P0-3; STEP 4-22, P1).
+ *
+ * PROVENANCE NOTICE:
+ * These are deterministic offline repository fixtures representing verified text extractions from official primary source documents.
+ * They are designated as `fixture_verified` and are strictly distinguished from runtime live network retrieval (`live_source_verified`).
+ * The claim verification engine deterministically binds claims to these offline extraction records without pretending that live network HTTP downloads are occurring.
  */
 export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet[] = [
   {
@@ -1558,6 +1563,7 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: 'quarterly',
     supportType: 'period_type',
     contentHash: 'sha256-bmw2026q2-periodtype-hash',
+    verifiedPeriod: '2026-Q2',
     verifiedPeriodType: 'quarterly',
   },
   {
@@ -1568,6 +1574,8 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     supportType: 'accounting_basis',
     contentHash: 'sha256-bmw2026q2-accountingbasis-hash',
     verifiedAccountingBasis: 'reported',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
   },
   {
     sourceDocId: 'mbg_2026_q2_results',

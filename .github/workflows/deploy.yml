@@ -40,11 +40,26 @@ jobs:
       - name: Validate data
         run: npm run validate-data
 
+      - name: Validate source claims
+        run: npm run validate-source-claims
+
       - name: Audit data
         run: npm run audit-data
 
+      - name: Lint
+        run: npm run lint
+
       - name: Build
         run: npm run build
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: |
+            docs/data-audit-report.md
+            docs/audit-report.json
+          if-no-files-found: error
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

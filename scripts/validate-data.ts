@@ -5,7 +5,8 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 
-import { getDimensionalObservationKey, validateSourceClaims } from '../src/utils/metricCalculations';
+import { getDimensionalObservationKey, validateSourceClaims, validateSourceContentFixtures } from '../src/utils/metricCalculations';
+import { DETERMINISTIC_SOURCE_CONTENT_FIXTURES } from '../src/data/scopeExceptions';
 
 console.log('🚀 Running AutoMetrics Data Ingestion & Strict Integrity Validator...\n');
 
@@ -56,6 +57,15 @@ const sourceClaimValResult = validateSourceClaims(SOURCE_DOCUMENTS, METRIC_OBSER
 if (!sourceClaimValResult.valid) {
   for (const err of sourceClaimValResult.errors) {
     console.error(`❌ Source Claim Error (${err.code}): ${err.detail}`);
+    errorCount++;
+  }
+}
+
+// Run deterministic source content fixture validator (STEP 4-22, P1)
+const fixtureValResult = validateSourceContentFixtures(DETERMINISTIC_SOURCE_CONTENT_FIXTURES, SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
+if (!fixtureValResult.valid) {
+  for (const err of fixtureValResult.errors) {
+    console.error(`❌ Source Content Fixture Error (${err.code}): ${err.detail}`);
     errorCount++;
   }
 }
