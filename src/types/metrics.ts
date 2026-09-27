@@ -451,6 +451,97 @@ export interface ClaimVerificationValidationResult {
 }
 
 /**
+ * Successfully retrieved official IR live source document with cryptographic raw-byte provenance (STEP 5-1, Section 1).
+ *
+ * PROVENANCE & VERIFICATION BOUNDARY:
+ * Live source retrieval guarantees transport provenance and exact raw-byte integrity,
+ * but DOES NOT verify or prove any claim or metric (source_retrieved ≠ source_verified ≠ claim_verified).
+ */
+export interface LiveSourceDocument {
+  id: string;
+  url: string;
+  finalUrl: string;
+  retrievedAt: string;
+  httpStatus: number;
+  contentType: string;
+  contentLength: number;
+  contentHash: string;
+  hashAlgorithm: 'sha256';
+  sourceKind: 'official_ir';
+  /** Optional matching registered SourceDocument ID if authorized against registry */
+  sourceDocId?: string;
+  /** Optional automaker company ID if authorized against registry */
+  companyId?: string;
+}
+
+/**
+ * Structured error codes for live source fetching (STEP 5-1, Section 4).
+ */
+export type LiveSourceFetchErrorCode =
+  | 'invalidUrl'
+  | 'unsupportedProtocol'
+  | 'redirectLimitExceeded'
+  | 'redirectProtocolRejected'
+  | 'requestTimeout'
+  | 'httpError'
+  | 'responseTooLarge'
+  | 'missingContentType'
+  | 'unsupportedContentType'
+  | 'networkError'
+  | 'unauthorizedSource';
+
+/**
+ * Structured error details for live source fetching failures (STEP 5-1, Section 4).
+ */
+export interface LiveSourceFetchError {
+  code: LiveSourceFetchErrorCode;
+  message: string;
+  url: string;
+  finalUrl?: string;
+  httpStatus?: number;
+  contentType?: string;
+  details?: string;
+}
+
+/**
+ * Discriminated union result for official IR live source retrieval (STEP 5-1, Section 2 & 4).
+ */
+export type LiveSourceFetchResult =
+  | {
+      success: true;
+      document: LiveSourceDocument;
+      rawBytes: Uint8Array;
+    }
+  | {
+      success: false;
+      error: LiveSourceFetchError;
+    };
+
+/**
+ * Options for configuring live source fetching (STEP 5-1, Section 2).
+ */
+export interface LiveSourceFetchOptions {
+  /** Maximum execution time in milliseconds before aborting (default: 15,000 ms) */
+  timeoutMs?: number;
+  /** Maximum allowed response size in bytes (default: 20 * 1024 * 1024 = 20 MB) */
+  maxResponseBytes?: number;
+  /** Maximum number of redirects allowed (default: 5) */
+  maxRedirects?: number;
+  /** Supported Content-Type media types (default: ['application/pdf', 'text/html']) */
+  allowedContentTypes?: string[];
+  /** Optional custom fetch implementation for dependency injection / offline testing */
+  fetchFn?: typeof fetch;
+  /** Optional custom identifier for the created LiveSourceDocument */
+  id?: string;
+  /** Require URL to be authorized against registered SourceDocuments */
+  requireSourceAuthorization?: boolean;
+  /** List of authorized SourceDocuments (defaults to registered SOURCE_DOCUMENTS) */
+  authorizedSources?: SourceDocument[];
+  /** Allow loopback/private network addresses (default: false, set true in unit tests) */
+  allowLocalhost?: boolean;
+}
+
+/**
  * Single structured result object for entire audit suite (STEP 4-22, P1; STEP 4-23, P1).
  * Distinguishes the audited source commit tree (sourceCommitSha) from the commit containing the report.
  */
