@@ -1992,6 +1992,14 @@ export function validateClaimVerificationResult(
     };
   }
 
+  // 0. verificationOrigin check (STEP 4-24.2, P0-1)
+  const validOrigins: string[] = ['repository_fixture', 'live_source'];
+  if (!result.verificationOrigin || typeof result.verificationOrigin !== 'string' || result.verificationOrigin.trim() === '') {
+    mismatches.push('verificationOriginMissing');
+  } else if (!validOrigins.includes(result.verificationOrigin)) {
+    mismatches.push('verificationOriginInvalid');
+  }
+
   // 1. sourceDocId does not match
   if (!sourceDoc || !sourceDoc.id || result.sourceDocId !== sourceDoc.id) {
     mismatches.push('verificationSourceDocMismatch');

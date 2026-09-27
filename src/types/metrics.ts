@@ -416,6 +416,7 @@ export interface BaseClaimVerificationResult {
  */
 export interface ClaimVerifiedResult extends BaseClaimVerificationResult {
   state: 'claim_verified';
+  verificationOrigin: 'repository_fixture' | 'live_source';
   verifiedValue: string;
   verifiedMetricId?: string;
   verifiedNumericValue?: number;

@@ -632,6 +632,20 @@ console.log('\n--- 14. Verification Result Validation & Anti-Forgery ---');
     { label: 'invalid format sourceContentHash (63 hex chars)', corrupt: { sourceContentHash: 'a'.repeat(63) }, expectedMismatch: 'verificationContentHashInvalid' },
     { label: 'invalid format sourceContentHash (65 hex chars)', corrupt: { sourceContentHash: 'a'.repeat(65) }, expectedMismatch: 'verificationContentHashInvalid' },
     { label: 'invalid format sourceContentHash (non-hex characters)', corrupt: { sourceContentHash: 'z'.repeat(64) }, expectedMismatch: 'verificationContentHashInvalid' },
+
+    // STEP 4-24.2: Verification origin completeness tests (P0-1, P0-2, P0-7)
+    { label: 'omitted verificationOrigin (undefined)', corrupt: { verificationOrigin: undefined as any }, expectedMismatch: 'verificationOriginMissing' },
+    { label: 'omitted verificationOrigin (empty string)', corrupt: { verificationOrigin: '' as any }, expectedMismatch: 'verificationOriginMissing' },
+    { label: 'invalid verificationOrigin (unknown)', corrupt: { verificationOrigin: 'unknown' as any }, expectedMismatch: 'verificationOriginInvalid' },
+    { label: 'invalid verificationOrigin (manual)', corrupt: { verificationOrigin: 'manual' as any }, expectedMismatch: 'verificationOriginInvalid' },
+    // Downgrade trick Case A: undefined origin with valid hash
+    { label: 'Case A: undefined origin with valid hash', corrupt: { verificationOrigin: undefined as any, sourceContentHash: baselineContentHash }, expectedMismatch: 'verificationOriginMissing' },
+    // Downgrade trick Case B: repository_fixture with undefined hash
+    { label: 'Case B: repository_fixture with undefined hash', corrupt: { verificationOrigin: 'repository_fixture', sourceContentHash: undefined }, expectedMismatch: 'verificationContentHashMissing' },
+    // Downgrade trick Case C: repository_fixture with invalid hash
+    { label: 'Case C: repository_fixture with invalid hash', corrupt: { verificationOrigin: 'repository_fixture', sourceContentHash: 'invalid-hash' }, expectedMismatch: 'verificationContentHashInvalid' },
+    // Downgrade trick Case E: invalid origin with valid hash
+    { label: 'Case E: invalid origin with valid hash', corrupt: { verificationOrigin: 'unknown' as any, sourceContentHash: baselineContentHash }, expectedMismatch: 'verificationOriginInvalid' },
   ];
 
   for (const { label, corrupt, expectedMismatch, options } of corruptions) {
@@ -755,6 +769,16 @@ console.log('\n--- 16. State Resolution Integration ---');
     { label: 'sourceContentHash undefined', corrupt: { sourceContentHash: undefined } },
     { label: 'sourceContentHash empty string', corrupt: { sourceContentHash: '' } },
     { label: 'sourceContentHash invalid format', corrupt: { sourceContentHash: 'sha256-invalid' } },
+
+    // STEP 4-24.2: Origin completeness tests (P0-1, P0-5, P0-7)
+    { label: 'verificationOrigin undefined', corrupt: { verificationOrigin: undefined as any } },
+    { label: 'verificationOrigin empty string', corrupt: { verificationOrigin: '' as any } },
+    { label: 'verificationOrigin invalid ("unknown")', corrupt: { verificationOrigin: 'unknown' as any } },
+    { label: 'verificationOrigin invalid ("manual")', corrupt: { verificationOrigin: 'manual' as any } },
+    { label: 'Case A: undefined origin with valid hash', corrupt: { verificationOrigin: undefined as any, sourceContentHash: baselineContentHash } },
+    { label: 'Case B: repository_fixture with undefined hash', corrupt: { verificationOrigin: 'repository_fixture', sourceContentHash: undefined } },
+    { label: 'Case C: repository_fixture with invalid hash', corrupt: { verificationOrigin: 'repository_fixture', sourceContentHash: 'invalid-hash' } },
+    { label: 'Case E: invalid origin with valid hash', corrupt: { verificationOrigin: 'unknown' as any, sourceContentHash: baselineContentHash } },
   ];
 
   for (const { label, corrupt } of omissionVariants) {
@@ -773,6 +797,28 @@ console.log('\n--- 16. State Resolution Integration ---');
       `Forged result (${label}) fails validation and resolves to source_verified, NOT claim_verified`
     );
   }
+
+  // 5. Valid live_source verification result (STEP 4-24.2, P0-3, P0-6, P0-7 Case D)
+  const validLiveSourceResult: ClaimVerifiedResult = {
+    ...validEngineResult,
+    verificationOrigin: 'live_source',
+    sourceContentHash: undefined,
+  };
+  const valLive = validateClaimVerificationResult(
+    baselineClaim,
+    baselineDoc,
+    '2.3',
+    validLiveSourceResult,
+    'reported_kpi'
+  );
+  assert(valLive.valid === true, 'Valid live_source result passes validation without requiring fixture hash (Case D)');
+  const liveState = resolveClaimVerificationState(
+    mockEvidence,
+    true,
+    validLiveSourceResult,
+    { claim: baselineClaim, sourceDoc: baselineDoc, expectedValue: '2.3', supportType: 'reported_kpi' }
+  );
+  assert(liveState === 'claim_verified', 'Valid live_source result promotes to claim_verified (Case D)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

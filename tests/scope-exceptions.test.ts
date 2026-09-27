@@ -6819,13 +6819,14 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const engineResultVerified: ClaimVerificationResult = {
     state: 'claim_verified',
     verificationMethod: 'rule_engine',
+    verificationOrigin: 'repository_fixture',
     engineId: 'deterministic_content_verifier',
     engineVersion: '1.0.0',
     sourceDocId: 'bmw_2026_q2_statement',
     claimSupportType: 'scope',
     verifiedValue: 'automotive_segment',
     verifiedAt: '2026-09-26T09:00:00Z',
-    sourceContentHash: 'sha256-abcdef123456',
+    sourceContentHash: 'eb94e239f7841bfd0b4928b4d02e013e008c263a8c21c463fec5062c93ad8b4e',
   };
   check(resolveClaimVerificationState(sampleEv, true, engineResultVerified) === 'claim_verified', 'Test 229e: Dedicated engine result with claim_verified resolves to claim_verified');
 
