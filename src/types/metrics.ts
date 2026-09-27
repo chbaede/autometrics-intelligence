@@ -179,6 +179,7 @@ export interface AuditFinding {
     | 'MATH_MISMATCH'
     | 'SCOPE_MISMATCH'
     | 'SOURCE_METADATA'
+    | 'SOURCE_CLAIM_INTEGRITY'
     | 'AMBIGUOUS_SELECTION'
     | 'PROVENANCE_INFO'
     | 'UNCATEGORIZED';
@@ -339,15 +340,27 @@ export type EvidenceSupportType =
   | 'accounting_basis'
   | 'period'
   | 'period_type'
-  | 'reported_kpi';
+  | 'reported_kpi'
+  | 'numeric_margin_value';
 
 /**
- * Structured claim-level evidence locator representation (STEP 4-16, Task 2).
+ * Structured claim-level evidence locator representation (STEP 4-16, Task 2; STEP 4-21, P0-6).
  * Allows binding specific claim locators and claimed values to evidence.
  */
 export interface ClaimEvidenceLocator {
-  locator: string;
+  locator?: string;
+  pageNumber?: number | string;
+  tableReference?: string;
+  sectionReference?: string;
+  originalLabel?: string;
   claimedValue?: string;
+  claimedMetricId?: string;
+  claimedNumericValue?: number;
+  claimedUnit?: MetricUnit;
+  claimedScope?: ReportingScope;
+  claimedAccountingBasis?: AccountingBasis;
+  claimedPeriod?: string;
+  sourceDocId?: string;
   verificationState?: EvidenceClaimVerificationState;
 }
 
@@ -361,6 +374,25 @@ export type ClaimVerificationEngineMethod =
   | 'llm';
 
 /**
+ * Structured diagnostics for claim verification inspections (STEP 4-21, P2).
+ */
+export interface ClaimVerificationDiagnosticDetails {
+  inspectedLocation?: string;
+  expectedMetric?: string;
+  expectedValue?: string;
+  verifiedMetric?: string;
+  verifiedValue?: string;
+  numericComparisonResult?: 'match' | 'mismatch' | 'unapplicable';
+  sourceDocId?: string;
+  period?: string;
+  scope?: string;
+  accountingBasis?: string;
+  failureReason?: string;
+  details?: string;
+  [key: string]: any;
+}
+
+/**
  * Base verification result properties shared by all verification states (STEP 4-19, Task 1).
  */
 export interface BaseClaimVerificationResult {
@@ -372,7 +404,7 @@ export interface BaseClaimVerificationResult {
   expectedValue?: string;
   verifiedAt: string;
   sourceContentHash?: string;
-  diagnostics?: string[];
+  diagnostics?: ClaimVerificationDiagnosticDetails;
 }
 
 /**
@@ -382,6 +414,12 @@ export interface BaseClaimVerificationResult {
 export interface ClaimVerifiedResult extends BaseClaimVerificationResult {
   state: 'claim_verified';
   verifiedValue: string;
+  verifiedMetricId?: string;
+  verifiedNumericValue?: number;
+  verifiedUnit?: MetricUnit;
+  verifiedScope?: ReportingScope;
+  verifiedAccountingBasis?: AccountingBasis;
+  verifiedPeriod?: string;
 }
 
 /**
@@ -782,6 +820,8 @@ export interface MetricObservation {
   inputObservationIds?: string[];
   derivationFormula?: string;
   notes?: string;
+  /** Explicitly marks legitimate historical duplication (STEP 4-21, Test H). */
+  allowHistoricalDuplicate?: boolean;
 }
 
 export interface ProvenanceValidationResult {
@@ -880,4 +920,48 @@ export interface HistoricalValueReuseFinding {
   code: 'historicalValueReuse';
   detail: string;
 }
+
+/**
+ * Options for unit-aware numeric comparison and tolerance (STEP 4-21, P0-4).
+ */
+export interface NumericMatchOptions {
+  unit?: MetricUnit;
+  tolerance?: number;
+}
+
+/**
+ * Strict error codes emitted by SourceClaim validator (STEP 4-21, P0-1 & P1).
+ */
+export type SourceClaimValidationErrorCode =
+  | 'sourceClaimCompanyMismatch'
+  | 'sourceClaimPeriodMismatch'
+  | 'sourceClaimPeriodTypeMismatch'
+  | 'sourceClaimMetricMismatch'
+  | 'sourceClaimValueMismatch'
+  | 'sourceClaimUnitMismatch'
+  | 'sourceClaimScopeMismatch'
+  | 'sourceClaimAccountingBasisMismatch'
+  | 'sourceClaimWithoutObservation'
+  | 'ambiguousSourceClaimObservation';
+
+export interface SourceClaimValidationError {
+  code: SourceClaimValidationErrorCode;
+  sourceDocId: string;
+  companyId?: string;
+  period?: string;
+  metricId?: string;
+  claim?: SourceClaim;
+  observationId?: string;
+  expected?: any;
+  actual?: any;
+  detail: string;
+}
+
+export interface SourceClaimValidationResult {
+  valid: boolean;
+  errors: SourceClaimValidationError[];
+  checkedCount: number;
+  mismatchCount: number;
+}
+
 

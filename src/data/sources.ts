@@ -18,11 +18,11 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     lastChecked: '2026-09-20',
     notes: 'Official Tesla IR shareholder letter reporting Q2 2026 deliveries, GAAP revenues, and operating profit.',
     sourceClaims: [
-      { metricId: 'deliveries_global', period: '2026-Q2', value: 466.14, unit: 'thousand_units', scope: 'consolidated_group' },
-      { metricId: 'bev_deliveries', period: '2026-Q2', value: 466.14, unit: 'thousand_units', scope: 'consolidated_group' },
-      { metricId: 'revenue', period: '2026-Q2', value: 26850, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
-      { metricId: 'operating_income', period: '2026-Q2', value: 2150, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
-      { metricId: 'operating_margin', period: '2026-Q2', value: 8.0, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'deliveries_global', period: '2026-Q2', value: 480.13, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2026-Q2', value: 480.13, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2026-Q2', value: 28240, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q2', value: 398, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2026-Q2', value: 1.4, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
     ],
   },
   {
@@ -84,8 +84,8 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
       { metricId: 'deliveries_global', period: '2024-FY', value: 1789.2, unit: 'thousand_units', scope: 'consolidated_group' },
       { metricId: 'bev_deliveries', period: '2024-FY', value: 1789.2, unit: 'thousand_units', scope: 'consolidated_group' },
       { metricId: 'revenue', period: '2024-FY', value: 97690, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
-      { metricId: 'operating_income', period: '2024-FY', value: 8870, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
-      { metricId: 'operating_margin', period: '2024-FY', value: 9.1, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 7080, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 7.2, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
     ],
   },
   {
@@ -211,6 +211,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official Volkswagen Group annual report covering FY2024 audited consolidated deliveries and financial statements.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2024-FY', value: 9025, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_deliveries', period: '2024-FY', value: 742, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_share', period: '2024-FY', value: 8.2, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'revenue', period: '2024-FY', value: 324670, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 19062, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 5.9, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'vw_2024_q3_report',
@@ -272,8 +280,8 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     lastChecked: '2026-09-20',
     notes: 'Official BMW Group quarterly statement covering Q2 2026 deliveries, Group EBIT, and Automotive segment EBIT margin.',
     sourceClaims: [
+      { metricId: 'revenue', period: '2026-Q2', value: 31300, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
       { metricId: 'operating_income', period: '2026-Q2', value: 1705, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
-      { metricId: 'operating_income', period: '2026-Q2', value: 629, unit: 'currency_millions', scope: 'automotive_segment', accountingBasis: 'reported' },
       { metricId: 'operating_margin', period: '2026-Q2', value: 2.3, unit: 'percentage', scope: 'automotive_segment', accountingBasis: 'reported' },
     ],
   },
@@ -293,7 +301,6 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     sourceClaims: [
       { metricId: 'revenue', period: '2026-Q1', value: 31007, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
       { metricId: 'operating_income', period: '2026-Q1', value: 2004, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
-      { metricId: 'operating_income', period: '2026-Q1', value: 1345, unit: 'currency_millions', scope: 'automotive_segment', accountingBasis: 'reported' },
       { metricId: 'operating_margin', period: '2026-Q1', value: 5.0, unit: 'percentage', scope: 'automotive_segment', accountingBasis: 'reported' },
     ],
   },
@@ -310,6 +317,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official BMW Group annual report covering FY2025 audited financial statements and deliveries.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 2510, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 495, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_share', period: '2025-FY', value: 19.7, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'revenue', period: '2025-FY', value: 146500, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 10840, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 7.4, unit: 'percentage', scope: 'automotive_segment', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'bmw_2024_fy_statement',
@@ -385,8 +400,8 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     lastChecked: '2026-09-20',
     notes: 'Official Mercedes-Benz Group earnings presentation for Q2 2026 covering Group revenue, Group EBIT, and Cars segment adjusted RoS.',
     sourceClaims: [
+      { metricId: 'revenue', period: '2026-Q2', value: 32060, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
       { metricId: 'operating_income', period: '2026-Q2', value: 1550, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
-      { metricId: 'operating_income', period: '2026-Q2', value: 909, unit: 'currency_millions', scope: 'cars_segment', accountingBasis: 'adjusted' },
       { metricId: 'operating_margin', period: '2026-Q2', value: 4.0, unit: 'percentage', scope: 'cars_segment', accountingBasis: 'adjusted' },
     ],
   },
@@ -441,6 +456,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official Mercedes-Benz Group annual report covering FY2024 audited results.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2024-FY', value: 2401, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_deliveries', period: '2024-FY', value: 218, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_share', period: '2024-FY', value: 9.1, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'revenue', period: '2024-FY', value: 145594, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 13780, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 8.1, unit: 'percentage', scope: 'cars_segment', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'mbg_2024_q3_results',
@@ -523,6 +546,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official Stellantis annual report covering FY2024 audited shipments, net revenues, and adjusted operating income.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2024-FY', value: 5478, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_deliveries', period: '2024-FY', value: 348, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_share', period: '2024-FY', value: 6.4, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'revenue', period: '2024-FY', value: 156900, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 8600, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 5.5, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'stla_2024_q3_shipments',
@@ -679,6 +710,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official Hyundai Motor Company annual business results presentation covering FY2024.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2024-FY', value: 4140, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_deliveries', period: '2024-FY', value: 235, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_share', period: '2024-FY', value: 5.7, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'revenue', period: '2024-FY', value: 175240000, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 14890000, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 8.5, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'hmc_2024_q4_presentation',
@@ -775,6 +814,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official BYD annual results announcement covering FY2024 NEV deliveries and financial performance.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2024-FY', value: 4272, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_deliveries', period: '2024-FY', value: 1764, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_share', period: '2024-FY', value: 41.3, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'revenue', period: '2024-FY', value: 777000, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 43500, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 5.6, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'byd_2024_q3_interim',
@@ -857,6 +904,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
     notes: 'Official General Motors full year 2024 10-K filing and earnings presentation.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2024-FY', value: 6186, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_deliveries', period: '2024-FY', value: 156, unit: 'thousand_units', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'bev_share', period: '2024-FY', value: 2.5, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'revenue', period: '2024-FY', value: 171842, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 14594, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 8.5, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'gm_2024_q4_earnings',

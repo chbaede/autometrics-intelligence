@@ -26,6 +26,7 @@ import {
   validateObservationProvenance,
   getDimensionalObservationKey,
   detectHistoricalValueReuse,
+  validateSourceClaims,
   MarginValidationOptions,
 } from '../src/utils/metricCalculations';
 import { AuditFinding, PeriodType } from '../src/types/metrics';
@@ -173,6 +174,22 @@ for (const reuse of valueReuseFindings) {
     observationIds: [reuse.observationId1, reuse.observationId2],
     failedChecks: ['historicalValueReuse'],
     detail: reuse.detail,
+  });
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 2c. Source Claim Integrity & Numeric Claim Verification (STEP 4-21)
+// ────────────────────────────────────────────────────────────────────────────
+const sourceClaimValResult = validateSourceClaims(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS);
+for (const err of sourceClaimValResult.errors) {
+  findings.push({
+    severity: 'ERROR',
+    disposition: 'blocking',
+    category: 'SOURCE_CLAIM_INTEGRITY',
+    item: `${err.sourceDocId} (${err.metricId})`,
+    observationIds: err.observationId ? [err.observationId] : [],
+    failedChecks: [err.code],
+    detail: err.detail,
   });
 }
 

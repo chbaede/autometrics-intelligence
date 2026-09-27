@@ -5,7 +5,7 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 
-import { getDimensionalObservationKey } from '../src/utils/metricCalculations';
+import { getDimensionalObservationKey, validateSourceClaims } from '../src/utils/metricCalculations';
 
 console.log('🚀 Running AutoMetrics Data Ingestion & Strict Integrity Validator...\n');
 
@@ -20,33 +20,45 @@ console.log(`🔢 Total Metric Observations: ${METRIC_OBSERVATIONS.length}`);
 console.log(`🎯 Total Guidance Targets: ${GUIDANCE_OBSERVATIONS.length}`);
 console.log(`🗺️  Total Regional Observations: ${REGIONAL_OBSERVATIONS.length}\n`);
 
-// 1. Source Document HTTPS & Integrity
+// 1. Source Document HTTPS & Comprehensive Metadata Integrity
+const validPeriodTypes = ['quarterly', 'annual', 'semi_annual', 'monthly'];
+const validVerificationStatuses = ['verified', 'unverified', 'pending_audit', 'disputed'];
+
 SOURCE_DOCUMENTS.forEach((doc) => {
-  if (!doc.officialUrl.startsWith('https://')) {
+  if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
     console.error(`❌ Source ${doc.id}: Insecure or non-HTTPS URL (${doc.officialUrl})`);
     errorCount++;
   }
-  if (!COMPANIES_MAP[doc.companyId]) {
-    console.error(`❌ Source ${doc.id}: Unknown companyId ${doc.companyId}`);
+  if (!doc.companyId || !COMPANIES_MAP[doc.companyId]) {
+    console.error(`❌ Source ${doc.id}: Unknown or missing companyId "${doc.companyId}"`);
     errorCount++;
   }
-  if (doc.sourceClaims && doc.sourceClaims.length > 0) {
-    for (const claim of doc.sourceClaims) {
-      if (!METRICS_MAP[claim.metricId]) {
-        console.error(`❌ Source ${doc.id}: Unknown metricId "${claim.metricId}" in sourceClaim`);
-        errorCount++;
-      }
-      if (claim.period !== doc.period) {
-        console.error(`❌ Source ${doc.id}: sourceClaim period "${claim.period}" does not match document period "${doc.period}"`);
-        errorCount++;
-      }
-      if (typeof claim.value !== 'number' || !Number.isFinite(claim.value)) {
-        console.error(`❌ Source ${doc.id}: Invalid non-finite value in sourceClaim for "${claim.metricId}"`);
-        errorCount++;
-      }
-    }
+  if (!doc.period || !/^\d{4}-(Q[1-4]|FY|H[1-2])$/.test(doc.period)) {
+    console.error(`❌ Source ${doc.id}: Missing or malformed period "${doc.period}"`);
+    errorCount++;
+  }
+  if (!doc.periodType || !validPeriodTypes.includes(doc.periodType)) {
+    console.error(`❌ Source ${doc.id}: Missing or invalid periodType "${doc.periodType}"`);
+    errorCount++;
+  }
+  if (!doc.publicationDate || isNaN(Date.parse(doc.publicationDate))) {
+    console.error(`❌ Source ${doc.id}: Missing or invalid publicationDate "${doc.publicationDate}"`);
+    errorCount++;
+  }
+  if (!doc.verificationStatus || !validVerificationStatuses.includes(doc.verificationStatus)) {
+    console.error(`❌ Source ${doc.id}: Missing or invalid verificationStatus "${doc.verificationStatus}"`);
+    errorCount++;
   }
 });
+
+// Run source claims validator
+const sourceClaimValResult = validateSourceClaims(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS);
+if (!sourceClaimValResult.valid) {
+  for (const err of sourceClaimValResult.errors) {
+    console.error(`❌ Source Claim Error (${err.code}): ${err.detail}`);
+    errorCount++;
+  }
+}
 
 // 2. Metric Observations Strict Required Metadata Check by Category
 METRIC_OBSERVATIONS.forEach((obs) => {

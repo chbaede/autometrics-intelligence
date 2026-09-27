@@ -448,7 +448,7 @@ export const REGIONAL_OBSERVATIONS: RegionalObservation[] = [
     period: '2024-FY',
     value: 1789.2,
     unit: 'thousand_units',
-    sourceDocId: 'tsla_2024_q4_deck',
+    sourceDocId: 'tsla_2024_fy_deck',
     originalRegionLabel: 'Total Global Vehicle Deliveries',
   },
 
@@ -2461,7 +2461,7 @@ export const REGIONAL_OBSERVATIONS: RegionalObservation[] = [
     period: '2024-FY',
     value: 780.0,
     unit: 'thousand_units',
-    sourceDocId: 'tsla_2024_q4_deck',
+    sourceDocId: 'tsla_2024_fy_deck',
     originalRegionLabel: 'United States',
   },
   {
@@ -2472,7 +2472,7 @@ export const REGIONAL_OBSERVATIONS: RegionalObservation[] = [
     period: '2024-FY',
     value: 605.0,
     unit: 'thousand_units',
-    sourceDocId: 'tsla_2024_q4_deck',
+    sourceDocId: 'tsla_2024_fy_deck',
     originalRegionLabel: 'China',
   },
   {
@@ -2483,7 +2483,7 @@ export const REGIONAL_OBSERVATIONS: RegionalObservation[] = [
     period: '2024-FY',
     value: 280.0,
     unit: 'thousand_units',
-    sourceDocId: 'tsla_2024_q4_deck',
+    sourceDocId: 'tsla_2024_fy_deck',
     originalRegionLabel: 'Europe',
   },
   {
@@ -2494,7 +2494,7 @@ export const REGIONAL_OBSERVATIONS: RegionalObservation[] = [
     period: '2024-FY',
     value: 124.2,
     unit: 'thousand_units',
-    sourceDocId: 'tsla_2024_q4_deck',
+    sourceDocId: 'tsla_2024_fy_deck',
     originalRegionLabel: 'Other International',
   },
 

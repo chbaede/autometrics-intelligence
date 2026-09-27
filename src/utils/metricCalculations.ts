@@ -31,7 +31,13 @@ import {
   ReportingScope,
   ScopeRelationshipRule,
   HistoricalValueReuseFinding,
+  SourceClaimValidationError,
+  SourceClaimValidationResult,
+  NumericMatchOptions,
+  ClaimEvidenceLocator,
 } from '../types/metrics';
+import type { SourceClaim } from '../types/metrics';
+export type { SourceClaim, SourceClaimValidationError, SourceClaimValidationResult, NumericMatchOptions };
 import {
   DocumentedScopeException,
   isProxyException,
@@ -41,6 +47,7 @@ import {
   PROXY_METRIC_MAPPINGS,
 } from '../data/scopeExceptions';
 import { SOURCES_MAP } from '../data/sources';
+import { METRICS_MAP } from '../data/metricDefinitions';
 
 export function calculateYoYGrowth(
   current: number | null | undefined,
@@ -2488,19 +2495,29 @@ export function validateObservationProvenance(
   };
 }
 
+export interface DetectHistoricalValueReuseOptions {
+  isAllowedDuplicate?: (obs1: MetricObservation, obs2: MetricObservation) => boolean;
+}
+
 /**
- * Detects unintended historical value duplication across different reporting periods for the same company and metric (STEP 4-20, Task 7).
+ * Detects unintended historical value duplication across different reporting periods for the same company and metric (STEP 4-20, Task 7; STEP 4-21, Test H).
  * Checks primary financial and volume metrics (deliveries_global, bev_deliveries, revenue, operating_income, ebit, adjusted_ebit)
  * where exact identical non-zero values across different periods indicate copy-paste error or unverified reuse.
+ * Legitimate duplicates (marked with allowHistoricalDuplicate: true or approved via option callback) are excluded.
  */
 export function detectHistoricalValueReuse(
-  observations: MetricObservation[]
+  observations: MetricObservation[],
+  options?: DetectHistoricalValueReuseOptions
 ): HistoricalValueReuseFinding[] {
   const findings: HistoricalValueReuseFinding[] = [];
   const map = new Map<string, MetricObservation[]>();
 
   for (const obs of observations) {
     if (obs.value === null || obs.value === 0 || obs.unit === 'percentage') {
+      continue;
+    }
+    // Skip if explicitly marked legitimate duplicate (STEP 4-21, Test H)
+    if (obs.allowHistoricalDuplicate === true) {
       continue;
     }
     // Only check financial and volume metrics
@@ -2522,6 +2539,9 @@ export function detectHistoricalValueReuse(
       map.set(key, [obs]);
     } else {
       for (const prev of existing) {
+        if (prev.allowHistoricalDuplicate === true) continue;
+        if (options?.isAllowedDuplicate && options.isAllowedDuplicate(prev, obs)) continue;
+
         if (prev.period !== obs.period) {
           findings.push({
             companyId: obs.companyId,
@@ -2543,5 +2563,314 @@ export function detectHistoricalValueReuse(
   }
 
   return findings;
+}
+
+/**
+ * Compares two numbers with unit-aware precision/tolerance rules (STEP 4-21, P0-4).
+ * Returns true if numbers match within the specified tolerance.
+ */
+export function numericValuesMatch(
+  expected: number,
+  verified: number,
+  options?: NumericMatchOptions
+): boolean {
+  if (!Number.isFinite(expected) || !Number.isFinite(verified)) {
+    return false;
+  }
+  if (options?.tolerance !== undefined) {
+    return Math.abs(expected - verified) <= options.tolerance;
+  }
+  const unit = options?.unit;
+  if (unit === 'percentage') {
+    return Math.abs(expected - verified) <= 0.05;
+  }
+  if (unit === 'units') {
+    return Math.abs(expected - verified) <= 1;
+  }
+  // For currency_millions / thousand_units:
+  return Math.abs(expected - verified) <= 0.01;
+}
+
+/**
+ * Checks whether locator text contradicts an extracted text snippet (STEP 4-21, P0-5).
+ * e.g. locator "Automotive EBIT margin 99.9%" vs extracted text "Automotive EBIT margin 2.3%".
+ */
+export function hasLocatorNumericContradiction(locator: string | ClaimEvidenceLocator, extractedText: string): boolean {
+  if (!locator || !extractedText) return false;
+  let locatorStr = typeof locator === 'string' ? locator : '';
+  let claimedNum: number | undefined;
+
+  if (typeof locator !== 'string') {
+    claimedNum = locator.claimedNumericValue;
+    locatorStr = [
+      locator.locator,
+      locator.originalLabel,
+      locator.tableReference,
+      locator.sectionReference,
+      claimedNum !== undefined ? `${claimedNum}${locator.claimedUnit === 'percentage' ? '%' : ''}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  // 1. Match percentage patterns like "99.9%" or "2.3%"
+  const locatorPercentages = locatorStr.match(/\b\d+(?:\.\d+)?%/g);
+  const textPercentages = extractedText.match(/\b\d+(?:\.\d+)?%/g);
+  if (locatorPercentages && textPercentages) {
+    const hasMatchingPercentage = locatorPercentages.some((lp) => textPercentages.includes(lp));
+    if (!hasMatchingPercentage) {
+      return true;
+    }
+  }
+
+  // 2. Direct numeric claim contradiction against extracted numbers
+  if (claimedNum !== undefined) {
+    const extractedNumbers = extractedText.match(/\b\d+(?:\.\d+)?/g);
+    if (extractedNumbers && extractedNumbers.length > 0) {
+      const numbers = extractedNumbers.map(Number);
+      const matchesAny = numbers.some((n) => numericValuesMatch(claimedNum!, n));
+      if (!matchesAny) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Deterministically validates all SourceClaim entries on SourceDocument records
+ * against actual MetricObservation records (STEP 4-21, P0-1, P0-2 & P1).
+ *
+ * Enforces:
+ *  1. sourceClaim.period === sourceDocument.period
+ *  2. sourceClaim.value === observation.value (unit-aware tolerance)
+ *  3. sourceClaim.unit === observation.unit
+ *  4. sourceClaim.scope === observation.reportingScope (when scope specified)
+ *  5. sourceClaim.accountingBasis === observation.accountingBasis (when accountingBasis specified)
+ *  6. sourceClaimWithoutObservation if no matching observation exists
+ *  7. ambiguousSourceClaimObservation if multiple observations match
+ */
+export function validateSourceClaims(
+  sources: SourceDocument[],
+  observations: MetricObservation[]
+): SourceClaimValidationResult {
+  const errors: SourceClaimValidationError[] = [];
+  let checkedCount = 0;
+
+  for (const doc of sources) {
+    if (!doc.sourceClaims || doc.sourceClaims.length === 0) continue;
+
+    for (const claim of doc.sourceClaims) {
+      checkedCount++;
+
+      // 1. Period check against document
+      if (claim.period !== doc.period) {
+        errors.push({
+          code: 'sourceClaimPeriodMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          expected: doc.period,
+          actual: claim.period,
+          detail: `Source claim period "${claim.period}" does not match source document period "${doc.period}".`,
+        });
+      }
+
+      // 2. Metric check in registered definitions
+      const metricDef = METRICS_MAP[claim.metricId];
+      if (!metricDef) {
+        errors.push({
+          code: 'sourceClaimMetricMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          expected: 'registered metricId',
+          actual: claim.metricId,
+          detail: `Source claim metricId "${claim.metricId}" is not registered in METRIC_DEFINITIONS.`,
+        });
+      }
+
+      // 3. Find matching observation(s)
+      // Joining: sourceDocId + metricId + period
+      const candidates = observations.filter(
+        (obs) =>
+          obs.sourceDocId === doc.id &&
+          obs.metricId === claim.metricId &&
+          obs.period === claim.period
+      );
+
+      if (candidates.length === 0) {
+        errors.push({
+          code: 'sourceClaimWithoutObservation',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          detail: `No matching observation found for document "${doc.id}", metric "${claim.metricId}", period "${claim.period}".`,
+        });
+        continue;
+      }
+
+      let matchingObs: MetricObservation;
+      if (candidates.length === 1) {
+        matchingObs = candidates[0];
+      } else {
+        // Disambiguate by scope if specified
+        const scopeMatched = claim.scope
+          ? candidates.filter((c) => c.reportingScope === claim.scope)
+          : candidates;
+
+        if (scopeMatched.length === 1) {
+          matchingObs = scopeMatched[0];
+        } else if (scopeMatched.length > 1) {
+          errors.push({
+            code: 'ambiguousSourceClaimObservation',
+            sourceDocId: doc.id,
+            companyId: doc.companyId,
+            period: claim.period,
+            metricId: claim.metricId,
+            claim,
+            actual: candidates.map((c) => c.id),
+            detail: `Multiple observations match source claim for document "${doc.id}", metric "${claim.metricId}", period "${claim.period}".`,
+          });
+          continue;
+        } else {
+          errors.push({
+            code: 'sourceClaimWithoutObservation',
+            sourceDocId: doc.id,
+            companyId: doc.companyId,
+            period: claim.period,
+            metricId: claim.metricId,
+            claim,
+            detail: `No observation matched scope "${claim.scope}" among candidates for document "${doc.id}".`,
+          });
+          continue;
+        }
+      }
+
+      // 4. Validate matching observation against claim & doc
+      if (doc.companyId !== matchingObs.companyId) {
+        errors.push({
+          code: 'sourceClaimCompanyMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          observationId: matchingObs.id,
+          expected: doc.companyId,
+          actual: matchingObs.companyId,
+          detail: `Observation company "${matchingObs.companyId}" does not match source doc company "${doc.companyId}".`,
+        });
+      }
+
+      if (doc.period !== matchingObs.period) {
+        errors.push({
+          code: 'sourceClaimPeriodMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          observationId: matchingObs.id,
+          expected: doc.period,
+          actual: matchingObs.period,
+          detail: `Observation period "${matchingObs.period}" does not match source doc period "${doc.period}".`,
+        });
+      }
+
+      if (doc.periodType !== matchingObs.periodType) {
+        errors.push({
+          code: 'sourceClaimPeriodTypeMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          observationId: matchingObs.id,
+          expected: doc.periodType,
+          actual: matchingObs.periodType,
+          detail: `Observation periodType "${matchingObs.periodType}" does not match source doc periodType "${doc.periodType}".`,
+        });
+      }
+
+      // Value check
+      if (matchingObs.value === null || !numericValuesMatch(claim.value, matchingObs.value, { unit: claim.unit })) {
+        errors.push({
+          code: 'sourceClaimValueMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          observationId: matchingObs.id,
+          expected: matchingObs.value,
+          actual: claim.value,
+          detail: `Source claim value ${claim.value} does not match observation value ${matchingObs.value} for observation "${matchingObs.id}".`,
+        });
+      }
+
+      // Unit check
+      if (claim.unit !== matchingObs.unit) {
+        errors.push({
+          code: 'sourceClaimUnitMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          observationId: matchingObs.id,
+          expected: matchingObs.unit,
+          actual: claim.unit,
+          detail: `Source claim unit "${claim.unit}" does not match observation unit "${matchingObs.unit}" for observation "${matchingObs.id}".`,
+        });
+      }
+
+      // Scope check (when scope is specified)
+      if (claim.scope !== undefined && claim.scope !== matchingObs.reportingScope) {
+        errors.push({
+          code: 'sourceClaimScopeMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          observationId: matchingObs.id,
+          expected: matchingObs.reportingScope,
+          actual: claim.scope,
+          detail: `Source claim scope "${claim.scope}" does not match observation reportingScope "${matchingObs.reportingScope}" for observation "${matchingObs.id}".`,
+        });
+      }
+
+      // Accounting basis check (when accountingBasis is specified)
+      if (claim.accountingBasis !== undefined && claim.accountingBasis !== matchingObs.accountingBasis) {
+        errors.push({
+          code: 'sourceClaimAccountingBasisMismatch',
+          sourceDocId: doc.id,
+          companyId: doc.companyId,
+          period: claim.period,
+          metricId: claim.metricId,
+          claim,
+          observationId: matchingObs.id,
+          expected: matchingObs.accountingBasis,
+          actual: claim.accountingBasis,
+          detail: `Source claim accountingBasis "${claim.accountingBasis}" does not match observation accountingBasis "${matchingObs.accountingBasis}" for observation "${matchingObs.id}".`,
+        });
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    checkedCount,
+    mismatchCount: errors.length,
+  };
 }
 

@@ -73,8 +73,11 @@ import {
   resolveMarginValidationContext,
   matchScopeRelationship,
   detectHistoricalValueReuse,
+  validateSourceClaims,
+  hasLocatorNumericContradiction,
 } from '../src/utils/metricCalculations';
 import { METRIC_OBSERVATIONS } from '../src/data/observations';
+import { SOURCE_DOCUMENTS } from '../src/data/sources';
 import {
   MetricObservation,
   AuditFinding,
@@ -87,6 +90,7 @@ import {
   ClaimEvidenceLocator,
   ScopeExceptionEvidence,
   ClaimVerificationResult,
+  ClaimVerifiedResult,
   ClaimVerificationEngineMethod,
   ClaimVerificationEngine,
 } from '../src/types/metrics';
@@ -7291,6 +7295,172 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(scopeMismatchTriplet.failedChecks.includes('marginSemanticScopeMismatch'), 'Test 233i-1: scope mismatch triplet includes marginSemanticScopeMismatch in failedChecks');
   check(scopeMismatchTriplet.reasons.includes('marginSemanticScopeMismatch'), 'Test 233i-2: scope mismatch triplet includes marginSemanticScopeMismatch in reasons');
   check(scopeMismatchTriplet.mathematicallyVerified === false, 'Test 233i-3: scope mismatch triplet mathematicallyVerified is false');
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // TEST 234: Source Claim Integrity & Numeric Claim Verification (STEP 4-21)
+  // ──────────────────────────────────────────────────────────────────────────
+  const bmwQ2Locator: ClaimEvidenceLocator = {
+    sourceDocId: 'bmw_2026_q2_statement',
+    pageNumber: 11,
+    tableReference: 'Key Figures',
+    originalLabel: 'Automotive EBIT margin',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 2.3,
+    claimedUnit: 'percentage',
+    claimedScope: 'automotive_segment',
+    claimedAccountingBasis: 'reported',
+    claimedPeriod: '2026-Q2',
+  };
+  const bmwQ2Doc = SOURCE_DOCUMENTS.find((d) => d.id === 'bmw_2026_q2_statement')!;
+
+  // Test A: BMW Q2 2026 Automotive margin 2.3% verifies successfully
+  const res234A = verifyClaimEvidence(bmwQ2Locator, bmwQ2Doc, '2.3', 'numeric_margin_value');
+  check(res234A.state === 'claim_verified', 'Test 234A-1: BMW Q2 2026 2.3% margin verifies successfully as claim_verified');
+  check((res234A as ClaimVerifiedResult).verifiedNumericValue === 2.3, 'Test 234A-2: BMW Q2 2026 result has verifiedNumericValue 2.3');
+  check(res234A.diagnostics?.inspectedLocation !== undefined, 'Test 234A-3: BMW Q2 2026 diagnostics has inspectedLocation');
+  const val234A = validateClaimVerificationResult(bmwQ2Locator, bmwQ2Doc, '2.3', res234A);
+  check(val234A.valid === true, 'Test 234A-4: validateClaimVerificationResult returns valid=true for Test A');
+
+  // Test B: False claim of 7.8% for BMW Q2 2026 margin is strictly rejected with numericValueMismatch
+  const false78Locator: ClaimEvidenceLocator = {
+    ...bmwQ2Locator,
+    claimedNumericValue: 7.8,
+  };
+  const res234B = verifyClaimEvidence(false78Locator, bmwQ2Doc, '7.8', 'numeric_margin_value');
+  check(res234B.state === 'source_verified', 'Test 234B-1: False 7.8% claim downgrades to source_verified');
+  check(res234B.diagnostics?.failureReason === 'numericValueMismatch', 'Test 234B-2: False 7.8% claim has failureReason numericValueMismatch');
+
+  // Test C: Mismatched metric claim is strictly rejected with metricMismatch
+  const wrongMetricLocator: ClaimEvidenceLocator = {
+    ...bmwQ2Locator,
+    claimedMetricId: 'revenue',
+    claimedNumericValue: 31300,
+  };
+  const res234C = verifyClaimEvidence(wrongMetricLocator, bmwQ2Doc, '31300', 'numeric_margin_value');
+  check(res234C.state === 'source_verified', 'Test 234C-1: Wrong metric claim downgrades to source_verified');
+  check(res234C.diagnostics?.failureReason === 'metricMismatch', 'Test 234C-2: Wrong metric claim has failureReason metricMismatch');
+
+  // Test D: Mismatched source document ID is strictly rejected with sourceDocMismatch
+  const wrongDocLocator: ClaimEvidenceLocator = {
+    ...bmwQ2Locator,
+    sourceDocId: 'mbg_2026_q2_results',
+  };
+  const res234D = verifyClaimEvidence(wrongDocLocator, bmwQ2Doc, '2.3', 'numeric_margin_value');
+  check(res234D.state === 'source_verified', 'Test 234D-1: Wrong sourceDocId claim downgrades to source_verified');
+  check(res234D.diagnostics?.failureReason === 'sourceDocMismatch', 'Test 234D-2: Wrong sourceDocId claim has failureReason sourceDocMismatch');
+
+  // Test E: Mismatched period claim is strictly rejected with periodMismatch
+  const wrongPeriodLocator: ClaimEvidenceLocator = {
+    ...bmwQ2Locator,
+    claimedPeriod: '2026-Q1',
+  };
+  const res234E = verifyClaimEvidence(wrongPeriodLocator, bmwQ2Doc, '2.3', 'numeric_margin_value');
+  check(res234E.state === 'source_verified', 'Test 234E-1: Wrong period claim downgrades to source_verified');
+  check(res234E.diagnostics?.failureReason === 'periodMismatch', 'Test 234E-2: Wrong period claim has failureReason periodMismatch');
+
+  // Test F: sourceClaim value disagreeing with observation value fails validation with sourceClaimValueMismatch
+  const mockDocsF: SourceDocument[] = [{
+    id: 'mock_doc_f',
+    companyId: 'test_co_f',
+    title: 'Mock Doc F',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-08-01',
+    officialUrl: 'https://example.com/f',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    sourceClaims: [{
+      metricId: 'revenue',
+      period: '2026-Q2',
+      value: 12345,
+      unit: 'currency_millions',
+      scope: 'consolidated_group',
+      accountingBasis: 'reported',
+    }],
+  }];
+  const mockObsF: MetricObservation[] = [makeObs({
+    id: 'mock_obs_f',
+    companyId: 'test_co_f',
+    metricId: 'revenue',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    value: 99999,
+    unit: 'currency_millions',
+    sourceDocId: 'mock_doc_f',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+  })];
+  const res234F = validateSourceClaims(mockDocsF, mockObsF);
+  check(!res234F.valid, 'Test 234F-1: sourceClaim value mismatch fails validation');
+  check(res234F.errors.some((e) => e.code === 'sourceClaimValueMismatch'), 'Test 234F-2: Error code is sourceClaimValueMismatch');
+
+  // Test G: Cross-company sourceClaim fails validation with sourceClaimCompanyMismatch
+  const mockDocsG: SourceDocument[] = [{
+    id: 'mock_doc_g',
+    companyId: 'company_a',
+    title: 'Mock Doc G',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-08-01',
+    officialUrl: 'https://example.com/g',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    sourceClaims: [{
+      metricId: 'revenue',
+      period: '2026-Q2',
+      value: 1000,
+      unit: 'currency_millions',
+      scope: 'consolidated_group',
+      accountingBasis: 'reported',
+    }],
+  }];
+  const mockObsG: MetricObservation[] = [makeObs({
+    id: 'mock_obs_g',
+    companyId: 'company_b',
+    metricId: 'revenue',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    value: 1000,
+    unit: 'currency_millions',
+    sourceDocId: 'mock_doc_g',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+  })];
+  const res234G = validateSourceClaims(mockDocsG, mockObsG);
+  check(!res234G.valid, 'Test 234G-1: Cross-company sourceClaim fails validation');
+  check(res234G.errors.some((e) => e.code === 'sourceClaimCompanyMismatch'), 'Test 234G-2: Error code is sourceClaimCompanyMismatch');
+
+  // Test H: Legitimate identical value with allowHistoricalDuplicate=true passes historical value reuse check
+  const obsWithDuplicateAllowed: MetricObservation[] = [
+    makeObs({ id: 'dup_h1', companyId: 'test_co_h', metricId: 'deliveries_global', period: '2024-FY', value: 500, unit: 'thousand_units' }),
+    makeObs({ id: 'dup_h2', companyId: 'test_co_h', metricId: 'deliveries_global', period: '2025-FY', value: 500, unit: 'thousand_units', allowHistoricalDuplicate: true }),
+  ];
+  const reuseFindingsH = detectHistoricalValueReuse(obsWithDuplicateAllowed);
+  check(reuseFindingsH.length === 0, 'Test 234H: Legitimate identical value with allowHistoricalDuplicate=true passes check');
+
+  // Test I: Locator contradiction (snippet text contains numbers that contradict locator claimedNumericValue) is rejected
+  const contradictoryLocator: ClaimEvidenceLocator = {
+    sourceDocId: 'bmw_2026_q2_statement',
+    pageNumber: 11,
+    tableReference: 'Key Figures',
+    originalLabel: 'Automotive EBIT margin',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 9.9,
+  };
+  const contradictionCheck = hasLocatorNumericContradiction(contradictoryLocator, 'Automotive EBIT margin 2.3%');
+  check(contradictionCheck === true, 'Test 234I-1: hasLocatorNumericContradiction returns true when extracted text has conflicting numbers');
+
+  // Test J: Verification diagnostics populated with inspectedLocation, expectedValue, verifiedValue, numericComparisonResult
+  const res234J = verifyClaimEvidence(bmwQ2Locator, bmwQ2Doc, '2.3', 'numeric_margin_value');
+  check(res234J.diagnostics !== undefined, 'Test 234J-1: diagnostics object is present');
+  check(res234J.diagnostics?.inspectedLocation === 'Page 11, Key Figures', 'Test 234J-2: diagnostics has inspectedLocation');
+  check(res234J.diagnostics?.expectedValue === '2.3', 'Test 234J-3: diagnostics has expectedValue');
+  check(res234J.diagnostics?.verifiedValue === '2.3', 'Test 234J-4: diagnostics has verifiedValue');
+  check(res234J.diagnostics?.numericComparisonResult === 'match', 'Test 234J-5: diagnostics numericComparisonResult is match');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

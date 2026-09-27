@@ -54,7 +54,9 @@ import {
   ClaimVerificationValidationResult,
   ClaimVerificationEngineMethod,
   ClaimVerificationEngine,
+  MetricUnit,
 } from '../types/metrics';
+import { numericValuesMatch, hasLocatorNumericContradiction } from '../utils/metricCalculations';
 
 export type {
   EvidencePurpose,
@@ -106,7 +108,16 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 2.3%', claimedValue: 'operating_margin' },
+          reported_kpi: {
+            locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 2.3%',
+            claimedValue: 'operating_margin',
+            claimedMetricId: 'operating_margin',
+            claimedNumericValue: 2.3,
+            claimedUnit: 'percentage',
+            claimedScope: 'automotive_segment',
+            claimedAccountingBasis: 'reported',
+            claimedPeriod: '2026-Q2',
+          },
           accounting_basis: { locator: 'Key Performance Indicators — Automotive Segment', claimedValue: 'reported' },
         },
       },
@@ -130,7 +141,16 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: { locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 5.0%', claimedValue: 'operating_margin' },
+          reported_kpi: {
+            locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 5.0%',
+            claimedValue: 'operating_margin',
+            claimedMetricId: 'operating_margin',
+            claimedNumericValue: 5.0,
+            claimedUnit: 'percentage',
+            claimedScope: 'automotive_segment',
+            claimedAccountingBasis: 'reported',
+            claimedPeriod: '2026-Q1',
+          },
           accounting_basis: { locator: 'Key Performance Indicators — Automotive Segment', claimedValue: 'reported' },
         },
       },
@@ -204,7 +224,16 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 4.0%', claimedValue: 'operating_margin' },
+          reported_kpi: {
+            locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 4.0%',
+            claimedValue: 'operating_margin',
+            claimedMetricId: 'operating_margin',
+            claimedNumericValue: 4.0,
+            claimedUnit: 'percentage',
+            claimedScope: 'cars_segment',
+            claimedAccountingBasis: 'adjusted',
+            claimedPeriod: '2026-Q2',
+          },
           accounting_basis: { locator: 'Mercedes-Benz Cars Division KPIs', claimedValue: 'adjusted' },
         },
       },
@@ -228,7 +257,16 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 4.1%', claimedValue: 'operating_margin' },
+          reported_kpi: {
+            locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 4.1%',
+            claimedValue: 'operating_margin',
+            claimedMetricId: 'operating_margin',
+            claimedNumericValue: 4.1,
+            claimedUnit: 'percentage',
+            claimedScope: 'cars_segment',
+            claimedAccountingBasis: 'adjusted',
+            claimedPeriod: '2026-Q1',
+          },
           accounting_basis: { locator: 'Mercedes-Benz Cars Division KPIs', claimedValue: 'adjusted' },
         },
       },
@@ -252,7 +290,16 @@ export const DOCUMENTED_REPORTED_KPIS: DocumentedReportedKpi[] = [
         purpose: 'reported_kpi',
         supports: ['reported_kpi', 'accounting_basis'],
         supportEvidence: {
-          reported_kpi: { locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 5.0%', claimedValue: 'operating_margin' },
+          reported_kpi: {
+            locator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 5.0%',
+            claimedValue: 'operating_margin',
+            claimedMetricId: 'operating_margin',
+            claimedNumericValue: 5.0,
+            claimedUnit: 'percentage',
+            claimedScope: 'cars_segment',
+            claimedAccountingBasis: 'adjusted',
+            claimedPeriod: '2025-FY',
+          },
           accounting_basis: { locator: 'Mercedes-Benz Cars Division KPIs', claimedValue: 'adjusted' },
         },
       },
@@ -1319,6 +1366,7 @@ export const ALLOWED_PURPOSES_BY_SUPPORT: Record<EvidenceSupportType, readonly E
   accounting_basis: ['numerator_definition', 'scope_definition', 'reported_kpi'],
   period: ['numerator_definition', 'scope_definition', 'reported_kpi'],
   period_type: ['numerator_definition', 'scope_definition', 'reported_kpi'],
+  numeric_margin_value: ['reported_kpi'],
 };
 
 /**
@@ -1449,10 +1497,18 @@ export interface SourceDocumentContentSnippet {
   supportType: EvidenceSupportType;
   /** Cryptographic content hash (e.g. SHA-256) of the source snippet */
   contentHash: string;
+  /** Structured claim content fields (STEP 4-21, P0-3) */
+  verifiedMetricId?: string;
+  verifiedNumericValue?: number;
+  verifiedUnit?: MetricUnit;
+  verifiedScope?: ReportingScope;
+  verifiedAccountingBasis?: AccountingBasis;
+  verifiedPeriod?: string;
+  verifiedPeriodType?: PeriodType;
 }
 
 /**
- * Deterministic source content fixtures available in repository for genuine claim verification (STEP 4-19, Task 2).
+ * Deterministic source content fixtures available in repository for genuine claim verification (STEP 4-19, Task 2; STEP 4-21, P0-3).
  */
 export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet[] = [
   {
@@ -1462,6 +1518,13 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: 'automotive_segment',
     supportType: 'scope',
     contentHash: 'sha256-bmw2026q2-automotive-scope-hash',
+    verifiedMetricId: 'operating_income',
+    verifiedNumericValue: 629,
+    verifiedUnit: 'currency_millions',
+    verifiedScope: 'automotive_segment',
+    verifiedAccountingBasis: 'reported',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
   },
   {
     sourceDocId: 'bmw_2026_q2_statement',
@@ -1470,6 +1533,13 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: 'operating_margin',
     supportType: 'reported_kpi',
     contentHash: 'sha256-bmw2026q2-ebit-margin-kpi-hash',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 2.3,
+    verifiedUnit: 'percentage',
+    verifiedScope: 'automotive_segment',
+    verifiedAccountingBasis: 'reported',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
   },
   {
     sourceDocId: 'bmw_2026_q2_statement',
@@ -1478,6 +1548,8 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: '2026-Q2',
     supportType: 'period',
     contentHash: 'sha256-bmw2026q2-period-hash',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
   },
   {
     sourceDocId: 'bmw_2026_q2_statement',
@@ -1486,6 +1558,7 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: 'quarterly',
     supportType: 'period_type',
     contentHash: 'sha256-bmw2026q2-periodtype-hash',
+    verifiedPeriodType: 'quarterly',
   },
   {
     sourceDocId: 'bmw_2026_q2_statement',
@@ -1494,6 +1567,7 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: 'ifrs',
     supportType: 'accounting_basis',
     contentHash: 'sha256-bmw2026q2-accountingbasis-hash',
+    verifiedAccountingBasis: 'reported',
   },
   {
     sourceDocId: 'mbg_2026_q2_results',
@@ -1502,6 +1576,13 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: 'passenger_cars_segment',
     supportType: 'scope',
     contentHash: 'sha256-mbg2026q2-cars-scope-hash',
+    verifiedMetricId: 'operating_income',
+    verifiedNumericValue: 909,
+    verifiedUnit: 'currency_millions',
+    verifiedScope: 'cars_segment',
+    verifiedAccountingBasis: 'adjusted',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
   },
   {
     sourceDocId: 'mbg_2026_q2_results',
@@ -1510,11 +1591,63 @@ export const DETERMINISTIC_SOURCE_CONTENT_FIXTURES: SourceDocumentContentSnippet
     verifiedValue: 'operating_margin',
     supportType: 'reported_kpi',
     contentHash: 'sha256-mbg2026q2-adjusted-ros-hash',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 4.0,
+    verifiedUnit: 'percentage',
+    verifiedScope: 'cars_segment',
+    verifiedAccountingBasis: 'adjusted',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
+  },
+  {
+    sourceDocId: 'bmw_2026_q1_statement',
+    sectionLocator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 5.0%',
+    extractedText: 'Automotive Segment EBIT margin: 5.0% (Return on Sales / ROS)',
+    verifiedValue: 'operating_margin',
+    supportType: 'reported_kpi',
+    contentHash: 'sha256-bmw2026q1-ebit-margin-kpi-hash',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 5.0,
+    verifiedUnit: 'percentage',
+    verifiedScope: 'automotive_segment',
+    verifiedAccountingBasis: 'reported',
+    verifiedPeriod: '2026-Q1',
+    verifiedPeriodType: 'quarterly',
+  },
+  {
+    sourceDocId: 'mbg_2026_q1_results',
+    sectionLocator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 4.1%',
+    extractedText: 'Adjusted Return on Sales (RoS) Mercedes-Benz Cars: 4.1%',
+    verifiedValue: 'operating_margin',
+    supportType: 'reported_kpi',
+    contentHash: 'sha256-mbg2026q1-adjusted-ros-hash',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 4.1,
+    verifiedUnit: 'percentage',
+    verifiedScope: 'cars_segment',
+    verifiedAccountingBasis: 'adjusted',
+    verifiedPeriod: '2026-Q1',
+    verifiedPeriodType: 'quarterly',
+  },
+  {
+    sourceDocId: 'mbg_2025_fy_results',
+    sectionLocator: 'Mercedes-Benz Cars Division KPIs / Adjusted Return on Sales (RoS) 5.0%',
+    extractedText: 'Adjusted Return on Sales (RoS) Mercedes-Benz Cars: 5.0%',
+    verifiedValue: 'operating_margin',
+    supportType: 'reported_kpi',
+    contentHash: 'sha256-mbg2025fy-adjusted-ros-hash',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 5.0,
+    verifiedUnit: 'percentage',
+    verifiedScope: 'cars_segment',
+    verifiedAccountingBasis: 'adjusted',
+    verifiedPeriod: '2025-FY',
+    verifiedPeriodType: 'annual',
   },
 ];
 
 /**
- * Options for deterministic claim verification (STEP 4-19, Task 2).
+ * Options for deterministic claim verification (STEP 4-19, Task 2; STEP 4-21, P0-3 & P0-4).
  */
 export interface VerifyClaimEvidenceOptions {
   engineId?: string;
@@ -1523,15 +1656,18 @@ export interface VerifyClaimEvidenceOptions {
   contentFixtures?: SourceDocumentContentSnippet[];
   requireContentHash?: boolean;
   verifiedAt?: string;
+  expectedNumericValue?: number;
 }
 
 /**
- * Deterministically verifies a claim against source document content fixtures (STEP 4-19, Task 2).
+ * Deterministically verifies a claim against source document content fixtures (STEP 4-19, Task 2; STEP 4-21, P0-3, P0-4, P0-5).
  *
  * Rules:
  *  - If source document content is unavailable, returns state: 'source_verified', NEVER 'claim_verified'.
  *  - Source metadata alone does NOT prove claim content.
- *  - Only when a deterministic content fixture proves the claim value, returns state: 'claim_verified'.
+ *  - Numeric claims must match the fixture's verified numeric value under unit tolerance policy (P0-4).
+ *  - Locators with explicit numbers must not contradict the fixture extracted text (P0-5).
+ *  - Only when a deterministic content fixture proves the actual claim value, returns state: 'claim_verified'.
  */
 export function verifyClaimEvidence(
   claim: ClaimEvidenceLocator,
@@ -1546,6 +1682,12 @@ export function verifyClaimEvidence(
   const verifiedAt = options?.verifiedAt ?? new Date().toISOString();
   const targetSupportType = supportType ?? 'reported_kpi';
 
+  const inspectedLocation = [
+    claim?.pageNumber !== undefined ? `Page ${claim.pageNumber}` : undefined,
+    claim?.tableReference,
+    claim?.sectionReference,
+  ].filter(Boolean).join(', ') || claim?.locator || 'unknown_location';
+
   if (!sourceDoc || !sourceDoc.id) {
     return {
       state: 'source_verified',
@@ -1556,22 +1698,138 @@ export function verifyClaimEvidence(
       claimSupportType: targetSupportType,
       expectedValue,
       verifiedAt,
-      diagnostics: ['Source document is missing or invalid'],
+      diagnostics: {
+        inspectedLocation,
+        failureReason: 'sourceDocMissing',
+        details: 'Source document is missing or invalid',
+      },
+    };
+  }
+
+  // 1. Source document ID mismatch check
+  if (claim?.sourceDocId && claim.sourceDocId !== sourceDoc.id) {
+    return {
+      state: 'source_verified',
+      verificationMethod,
+      engineId,
+      engineVersion,
+      sourceDocId: sourceDoc.id,
+      claimSupportType: targetSupportType,
+      expectedValue,
+      verifiedAt,
+      diagnostics: {
+        inspectedLocation,
+        failureReason: 'sourceDocMismatch',
+        sourceDocId: sourceDoc.id,
+        details: `Claim sourceDocId "${claim.sourceDocId}" does not match target source document "${sourceDoc.id}"`,
+      },
+    };
+  }
+
+  // 2. Period mismatch check
+  if (claim?.claimedPeriod && sourceDoc.period && claim.claimedPeriod !== sourceDoc.period) {
+    return {
+      state: 'source_verified',
+      verificationMethod,
+      engineId,
+      engineVersion,
+      sourceDocId: sourceDoc.id,
+      claimSupportType: targetSupportType,
+      expectedValue,
+      verifiedAt,
+      diagnostics: {
+        inspectedLocation,
+        failureReason: 'periodMismatch',
+        sourceDocId: sourceDoc.id,
+        period: sourceDoc.period,
+        details: `Claim period "${claim.claimedPeriod}" does not match source document period "${sourceDoc.period}"`,
+      },
     };
   }
 
   const fixtures = options?.contentFixtures ?? DETERMINISTIC_SOURCE_CONTENT_FIXTURES;
   const targetValue = expectedValue ?? claim?.claimedValue;
+  const targetNumericValue =
+    options?.expectedNumericValue ??
+    claim?.claimedNumericValue ??
+    (expectedValue !== undefined && !isNaN(Number(expectedValue)) ? Number(expectedValue) : undefined);
+
+  let failureReason: string | undefined;
+  let candidateFailureDiagnostic: string | undefined;
+  let candidateSnippet: SourceDocumentContentSnippet | undefined;
 
   // Search for matching content fixture proving this specific claim value
   const matchedSnippet = fixtures.find((snippet) => {
     if (snippet.sourceDocId !== sourceDoc.id) return false;
-    if (supportType && snippet.supportType !== supportType) return false;
-    if (targetValue !== undefined && snippet.verifiedValue !== targetValue) return false;
+
+    // Support type check (allow numeric_margin_value to match reported_kpi)
+    const supportCompatible =
+      !supportType ||
+      snippet.supportType === supportType ||
+      (supportType === 'numeric_margin_value' && snippet.supportType === 'reported_kpi');
+    if (!supportCompatible) return false;
+
+    candidateSnippet = snippet;
+
+    // Metric semantic check (STEP 4-21, P0-3)
+    if (claim?.claimedMetricId && snippet.verifiedMetricId && claim.claimedMetricId !== snippet.verifiedMetricId) {
+      failureReason = 'metricMismatch';
+      candidateFailureDiagnostic = `Claim verification failed: source=${sourceDoc.id}, metric mismatch: expected=${claim.claimedMetricId}, verified=${snippet.verifiedMetricId}`;
+      return false;
+    }
+
+    // Numeric claim check (STEP 4-21, P0-3 & P0-4)
+    if (targetNumericValue !== undefined && targetNumericValue !== null) {
+      if (snippet.verifiedNumericValue === undefined || snippet.verifiedNumericValue === null) {
+        failureReason = 'numericValueMissing';
+        return false;
+      }
+      if (!numericValuesMatch(targetNumericValue, snippet.verifiedNumericValue, { unit: claim?.claimedUnit ?? snippet.verifiedUnit })) {
+        failureReason = 'numericValueMismatch';
+        candidateFailureDiagnostic = `Claim verification failed: source=${sourceDoc.id}, metric=${claim?.claimedMetricId ?? snippet.verifiedMetricId ?? 'unknown'}, expected=${targetNumericValue}${claim?.claimedUnit === 'percentage' ? '%' : ''}, verified=${snippet.verifiedNumericValue}${snippet.verifiedUnit === 'percentage' ? '%' : ''}, scope=${snippet.verifiedScope ?? 'none'}, period=${sourceDoc.period ?? 'none'}`;
+        return false;
+      }
+    }
+
+    // Scope check (STEP 4-21)
+    if (claim?.claimedScope && snippet.verifiedScope && claim.claimedScope !== snippet.verifiedScope) {
+      failureReason = 'scopeMismatch';
+      candidateFailureDiagnostic = `Claim verification failed: source=${sourceDoc.id}, scope mismatch: expected=${claim.claimedScope}, verified=${snippet.verifiedScope}`;
+      return false;
+    }
+
+    // Target string value check when not purely numeric
+    if (targetValue !== undefined && targetNumericValue === undefined) {
+      const stringMatches =
+        snippet.verifiedValue === targetValue ||
+        snippet.verifiedMetricId === targetValue ||
+        (snippet.verifiedNumericValue !== undefined && String(snippet.verifiedNumericValue) === targetValue);
+      if (!stringMatches) {
+        failureReason = 'valueMismatch';
+        return false;
+      }
+    }
+
+    // Locator numeric contradiction check (STEP 4-21, P0-5)
+    if (snippet.extractedText && (claim?.locator || claim?.claimedNumericValue !== undefined)) {
+      if (hasLocatorNumericContradiction(claim, snippet.extractedText)) {
+        failureReason = 'locatorNumericContradiction';
+        candidateFailureDiagnostic = `Claim verification failed: source=${sourceDoc.id}, locator contradicts fixture text "${snippet.extractedText}"`;
+        return false;
+      }
+    }
+
     return true;
   });
 
   if (matchedSnippet) {
+    const verifiedVal =
+      expectedValue !== undefined
+        ? expectedValue
+        : (matchedSnippet.verifiedNumericValue !== undefined
+            ? String(matchedSnippet.verifiedNumericValue)
+            : matchedSnippet.verifiedValue);
+
     return {
       state: 'claim_verified',
       verificationMethod,
@@ -1579,13 +1837,29 @@ export function verifyClaimEvidence(
       engineVersion,
       sourceDocId: sourceDoc.id,
       claimSupportType: supportType ?? matchedSnippet.supportType,
-      verifiedValue: matchedSnippet.verifiedValue,
+      verifiedValue: verifiedVal,
+      verifiedMetricId: matchedSnippet.verifiedMetricId,
+      verifiedNumericValue: matchedSnippet.verifiedNumericValue,
+      verifiedUnit: matchedSnippet.verifiedUnit,
+      verifiedScope: matchedSnippet.verifiedScope,
+      verifiedAccountingBasis: matchedSnippet.verifiedAccountingBasis,
+      verifiedPeriod: matchedSnippet.verifiedPeriod,
       expectedValue,
       verifiedAt,
       sourceContentHash: matchedSnippet.contentHash,
-      diagnostics: [
-        `Verified against content fixture for section "${matchedSnippet.sectionLocator ?? 'general'}"`,
-      ],
+      diagnostics: {
+        inspectedLocation,
+        expectedMetric: claim?.claimedMetricId ?? matchedSnippet.verifiedMetricId,
+        expectedValue: expectedValue ?? (claim?.claimedNumericValue !== undefined ? String(claim.claimedNumericValue) : claim?.claimedValue),
+        verifiedMetric: matchedSnippet.verifiedMetricId,
+        verifiedValue: verifiedVal,
+        numericComparisonResult: 'match',
+        sourceDocId: sourceDoc.id,
+        period: matchedSnippet.verifiedPeriod ?? sourceDoc.period,
+        scope: matchedSnippet.verifiedScope,
+        accountingBasis: matchedSnippet.verifiedAccountingBasis,
+        details: `Verified against content fixture for section "${matchedSnippet.sectionLocator ?? 'general'}"`,
+      },
     };
   }
 
@@ -1600,33 +1874,36 @@ export function verifyClaimEvidence(
     verifiedValue: undefined,
     expectedValue,
     verifiedAt,
-    diagnostics: [
-      'Source document identity/metadata verified, but document content fixture is unavailable or does not confirm the claim value.',
-    ],
+    diagnostics: {
+      inspectedLocation,
+      expectedMetric: claim?.claimedMetricId,
+      expectedValue: expectedValue ?? (claim?.claimedNumericValue !== undefined ? String(claim.claimedNumericValue) : claim?.claimedValue),
+      verifiedMetric: candidateSnippet?.verifiedMetricId,
+      verifiedValue: candidateSnippet?.verifiedNumericValue !== undefined ? String(candidateSnippet.verifiedNumericValue) : candidateSnippet?.verifiedValue,
+      numericComparisonResult: failureReason === 'numericValueMismatch' ? 'mismatch' : 'unapplicable',
+      failureReason,
+      sourceDocId: sourceDoc.id,
+      period: candidateSnippet?.verifiedPeriod ?? sourceDoc.period,
+      scope: candidateSnippet?.verifiedScope,
+      accountingBasis: candidateSnippet?.verifiedAccountingBasis,
+      details:
+        candidateFailureDiagnostic ??
+        'Source document identity/metadata verified, but document content fixture is unavailable or does not confirm the claim value.',
+    },
   };
 }
 
 /**
- * Options for validating a ClaimVerificationResult (STEP 4-19, Task 3).
+ * Options for validating a ClaimVerificationResult (STEP 4-19, Task 3; STEP 4-21, P0-4).
  */
 export interface ClaimVerificationValidationOptions {
   requireContentHash?: boolean;
   supportType?: EvidenceSupportType;
+  expectedNumericValue?: number;
 }
 
 /**
- * Strictly validates a ClaimVerificationResult against its target claim, source document, and expectations (STEP 4-19, Task 3).
- *
- * It rejects claim_verified when:
- *  - sourceDocId does not match
- *  - claim support type does not match
- *  - verifiedValue is missing
- *  - expectedValue is supplied but verifiedValue does not match
- *  - engineId is missing
- *  - engineVersion is missing
- *  - verificationMethod is missing
- *  - verification timestamp is invalid
- *  - sourceContentHash is required by the selected engine but missing
+ * Strictly validates a ClaimVerificationResult against its target claim, source document, and expectations (STEP 4-19, Task 3; STEP 4-21, P0-3 & P0-4).
  */
 export function validateClaimVerificationResult(
   claim?: ClaimEvidenceLocator | null,
@@ -1660,7 +1937,12 @@ export function validateClaimVerificationResult(
   // 2. claim support type does not match
   const expectedSupportType = supportType ?? options?.supportType;
   if (expectedSupportType && result.claimSupportType !== expectedSupportType) {
-    mismatches.push('verificationSupportTypeMismatch');
+    const compatible =
+      (expectedSupportType === 'numeric_margin_value' && result.claimSupportType === 'reported_kpi') ||
+      (expectedSupportType === 'reported_kpi' && result.claimSupportType === 'numeric_margin_value');
+    if (!compatible) {
+      mismatches.push('verificationSupportTypeMismatch');
+    }
   }
 
   // 3. verifiedValue is missing
@@ -1674,27 +1956,47 @@ export function validateClaimVerificationResult(
     mismatches.push('verificationValueMismatch');
   }
 
-  // 5. engineId is missing
+  // 5. Numeric value validation (STEP 4-21, P0-4)
+  const expNum = options?.expectedNumericValue ?? claim?.claimedNumericValue;
+  if (expNum !== undefined && expNum !== null) {
+    if (result.verifiedNumericValue === undefined || result.verifiedNumericValue === null) {
+      mismatches.push('verificationNumericValueMissing');
+    } else if (!numericValuesMatch(expNum, result.verifiedNumericValue, { unit: claim?.claimedUnit ?? result.verifiedUnit })) {
+      mismatches.push('verificationNumericValueMismatch');
+    }
+  }
+
+  // 6. Metric semantic check (STEP 4-21, P0-3)
+  if (claim?.claimedMetricId && result.verifiedMetricId && claim.claimedMetricId !== result.verifiedMetricId) {
+    mismatches.push('verificationMetricMismatch');
+  }
+
+  // 7. Scope check (STEP 4-21)
+  if (claim?.claimedScope && result.verifiedScope && claim.claimedScope !== result.verifiedScope) {
+    mismatches.push('verificationScopeMismatch');
+  }
+
+  // 8. engineId is missing
   if (!result.engineId || typeof result.engineId !== 'string' || result.engineId.trim() === '') {
     mismatches.push('verificationEngineIdMissing');
   }
 
-  // 6. engineVersion is missing
+  // 9. engineVersion is missing
   if (!result.engineVersion || typeof result.engineVersion !== 'string' || result.engineVersion.trim() === '') {
     mismatches.push('verificationEngineVersionMissing');
   }
 
-  // 7. verificationMethod is missing
+  // 10. verificationMethod is missing
   if (!result.verificationMethod || !['manual', 'parser', 'rule_engine', 'llm'].includes(result.verificationMethod)) {
     mismatches.push('verificationMethodMissing');
   }
 
-  // 8. verification timestamp is invalid
+  // 11. verification timestamp is invalid
   if (!result.verifiedAt || typeof result.verifiedAt !== 'string' || isNaN(Date.parse(result.verifiedAt))) {
     mismatches.push('verificationTimestampInvalid');
   }
 
-  // 9. sourceContentHash is required by the selected engine but missing
+  // 12. sourceContentHash is required by the selected engine but missing
   if (options?.requireContentHash && (!result.sourceContentHash || typeof result.sourceContentHash !== 'string' || result.sourceContentHash.trim() === '')) {
     mismatches.push('verificationContentHashMissing');
   }
