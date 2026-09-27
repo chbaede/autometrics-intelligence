@@ -30,6 +30,7 @@ import {
   MarginValidationContext,
   ReportingScope,
   ScopeRelationshipRule,
+  HistoricalValueReuseFinding,
 } from '../types/metrics';
 import {
   DocumentedScopeException,
@@ -1150,6 +1151,7 @@ export function validateMarginTriplet(
   checks.scope = scopeMatchesRule;
   if (!checks.scope) {
     reasons.push(`Scope mismatch: Revenue (${scopeRev}), Profit (${scopeProfit}), Margin (${scopeMargin}).`);
+    reasons.push('marginSemanticScopeMismatch');
   }
 
   // Check 5: Accounting basis
@@ -1202,9 +1204,12 @@ export function validateMarginTriplet(
     reasons.push('Provenance link missing on reported observation in margin triplet.');
   }
 
-  const failedChecks = (Object.keys(checks) as (keyof MarginValidationChecks)[]).filter(
+  const failedChecks: (keyof MarginValidationChecks | string)[] = (Object.keys(checks) as (keyof MarginValidationChecks)[]).filter(
     (key) => checks[key] === false
   );
+  if (!checks.scope) {
+    failedChecks.push('marginSemanticScopeMismatch');
+  }
 
   // Inconsistent context check (STEP 4-7/4-8; STEP 4-12, Task 5)
   // When an exception is explicitly marked with nature='proxy_numerator' but has contradictory
@@ -1571,6 +1576,10 @@ export function validateMarginTriplet(
       if (scopeIdx !== -1) {
         failedChecks.splice(scopeIdx, 1);
         checks.scope = true;
+      }
+      const mismatchIdx = failedChecks.indexOf('marginSemanticScopeMismatch');
+      if (mismatchIdx !== -1) {
+        failedChecks.splice(mismatchIdx, 1);
       }
     }
   }
@@ -2478,3 +2487,61 @@ export function validateObservationProvenance(
     reasons: reasons.length > 0 ? reasons : ['Observation provenance and source document cross-validation verified.'],
   };
 }
+
+/**
+ * Detects unintended historical value duplication across different reporting periods for the same company and metric (STEP 4-20, Task 7).
+ * Checks primary financial and volume metrics (deliveries_global, bev_deliveries, revenue, operating_income, ebit, adjusted_ebit)
+ * where exact identical non-zero values across different periods indicate copy-paste error or unverified reuse.
+ */
+export function detectHistoricalValueReuse(
+  observations: MetricObservation[]
+): HistoricalValueReuseFinding[] {
+  const findings: HistoricalValueReuseFinding[] = [];
+  const map = new Map<string, MetricObservation[]>();
+
+  for (const obs of observations) {
+    if (obs.value === null || obs.value === 0 || obs.unit === 'percentage') {
+      continue;
+    }
+    // Only check financial and volume metrics
+    const isVolumeOrFinancial =
+      obs.metricId === 'deliveries_global' ||
+      obs.metricId === 'bev_deliveries' ||
+      obs.metricId === 'revenue' ||
+      obs.metricId === 'operating_income' ||
+      obs.metricId === 'ebit' ||
+      obs.metricId === 'adjusted_ebit' ||
+      obs.unit === 'thousand_units' ||
+      obs.unit === 'currency_millions';
+
+    if (!isVolumeOrFinancial) continue;
+
+    const key = `${obs.companyId}:${obs.metricId}:${obs.value}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, [obs]);
+    } else {
+      for (const prev of existing) {
+        if (prev.period !== obs.period) {
+          findings.push({
+            companyId: obs.companyId,
+            metricId: obs.metricId,
+            value: obs.value,
+            period1: prev.period,
+            period2: obs.period,
+            observationId1: prev.id,
+            observationId2: obs.id,
+            sourceDocId1: prev.sourceDocId,
+            sourceDocId2: obs.sourceDocId,
+            code: 'historicalValueReuse',
+            detail: `Historical value reuse detected for ${obs.companyId} (${obs.metricId}): value ${obs.value} is identically reused in period ${obs.period} (${obs.id}) from period ${prev.period} (${prev.id}).`,
+          });
+        }
+      }
+      existing.push(obs);
+    }
+  }
+
+  return findings;
+}
+

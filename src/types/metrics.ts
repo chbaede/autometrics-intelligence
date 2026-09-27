@@ -625,6 +625,19 @@ export type DocumentType =
   | 'regulatory_filing'
   | 'shareholder_letter';
 
+/**
+ * Structured source claim representation (STEP 4-20, Task 5).
+ * Replaces unverified numeric claims embedded in free-form notes.
+ */
+export interface SourceClaim {
+  metricId: string;
+  period: string;
+  value: number;
+  unit: MetricUnit;
+  scope?: ReportingScope;
+  accountingBasis?: AccountingBasis;
+}
+
 export interface SourceDocument {
   id: string;
   companyId: string;
@@ -639,6 +652,8 @@ export interface SourceDocument {
   isVerified: boolean;
   verificationStatus?: VerificationStatus;
   notes?: string;
+  /** Structured claims verified against the source document (STEP 4-20, Task 5). */
+  sourceClaims?: SourceClaim[];
   lastChecked: string;
 }
 
@@ -848,3 +863,21 @@ export interface DataQualityReport {
   companiesCovered: number;
   periodsCovered: string[];
 }
+
+/**
+ * Audit finding for historical value reuse across periods (STEP 4-20, Task 7).
+ */
+export interface HistoricalValueReuseFinding {
+  companyId: string;
+  metricId: string;
+  value: number;
+  period1: string;
+  period2: string;
+  observationId1: string;
+  observationId2: string;
+  sourceDocId1?: string;
+  sourceDocId2?: string;
+  code: 'historicalValueReuse';
+  detail: string;
+}
+

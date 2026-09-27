@@ -72,7 +72,9 @@ import {
   validateExceptionDimensions,
   resolveMarginValidationContext,
   matchScopeRelationship,
+  detectHistoricalValueReuse,
 } from '../src/utils/metricCalculations';
+import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import {
   MetricObservation,
   AuditFinding,
@@ -89,7 +91,6 @@ import {
   ClaimVerificationEngine,
 } from '../src/types/metrics';
 import { COMPANIES_REGISTRY } from '../src/data/companies';
-import { METRIC_OBSERVATIONS } from '../src/data/observations';
 
 let passed = 0;
 let failed = 0;
@@ -6926,14 +6927,14 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   };
 
   const sampleClaim: ClaimEvidenceLocator = {
-    locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
+    locator: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 2.3%',
     claimedValue: 'operating_margin',
   };
 
   const sampleEvidence: ScopeExceptionEvidence[] = [
     {
       sourceDocId: 'bmw_2026_q2_statement',
-      sectionReference: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 7.8%',
+      sectionReference: 'Key Performance Indicators — Automotive Segment / Automotive EBIT margin 2.3%',
       purpose: 'reported_kpi',
       supports: ['reported_kpi'],
       supportEvidence: {
@@ -7145,6 +7146,151 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
       check(finding?.disposition !== 'documented', `Test 232l-7 [${mapping.id}]: Finding disposition is NOT documented`);
     }
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 233: STEP 4-20 Full OEM Data Accuracy Audit, Corrections & Regression Safety
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // TEST 233a: BMW Q2 2026 data accuracy & scope separation
+  const bmwQ2Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q2_ebit')!;
+  check(bmwQ2Ebit.value === 1705, 'Test 233a-1: BMW Q2 2026 EBIT is Group EBIT €1,705m');
+  check(bmwQ2Ebit.reportingScope === 'consolidated_group', 'Test 233a-2: BMW Q2 2026 EBIT reportingScope is consolidated_group');
+  
+  const bmwQ2Kpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === 'bmw_automotive_segment_ros_2026q2_kpi')!;
+  check(bmwQ2Kpi.evidence[0]?.evidenceReference?.includes('2.3%') ?? false, 'Test 233a-3: BMW Q2 2026 documented KPI margin is official 2.3%');
+
+  const bmwFixture = DETERMINISTIC_SOURCE_CONTENT_FIXTURES.find((f) => f.sourceDocId === 'bmw_2026_q2_statement');
+  check(bmwFixture !== undefined && bmwFixture.extractedText.includes('629'), 'Test 233a-4: BMW Q2 2026 fixture contains official Automotive EBIT €629m');
+  check(bmwFixture !== undefined && bmwFixture.extractedText.includes('2.3%'), 'Test 233a-5: BMW Q2 2026 fixture contains official Automotive EBIT margin 2.3%');
+  check(bmwFixture !== undefined && !bmwFixture.extractedText.includes('2,881'), 'Test 233a-6: BMW Q2 2026 fixture does NOT contain false €2,881m');
+  check(bmwFixture !== undefined && !bmwFixture.extractedText.includes('7.8%'), 'Test 233a-7: BMW Q2 2026 fixture does NOT contain false 7.8%');
+
+  // TEST 233b: BMW Q1 2026 data accuracy
+  const bmwQ1Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q1_rev')!;
+  const bmwQ1Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q1_ebit')!;
+  const bmwQ1Margin = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q1_margin')!;
+  check(bmwQ1Rev.value === 31007, 'Test 233b-1: BMW Q1 2026 revenue is €31,007m');
+  check(bmwQ1Ebit.value === 2004, 'Test 233b-2: BMW Q1 2026 Group EBIT is €2,004m');
+  check(bmwQ1Margin.value === 5.0, 'Test 233b-3: BMW Q1 2026 Automotive margin is official 5.0%');
+
+  // TEST 233c: Mercedes-Benz Q2 2026 data accuracy
+  const mbgQ2Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'mbg_2026_q2_ebit')!;
+  check(mbgQ2Ebit.value === 1550, 'Test 233c-1: Mercedes Q2 2026 EBIT is Group EBIT €1,550m');
+
+  const mbgQ2Kpi = DOCUMENTED_REPORTED_KPIS.find((k) => k.id === 'mbg_cars_adjusted_ros_2026q2_kpi')!;
+  check(mbgQ2Kpi.evidence[0]?.evidenceReference?.includes('4.0%') ?? false, 'Test 233c-2: Mercedes Q2 2026 documented KPI margin is official 4.0%');
+
+  const mbgFixture = DETERMINISTIC_SOURCE_CONTENT_FIXTURES.find((f) => f.sourceDocId === 'mbg_2026_q2_results');
+  check(mbgFixture !== undefined && mbgFixture.extractedText.includes('909'), 'Test 233c-3: Mercedes Q2 2026 fixture contains official Cars Adjusted EBIT €909m');
+  check(mbgFixture !== undefined && mbgFixture.extractedText.includes('4.0%'), 'Test 233c-4: Mercedes Q2 2026 fixture contains official Cars Adjusted RoS 4.0%');
+  check(mbgFixture !== undefined && !mbgFixture.extractedText.includes('2,753'), 'Test 233c-5: Mercedes Q2 2026 fixture does NOT contain false €2,753m');
+  check(mbgFixture !== undefined && !mbgFixture.extractedText.includes('10.2%'), 'Test 233c-6: Mercedes Q2 2026 fixture does NOT contain false 10.2%');
+
+  // TEST 233d: Mercedes-Benz Q1 2026 and FY2025
+  const mbgQ1Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'mbg_2026_q1_rev')!;
+  const mbgQ1Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'mbg_2026_q1_ebit')!;
+  const mbgQ1Margin = METRIC_OBSERVATIONS.find((o) => o.id === 'mbg_2026_q1_margin')!;
+  check(mbgQ1Rev.value === 31602, 'Test 233d-1: Mercedes Q1 2026 revenue is €31,602m');
+  check(mbgQ1Ebit.value === 1904, 'Test 233d-2: Mercedes Q1 2026 Group EBIT is €1,904m');
+  check(mbgQ1Margin.value === 4.1, 'Test 233d-3: Mercedes Q1 2026 Cars Adjusted RoS is official 4.1%');
+
+  const mbgFy25Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'mbg_2025_fy_rev')!;
+  const mbgFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'mbg_2025_fy_ebit')!;
+  const mbgFy25Margin = METRIC_OBSERVATIONS.find((o) => o.id === 'mbg_2025_fy_margin')!;
+  check(mbgFy25Rev.value === 142610, 'Test 233d-4: Mercedes FY2025 revenue is €142,610m (distinct from FY2024 €145,594m)');
+  check(mbgFy25Ebit.value === 8836, 'Test 233d-5: Mercedes FY2025 Group EBIT is €8,836m');
+  check(mbgFy25Margin.value === 5.0, 'Test 233d-6: Mercedes FY2025 Cars Adjusted RoS is 5.0%');
+
+  // TEST 233e: Volvo Cars corrections
+  const volvoQ2Del = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2026_q2_del')!;
+  const volvoQ2Bev = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2026_q2_bev')!;
+  const volvoQ2Share = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2026_q2_bev_share')!;
+  check(volvoQ2Del.value === 171.501, 'Test 233e-1: Volvo Q2 2026 retail deliveries corrected to 171.501k (not 205.4k)');
+  check(volvoQ2Bev.value === 42.875, 'Test 233e-2: Volvo Q2 2026 BEVs corrected to 42.875k');
+  check(volvoQ2Share.value === 25.0, 'Test 233e-3: Volvo Q2 2026 BEV share corrected to 25.0%');
+
+  const volvoFy25Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2025_fy_rev')!;
+  const volvoFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2025_fy_ebit')!;
+  const volvoFy25Margin = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2025_fy_margin')!;
+  check(volvoFy25Rev.value === 357300, 'Test 233e-4: Volvo FY2025 revenue is SEK 357,300m');
+  check(volvoFy25Ebit.value === 300, 'Test 233e-5: Volvo FY2025 EBIT is SEK 300m');
+  check(volvoFy25Margin.value === 0.1, 'Test 233e-6: Volvo FY2025 margin is 0.1%');
+
+  const volvoFy24Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2024_fy_rev')!;
+  const volvoFy24Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2024_fy_ebit')!;
+  const volvoFy24Margin = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2024_fy_margin')!;
+  check(volvoFy24Rev.value === 400200, 'Test 233e-7: Volvo FY2024 revenue is SEK 400,200m');
+  check(volvoFy24Ebit.value === 27000, 'Test 233e-8: Volvo FY2024 Core EBIT is SEK 27,000m');
+  check(volvoFy24Margin.value === 6.8, 'Test 233e-9: Volvo FY2024 Core EBIT margin is 6.8%');
+
+  // TEST 233f: Tesla corrections
+  const tslaFy25Del = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2025_fy_del')!;
+  const tslaFy25Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2025_fy_rev')!;
+  const tslaFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2025_fy_ebit')!;
+  const tslaFy25Margin = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2025_fy_margin')!;
+  check(tslaFy25Del.value === 1630.0, 'Test 233f-1: Tesla FY2025 deliveries corrected to 1,630.0k (not 1,845k)');
+  check(tslaFy25Rev.value === 94827, 'Test 233f-2: Tesla FY2025 revenue corrected to $94,827m (not $103,200m)');
+  check(tslaFy25Ebit.value === 4400, 'Test 233f-3: Tesla FY2025 EBIT corrected to $4,400m (not $8,450m)');
+  check(tslaFy25Margin.value === 4.6, 'Test 233f-4: Tesla FY2025 margin corrected to 4.6% (not 8.2%)');
+
+  const tslaFy24Del = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2024_fy_del')!;
+  check(tslaFy24Del.sourceDocId === 'tsla_2024_fy_deck', 'Test 233f-5: Tesla FY2024 uses tsla_2024_fy_deck');
+
+  // TEST 233g: All OEM FY2025 corrections
+  const hmcFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'hmc_2025_fy_ebit')!;
+  check(hmcFy25Ebit.value === 11470000, 'Test 233g-1: Hyundai FY2025 EBIT corrected to KRW 11.47T (not 15.2T)');
+
+  const kiaFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_fy_ebit')!;
+  check(kiaFy25Ebit.value === 9080000, 'Test 233g-2: Kia FY2025 EBIT corrected to KRW 9.08T (not 12.7T)');
+
+  const vwFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'vw_2025_fy_ebit')!;
+  check(vwFy25Ebit.value === 8900, 'Test 233g-3: VW FY2025 operating profit corrected to €8,900m (not €20,250m)');
+
+  const stlaFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'stla_2025_fy_ebit')!;
+  check(stlaFy25Ebit.value === -842, 'Test 233g-4: Stellantis FY2025 AOI corrected to -€842m loss (not €11,900m)');
+
+  const bydFy25Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'byd_2025_fy_rev')!;
+  const bydFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'byd_2025_fy_ebit')!;
+  check(bydFy25Rev.value === 803970, 'Test 233g-5: BYD FY2025 revenue corrected to RMB 803,970m (not 895,000m)');
+  check(bydFy25Ebit.value === 41800, 'Test 233g-6: BYD FY2025 operating profit corrected to RMB 41,800m (not 52,800m)');
+
+  const geelyFy25Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'geely_2025_fy_rev')!;
+  const geelyFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'geely_2025_fy_ebit')!;
+  check(geelyFy25Rev.value === 345230, 'Test 233g-7: Geely FY2025 revenue is RMB 345,230m');
+  check(geelyFy25Ebit.value === 18300, 'Test 233g-8: Geely FY2025 EBIT is RMB 18,300m');
+
+  const hondaFy25Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'honda_2025_fy_rev')!;
+  const hondaFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'honda_2025_fy_ebit')!;
+  check(hondaFy25Rev.value === 21690000, 'Test 233g-9: Honda FY2025 revenue is JPY 21,690,000m');
+  check(hondaFy25Ebit.value === 1210000, 'Test 233g-10: Honda FY2025 operating income corrected to JPY 1,210,000m (not 1,511,672m)');
+
+  const rivianFy25Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'rivian_2025_fy_ebit')!;
+  const rivianFy24Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'rivian_2024_fy_ebit')!;
+  check(rivianFy25Ebit.value === -3600, 'Test 233g-11: Rivian FY2025 loss is -$3,600m');
+  check(rivianFy24Ebit.value === -4700, 'Test 233g-12: Rivian FY2024 loss is -$4,700m (no historical value reuse of -5739)');
+
+  // TEST 233h: detectHistoricalValueReuse integrity checks
+  const currentReuseFindings = detectHistoricalValueReuse(METRIC_OBSERVATIONS);
+  check(currentReuseFindings.length === 0, `Test 233h-1: Current METRIC_OBSERVATIONS has 0 historical value reuses (found ${currentReuseFindings.length})`);
+
+  const mockObservationsWithReuse: MetricObservation[] = [
+    makeObs({ id: 'test_p1', companyId: 'test_co', metricId: 'revenue', period: '2024-FY', value: 50000, unit: 'currency_millions' }),
+    makeObs({ id: 'test_p2', companyId: 'test_co', metricId: 'revenue', period: '2025-FY', value: 50000, unit: 'currency_millions' }),
+  ];
+  const detectedReuse = detectHistoricalValueReuse(mockObservationsWithReuse);
+  check(detectedReuse.length === 1, 'Test 233h-2: detectHistoricalValueReuse detects identical revenue reused across periods');
+  check(detectedReuse[0].code === 'historicalValueReuse', 'Test 233h-3: detected reuse code is historicalValueReuse');
+
+  // TEST 233i: marginSemanticScopeMismatch check
+  const scopeMismatchTriplet = validateMarginTriplet(
+    makeObs({ id: 'rev_scope_test', companyId: 'bmw_group', metricId: 'revenue', period: '2026-Q2', value: 36944, reportingScope: 'consolidated_group', accountingBasis: 'reported' }),
+    makeObs({ id: 'profit_scope_test', companyId: 'bmw_group', metricId: 'operating_income', period: '2026-Q2', value: 1705, reportingScope: 'consolidated_group', accountingBasis: 'reported' }),
+    makeObs({ id: 'margin_scope_test', companyId: 'bmw_group', metricId: 'operating_margin', period: '2026-Q2', value: 2.3, reportingScope: 'automotive_segment', accountingBasis: 'reported', unit: 'percentage' })
+  );
+  check(scopeMismatchTriplet.failedChecks.includes('marginSemanticScopeMismatch'), 'Test 233i-1: scope mismatch triplet includes marginSemanticScopeMismatch in failedChecks');
+  check(scopeMismatchTriplet.reasons.includes('marginSemanticScopeMismatch'), 'Test 233i-2: scope mismatch triplet includes marginSemanticScopeMismatch in reasons');
+  check(scopeMismatchTriplet.mathematicallyVerified === false, 'Test 233i-3: scope mismatch triplet mathematicallyVerified is false');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -30,6 +30,22 @@ SOURCE_DOCUMENTS.forEach((doc) => {
     console.error(`❌ Source ${doc.id}: Unknown companyId ${doc.companyId}`);
     errorCount++;
   }
+  if (doc.sourceClaims && doc.sourceClaims.length > 0) {
+    for (const claim of doc.sourceClaims) {
+      if (!METRICS_MAP[claim.metricId]) {
+        console.error(`❌ Source ${doc.id}: Unknown metricId "${claim.metricId}" in sourceClaim`);
+        errorCount++;
+      }
+      if (claim.period !== doc.period) {
+        console.error(`❌ Source ${doc.id}: sourceClaim period "${claim.period}" does not match document period "${doc.period}"`);
+        errorCount++;
+      }
+      if (typeof claim.value !== 'number' || !Number.isFinite(claim.value)) {
+        console.error(`❌ Source ${doc.id}: Invalid non-finite value in sourceClaim for "${claim.metricId}"`);
+        errorCount++;
+      }
+    }
+  }
 });
 
 // 2. Metric Observations Strict Required Metadata Check by Category
@@ -54,9 +70,21 @@ METRIC_OBSERVATIONS.forEach((obs) => {
     errorCount++;
     return;
   }
-  if (obs.sourceDocId && !SOURCES_MAP[obs.sourceDocId]) {
-    console.error(`❌ Observation ${obs.id}: Unknown sourceDocId "${obs.sourceDocId}"`);
-    errorCount++;
+  if (obs.sourceDocId) {
+    const sourceDoc = SOURCES_MAP[obs.sourceDocId];
+    if (!sourceDoc) {
+      console.error(`❌ Observation ${obs.id}: Unknown sourceDocId "${obs.sourceDocId}"`);
+      errorCount++;
+    } else {
+      if (sourceDoc.companyId && sourceDoc.companyId !== obs.companyId) {
+        console.error(`❌ Observation ${obs.id}: companyId "${obs.companyId}" does not match source doc company "${sourceDoc.companyId}"`);
+        errorCount++;
+      }
+      if (sourceDoc.period && sourceDoc.period !== obs.period) {
+        console.error(`❌ Observation ${obs.id}: period "${obs.period}" does not match source doc period "${sourceDoc.period}"`);
+        errorCount++;
+      }
+    }
   }
 
   // Non-comparable explanation check

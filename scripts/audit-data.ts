@@ -25,6 +25,7 @@ import {
   validateBEVShare,
   validateObservationProvenance,
   getDimensionalObservationKey,
+  detectHistoricalValueReuse,
   MarginValidationOptions,
 } from '../src/utils/metricCalculations';
 import { AuditFinding, PeriodType } from '../src/types/metrics';
@@ -158,6 +159,22 @@ METRIC_OBSERVATIONS.forEach((obs) => {
 
   existingList.push(currentRecord);
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+// 2b. Historical Value Reuse Detection across Different Periods (STEP 4-20, Task 7)
+// ────────────────────────────────────────────────────────────────────────────
+const valueReuseFindings = detectHistoricalValueReuse(METRIC_OBSERVATIONS);
+for (const reuse of valueReuseFindings) {
+  findings.push({
+    severity: 'ERROR',
+    disposition: 'blocking',
+    category: 'DUPLICATE',
+    item: `${reuse.companyId} (${reuse.metricId})`,
+    observationIds: [reuse.observationId1, reuse.observationId2],
+    failedChecks: ['historicalValueReuse'],
+    detail: reuse.detail,
+  });
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // 3. Source Document Provenance & Entity Cross-Validation
@@ -705,6 +722,41 @@ console.log(`  missing required fields:             ${missingMetadataCount}`);
 console.log(`  observations missing page number:    ${missingPageCount} / ${METRIC_OBSERVATIONS.length}`);
 console.log(`  observations missing original label: ${missingOriginalLabelCount} / ${METRIC_OBSERVATIONS.length}`);
 console.log(`  non-calendar fiscal year entities:   ${fiscalYearMisalignments.join(', ')}\n`);
+
+// ────────────────────────────────────────────────────────────────────────────
+// 8. OEM Data Audit Summary Report by OEM and Period (STEP 4-20, Task 8)
+// ────────────────────────────────────────────────────────────────────────────
+console.log('═════════════════════════════════════════════════════════════════════════════');
+console.log('📋 DATA AUDIT SUMMARY REPORT (Grouped by OEM & Period)');
+console.log('═════════════════════════════════════════════════════════════════════════════\n');
+
+for (const company of COMPANIES_REGISTRY) {
+  const companyObs = METRIC_OBSERVATIONS.filter((o) => o.companyId === company.id);
+  const periods = Array.from(new Set(companyObs.map((o) => o.period))).sort().reverse();
+  if (periods.length === 0) continue;
+
+  console.log(`🏢 ${company.name} (${company.id}) — ${periods.length} Periods Audited:`);
+
+  for (const period of periods) {
+    const pObs = companyObs.filter((o) => o.period === period);
+    const del = pObs.find((o) => o.metricId === 'deliveries_global');
+    const bev = pObs.find((o) => o.metricId === 'bev_deliveries');
+    const bevShare = pObs.find((o) => o.metricId === 'bev_share');
+    const rev = pObs.find((o) => o.metricId === 'revenue');
+    const ebit = pObs.find((o) => o.metricId === 'operating_income' || o.metricId === 'ebit' || o.metricId === 'adjusted_ebit');
+    const margin = pObs.find((o) => o.metricId === 'operating_margin');
+
+    const delStr = del ? `${del.value}k` : 'N/A';
+    const bevStr = bev ? `${bev.value}k` : 'N/A';
+    const shareStr = bevShare ? `${bevShare.value}%` : 'N/A';
+    const revStr = rev ? `${rev.currency || ''} ${rev.value}m` : 'N/A';
+    const ebitStr = ebit ? `${ebit.currency || ''} ${ebit.value}m (${ebit.reportingScope}/${ebit.accountingBasis})` : 'N/A';
+    const marginStr = margin ? `${margin.value}% (${margin.reportingScope}/${margin.accountingBasis})` : 'N/A';
+
+    console.log(`  • [${period}] Deliveries: ${delStr} | BEV: ${bevStr} (${shareStr}) | Rev: ${revStr} | EBIT: ${ebitStr} | Margin: ${marginStr}`);
+  }
+  console.log('');
+}
 
 const blockingFindings = findings.filter((f) => f.disposition === 'blocking');
 const reviewFindings = findings.filter((f) => f.disposition === 'review');

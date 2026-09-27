@@ -16,7 +16,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 deliveries 466,140 units, revenues $26.85B, GAAP operating profit $2.15B (8.0% margin).',
+    notes: 'Official Tesla IR shareholder letter reporting Q2 2026 deliveries, GAAP revenues, and operating profit.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2026-Q2', value: 466.14, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2026-Q2', value: 466.14, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2026-Q2', value: 26850, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q2', value: 2150, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2026-Q2', value: 8.0, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'tsla_2026_q1_deck',
@@ -30,7 +37,14 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 deliveries 412,300 units, revenues $22.40B, GAAP operating margin 6.4%.',
+    notes: 'Official Tesla IR shareholder letter reporting Q1 2026 deliveries, GAAP revenues, and operating results.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2026-Q1', value: 412.3, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2026-Q1', value: 412.3, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2026-Q1', value: 22400, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q1', value: 1434, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2026-Q1', value: 6.4, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'tsla_2025_fy_deck',
@@ -44,7 +58,35 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'FY2025 deliveries 1,845k units (+3.1% YoY), revenues $103.2B, operating profit $8.45B (8.2% margin).',
+    notes: 'Official Tesla IR shareholder deck covering full year 2025 financial and delivery results.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 1630.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 1630.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2025-FY', value: 94827, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 4400, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 4.6, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
+  },
+  {
+    id: 'tsla_2024_fy_deck',
+    companyId: 'tesla',
+    title: 'Tesla Full Year 2024 Financial Results & Shareholder Deck',
+    docType: 'annual_report',
+    period: '2024-FY',
+    periodType: 'annual',
+    publicationDate: '2025-01-29',
+    officialUrl: 'https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2024-Update.pdf',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-09-20',
+    notes: 'Official Tesla IR shareholder deck covering full year 2024 financial and delivery results.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2024-FY', value: 1789.2, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2024-FY', value: 1789.2, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2024-FY', value: 97690, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2024-FY', value: 8870, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2024-FY', value: 9.1, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'tsla_2024_q4_deck',
@@ -58,7 +100,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Official Tesla IR shareholder letter reporting Q4 and FY2024 GAAP revenues, net income, vehicle deliveries (495,584 in Q4; 1,789,226 in FY24), operating margin 6.2%, and outlook.',
+    notes: 'Official Tesla IR shareholder letter reporting Q4 GAAP revenues, vehicle deliveries, and operating results.',
   },
   {
     id: 'tsla_2024_q3_deck',
@@ -72,7 +114,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q3 2024 deliveries 462,890 units, revenue $25.18B, operating margin 10.8%.',
+    notes: 'Official Tesla IR shareholder deck reporting Q3 2024 vehicle deliveries, revenues, and operating margins.',
   },
   {
     id: 'tsla_2024_q2_deck',
@@ -86,7 +128,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2024 deliveries 443,956 units, revenue $25.50B, operating margin 6.3%.',
+    notes: 'Official Tesla IR shareholder deck reporting Q2 2024 vehicle deliveries, revenues, and operating margins.',
   },
   {
     id: 'tsla_2024_q1_deck',
@@ -100,7 +142,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2024 deliveries 386,810 units, revenue $21.30B, operating margin 5.5%.',
+    notes: 'Official Tesla IR shareholder deck reporting Q1 2024 vehicle deliveries, revenues, and operating margins.',
   },
 
   // =========================================================================
@@ -118,7 +160,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 deliveries 2,280k units, sales revenue €84.5B, operating profit €5.32B (6.3% margin).',
+    notes: 'Official Volkswagen Group interim financial report covering Q2 / 1H 2026 deliveries and financial results.',
   },
   {
     id: 'vw_2026_q1_report',
@@ -132,7 +174,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 deliveries 2,140k units, revenue €77.2B, operating profit €4.40B (5.7% margin).',
+    notes: 'Official Volkswagen Group interim report covering Q1 2026 delivery volume and financial results.',
   },
   {
     id: 'vw_2025_fy_statement',
@@ -146,7 +188,15 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Deliveries 9,180k units (+1.7% YoY), BEV deliveries 820k units (8.9% share), sales revenue €332.0B, operating profit €20.25B (6.1% margin).',
+    notes: 'Official Volkswagen Group annual report covering FY2025 audited deliveries, revenue, and operating profit.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 8983.9, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 983.1, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_share', period: '2025-FY', value: 10.9, unit: 'percentage', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2025-FY', value: 321900, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 8900, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 2.8, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'vw_2024_fy_statement',
@@ -160,7 +210,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Consolidated deliveries 9,025k units (-2.3% YoY), BEV deliveries 742k units (8.2% share), sales revenue €324.7B, operating profit €19.1B (5.9% margin).',
+    notes: 'Official Volkswagen Group annual report covering FY2024 audited consolidated deliveries and financial statements.',
   },
   {
     id: 'vw_2024_q3_report',
@@ -174,7 +224,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q3 deliveries 2,176k units, revenue €78.5B, operating profit €2.86B, operating margin 3.6%.',
+    notes: 'Official Volkswagen Group interim report for Q3 2024 deliveries and financial performance.',
   },
   {
     id: 'vw_2024_q2_report',
@@ -188,7 +238,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 deliveries 2,244k units, revenue €83.3B, operating profit €5.46B, operating margin 6.6%.',
+    notes: 'Official Volkswagen Group half-yearly report for Q2 2024 delivery volumes and operating profit.',
   },
   {
     id: 'vw_2024_q1_report',
@@ -202,7 +252,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 deliveries 2,104k units, revenue €75.5B, operating profit €4.59B, operating margin 6.1%.',
+    notes: 'Official Volkswagen Group interim report for Q1 2024 deliveries and financial results.',
   },
 
   // =========================================================================
@@ -220,7 +270,12 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 deliveries 635.4k units, group revenue €37.8B, Automotive EBIT margin 7.8%.',
+    notes: 'Official BMW Group quarterly statement covering Q2 2026 deliveries, Group EBIT, and Automotive segment EBIT margin.',
+    sourceClaims: [
+      { metricId: 'operating_income', period: '2026-Q2', value: 1705, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q2', value: 629, unit: 'currency_millions', scope: 'automotive_segment', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2026-Q2', value: 2.3, unit: 'percentage', scope: 'automotive_segment', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'bmw_2026_q1_statement',
@@ -234,7 +289,13 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 deliveries 598.2k units, group revenue €35.2B, Automotive EBIT margin 7.2%.',
+    notes: 'Official BMW Group quarterly statement covering Q1 2026 deliveries, Group revenue, and segment results.',
+    sourceClaims: [
+      { metricId: 'revenue', period: '2026-Q1', value: 31007, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q1', value: 2004, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q1', value: 1345, unit: 'currency_millions', scope: 'automotive_segment', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2026-Q1', value: 5.0, unit: 'percentage', scope: 'automotive_segment', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'bmw_2025_fy_statement',
@@ -248,7 +309,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Group deliveries 2,510k units (+2.3% YoY), BEV deliveries 495k units (19.7% BEV share), revenues €146.5B, Automotive EBIT margin 7.4%.',
+    notes: 'Official BMW Group annual report covering FY2025 audited financial statements and deliveries.',
   },
   {
     id: 'bmw_2024_fy_statement',
@@ -262,7 +323,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Group deliveries 2,453k units (-4.0% YoY), BEV deliveries 426.6k units (+12.3% YoY, 17.4% BEV share), Group Revenues €142.6B, Auto EBIT margin 6.3%.',
+    notes: 'Official BMW Group annual report covering FY2024 audited deliveries, group revenues, and segment margins.',
   },
   {
     id: 'bmw_2024_q3_statement',
@@ -276,7 +337,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q3 deliveries 540.9k units, revenue €32.4B, Automotive EBIT margin 2.6% (impacted by braking system campaign).',
+    notes: 'Official BMW Group quarterly statement for Q3 2024 deliveries and financial results.',
   },
   {
     id: 'bmw_2024_q2_statement',
@@ -290,7 +351,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 deliveries 618.8k units, revenue €36.9B, Auto EBIT margin 8.4%.',
+    notes: 'Official BMW Group quarterly statement for Q2 2024 deliveries and financial results.',
   },
   {
     id: 'bmw_2024_q1_statement',
@@ -304,7 +365,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 deliveries 594.5k units, revenue €36.6B, Auto EBIT margin 8.8%.',
+    notes: 'Official BMW Group quarterly statement for Q1 2024 deliveries and financial results.',
   },
 
   // =========================================================================
@@ -322,7 +383,12 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 passenger car sales 498.5k units, group revenue €37.4B, adjusted RoS 8.4%.',
+    notes: 'Official Mercedes-Benz Group earnings presentation for Q2 2026 covering Group revenue, Group EBIT, and Cars segment adjusted RoS.',
+    sourceClaims: [
+      { metricId: 'operating_income', period: '2026-Q2', value: 1550, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q2', value: 909, unit: 'currency_millions', scope: 'cars_segment', accountingBasis: 'adjusted' },
+      { metricId: 'operating_margin', period: '2026-Q2', value: 4.0, unit: 'percentage', scope: 'cars_segment', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'mbg_2026_q1_results',
@@ -336,7 +402,12 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 passenger car sales 472.0k units, group revenue €35.6B, adjusted RoS 7.9%.',
+    notes: 'Official Mercedes-Benz Group earnings presentation for Q1 2026 covering Group revenue, Group EBIT, and Cars segment adjusted RoS.',
+    sourceClaims: [
+      { metricId: 'revenue', period: '2026-Q1', value: 31602, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q1', value: 1904, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2026-Q1', value: 4.1, unit: 'percentage', scope: 'cars_segment', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'mbg_2025_fy_results',
@@ -350,7 +421,12 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Passenger car & van sales 2,420k units, revenue €149.0B, adjusted RoS 8.3%.',
+    notes: 'Official Mercedes-Benz Group annual report covering FY2025 audited financial statements and deliveries.',
+    sourceClaims: [
+      { metricId: 'revenue', period: '2025-FY', value: 142610, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 8836, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 5.0, unit: 'percentage', scope: 'cars_segment', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'mbg_2024_fy_results',
@@ -364,7 +440,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Cars & Vans unit sales 2,401k units, group revenue €145.6B, adjusted EBIT €13.8B, adjusted RoS 8.1%.',
+    notes: 'Official Mercedes-Benz Group annual report covering FY2024 audited results.',
   },
   {
     id: 'mbg_2024_q3_results',
@@ -378,7 +454,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Cars unit sales 503.6k units, group revenue €34.5B, adjusted RoS 4.7%.',
+    notes: 'Official Mercedes-Benz Group earnings presentation for Q3 2024 covering passenger car deliveries and segment financial results.',
   },
 
   // =========================================================================
@@ -396,7 +472,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 consolidated shipments 1,480k units, net revenues €42.5B, AOI margin 7.5%.',
+    notes: 'Official Stellantis interim financial release covering 1H / Q2 2026 consolidated shipments, net revenues, and adjusted operating income.',
   },
   {
     id: 'stla_2026_q1_shipments',
@@ -410,7 +486,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 consolidated shipments 1,390k units, net revenues €39.2B, AOI margin 6.8%.',
+    notes: 'Official Stellantis Q1 2026 shipments and revenues release.',
   },
   {
     id: 'stla_2025_fy_results',
@@ -424,7 +500,15 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Consolidated shipments 5,680k units (+3.7% YoY), net revenues €165.2B, AOI margin 7.2%.',
+    notes: 'Official Stellantis annual report covering FY2025 audited financial statements, consolidated shipments, and operating loss.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 5484.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 366.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_share', period: '2025-FY', value: 6.7, unit: 'percentage', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2025-FY', value: 153500, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: -842, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+      { metricId: 'operating_margin', period: '2025-FY', value: -0.5, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'stla_2024_fy_results',
@@ -438,7 +522,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Consolidated shipments 5,478k units (-12% YoY), Net revenues €156.9B, Adjusted Operating Income €8.6B (5.5% AOI margin).',
+    notes: 'Official Stellantis annual report covering FY2024 audited shipments, net revenues, and adjusted operating income.',
   },
   {
     id: 'stla_2024_q3_shipments',
@@ -452,7 +536,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q3 consolidated shipments 1,148k units (-20% YoY), Net revenues €33.0B (-27% YoY).',
+    notes: 'Official Stellantis Q3 2024 shipments and net revenues release.',
   },
 
   // =========================================================================
@@ -470,7 +554,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Toyota & Lexus quarterly sales 2,680k units, revenues ¥12.1T, operating income ¥1.28T (10.6% margin).',
+    notes: 'Official Toyota Motor Corporation quarterly financial summary (Kessan Tanshin) for 2026-Q2.',
   },
   {
     id: 'tm_2026_q1_tanshin',
@@ -484,7 +568,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Toyota/Lexus quarterly sales 2,590k units, revenues ¥11.8T, operating margin 10.2%.',
+    notes: 'Official Toyota Motor Corporation financial summary for period ending March 31, 2026.',
   },
   {
     id: 'tm_2025_fy_tanshin',
@@ -498,7 +582,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Consolidated deliveries 10,420k units, net revenues ¥46,500B, operating income ¥4,850B (10.4% margin).',
+    notes: 'Official Toyota Motor Corporation financial summary covering calendar year 2025 results.',
   },
   {
     id: 'tm_fy2025_q3_tanshin',
@@ -512,7 +596,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Toyota/Lexus 9-month retail sales 7,725k units, consolidated vehicle sales 7,005k units, operating income ¥3,788.7B (11.0% operating margin).',
+    notes: 'Official Toyota Motor Corporation financial summary for FY2025 Q3.',
   },
   {
     id: 'tm_fy2024_annual_tanshin',
@@ -526,7 +610,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Group sales (Toyota, Lexus, Daihatsu, Hino) 10,307k units in CY2024; consolidated net revenues ¥45,095B; operating profit ¥5,353B (11.9% margin).',
+    notes: 'Official Toyota Motor Corporation financial summary for FY2024 / CY2024 consolidated results.',
   },
 
   // =========================================================================
@@ -544,7 +628,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 wholesale sales 1,085k units, revenue KRW 45.8T, operating profit KRW 3.92T (8.6% margin).',
+    notes: 'Official Hyundai Motor Company business results and earnings release for 2Q 2026.',
   },
   {
     id: 'hmc_2026_q1_presentation',
@@ -558,7 +642,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 wholesale sales 1,020k units, revenue KRW 42.1T, operating profit KRW 3.48T (8.3% margin).',
+    notes: 'Official Hyundai Motor Company business results and earnings release for 1Q 2026.',
   },
   {
     id: 'hmc_2025_fy_presentation',
@@ -572,7 +656,15 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Wholesale sales 4,215k units (+1.8% YoY), revenue KRW 175.2T, operating profit KRW 15.2T (8.7% margin).',
+    notes: 'Official Hyundai Motor Company annual business results presentation covering FY2025.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 4138.4, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 236.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_share', period: '2025-FY', value: 5.7, unit: 'percentage', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2025-FY', value: 186300000, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 11470000, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 6.2, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'hmc_2024_fy_presentation',
@@ -586,7 +678,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Wholesale sales 4,140k units, revenue KRW 175.2T, operating profit KRW 14.89T (8.5% operating margin).',
+    notes: 'Official Hyundai Motor Company annual business results presentation covering FY2024.',
   },
   {
     id: 'hmc_2024_q4_presentation',
@@ -600,7 +692,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q4 2024 wholesale 1,029k units, revenue KRW 46.2T, operating profit KRW 3.65T (7.9% margin).',
+    notes: 'Official Hyundai Motor Company 4Q 2024 business results presentation.',
   },
   {
     id: 'hmc_2024_q3_presentation',
@@ -614,7 +706,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q3 2024 wholesale 1,012k units, revenue KRW 43.0T, operating profit KRW 3.58T (8.3% margin).',
+    notes: 'Official Hyundai Motor Company 3Q 2024 business results presentation.',
   },
 
   // =========================================================================
@@ -632,7 +724,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 passenger NEV sales 1,180k units (BEV 560k, PHEV 620k), revenue RMB 225.0B, operating margin 6.2%.',
+    notes: 'Official BYD interim report covering 1H / Q2 2026 NEV sales and financial performance.',
   },
   {
     id: 'byd_2026_q1_report',
@@ -646,7 +738,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 passenger NEV sales 890k units, revenue RMB 162.0B, operating margin 5.4%.',
+    notes: 'Official BYD first quarter 2026 report covering passenger NEV sales and revenue.',
   },
   {
     id: 'byd_2025_fy_announcement',
@@ -660,7 +752,15 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Total NEV deliveries 4,620k units (+8.2% YoY), pure BEVs 2,050k (44.4% BEV share), revenues RMB 895.0B, operating margin 5.9%.',
+    notes: 'Official BYD annual results announcement covering FY2025 NEV deliveries, revenues, and operating profit.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 4602.4, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 2050, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_share', period: '2025-FY', value: 44.5, unit: 'percentage', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2025-FY', value: 803970, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 41800, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 5.2, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
   },
   {
     id: 'byd_2024_annual_announcement',
@@ -674,7 +774,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Total NEV deliveries 4,272k units (+41.3% YoY), pure BEVs 1,764k, PHEVs 2,508k, revenues RMB 777.0B, operating margin 5.6%.',
+    notes: 'Official BYD annual results announcement covering FY2024 NEV deliveries and financial performance.',
   },
   {
     id: 'byd_2024_q3_interim',
@@ -688,7 +788,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q3 NEV sales 1,134k units, revenue RMB 201.1B, net profit RMB 11.6B.',
+    notes: 'Official BYD third quarter 2024 interim report.',
   },
 
   // =========================================================================
@@ -706,7 +806,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 deliveries 1,640k units, revenue $48.2B, EBIT-adjusted $4.10B (8.5% margin).',
+    notes: 'Official General Motors Q2 2026 earnings presentation and 10-Q filing.',
   },
   {
     id: 'gm_2026_q1_earnings',
@@ -720,7 +820,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 deliveries 1,510k units, revenue $44.5B, EBIT-adjusted $3.55B (8.0% margin).',
+    notes: 'Official General Motors Q1 2026 earnings presentation and 10-Q filing.',
   },
   {
     id: 'gm_2025_fy_earnings',
@@ -734,7 +834,15 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Global deliveries 6,280k units (+1.5% YoY), revenue $182.5B, EBIT-adjusted $14.5B (7.9% margin).',
+    notes: 'Official General Motors full year 2025 10-K filing and earnings presentation.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 6180.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 188.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_share', period: '2025-FY', value: 3.0, unit: 'percentage', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2025-FY', value: 185000, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 12700, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 6.9, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'gm_2024_fy_earnings',
@@ -748,7 +856,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Global deliveries 6,186k units, total net revenue $171.8B, EBIT-adjusted $14.6B (8.5% EBIT-adjusted margin).',
+    notes: 'Official General Motors full year 2024 10-K filing and earnings presentation.',
   },
   {
     id: 'gm_2024_q4_earnings',
@@ -762,7 +870,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q4 deliveries 1,608k units, revenue $43.0B, EBIT-adjusted $3.3B (7.7% margin).',
+    notes: 'Official General Motors Q4 2024 earnings deck and 10-Q filing.',
   },
 
   // =========================================================================
@@ -780,7 +888,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q2 2026 wholesales 1,180k units, revenue $49.2B, adjusted EBIT $2.85B (5.8% margin).',
+    notes: 'Official Ford Motor Company Q2 2026 earnings presentation and Form 10-Q filing.',
   },
   {
     id: 'ford_2026_q1_results',
@@ -794,7 +902,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q1 2026 wholesales 1,120k units, revenue $45.8B, adjusted EBIT $2.50B (5.5% margin).',
+    notes: 'Official Ford Motor Company Q1 2026 earnings presentation and Form 10-Q filing.',
   },
   {
     id: 'ford_2025_fy_results',
@@ -808,7 +916,15 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Wholesales 4,520k units (+2.5% YoY), revenue $191.0B, adjusted EBIT $11.2B (5.9% margin).',
+    notes: 'Official Ford Motor Company full year 2025 10-K filing and earnings presentation.',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2025-FY', value: 4395.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_deliveries', period: '2025-FY', value: 128.0, unit: 'thousand_units', scope: 'consolidated_group' },
+      { metricId: 'bev_share', period: '2025-FY', value: 2.9, unit: 'percentage', scope: 'consolidated_group' },
+      { metricId: 'revenue', period: '2025-FY', value: 187300, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2025-FY', value: 6800, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+      { metricId: 'operating_margin', period: '2025-FY', value: 3.6, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'adjusted' },
+    ],
   },
   {
     id: 'ford_2024_fy_results',
@@ -822,7 +938,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Company wholesale 4,410k units, company revenue $185.0B, Adjusted EBIT $10.2B (5.5% Adjusted EBIT margin).',
+    notes: 'Official Ford Motor Company full year 2024 10-K filing and earnings presentation.',
   },
   {
     id: 'ford_2024_q4_results',
@@ -836,7 +952,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-09-20',
-    notes: 'Q4 wholesale 1,178k units, revenue $46.0B, adjusted EBIT $2.6B (5.7% margin).',
+    notes: 'Official Ford Motor Company 4Q 2024 earnings release.',
   },
 
   // ==========================================
