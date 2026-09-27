@@ -65,6 +65,7 @@ import {
 } from '../src/data/scopeExceptions';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import {
   getDimensionalObservationKey,
@@ -7689,7 +7690,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const auditData = buildAuditReportData();
   check(typeof auditData.generatedAt === 'string', 'Test 235j-1: generatedAt is string');
   check(!isNaN(Date.parse(auditData.generatedAt)), 'Test 235j-2: generatedAt is valid ISO-8601');
-  check(auditData.commitSha === resolvedSha, 'Test 235j-3: auditData.commitSha matches getAuditCommitSha()');
+  check(auditData.sourceCommitSha === resolvedSha, 'Test 235j-3: auditData.sourceCommitSha matches getAuditCommitSha()');
   check(auditData.counts.companies === COMPANIES_REGISTRY.length, 'Test 235j-4: companies count is dynamic');
   check(auditData.counts.observations === METRIC_OBSERVATIONS.length, 'Test 235j-5: observations count is dynamic');
   check(auditData.counts.sourceDocuments === SOURCE_DOCUMENTS.length, 'Test 235j-6: sourceDocuments count is dynamic');
@@ -7708,15 +7709,22 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(markdown.includes('Data audit') && markdown.includes('`PASS`'), 'Test 235k-5: Markdown contains data audit PASS');
   check(markdown.includes('fixture_verified'), 'Test 235k-6: Markdown documents fixture_verified policy');
 
-  // Test 235l: After generation, report.commitSha === current HEAD must be true
+  // Test 235l: After generation, report.sourceCommitSha === current HEAD must be true
   const freshReport = buildAuditReportData();
-  check(freshReport.commitSha === resolvedSha, 'Test 235l-1: After generation, report.commitSha === current HEAD');
+  check(freshReport.sourceCommitSha === resolvedSha, 'Test 235l-1: After generation, report.sourceCommitSha === current HEAD');
   const auditReportJsonPath = path.resolve(__dirname, '../docs/audit-report.json');
   if (fs.existsSync(auditReportJsonPath)) {
     const diskJson = JSON.parse(fs.readFileSync(auditReportJsonPath, 'utf-8'));
-    check(diskJson.commitSha !== '32930daad67db959427555f35a90323cce68e247', 'Test 235l-2: On-disk report is not the stale commit 32930da');
+    check(diskJson.sourceCommitSha !== '32930daad67db959427555f35a90323cce68e247', 'Test 235l-2: On-disk report is not the stale commit 32930da');
     if (!process.env.GITHUB_SHA) {
-      check(diskJson.commitSha === resolvedSha, 'Test 235l-3: On-disk docs/audit-report.json matches current commit SHA in local repository');
+      let parentSha = '';
+      try {
+        parentSha = execSync('git rev-parse HEAD~1', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      } catch {
+        // ignore if no parent
+      }
+      const matchesCurrentOrParent = diskJson.sourceCommitSha === resolvedSha || (parentSha !== '' && diskJson.sourceCommitSha === parentSha);
+      check(matchesCurrentOrParent, 'Test 235l-3: On-disk docs/audit-report.json matches current or audited source commit SHA');
     }
   }
 }

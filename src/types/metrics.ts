@@ -455,10 +455,8 @@ export interface ClaimVerificationValidationResult {
  */
 export interface AuditReportData {
   generatedAt: string;
-  /** The repository source tree that was audited when this report was generated (STEP 4-23, P1) */
+  /** The repository source commit that was audited when this report was generated (STEP 4-24, P1) */
   sourceCommitSha: string;
-  /** Backward-compatible alias for sourceCommitSha */
-  commitSha?: string;
   counts: {
     companies: number;
     observations: number;

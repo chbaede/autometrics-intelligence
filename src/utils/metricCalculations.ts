@@ -3062,14 +3062,14 @@ export function validateSourceContentFixtures(
         detail: `Fixture at index ${idx} ("${f.sourceDocId}") has empty or missing contentHash.`,
       });
     } else {
-      const cleanHash = f.contentHash.trim().toLowerCase();
-      // SHA-256 must be exactly 64 hexadecimal characters
+      const cleanHash = f.contentHash.trim();
+      // SHA-256 must be exactly 64 lowercase hexadecimal characters
       if (!/^[0-9a-f]{64}$/.test(cleanHash)) {
         errors.push({
           code: 'fixtureInvalidContentHash',
           sourceDocId: f.sourceDocId,
           fixtureIndex: idx,
-          detail: `Fixture at index ${idx} ("${f.sourceDocId}") has invalid contentHash format "${f.contentHash}". Expected 64-character hexadecimal SHA-256 digest.`,
+          detail: `Fixture at index ${idx} ("${f.sourceDocId}") has invalid contentHash format "${f.contentHash}". Expected 64-character lowercase hexadecimal SHA-256 digest.`,
         });
       } else if (f.extractedText && typeof f.extractedText === 'string') {
         const expectedHash = hashFixtureContent(f.extractedText);

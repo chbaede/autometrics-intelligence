@@ -185,15 +185,13 @@ The ${data.findings.review} review findings represent legitimate, documented aut
 
 export function buildAuditReportData(options?: {
   sourceCommitSha?: string;
-  commitSha?: string;
   generatedAt?: string;
   blockingFindingsCount?: number;
   reviewFindingsCount?: number;
   documentedFindingsCount?: number;
   informationalFindingsCount?: number;
 }): AuditReportData {
-  const commitSha = options?.sourceCommitSha ?? options?.commitSha ?? getAuditCommitSha();
-  const sourceCommitSha = options?.sourceCommitSha ?? commitSha;
+  const sourceCommitSha = options?.sourceCommitSha ?? getAuditCommitSha();
   const generatedAt = options?.generatedAt ?? new Date().toISOString();
   const scVal = validateSourceClaims(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS);
   const fixVal = validateSourceContentFixtures(DETERMINISTIC_SOURCE_CONTENT_FIXTURES, SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
@@ -201,7 +199,6 @@ export function buildAuditReportData(options?: {
   return {
     generatedAt,
     sourceCommitSha,
-    commitSha,
     counts: {
       companies: COMPANIES_REGISTRY.length,
       observations: METRIC_OBSERVATIONS.length,
@@ -1014,7 +1011,6 @@ const generatedAt = new Date().toISOString();
 const auditReportData: AuditReportData = {
   generatedAt,
   sourceCommitSha: commitSha,
-  commitSha,
   counts: {
     companies: COMPANIES_REGISTRY.length,
     observations: METRIC_OBSERVATIONS.length,
