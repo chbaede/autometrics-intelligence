@@ -2019,44 +2019,73 @@ export function validateClaimVerificationResult(
     mismatches.push('verificationValueMismatch');
   }
 
-  // 5. Numeric value validation (STEP 4-21, P0-4)
+  // 5. Numeric value validation (STEP 4-21, P0-4; STEP 4-24.1, P0-2)
   const expNum = options?.expectedNumericValue ?? claim?.claimedNumericValue;
   if (expNum !== undefined && expNum !== null) {
-    if (result.verifiedNumericValue === undefined || result.verifiedNumericValue === null) {
+    if (
+      result.verifiedNumericValue === undefined ||
+      result.verifiedNumericValue === null ||
+      typeof result.verifiedNumericValue !== 'number' ||
+      !Number.isFinite(result.verifiedNumericValue)
+    ) {
       mismatches.push('verificationNumericValueMissing');
     } else if (!numericValuesMatch(expNum, result.verifiedNumericValue, { unit: claim?.claimedUnit ?? result.verifiedUnit })) {
       mismatches.push('verificationNumericValueMismatch');
     }
   }
 
-  // 6. Metric semantic check (STEP 4-21, P0-3)
-  if (claim?.claimedMetricId && result.verifiedMetricId && claim.claimedMetricId !== result.verifiedMetricId) {
-    mismatches.push('verificationMetricMismatch');
+  // 6. Metric semantic check (STEP 4-21, P0-3; STEP 4-24.1, P0-1 & P0-8)
+  if (claim?.claimedMetricId !== undefined && claim?.claimedMetricId !== null && claim.claimedMetricId.trim() !== '') {
+    if (!result.verifiedMetricId || typeof result.verifiedMetricId !== 'string' || result.verifiedMetricId.trim() === '') {
+      mismatches.push('verificationMetricMissing');
+    } else if (result.verifiedMetricId !== claim.claimedMetricId) {
+      mismatches.push('verificationMetricMismatch');
+    }
   }
 
-  // 7. Scope check (STEP 4-21)
-  if (claim?.claimedScope && result.verifiedScope && claim.claimedScope !== result.verifiedScope) {
-    mismatches.push('verificationScopeMismatch');
+  // 7. Scope check (STEP 4-21; STEP 4-24.1, P0-1 & P0-4)
+  if (claim?.claimedScope !== undefined && claim?.claimedScope !== null && (claim.claimedScope as string).trim() !== '') {
+    if (!result.verifiedScope || typeof result.verifiedScope !== 'string' || result.verifiedScope.trim() === '') {
+      mismatches.push('verificationScopeMissing');
+    } else if (result.verifiedScope !== claim.claimedScope) {
+      mismatches.push('verificationScopeMismatch');
+    }
   }
 
-  // 7a. Unit check (STEP 4-23, P0-5)
-  if (claim?.claimedUnit && result.verifiedUnit && claim.claimedUnit !== result.verifiedUnit) {
-    mismatches.push('verificationUnitMismatch');
+  // 7a. Unit check (STEP 4-23, P0-5; STEP 4-24.1, P0-1 & P0-3)
+  if (claim?.claimedUnit !== undefined && claim?.claimedUnit !== null && (claim.claimedUnit as string).trim() !== '') {
+    if (!result.verifiedUnit || typeof result.verifiedUnit !== 'string' || result.verifiedUnit.trim() === '') {
+      mismatches.push('verificationUnitMissing');
+    } else if (result.verifiedUnit !== claim.claimedUnit) {
+      mismatches.push('verificationUnitMismatch');
+    }
   }
 
-  // 7b. Accounting basis check (STEP 4-23, P0-5)
-  if (claim?.claimedAccountingBasis && result.verifiedAccountingBasis && claim.claimedAccountingBasis !== result.verifiedAccountingBasis) {
-    mismatches.push('verificationAccountingBasisMismatch');
+  // 7b. Accounting basis check (STEP 4-23, P0-5; STEP 4-24.1, P0-1 & P0-5)
+  if (claim?.claimedAccountingBasis !== undefined && claim?.claimedAccountingBasis !== null && (claim.claimedAccountingBasis as string).trim() !== '') {
+    if (!result.verifiedAccountingBasis || typeof result.verifiedAccountingBasis !== 'string' || result.verifiedAccountingBasis.trim() === '') {
+      mismatches.push('verificationAccountingBasisMissing');
+    } else if (result.verifiedAccountingBasis !== claim.claimedAccountingBasis) {
+      mismatches.push('verificationAccountingBasisMismatch');
+    }
   }
 
-  // 7c. Period check (STEP 4-23, P0-5)
-  if (claim?.claimedPeriod && result.verifiedPeriod && claim.claimedPeriod !== result.verifiedPeriod) {
-    mismatches.push('verificationPeriodMismatch');
+  // 7c. Period check (STEP 4-23, P0-5; STEP 4-24.1, P0-1 & P0-6)
+  if (claim?.claimedPeriod !== undefined && claim?.claimedPeriod !== null && claim.claimedPeriod.trim() !== '') {
+    if (!result.verifiedPeriod || typeof result.verifiedPeriod !== 'string' || result.verifiedPeriod.trim() === '') {
+      mismatches.push('verificationPeriodMissing');
+    } else if (result.verifiedPeriod !== claim.claimedPeriod) {
+      mismatches.push('verificationPeriodMismatch');
+    }
   }
 
-  // 7d. Period type check (STEP 4-23, P0-5)
-  if (claim?.claimedPeriodType && result.verifiedPeriodType && claim.claimedPeriodType !== result.verifiedPeriodType) {
-    mismatches.push('verificationPeriodTypeMismatch');
+  // 7d. Period type check (STEP 4-23, P0-5; STEP 4-24.1, P0-1 & P0-7)
+  if (claim?.claimedPeriodType !== undefined && claim?.claimedPeriodType !== null && (claim.claimedPeriodType as string).trim() !== '') {
+    if (!result.verifiedPeriodType || typeof result.verifiedPeriodType !== 'string' || result.verifiedPeriodType.trim() === '') {
+      mismatches.push('verificationPeriodTypeMissing');
+    } else if (result.verifiedPeriodType !== claim.claimedPeriodType) {
+      mismatches.push('verificationPeriodTypeMismatch');
+    }
   }
 
   // 8. engineId is missing
@@ -2079,9 +2108,14 @@ export function validateClaimVerificationResult(
     mismatches.push('verificationTimestampInvalid');
   }
 
-  // 12. sourceContentHash is required by the selected engine but missing
-  if (options?.requireContentHash && (!result.sourceContentHash || typeof result.sourceContentHash !== 'string' || result.sourceContentHash.trim() === '')) {
-    mismatches.push('verificationContentHashMissing');
+  // 12. sourceContentHash verification (STEP 4-24.1, P0-9 & P0-10)
+  const isHashRequired = Boolean(options?.requireContentHash || result.verificationOrigin === 'repository_fixture');
+  if (isHashRequired) {
+    if (!result.sourceContentHash || typeof result.sourceContentHash !== 'string' || result.sourceContentHash.trim() === '') {
+      mismatches.push('verificationContentHashMissing');
+    } else if (!/^[0-9a-f]{64}$/.test(result.sourceContentHash.trim())) {
+      mismatches.push('verificationContentHashInvalid');
+    }
   }
 
   return {

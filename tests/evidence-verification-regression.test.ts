@@ -609,6 +609,29 @@ console.log('\n--- 14. Verification Result Validation & Anti-Forgery ---');
     { label: 'invalid verificationMethod', corrupt: { verificationMethod: 'magic' as any }, expectedMismatch: 'verificationMethodMissing' },
     { label: 'invalid verifiedAt timestamp', corrupt: { verifiedAt: 'not-a-date' }, expectedMismatch: 'verificationTimestampInvalid' },
     { label: 'missing contentHash when required', corrupt: { sourceContentHash: '' }, expectedMismatch: 'verificationContentHashMissing', options: { requireContentHash: true } },
+
+    // STEP 4-24.1: Anti-omission tests (P0-1 through P0-10, P0-12, P0-13)
+    { label: 'omitted verifiedMetricId (undefined)', corrupt: { verifiedMetricId: undefined }, expectedMismatch: 'verificationMetricMissing' },
+    { label: 'omitted verifiedMetricId (empty string)', corrupt: { verifiedMetricId: '' }, expectedMismatch: 'verificationMetricMissing' },
+    { label: 'omitted verifiedNumericValue (NaN)', corrupt: { verifiedNumericValue: NaN }, expectedMismatch: 'verificationNumericValueMissing' },
+    { label: 'omitted verifiedNumericValue (Infinity)', corrupt: { verifiedNumericValue: Infinity }, expectedMismatch: 'verificationNumericValueMissing' },
+    { label: 'omitted verifiedUnit (undefined)', corrupt: { verifiedUnit: undefined }, expectedMismatch: 'verificationUnitMissing' },
+    { label: 'omitted verifiedUnit (empty string)', corrupt: { verifiedUnit: '' as any }, expectedMismatch: 'verificationUnitMissing' },
+    { label: 'omitted verifiedScope (undefined)', corrupt: { verifiedScope: undefined }, expectedMismatch: 'verificationScopeMissing' },
+    { label: 'omitted verifiedScope (empty string)', corrupt: { verifiedScope: '' as any }, expectedMismatch: 'verificationScopeMissing' },
+    { label: 'omitted verifiedAccountingBasis (undefined)', corrupt: { verifiedAccountingBasis: undefined }, expectedMismatch: 'verificationAccountingBasisMissing' },
+    { label: 'omitted verifiedAccountingBasis (empty string)', corrupt: { verifiedAccountingBasis: '' as any }, expectedMismatch: 'verificationAccountingBasisMissing' },
+    { label: 'omitted verifiedPeriod (undefined)', corrupt: { verifiedPeriod: undefined }, expectedMismatch: 'verificationPeriodMissing' },
+    { label: 'omitted verifiedPeriod (empty string)', corrupt: { verifiedPeriod: '' }, expectedMismatch: 'verificationPeriodMissing' },
+    { label: 'omitted verifiedPeriodType (undefined)', corrupt: { verifiedPeriodType: undefined }, expectedMismatch: 'verificationPeriodTypeMissing' },
+    { label: 'omitted verifiedPeriodType (empty string)', corrupt: { verifiedPeriodType: '' as any }, expectedMismatch: 'verificationPeriodTypeMissing' },
+    { label: 'omitted sourceContentHash (undefined)', corrupt: { sourceContentHash: undefined }, expectedMismatch: 'verificationContentHashMissing' },
+    { label: 'invalid format sourceContentHash (short)', corrupt: { sourceContentHash: 'abc' }, expectedMismatch: 'verificationContentHashInvalid' },
+    { label: 'invalid format sourceContentHash (prefix placeholder)', corrupt: { sourceContentHash: 'sha256-invalid' }, expectedMismatch: 'verificationContentHashInvalid' },
+    { label: 'invalid format sourceContentHash (uppercase hex)', corrupt: { sourceContentHash: baselineContentHash.toUpperCase() }, expectedMismatch: 'verificationContentHashInvalid' },
+    { label: 'invalid format sourceContentHash (63 hex chars)', corrupt: { sourceContentHash: 'a'.repeat(63) }, expectedMismatch: 'verificationContentHashInvalid' },
+    { label: 'invalid format sourceContentHash (65 hex chars)', corrupt: { sourceContentHash: 'a'.repeat(65) }, expectedMismatch: 'verificationContentHashInvalid' },
+    { label: 'invalid format sourceContentHash (non-hex characters)', corrupt: { sourceContentHash: 'z'.repeat(64) }, expectedMismatch: 'verificationContentHashInvalid' },
   ];
 
   for (const { label, corrupt, expectedMismatch, options } of corruptions) {
@@ -647,7 +670,7 @@ console.log('\n--- 15. Explicit Provenance Origin & Distinction ---');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 16. State Resolution Integration (P0-1)
+// 16. State Resolution Integration (P0-1, P0-11, P0-12)
 // ────────────────────────────────────────────────────────────────────────────
 console.log('\n--- 16. State Resolution Integration ---');
 
@@ -670,7 +693,7 @@ console.log('\n--- 16. State Resolution Integration ---');
   const unverifiedState = resolveClaimVerificationState(mockEvidence, true);
   assert(unverifiedState === 'source_verified', 'Without engine verification result, resolves to source_verified');
 
-  // 2. With valid ClaimVerifiedResult -> resolves to claim_verified
+  // 2. With valid complete ClaimVerifiedResult -> resolves to claim_verified (P0-14)
   const validEngineResult: ClaimVerifiedResult = {
     state: 'claim_verified',
     verificationMethod: 'rule_engine',
@@ -711,6 +734,45 @@ console.log('\n--- 16. State Resolution Integration ---');
     { claim: baselineClaim, sourceDoc: baselineDoc, expectedValue: '2.3', supportType: 'reported_kpi' }
   );
   assert(forgedState === 'source_verified', 'Forged engine result fails validation and does NOT promote to claim_verified');
+
+  // 4. Anti-omission tests for resolveClaimVerificationState (STEP 4-24.1, P0-11, P0-12, P0-13)
+  const omissionVariants: Array<{ label: string; corrupt: Partial<ClaimVerifiedResult> }> = [
+    { label: 'verifiedMetricId undefined', corrupt: { verifiedMetricId: undefined } },
+    { label: 'verifiedMetricId empty string', corrupt: { verifiedMetricId: '' } },
+    { label: 'verifiedNumericValue undefined', corrupt: { verifiedNumericValue: undefined } },
+    { label: 'verifiedNumericValue NaN', corrupt: { verifiedNumericValue: NaN } },
+    { label: 'verifiedNumericValue Infinity', corrupt: { verifiedNumericValue: Infinity } },
+    { label: 'verifiedUnit undefined', corrupt: { verifiedUnit: undefined } },
+    { label: 'verifiedUnit empty string', corrupt: { verifiedUnit: '' as any } },
+    { label: 'verifiedScope undefined', corrupt: { verifiedScope: undefined } },
+    { label: 'verifiedScope empty string', corrupt: { verifiedScope: '' as any } },
+    { label: 'verifiedAccountingBasis undefined', corrupt: { verifiedAccountingBasis: undefined } },
+    { label: 'verifiedAccountingBasis empty string', corrupt: { verifiedAccountingBasis: '' as any } },
+    { label: 'verifiedPeriod undefined', corrupt: { verifiedPeriod: undefined } },
+    { label: 'verifiedPeriod empty string', corrupt: { verifiedPeriod: '' } },
+    { label: 'verifiedPeriodType undefined', corrupt: { verifiedPeriodType: undefined } },
+    { label: 'verifiedPeriodType empty string', corrupt: { verifiedPeriodType: '' as any } },
+    { label: 'sourceContentHash undefined', corrupt: { sourceContentHash: undefined } },
+    { label: 'sourceContentHash empty string', corrupt: { sourceContentHash: '' } },
+    { label: 'sourceContentHash invalid format', corrupt: { sourceContentHash: 'sha256-invalid' } },
+  ];
+
+  for (const { label, corrupt } of omissionVariants) {
+    const forgedOmissionResult: ClaimVerifiedResult = {
+      ...validEngineResult,
+      ...corrupt,
+    };
+    const state = resolveClaimVerificationState(
+      mockEvidence,
+      true,
+      forgedOmissionResult,
+      { claim: baselineClaim, sourceDoc: baselineDoc, expectedValue: '2.3', supportType: 'reported_kpi' }
+    );
+    assert(
+      state === 'source_verified',
+      `Forged result (${label}) fails validation and resolves to source_verified, NOT claim_verified`
+    );
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
