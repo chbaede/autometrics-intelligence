@@ -142,6 +142,29 @@ export const GlobalOverviewPage: React.FC = () => {
     .filter((o) => o.company)
     .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
 
+  // Observations for BEV Share Leader Card (ranked descending)
+  const bevObs = getObservations(
+    selectedCompanies,
+    ['bev_share'],
+    selectedPeriod
+  )
+    .map((obs) => ({
+      company: getCompanyById(obs.companyId)!,
+      observation: obs,
+    }))
+    .filter((o) => o.company && o.observation.value !== null && Number.isFinite(o.observation.value))
+    .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
+
+  const bevLeader1 = bevObs[0];
+  // If #1 is a pure EV player (100%), show the top high-volume/transitioning OEM (<100%) as the companion reference; otherwise the 2nd ranked OEM
+  const bevLeader2 =
+    bevLeader1?.observation.value === 100
+      ? (bevObs.find((o) => (o.observation.value ?? 0) < 100) || bevObs[1])
+      : bevObs[1];
+
+  const marginLeader1 = marginObs[0];
+  const marginLeader2 = marginObs[1];
+
   // OEM distinct brand colors helper for line chart
   const getOemColor = (compName: string, idx: number) => {
     const n = compName.toLowerCase();
@@ -245,7 +268,9 @@ export const GlobalOverviewPage: React.FC = () => {
               {t.global.coveredOems}
             </span>
             <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {companies.length} {language === 'ko' ? '개 완성차' : 'Global OEMs'}
+              {selectedCompanies.length === companies.length
+                ? `${companies.length} ${language === 'ko' ? '개 완성차' : 'Global OEMs'}`
+                : `${selectedCompanies.length}/${companies.length} ${language === 'ko' ? '개 완성차' : 'OEMs'}`}
             </span>
           </div>
           <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
@@ -261,12 +286,20 @@ export const GlobalOverviewPage: React.FC = () => {
               {t.global.bevLeader}
             </span>
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                Tesla 100%
-              </span>
-              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                • BYD 47.5%
-              </span>
+              {bevLeader1 ? (
+                <>
+                  <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    {bevLeader1.company.shortName} {bevLeader1.observation.value}%
+                  </span>
+                  {bevLeader2 && (
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                      • {bevLeader2.company.shortName} {bevLeader2.observation.value}%
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-sm font-mono text-slate-400 dark:text-slate-500">-</span>
+              )}
             </div>
           </div>
           <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
@@ -274,12 +307,20 @@ export const GlobalOverviewPage: React.FC = () => {
               {t.global.marginLeader}
             </span>
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
-                Toyota 10.6%
-              </span>
-              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                • Hyundai 8.6%
-              </span>
+              {marginLeader1 ? (
+                <>
+                  <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                    {marginLeader1.company.shortName} {marginLeader1.observation.value}%
+                  </span>
+                  {marginLeader2 && (
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                      • {marginLeader2.company.shortName} {marginLeader2.observation.value}%
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-sm font-mono text-slate-400 dark:text-slate-500">-</span>
+              )}
             </div>
           </div>
         </div>
