@@ -542,6 +542,98 @@ export interface LiveSourceFetchOptions {
 }
 
 /**
+ * Structured content block within an extracted document preserving deterministic location (STEP 5-2, Section 6).
+ */
+export interface DocumentContentBlock {
+  id: string;
+  blockType: 'title' | 'heading' | 'paragraph' | 'table_row' | 'list_item' | 'text';
+  text: string;
+  locator: string;
+  pageNumber?: number;
+  sectionHeading?: string;
+  headingLevel?: number;
+  tableIndex?: number;
+  rowIndex?: number;
+  paragraphIndex?: number;
+}
+
+/**
+ * Deterministically extracted representation of an official IR live source document (STEP 5-2, Section 1).
+ *
+ * CRITICAL PROVENANCE INVARIANT:
+ * - Retains the full authentic LiveSourceDocument with its original URL, final URL, raw-byte contentHash,
+ *   hashAlgorithm, and sourceKind.
+ * - Extraction never mutates or replaces the raw-byte cryptographic provenance.
+ * - Extraction alone DOES NOT verify or prove any claim (source_retrieved ≠ source_verified ≠ claim_verified).
+ */
+export interface ExtractedLiveDocument {
+  /** The authentic LiveSourceDocument containing original cryptographic raw-byte provenance */
+  sourceDocument: LiveSourceDocument;
+  /** Explicit extraction engine / method identifier */
+  extractionMethod: string;
+  /** Semantic version of the extraction engine */
+  extractionVersion: string;
+  /** Full extracted textual representation preserving document order */
+  extractedText: string;
+  /** ISO-8601 UTC timestamp when extraction was executed */
+  extractedAt: string;
+  /** Extracted document title where available */
+  documentTitle?: string;
+  /** Total page count for paginated documents (e.g. PDF) */
+  pageCount?: number;
+  /** Structured content blocks with deterministic locators for STEP 5-3 */
+  blocks: DocumentContentBlock[];
+  /** Optional derived SHA-256 digest of the extracted text (strictly distinguished from raw byte contentHash) */
+  derivedTextHash?: string;
+}
+
+/**
+ * Structured error codes for document extraction failures (STEP 5-2, Section 1 & 7).
+ */
+export type LiveDocumentExtractionErrorCode =
+  | 'unsupportedContentType'
+  | 'invalidDocument'
+  | 'extractionUnavailable'
+  | 'emptyDocument';
+
+/**
+ * Structured error details for document extraction failures (STEP 5-2, Section 1 & 7).
+ */
+export interface LiveDocumentExtractionError {
+  code: LiveDocumentExtractionErrorCode;
+  message: string;
+  contentType: string;
+  sourceDocId?: string;
+  details?: string;
+}
+
+/**
+ * Discriminated union result for official IR document extraction (STEP 5-2, Section 1).
+ */
+export type LiveDocumentExtractionResult =
+  | {
+      success: true;
+      document: ExtractedLiveDocument;
+    }
+  | {
+      success: false;
+      error: LiveDocumentExtractionError;
+      sourceDocument: LiveSourceDocument;
+    };
+
+/**
+ * Options for configuring document extraction (STEP 5-2).
+ */
+export interface LiveDocumentExtractionOptions {
+  /** Custom extraction method identifier override */
+  extractionMethod?: string;
+  /** Custom extraction engine version override */
+  extractionVersion?: string;
+  /** Compute derived SHA-256 hash over extracted text (default: true) */
+  computeDerivedTextHash?: boolean;
+}
+
+/**
  * Single structured result object for entire audit suite (STEP 4-22, P1; STEP 4-23, P1).
  * Distinguishes the audited source commit tree (sourceCommitSha) from the commit containing the report.
  */
