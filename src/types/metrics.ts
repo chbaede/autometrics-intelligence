@@ -703,6 +703,77 @@ export interface LiveEvidenceValidationResult {
 }
 
 /**
+ * Official Investor Relations source registry record (STEP 5-5, Section 1).
+ *
+ * Explicitly identifies an official OEM IR source endpoint, permitted domain perimeter,
+ * reporting period, document type, and target claims for cryptographic end-to-end verification.
+ */
+export interface OfficialIrSource {
+  /** Unique primary identifier for this official source (aligned with SourceDocument.id where applicable) */
+  id: string;
+  /** Primary OEM corporate identifier (e.g. 'mercedes_benz', 'bmw_group', 'tesla') */
+  companyId: string;
+  /** Primary official canonical URL for the IR disclosure */
+  url: string;
+  /** Formal document classification */
+  documentType: DocumentType;
+  /** Standard reporting period (e.g. '2026-Q2', '2025-FY') */
+  reportingPeriod: string;
+  /** Period classification (quarterly or annual) */
+  periodType: PeriodType;
+  /** Expected wire Content-Type */
+  expectedContentType: 'application/pdf' | 'text/html';
+  /** Approved official domain(s) for the automaker; any redirect outside this perimeter is rejected */
+  officialDomain: string | string[];
+  /** Formal document title */
+  title: string;
+  /** Optional operational notes / guidance */
+  notes?: string;
+  /** Registered source claims eligible for live verification against this source */
+  targetClaims?: SourceClaim[];
+}
+
+/**
+ * Structured error codes for official source pipeline execution (STEP 5-5, Section 10).
+ */
+export type OfficialSourcePipelineErrorCode =
+  | 'unauthorizedSource'
+  | 'unauthorizedDomainRedirect'
+  | 'fetchFailed'
+  | 'extractionFailed'
+  | 'bindingFailed'
+  | 'verificationFailed';
+
+/**
+ * Options for configuring end-to-end official source pipeline execution (STEP 5-5, Section 5).
+ */
+export interface OfficialSourcePipelineOptions {
+  fetchOptions?: LiveSourceFetchOptions;
+  extractionOptions?: LiveDocumentExtractionOptions;
+  customFetch?: typeof fetch;
+  allowLocalhost?: boolean;
+}
+
+/**
+ * Complete structured outcome of end-to-end official source verification pipeline (STEP 5-5, Section 5 & 7).
+ *
+ * Preserves complete end-to-end provenance:
+ * official source -> wire bytes -> SHA-256 -> extracted document -> evidence candidate -> verification result.
+ */
+export interface OfficialSourcePipelineResult {
+  success: boolean;
+  officialSource: OfficialIrSource;
+  liveDocument?: LiveSourceDocument;
+  extractedDocument?: ExtractedLiveDocument;
+  evidenceCandidate?: LiveEvidenceCandidate;
+  claimVerificationResult?: ClaimVerificationResult;
+  verificationState?: EvidenceClaimVerificationState;
+  errorCode?: OfficialSourcePipelineErrorCode;
+  errorMessage?: string;
+  details?: Record<string, unknown>;
+}
+
+/**
  * Single structured result object for entire audit suite (STEP 4-22, P1; STEP 4-23, P1).
  * Distinguishes the audited source commit tree (sourceCommitSha) from the commit containing the report.
  */

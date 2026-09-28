@@ -224,3 +224,91 @@ The `liveSourceFetcher` and `liveDocumentExtractor` enforce strict security boun
 - **Content-Type Policy**: Recognizes `application/pdf` and `text/html` (with parameterized charsets); rejects unsupported MIME types.
 - **SSRF Mitigation**: Rejects private and loopback address targets (`localhost`, `127.0.0.1`, RFC 1918 subnets) by default unless explicitly permitted in testing harnesses.
 - **No Script Execution / No Crawling**: HTML and PDF content is extracted statically without executing scripts or following secondary links.
+
+---
+
+## STEP 5-5: Official OEM Investor Relations Source Integration & Pipeline
+
+### 1. Official IR Source Registry (`OFFICIAL_IR_SOURCES`)
+Rather than crawling arbitrary web pages or recursively traversing links, AutoMetrics Intelligence registers specific, audited Investor Relations endpoints:
+
+```ts
+export interface OfficialIrSource {
+  id: string;
+  companyId: string;
+  url: string;
+  documentType: DocumentType;
+  reportingPeriod: string;
+  periodType: PeriodType;
+  expectedContentType: 'application/pdf' | 'text/html';
+  officialDomain: string | string[];
+  title: string;
+  notes?: string;
+  targetClaims?: SourceClaim[];
+}
+```
+
+Registered sources currently include:
+1. **Mercedes-Benz Group AG** (`mbg_2026_q2_results`): `https://group.mercedes-benz.com/investors/reports-news/financial-results/q2-2026.html` (Domains: `group.mercedes-benz.com`, `mercedes-benz.com`).
+2. **BMW Group** (`bmw_2026_q2_statement`): `https://www.bmwgroup.com/en/investor-relations/financial-reports.html` (Domains: `www.bmwgroup.com`, `bmwgroup.com`).
+3. **Tesla, Inc.** (`tsla_2026_q2_deck`): `https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q2-2026-Update.pdf` (Domains: `digitalassets.tesla.com`, `ir.tesla.com`, `tesla.com`).
+
+### 2. Officiality Gate & Redirect Security
+- **Transport Security ≠ Officiality**: Simply using HTTPS does not make a site an authorized corporate disclosure. The URL must match the explicit `officialDomain` policy of the automaker.
+- **Redirect Perimeter Enforcement**: If a request encounters HTTP 301/302/307 redirects, the fetcher tracks the `finalUrl` and verifies that the final destination remains within the authorized `officialDomain` perimeter. Redirects to unauthorized third parties are strictly rejected with `unauthorizedDomainRedirect`.
+
+### 3. Complete End-to-End Pipeline Walkthrough
+The unified pipeline (`executeOfficialSourcePipeline`) orchestrates:
+
+```text
+Registered Official Source (e.g. mbg_2026_q2_results)
+  │
+  ▼ [1. Domain Policy Check]
+isUrlInOfficialDomain(url, officialDomain)
+  │
+  ▼ [2. Secure Fetch — STEP 5-1]
+fetchOfficialIrSource(url) ──► Raw Bytes & SHA-256(Raw Bytes)
+  │
+  ▼ [3. Redirect Safety Check]
+isUrlInOfficialDomain(finalUrl, officialDomain)
+  │
+  ▼ [4. Deterministic Extraction — STEP 5-2]
+extractLiveDocument(liveDoc, rawBytes) ──► ExtractedLiveDocument
+  │
+  ▼ [5. Structured Evidence Binding — STEP 5-3]
+bindLiveEvidence(extractedDoc, bindingParams) ──► LiveEvidenceCandidate
+  │
+  ▼ [6. Verification Engine Execution — STEP 5-4]
+verifyClaimEvidence(claim, sourceDoc, rawValue, supportType, { liveCandidate })
+  │
+  ▼ [7. Validation & Anti-Forgery Gate]
+validateClaimVerificationResult() + resolveClaimVerificationState()
+  │
+  ▼
+OfficialSourcePipelineResult {
+  success: true,
+  verificationState: 'claim_verified',
+  claimVerificationResult: {
+    state: 'claim_verified',
+    verificationOrigin: 'live_source',
+    sourceContentHash: '<exact-wire-sha256>',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 4.0,
+    verifiedScope: 'cars_segment',
+    verifiedAccountingBasis: 'adjusted',
+    verifiedPeriod: '2026-Q2',
+    ...
+  }
+}
+```
+
+### 4. Reproducibility Limitations of Live Web Sources
+1. **Endpoint Mutability**:
+   Unlike Git repository content or immutable storage, live corporate web servers can modify HTML, rotate certificates, re-encode PDFs, or relocate reports without notice.
+2. **Content-Addressed Immutability vs URL**:
+   A URL is a mutable address, not a permanent identifier of content. The true cryptographic boundary is `contentHash = sha256(rawBytes)`.
+3. **Byte Alteration Invariant**:
+   If an official IR endpoint returns different bytes tomorrow (even a single byte or header change), the recomputed `contentHash` will differ. The system treats this as a distinct source version; prior verification results cannot be transferred or assumed valid without re-evaluating the new bytes.
+4. **Offline Test Determinism**:
+   To ensure that build pipelines and CI never depend on external server availability or transient network outages, standard test suites (`npm test`) use deterministic mock transport representations of authentic live disclosures. Real live network requests are isolated to optional test commands (`npm run test:live`).
+
