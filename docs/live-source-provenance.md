@@ -1,4 +1,4 @@
-# Official IR Live Source Ingestion, Extraction & Evidence Binding Architecture (STEP 5-1, STEP 5-2 & STEP 5-3)
+# Official IR Live Source Ingestion, Extraction, Evidence Binding & Verification Architecture (STEP 5-1 to STEP 5-4)
 
 ## Overview
 
@@ -23,16 +23,16 @@ Deterministic Document Extractor (PDF / HTML Structural Extraction) [STEP 5-2]
 ExtractedLiveDocument (Extraction Provenance + Content Blocks + Locators)
   │
   ▼
-Live Evidence Binder (STEP 5-3)
+Live Evidence Binder [STEP 5-3]
   │
   ▼
 LiveEvidenceCandidate (Cryptographically Bound Candidate; NO claim_verified)
   │
-  ▼ (STEP 5-4)
-Claim Verification Engine (Parser / Rule Engine)
+  ▼
+Unified Claim Verification Engine (verifyClaimEvidence) [STEP 5-4]
   │
   ▼
-ClaimVerifiedResult (state: 'claim_verified')
+ClaimVerifiedResult (state: 'claim_verified', verificationOrigin: 'live_source')
 ```
 
 ---
@@ -59,7 +59,7 @@ AutoMetrics Intelligence supports two distinct evidence verification origins:
 | **Content Hash Target** | Binds canonical normalized extracted text (`sha256(normalizeFixtureExtractedText(text))`) | Binds **exact raw HTTP response bytes** (`sha256(rawBytes)`) directly from the wire |
 | **Network Dependency** | Zero network access; 100% offline and deterministic | Secure HTTPS live transport; offline mock transport in CI |
 | **Security Scope** | Static integrity against repository fixture tampering | Transport security, redirect guards, SSRF mitigation, and byte-level wire provenance |
-| **Verification State** | Capable of supporting `claim_verified` when evaluated by verification engine | Produces `LiveSourceDocument` / `ExtractedLiveDocument` / `LiveEvidenceCandidate`. Never produces `claim_verified` alone |
+| **Verification State** | Capable of supporting `claim_verified` when evaluated by verification engine | Capable of supporting `claim_verified` when candidate passes all verification invariants |
 
 ---
 
@@ -82,10 +82,74 @@ source_retrieved ≠ document_extracted ≠ evidence_bound (candidate) ≠ sourc
    The source document identity, publication date, and official URL match an authorized entry in the primary `SOURCE_DOCUMENTS` registry.
 
 5. **`claim_verified`** (STEP 5-4):
-   An authentic verification engine (e.g. parser, rule engine) has evaluated the candidate against the source content and proved the exact claimed metric, numeric value, unit, scope, accounting basis, and period.
+   An authentic verification engine (`verifyClaimEvidence()`) evaluates the candidate against the source content and proves the exact claimed metric, numeric value, unit, scope, accounting basis, and period.
 
-> [!IMPORTANT]
-> A live evidence binding produces a `LiveEvidenceCandidate`. It **MUST NEVER** produce a `ClaimVerifiedResult` directly or claim that any financial metric has been verified. Metric claim verification is deferred to subsequent dedicated verification engines (STEP 5-4).
+---
+
+## STEP 5-4: Live Source Evidence Verification & `claim_verified` Integration
+
+### 1. Single Unified Verification Path (No Second Engine)
+AutoMetrics Intelligence strictly avoids parallel or relaxed verification paths for live sources. The same core functions:
+- `verifyClaimEvidence()`
+- `validateClaimVerificationResult()`
+- `resolveClaimVerificationState()`
+
+evaluate both `repository_fixture` and `live_source` evidence with identical semantic rigor.
+
+### 2. Live Claim Verification Output
+When a valid live-source evidence candidate satisfies every semantic invariant, it produces:
+```ts
+{
+  state: 'claim_verified',
+  verificationOrigin: 'live_source',
+  sourceDocId: string,
+  sourceContentHash: string, // exact raw response byte SHA-256
+  verifiedValue: string,
+  verifiedMetricId: string,
+  verifiedNumericValue: number,
+  verifiedUnit: MetricUnit,
+  verifiedScope: ReportingScope,
+  verifiedAccountingBasis: AccountingBasis,
+  verifiedPeriod: string,
+  verifiedPeriodType: PeriodType,
+  claimSupportType: EvidenceSupportType,
+  verificationMethod: ClaimVerificationEngineMethod,
+  engineId: string,
+  engineVersion: string,
+  verifiedAt: string,
+  diagnostics: ClaimVerificationDiagnostics,
+}
+```
+
+### 3. Cryptographic Provenance Hash Requirement
+- For `repository_fixture`: the content hash binds to canonical normalized fixture text.
+- For `live_source`: the content hash binds to the **exact raw wire HTTP response bytes**.
+- **Crucial Rule**: The live hash proves transport integrity and identifies which exact source bytes were processed. It does **not** treat the hash as proof that the financial claim itself is true. The claim is only verified when metric, value, unit, scope, accounting basis, period, period type, and support type match.
+
+### 4. Strict Downgrade Gate (Anti-Forgery)
+A live verification result is strictly downgraded to `source_verified` by `resolveClaimVerificationState()` whenever any required semantic or provenance dimension is missing or mismatched:
+1. `missing verificationOrigin` (`verificationOriginMissing`)
+2. `repository_fixture origin on a live source` (`verificationOriginMismatch`)
+3. `sourceDocId mismatch` (`verificationSourceDocMismatch`)
+4. `sourceContentHash mismatch` (`verificationContentHashMismatch`)
+5. `metric mismatch & missing` (`verificationMetricMismatch`, `verificationMetricMissing`)
+6. `value mismatch & missing` (`verificationValueMismatch`, `verificationValueMissing`)
+7. `numeric mismatch & missing` (`verificationNumericValueMismatch`, `verificationNumericValueMissing`)
+8. `unit mismatch & missing` (`verificationUnitMismatch`, `verificationUnitMissing`)
+9. `scope mismatch & missing` (`verificationScopeMismatch`, `verificationScopeMissing`)
+10. `accounting basis mismatch & missing` (`verificationAccountingBasisMismatch`, `verificationAccountingBasisMissing`)
+11. `period mismatch & missing` (`verificationPeriodMismatch`, `verificationPeriodMissing`)
+12. `period type mismatch & missing` (`verificationPeriodTypeMismatch`, `verificationPeriodTypeMissing`)
+13. `support type mismatch` (`verificationSupportTypeMismatch`)
+14. `engineId missing` (`verificationEngineIdMissing`)
+15. `engineVersion missing` (`verificationEngineVersionMissing`)
+16. `verificationMethod invalid` (`verificationMethodMissing`)
+17. `verifiedAt invalid` (`verificationTimestampInvalid`)
+
+### 5. Origin Immutability & Architectural Boundary
+- A `repository_fixture` result cannot be relabeled as `live_source`.
+- A `live_source` result cannot be relabeled as `repository_fixture` against an official IR live document.
+- **Architectural Boundary & Limitation**: Current origin immutability relies on document metadata binding (`sourceKind === 'official_ir'`), validator origin expectation enforcement (`expectedOrigin`), and cryptographic fixture table segregation. A live source retrieval does not yet generate an asymmetric digital signature from the OEM; transport TLS guarantees authenticity from the server, but end-to-end cryptographic non-repudiation across offline storage remains bounded to the repository's SHA-256 fixture registry.
 
 ---
 

@@ -55,6 +55,8 @@ import {
   ClaimVerificationEngineMethod,
   ClaimVerificationEngine,
   MetricUnit,
+  LiveEvidenceCandidate,
+  LiveSourceDocument,
 } from '../types/metrics';
 import { numericValuesMatch, hasLocatorNumericContradiction } from '../utils/metricCalculations';
 
@@ -1665,6 +1667,15 @@ export interface VerifyClaimEvidenceOptions {
   requireContentHash?: boolean;
   verifiedAt?: string;
   expectedNumericValue?: number;
+  /** Structured candidate(s) from live IR source extraction (STEP 5-3, STEP 5-4) */
+  liveCandidate?: LiveEvidenceCandidate;
+  liveCandidates?: LiveEvidenceCandidate[];
+  /** Expected verification origin ('repository_fixture' | 'live_source') */
+  expectedOrigin?: 'repository_fixture' | 'live_source';
+  /** Expected content hash for strict cryptographic binding */
+  expectedContentHash?: string;
+  /** Live source document for transport provenance validation */
+  liveSourceDocument?: LiveSourceDocument;
 }
 
 /**
@@ -1751,6 +1762,312 @@ export function verifyClaimEvidence(
         sourceDocId: sourceDoc.id,
         period: sourceDoc.period,
         details: `Claim period "${claim.claimedPeriod}" does not match source document period "${sourceDoc.period}"`,
+      },
+    };
+  }
+
+  // ── STEP 5-4: Live Source Evidence Verification Branch ──────────────────────
+  const isLiveVerification = Boolean(
+    options?.liveCandidate ||
+    (options?.liveCandidates && options.liveCandidates.length > 0) ||
+    options?.expectedOrigin === 'live_source' ||
+    (sourceDoc as any).sourceKind === 'official_ir'
+  );
+
+  if (isLiveVerification) {
+    const liveCandidates = options?.liveCandidates ?? (options?.liveCandidate ? [options.liveCandidate] : []);
+    const liveEngineId = options?.engineId ?? 'live_source_verifier';
+    const liveMethod: ClaimVerificationEngineMethod = options?.verificationMethod ?? 'parser';
+    const targetValue = expectedValue ?? claim?.claimedValue;
+    const targetNumericValue =
+      options?.expectedNumericValue ??
+      claim?.claimedNumericValue ??
+      (expectedValue !== undefined && !isNaN(Number(expectedValue)) ? Number(expectedValue) : undefined);
+
+    if (liveCandidates.length === 0) {
+      return {
+        state: 'source_verified',
+        verificationMethod: liveMethod,
+        verificationOrigin: 'live_source',
+        engineId: liveEngineId,
+        engineVersion,
+        sourceDocId: sourceDoc.id,
+        claimSupportType: targetSupportType,
+        verifiedValue: undefined,
+        expectedValue,
+        verifiedAt,
+        diagnostics: {
+          inspectedLocation,
+          expectedMetric: claim?.claimedMetricId,
+          expectedValue: expectedValue ?? (claim?.claimedNumericValue !== undefined ? String(claim.claimedNumericValue) : claim?.claimedValue),
+          failureReason: 'liveCandidateMissing',
+          sourceDocId: sourceDoc.id,
+          period: sourceDoc.period,
+          details: 'Official IR live source identified, but no live evidence candidate was supplied for verification.',
+        },
+      };
+    }
+
+    let liveFailureReason: string | undefined;
+    let liveFailureDiagnostic: string | undefined;
+    let bestCandidate: LiveEvidenceCandidate | undefined;
+    let candidatePriority = 0;
+
+    const matchedCandidate = liveCandidates.find((cand) => {
+      // 1. Source doc ID check
+      if (cand.sourceDocId !== sourceDoc.id) {
+        liveFailureReason = 'sourceDocMismatch';
+        liveFailureDiagnostic = `Live claim verification failed: candidate sourceDocId "${cand.sourceDocId}" does not match target source document "${sourceDoc.id}"`;
+        return false;
+      }
+
+      // 2. Origin check: candidate must be live_source
+      if (cand.verificationOrigin !== 'live_source') {
+        liveFailureReason = 'verificationOriginInvalid';
+        liveFailureDiagnostic = `Live claim verification failed: candidate origin "${cand.verificationOrigin}" is not "live_source"`;
+        return false;
+      }
+
+      // 3. Expected origin check
+      if (options?.expectedOrigin && options.expectedOrigin !== 'live_source') {
+        liveFailureReason = 'verificationOriginMismatch';
+        liveFailureDiagnostic = `Live claim verification failed: expected origin "${options.expectedOrigin}" contradicts candidate origin "live_source"`;
+        return false;
+      }
+
+      // 4. Content hash checks
+      if (!cand.sourceContentHash || !/^[0-9a-f]{64}$/.test(cand.sourceContentHash.trim())) {
+        liveFailureReason = 'verificationContentHashInvalid';
+        liveFailureDiagnostic = `Live claim verification failed: invalid SHA-256 contentHash "${cand.sourceContentHash}"`;
+        return false;
+      }
+      if (options?.liveSourceDocument && cand.sourceContentHash !== options.liveSourceDocument.contentHash) {
+        liveFailureReason = 'verificationContentHashMismatch';
+        liveFailureDiagnostic = `Live claim verification failed: candidate hash "${cand.sourceContentHash}" does not match live source document hash "${options.liveSourceDocument.contentHash}"`;
+        return false;
+      }
+      if (options?.expectedContentHash && cand.sourceContentHash !== options.expectedContentHash) {
+        liveFailureReason = 'verificationContentHashMismatch';
+        liveFailureDiagnostic = `Live claim verification failed: candidate hash "${cand.sourceContentHash}" does not match expected content hash "${options.expectedContentHash}"`;
+        return false;
+      }
+
+      // 5. Support type check (allow numeric_margin_value <-> reported_kpi)
+      const supportCompatible =
+        !supportType ||
+        !cand.supportType ||
+        cand.supportType === supportType ||
+        (supportType === 'numeric_margin_value' && cand.supportType === 'reported_kpi') ||
+        (supportType === 'reported_kpi' && cand.supportType === 'numeric_margin_value');
+      if (!supportCompatible) {
+        if (candidatePriority < 1) {
+          candidatePriority = 1;
+          bestCandidate = cand;
+          liveFailureReason = 'supportTypeMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, support type mismatch: expected=${supportType}, verified=${cand.supportType}`;
+        }
+        return false;
+      }
+
+      // 6. Metric semantic check
+      if (claim?.claimedMetricId) {
+        if (!cand.metricId) {
+          liveFailureReason = 'metricMissing';
+          liveFailureDiagnostic = `Live claim verification failed: candidate metric is missing when claim requires "${claim.claimedMetricId}"`;
+          return false;
+        }
+        if (claim.claimedMetricId !== cand.metricId) {
+          if (candidatePriority < 2) {
+            candidatePriority = 2;
+            bestCandidate = cand;
+            liveFailureReason = 'metricMismatch';
+            liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, metric mismatch: expected=${claim.claimedMetricId}, verified=${cand.metricId}`;
+          }
+          return false;
+        }
+      }
+
+      candidatePriority = 3;
+      bestCandidate = cand;
+
+      // 7. Unit check
+      if (claim?.claimedUnit) {
+        if (!cand.unit) {
+          liveFailureReason = 'unitMissing';
+          liveFailureDiagnostic = `Live claim verification failed: candidate unit is missing when claim requires "${claim.claimedUnit}"`;
+          return false;
+        }
+        if (claim.claimedUnit !== cand.unit) {
+          liveFailureReason = 'unitMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, unit mismatch: expected=${claim.claimedUnit}, verified=${cand.unit}`;
+          return false;
+        }
+      }
+
+      // 8. Accounting basis check
+      if (claim?.claimedAccountingBasis) {
+        if (!cand.accountingBasis) {
+          liveFailureReason = 'accountingBasisMissing';
+          liveFailureDiagnostic = `Live claim verification failed: candidate accountingBasis is missing when claim requires "${claim.claimedAccountingBasis}"`;
+          return false;
+        }
+        if (claim.claimedAccountingBasis !== cand.accountingBasis) {
+          liveFailureReason = 'accountingBasisMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, accounting basis mismatch: expected=${claim.claimedAccountingBasis}, verified=${cand.accountingBasis}`;
+          return false;
+        }
+      }
+
+      // 9. Period check
+      const candPeriod = cand.period ?? sourceDoc.period;
+      if (claim?.claimedPeriod) {
+        if (!candPeriod) {
+          liveFailureReason = 'periodMissing';
+          liveFailureDiagnostic = `Live claim verification failed: candidate period is missing when claim requires "${claim.claimedPeriod}"`;
+          return false;
+        }
+        if (claim.claimedPeriod !== candPeriod) {
+          liveFailureReason = 'periodMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, period mismatch: expected=${claim.claimedPeriod}, verified=${candPeriod}`;
+          return false;
+        }
+      }
+
+      // 10. Period type check
+      const candPeriodType = cand.periodType ?? sourceDoc.periodType;
+      if (claim?.claimedPeriodType) {
+        if (!candPeriodType) {
+          liveFailureReason = 'periodTypeMissing';
+          liveFailureDiagnostic = `Live claim verification failed: candidate periodType is missing when claim requires "${claim.claimedPeriodType}"`;
+          return false;
+        }
+        if (claim.claimedPeriodType !== candPeriodType) {
+          liveFailureReason = 'periodTypeMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, period type mismatch: expected=${claim.claimedPeriodType}, verified=${candPeriodType}`;
+          return false;
+        }
+      }
+
+      // 11. Scope check
+      if (claim?.claimedScope) {
+        if (!cand.scope) {
+          liveFailureReason = 'scopeMissing';
+          liveFailureDiagnostic = `Live claim verification failed: candidate scope is missing when claim requires "${claim.claimedScope}"`;
+          return false;
+        }
+        if (claim.claimedScope !== cand.scope) {
+          liveFailureReason = 'scopeMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, scope mismatch: expected=${claim.claimedScope}, verified=${cand.scope}`;
+          return false;
+        }
+      }
+
+      // 12. Numeric claim check
+      const isNumericExpected =
+        targetNumericValue !== undefined && targetNumericValue !== null ||
+        supportType === 'numeric_margin_value' ||
+        claim?.claimedNumericValue !== undefined ||
+        options?.expectedNumericValue !== undefined;
+
+      if (isNumericExpected) {
+        if (cand.numericValue === undefined || cand.numericValue === null || typeof cand.numericValue !== 'number' || !Number.isFinite(cand.numericValue)) {
+          liveFailureReason = 'numericValueMissing';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, numeric value missing in live candidate`;
+          return false;
+        }
+        const expNum = targetNumericValue ?? claim?.claimedNumericValue ?? options?.expectedNumericValue;
+        if (expNum !== undefined && expNum !== null && !numericValuesMatch(expNum, cand.numericValue, { unit: claim?.claimedUnit ?? cand.unit })) {
+          liveFailureReason = 'numericValueMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: source=${sourceDoc.id}, metric=${claim?.claimedMetricId ?? cand.metricId ?? 'unknown'}, expected=${expNum}${claim?.claimedUnit === 'percentage' ? '%' : ''}, verified=${cand.numericValue}${cand.unit === 'percentage' ? '%' : ''}, scope=${cand.scope ?? 'none'}, period=${sourceDoc.period ?? 'none'}`;
+          return false;
+        }
+      }
+
+      // 13. Target string value check when not purely numeric
+      if (targetValue !== undefined && !isNumericExpected) {
+        const stringMatches =
+          cand.rawValue === targetValue ||
+          cand.normalizedValue === targetValue ||
+          cand.metricId === targetValue ||
+          (cand.numericValue !== undefined && String(cand.numericValue) === targetValue);
+        if (!stringMatches) {
+          liveFailureReason = 'valueMismatch';
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (matchedCandidate) {
+      const verifiedVal =
+        expectedValue !== undefined
+          ? expectedValue
+          : (matchedCandidate.rawValue ?? (matchedCandidate.numericValue !== undefined ? String(matchedCandidate.numericValue) : matchedCandidate.normalizedValue ?? ''));
+
+      return {
+        state: 'claim_verified',
+        verificationMethod: liveMethod,
+        verificationOrigin: 'live_source',
+        engineId: liveEngineId,
+        engineVersion,
+        sourceDocId: sourceDoc.id,
+        claimSupportType: supportType ?? matchedCandidate.supportType,
+        verifiedValue: verifiedVal,
+        verifiedMetricId: matchedCandidate.metricId,
+        verifiedNumericValue: matchedCandidate.numericValue,
+        verifiedUnit: matchedCandidate.unit,
+        verifiedScope: matchedCandidate.scope,
+        verifiedAccountingBasis: matchedCandidate.accountingBasis,
+        verifiedPeriod: matchedCandidate.period ?? sourceDoc.period,
+        verifiedPeriodType: matchedCandidate.periodType ?? sourceDoc.periodType,
+        expectedValue,
+        verifiedAt,
+        sourceContentHash: matchedCandidate.sourceContentHash,
+        diagnostics: {
+          inspectedLocation: matchedCandidate.locator?.rawLocator ?? (matchedCandidate.locator?.page ? `Page ${matchedCandidate.locator.page}` : inspectedLocation),
+          expectedMetric: claim?.claimedMetricId ?? matchedCandidate.metricId,
+          expectedValue: expectedValue ?? (claim?.claimedNumericValue !== undefined ? String(claim.claimedNumericValue) : claim?.claimedValue),
+          verifiedMetric: matchedCandidate.metricId,
+          verifiedValue: verifiedVal,
+          numericComparisonResult: 'match',
+          sourceDocId: sourceDoc.id,
+          period: matchedCandidate.period ?? sourceDoc.period,
+          scope: matchedCandidate.scope,
+          accountingBasis: matchedCandidate.accountingBasis,
+          details: `Verified against official IR live source candidate (hash=${matchedCandidate.sourceContentHash.slice(0, 16)}...)`,
+        },
+      };
+    }
+
+    // Live evidence candidate failed verification -> return source_verified
+    return {
+      state: 'source_verified',
+      verificationMethod: liveMethod,
+      verificationOrigin: 'live_source',
+      engineId: liveEngineId,
+      engineVersion,
+      sourceDocId: sourceDoc.id,
+      sourceContentHash: bestCandidate?.sourceContentHash ?? options?.liveSourceDocument?.contentHash,
+      claimSupportType: targetSupportType,
+      verifiedValue: undefined,
+      expectedValue,
+      verifiedAt,
+      diagnostics: {
+        inspectedLocation,
+        expectedMetric: claim?.claimedMetricId,
+        expectedValue: expectedValue ?? (claim?.claimedNumericValue !== undefined ? String(claim.claimedNumericValue) : claim?.claimedValue),
+        verifiedMetric: bestCandidate?.metricId,
+        verifiedValue: bestCandidate?.rawValue ?? bestCandidate?.normalizedValue,
+        numericComparisonResult: liveFailureReason === 'numericValueMismatch' ? 'mismatch' : 'unapplicable',
+        failureReason: liveFailureReason,
+        sourceDocId: sourceDoc.id,
+        period: bestCandidate?.period ?? sourceDoc.period,
+        scope: bestCandidate?.scope,
+        accountingBasis: bestCandidate?.accountingBasis,
+        details:
+          liveFailureDiagnostic ??
+          'Live source document retrieved and candidate inspected, but evidence does not confirm the claim value.',
       },
     };
   }
@@ -1957,10 +2274,12 @@ export function verifyClaimEvidence(
 }
 
 /**
- * Options for validating a ClaimVerificationResult (STEP 4-19, Task 3; STEP 4-21, P0-4).
+ * Options for validating a ClaimVerificationResult (STEP 4-19, Task 3; STEP 4-21, P0-4; STEP 5-4).
  */
 export interface ClaimVerificationValidationOptions {
   requireContentHash?: boolean;
+  expectedContentHash?: string;
+  expectedOrigin?: 'repository_fixture' | 'live_source';
   supportType?: EvidenceSupportType;
   expectedNumericValue?: number;
 }
@@ -1992,12 +2311,21 @@ export function validateClaimVerificationResult(
     };
   }
 
-  // 0. verificationOrigin check (STEP 4-24.2, P0-1)
+  // 0. verificationOrigin check (STEP 4-24.2, P0-1; STEP 5-4)
   const validOrigins: string[] = ['repository_fixture', 'live_source'];
   if (!result.verificationOrigin || typeof result.verificationOrigin !== 'string' || result.verificationOrigin.trim() === '') {
     mismatches.push('verificationOriginMissing');
   } else if (!validOrigins.includes(result.verificationOrigin)) {
     mismatches.push('verificationOriginInvalid');
+  } else if (options?.expectedOrigin && result.verificationOrigin !== options.expectedOrigin) {
+    mismatches.push('verificationOriginMismatch');
+  }
+
+  // 0a. Origin immutability check (STEP 5-4, Section 7)
+  if (sourceDoc && (sourceDoc as any).sourceKind === 'official_ir' && result.verificationOrigin === 'repository_fixture') {
+    if (!mismatches.includes('verificationOriginMismatch')) {
+      mismatches.push('verificationOriginMismatch');
+    }
   }
 
   // 1. sourceDocId does not match
@@ -2116,13 +2444,25 @@ export function validateClaimVerificationResult(
     mismatches.push('verificationTimestampInvalid');
   }
 
-  // 12. sourceContentHash verification (STEP 4-24.1, P0-9 & P0-10)
-  const isHashRequired = Boolean(options?.requireContentHash || result.verificationOrigin === 'repository_fixture');
+  // 12. sourceContentHash verification (STEP 4-24.1, P0-9 & P0-10; STEP 5-4, Section 2)
+  const isHashRequired = Boolean(
+    options?.requireContentHash ||
+    result.verificationOrigin === 'repository_fixture' ||
+    (result.verificationOrigin === 'live_source' && (Boolean((sourceDoc as any)?.sourceKind === 'official_ir') || options?.expectedContentHash !== undefined))
+  );
   if (isHashRequired) {
     if (!result.sourceContentHash || typeof result.sourceContentHash !== 'string' || result.sourceContentHash.trim() === '') {
       mismatches.push('verificationContentHashMissing');
-    } else if (!/^[0-9a-f]{64}$/.test(result.sourceContentHash.trim())) {
+    }
+  }
+
+  if (result.sourceContentHash) {
+    if (!/^[0-9a-f]{64}$/.test(result.sourceContentHash.trim())) {
       mismatches.push('verificationContentHashInvalid');
+    } else if (options?.expectedContentHash && result.sourceContentHash.trim() !== options.expectedContentHash) {
+      mismatches.push('verificationContentHashMismatch');
+    } else if ((sourceDoc as any)?.contentHash && result.sourceContentHash.trim() !== (sourceDoc as any).contentHash) {
+      mismatches.push('verificationContentHashMismatch');
     }
   }
 
@@ -2133,7 +2473,7 @@ export function validateClaimVerificationResult(
 }
 
 /**
- * Context for resolving claim verification state (STEP 4-19, Task 4).
+ * Context for resolving claim verification state (STEP 4-19, Task 4; STEP 5-4).
  */
 export interface ClaimVerificationContext {
   claim?: ClaimEvidenceLocator;
@@ -2141,6 +2481,8 @@ export interface ClaimVerificationContext {
   expectedValue?: string;
   supportType?: EvidenceSupportType;
   requireContentHash?: boolean;
+  expectedContentHash?: string;
+  expectedOrigin?: 'repository_fixture' | 'live_source';
 }
 
 /**
@@ -2197,7 +2539,11 @@ export function resolveClaimVerificationState(
         expectedValue,
         verificationResult,
         supportType ?? verificationResult.claimSupportType,
-        { requireContentHash: context?.requireContentHash }
+        {
+          requireContentHash: context?.requireContentHash,
+          expectedContentHash: context?.expectedContentHash,
+          expectedOrigin: context?.expectedOrigin,
+        }
       );
       if (validation.valid) {
         return 'claim_verified';
