@@ -634,6 +634,75 @@ export interface LiveDocumentExtractionOptions {
 }
 
 /**
+ * Deterministic locator within an extracted live document (STEP 5-3, Section 1 & 9).
+ */
+export interface LiveEvidenceLocator {
+  page?: number;
+  section?: string;
+  paragraphIndex?: number;
+  tableIndex?: number;
+  rowIndex?: number;
+  rawLocator?: string;
+}
+
+/**
+ * Structured evidence candidate bound to an official IR live source (STEP 5-3, Section 1).
+ *
+ * PROVENANCE & ARCHITECTURAL INVARIANT:
+ * - Cryptographically bound to sourceDocId and sourceContentHash.
+ * - verificationOrigin is strictly 'live_source'.
+ * - Preserves raw value text and normalized numeric value.
+ * - Explicitly binds metric, scope, accounting basis, period, period type, and support type.
+ * - DOES NOT claim verification of any claim (source_retrieved ≠ source_verified ≠ claim_verified).
+ */
+export interface LiveEvidenceCandidate {
+  /** Primary source document identifier */
+  sourceDocId: string;
+  /** Cryptographic SHA-256 hash of the exact raw HTTP response bytes */
+  sourceContentHash: string;
+  /** Evidence origin identifier */
+  verificationOrigin: 'live_source';
+
+  /** Explicit target metric identifier */
+  metricId?: string;
+  /** Raw textual value as stated in document content */
+  rawValue: string;
+  /** Normalized representation of the value */
+  normalizedValue?: string;
+  /** Parsed numeric value if applicable */
+  numericValue?: number;
+
+  /** Metric unit */
+  unit?: MetricUnit;
+  /** Reporting scope (e.g. consolidated_group, automotive_segment, cars_segment) */
+  scope?: ReportingScope;
+  /** Accounting basis (e.g. reported, adjusted, non_gaap) */
+  accountingBasis?: AccountingBasis;
+
+  /** Reporting period (e.g. '2026-Q2', '2025-FY') */
+  period?: string;
+  /** Period classification (quarterly, annual) */
+  periodType?: PeriodType;
+
+  /** Evidence support type from standard taxonomy */
+  supportType: EvidenceSupportType;
+
+  /** Deterministic document location */
+  locator: LiveEvidenceLocator;
+
+  /** Verbatim evidence text snippet from extracted document */
+  evidenceText: string;
+}
+
+/**
+ * Result of validating a LiveEvidenceCandidate against claims and sources (STEP 5-3, Section 10).
+ */
+export interface LiveEvidenceValidationResult {
+  valid: boolean;
+  mismatches: string[];
+}
+
+/**
  * Single structured result object for entire audit suite (STEP 4-22, P1; STEP 4-23, P1).
  * Distinguishes the audited source commit tree (sourceCommitSha) from the commit containing the report.
  */
