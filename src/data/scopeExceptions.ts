@@ -1812,6 +1812,34 @@ export function verifyClaimEvidence(
       };
     }
 
+    // P0-1: Require extractedLiveDocument for ALL live verifications. If missing, return source_verified immediately.
+    if (!options?.extractedLiveDocument) {
+      return {
+        state: 'source_verified',
+        verificationMethod: liveMethod,
+        verificationOrigin: 'live_source',
+        engineId: liveEngineId,
+        engineVersion,
+        sourceDocId: sourceDoc.id,
+        claimSupportType: targetSupportType,
+        verifiedValue: undefined,
+        expectedValue,
+        verifiedAt,
+        sourceContentHash: (options?.liveCandidate?.sourceContentHash) ?? (options?.liveCandidates?.[0]?.sourceContentHash) ?? (sourceDoc as any)?.contentHash,
+        diagnostics: {
+          inspectedLocation,
+          expectedMetric: claim?.claimedMetricId,
+          expectedValue: expectedValue ?? (claim?.claimedNumericValue !== undefined ? String(claim.claimedNumericValue) : claim?.claimedValue),
+          failureReason: 'liveExtractedDocumentMissing',
+          sourceDocId: sourceDoc.id,
+          period: sourceDoc.period,
+          details: 'Live claim verification requires extractedLiveDocument; missing extracted document downgraded to source_verified.',
+        },
+      };
+    }
+
+    const extDoc = options.extractedLiveDocument;
+
     let liveFailureReason: string | undefined;
     let liveFailureDiagnostic: string | undefined;
     let bestCandidate: LiveEvidenceCandidate | undefined;
@@ -1856,40 +1884,66 @@ export function verifyClaimEvidence(
         return false;
       }
 
-      // 4b. Block resolution status & blockId checks (STEP 5 Remediation, P0-1 & P0-2)
+      // 4b. Extracted document binding & single-block resolution checks (STEP 5 Remediation Round 2, P0-1)
+      if (!cand.blockId || typeof cand.blockId !== 'string' || cand.blockId.trim() === '') {
+        liveFailureReason = 'liveEvidenceBlockIdMissing';
+        liveFailureDiagnostic = 'Live claim verification failed: candidate lacks blockId';
+        return false;
+      }
       if (cand.blockResolutionStatus === 'failed') {
         liveFailureReason = 'liveEvidenceResolutionFailed';
         liveFailureDiagnostic = `Live claim verification failed: candidate block resolution failed (${cand.blockResolutionError ?? 'unknown error'})`;
         return false;
       }
-      if (!cand.blockId || cand.blockResolutionStatus !== 'resolved') {
+      if (cand.blockResolutionStatus !== 'resolved') {
         liveFailureReason = 'liveEvidenceResolutionFailed';
-        liveFailureDiagnostic = 'Live claim verification failed: candidate lacks resolved blockId or resolution status is not resolved';
+        liveFailureDiagnostic = 'Live claim verification failed: candidate block resolution status is not resolved';
         return false;
       }
-      if (options?.extractedLiveDocument) {
-        const docBlocks = options.extractedLiveDocument.blocks ?? [];
-        const matchedDocBlock = docBlocks.find((b) => b.id === cand.blockId);
-        if (!matchedDocBlock) {
-          liveFailureReason = 'liveEvidenceBlockForged';
-          liveFailureDiagnostic = `Live claim verification failed: blockId "${cand.blockId}" not found in extracted live document`;
-          return false;
-        }
 
-        const blockTextNorm = matchedDocBlock.text.replace(/\s+/g, ' ').trim();
-        const candEvidenceNorm = (cand.evidenceText ?? '').replace(/\s+/g, ' ').trim();
-        if (!blockTextNorm.includes(candEvidenceNorm) && !candEvidenceNorm.includes(blockTextNorm)) {
-          liveFailureReason = 'liveEvidenceBlockForged';
-          liveFailureDiagnostic = 'Live claim verification failed: candidate evidenceText does not match extracted document block text';
-          return false;
-        }
+      // 4c. Single block resolution against extractedLiveDocument (P0-1.4)
+      const matchingBlocks = (extDoc.blocks ?? []).filter((b) => b.id === cand.blockId);
+      if (matchingBlocks.length === 0) {
+        liveFailureReason = 'liveEvidenceBlockForged';
+        liveFailureDiagnostic = `Live claim verification failed: blockId "${cand.blockId}" not found in extracted live document`;
+        return false;
+      }
+      if (matchingBlocks.length > 1) {
+        liveFailureReason = 'liveEvidenceBlockAmbiguous';
+        liveFailureDiagnostic = `Live claim verification failed: blockId "${cand.blockId}" matches multiple blocks in extracted live document`;
+        return false;
+      }
+      const matchedDocBlock = matchingBlocks[0];
 
-        const hasValInBlock = isValuePresentInBlock(matchedDocBlock.text, cand.rawValue, cand.numericValue);
-        if (!hasValInBlock) {
-          liveFailureReason = 'liveEvidenceBlockForged';
-          liveFailureDiagnostic = `Live claim verification failed: claimed value "${cand.rawValue}" is not present in resolved document block text`;
+      // 4d. Candidate source doc ID and content hash must match extracted document source doc (P0-1.5)
+      if (extDoc.sourceDocument) {
+        if (cand.sourceDocId && extDoc.sourceDocument.sourceDocId && cand.sourceDocId !== extDoc.sourceDocument.sourceDocId) {
+          liveFailureReason = 'sourceDocMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: candidate sourceDocId "${cand.sourceDocId}" does not match extracted document sourceDocId "${extDoc.sourceDocument.sourceDocId}"`;
           return false;
         }
+        if (extDoc.sourceDocument.contentHash && cand.sourceContentHash !== extDoc.sourceDocument.contentHash) {
+          liveFailureReason = 'verificationContentHashMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: candidate contentHash "${cand.sourceContentHash}" does not match extracted document contentHash "${extDoc.sourceDocument.contentHash}"`;
+          return false;
+        }
+      }
+
+      // 4e. Authoritative evidence text match (P0-1.6)
+      const blockTextNorm = matchedDocBlock.text.replace(/\s+/g, ' ').trim();
+      const candEvidenceNorm = (cand.evidenceText ?? '').replace(/\s+/g, ' ').trim();
+      if (blockTextNorm !== candEvidenceNorm && !blockTextNorm.includes(candEvidenceNorm) && !candEvidenceNorm.includes(blockTextNorm)) {
+        liveFailureReason = 'liveEvidenceBlockForged';
+        liveFailureDiagnostic = 'Live claim verification failed: candidate evidenceText does not match extracted document block text';
+        return false;
+      }
+
+      // 4f. Authoritative value presence in block (P0-1.7, P0-2)
+      const hasValInBlock = isValuePresentInBlock(matchedDocBlock.text, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit);
+      if (!hasValInBlock) {
+        liveFailureReason = 'liveEvidenceBlockForged';
+        liveFailureDiagnostic = `Live claim verification failed: claimed value "${cand.rawValue}" is not present in resolved document block text`;
+        return false;
       }
 
       // 5. Support type check (allow numeric_margin_value <-> reported_kpi)
@@ -2511,21 +2565,48 @@ export function validateClaimVerificationResult(
     }
   }
 
-  // 13. Block binding verification for live sources (STEP 5 Remediation, P0-2)
+  // 13. Extracted document and block binding verification for live sources (STEP 5 Remediation Round 2, P0-1)
   if (result.verificationOrigin === 'live_source') {
-    if (options?.requireBlockBinding || options?.extractedLiveDocument) {
-      if (!result.blockId || typeof result.blockId !== 'string' || result.blockId.trim() === '') {
-        mismatches.push('verificationBlockIdMissing');
-      }
+    if (!options?.extractedLiveDocument) {
+      mismatches.push('verificationExtractedDocumentMissing');
     }
+
+    if (!result.blockId || typeof result.blockId !== 'string' || result.blockId.trim() === '') {
+      mismatches.push('verificationBlockIdMissing');
+    }
+
     if (options?.extractedLiveDocument && result.blockId) {
       const docBlocks = options.extractedLiveDocument.blocks ?? [];
-      const matchedBlock = docBlocks.find((b) => b.id === result.blockId);
-      if (!matchedBlock) {
+      const matchingBlocks = docBlocks.filter((b) => b.id === result.blockId);
+      if (matchingBlocks.length === 0) {
         mismatches.push('verificationBlockNotFound');
+      } else if (matchingBlocks.length > 1) {
+        mismatches.push('verificationBlockAmbiguous');
       } else {
+        const matchedBlock = matchingBlocks[0];
+
+        // Check candidate source document ID and hash against extracted document (P0-1.5)
+        if (options.extractedLiveDocument.sourceDocument) {
+          if (
+            options.extractedLiveDocument.sourceDocument.sourceDocId &&
+            result.sourceDocId !== options.extractedLiveDocument.sourceDocument.sourceDocId
+          ) {
+            if (!mismatches.includes('verificationSourceDocMismatch')) {
+              mismatches.push('verificationSourceDocMismatch');
+            }
+          }
+          if (
+            options.extractedLiveDocument.sourceDocument.contentHash &&
+            result.sourceContentHash !== options.extractedLiveDocument.sourceDocument.contentHash
+          ) {
+            if (!mismatches.includes('verificationContentHashMismatch')) {
+              mismatches.push('verificationContentHashMismatch');
+            }
+          }
+        }
+
         const val = result.verifiedValue ?? (result.verifiedNumericValue !== undefined ? String(result.verifiedNumericValue) : '');
-        if (!isValuePresentInBlock(matchedBlock.text, val, result.verifiedNumericValue)) {
+        if (!isValuePresentInBlock(matchedBlock.text, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit)) {
           mismatches.push('verificationValueNotFoundInBlock');
         }
       }
@@ -2549,6 +2630,8 @@ export interface ClaimVerificationContext {
   requireContentHash?: boolean;
   expectedContentHash?: string;
   expectedOrigin?: 'repository_fixture' | 'live_source';
+  /** Extracted live document required for live verification state promotion (STEP 5 Remediation Round 2, P0-1) */
+  extractedLiveDocument?: ExtractedLiveDocument;
 }
 
 /**
@@ -2609,6 +2692,7 @@ export function resolveClaimVerificationState(
           requireContentHash: context?.requireContentHash,
           expectedContentHash: context?.expectedContentHash,
           expectedOrigin: context?.expectedOrigin,
+          extractedLiveDocument: context?.extractedLiveDocument,
         }
       );
       if (validation.valid) {

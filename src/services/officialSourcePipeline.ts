@@ -323,10 +323,21 @@ export async function executeOfficialSourcePipeline(
     }
   );
 
+  const isMockVerification = Boolean(options.customFetch || options.fetchOptions?.fetchFn);
+
   const resolvedState: EvidenceClaimVerificationState = resolveClaimVerificationState(
     evidenceList,
     true,
-    verificationResult
+    verificationResult,
+    {
+      claim: claimLocator,
+      sourceDoc: registeredSourceDoc,
+      expectedValue: bindingParams.rawValue,
+      supportType: targetSupportType,
+      expectedOrigin: 'live_source',
+      expectedContentHash: liveDoc.contentHash,
+      extractedLiveDocument: extractedDoc,
+    }
   );
 
   if (!validation.valid || resolvedState !== 'claim_verified') {
@@ -338,6 +349,7 @@ export async function executeOfficialSourcePipeline(
       evidenceCandidate: candidate,
       claimVerificationResult: verificationResult,
       verificationState: resolvedState,
+      isMockVerification,
       errorCode: 'verificationFailed',
       errorMessage: `Claim verification failed validation: ${validation.mismatches.join('; ')}`,
       details: {
@@ -355,6 +367,7 @@ export async function executeOfficialSourcePipeline(
     evidenceCandidate: candidate,
     claimVerificationResult: verificationResult,
     verificationState: resolvedState,
+    isMockVerification,
   };
 }
 

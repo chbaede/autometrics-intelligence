@@ -482,6 +482,7 @@ console.log('\n--- Suite 5: Bridge to Existing Claim Verification Engine ---');
     {
       expectedNumericValue: matchingClaim.claimedNumericValue,
       requireContentHash: true,
+      extractedLiveDocument: extractedDoc,
     }
   );
 
@@ -495,7 +496,7 @@ console.log('\n--- Suite 5: Bridge to Existing Claim Verification Engine ---');
     matchingClaim.claimedValue,
     tamperedResult,
     'reported_kpi',
-    { requireContentHash: true }
+    { requireContentHash: true, extractedLiveDocument: extractedDoc }
   );
   assert(!tamperedVal.valid && tamperedVal.mismatches.includes('verificationMetricMismatch'), 'Existing engine rejects tampered metric from bridged result');
 }

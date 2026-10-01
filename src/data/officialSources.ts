@@ -7,6 +7,13 @@
  * 2. Complete absence of generic web crawler behavior.
  * 3. Exact correspondence with registered SourceDocument IDs where applicable.
  * 4. Preservation of target claims for end-to-end verification.
+ *
+ * CRITICAL PROVENANCE INVARIANT (STEP 5 Remediation Round 2, P1-2):
+ * targetClaims in this registry represent explicit TARGET CLAIMS / EXPECTATIONS to be verified.
+ * They are NOT pre-verified claims and do not count toward verified audit totals.
+ * They can ONLY become claim_verified when the authentic live source verification pipeline
+ * retrieves the official wire bytes, computes the raw SHA-256 hash, extracts document blocks,
+ * and passes all semantic and cryptographic verification gates.
  */
 
 import { OfficialIrSource } from '../types/metrics';

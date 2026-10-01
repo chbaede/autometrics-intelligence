@@ -544,6 +544,8 @@ export interface LiveSourceFetchOptions {
   allowLocalhost?: boolean;
   /** Approved official domain(s); every redirect destination must stay within this perimeter (STEP 5 Remediation, P1-1) */
   officialDomain?: string | string[];
+  /** Custom DNS lookup function for SSRF validation and offline testing (STEP 5 Remediation Round 2, P1-1) */
+  dnsLookupFn?: (hostname: string) => Promise<string[] | string>;
 }
 
 /**
@@ -790,6 +792,8 @@ export interface OfficialSourcePipelineResult {
   evidenceCandidate?: LiveEvidenceCandidate;
   claimVerificationResult?: ClaimVerificationResult;
   verificationState?: EvidenceClaimVerificationState;
+  /** Explicitly marks whether verification was performed using mock HTTP transport (STEP 5 Remediation Round 2, P1-2) */
+  isMockVerification?: boolean;
   errorCode?: OfficialSourcePipelineErrorCode;
   errorMessage?: string;
   details?: Record<string, unknown>;

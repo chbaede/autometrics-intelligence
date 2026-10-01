@@ -182,6 +182,7 @@ console.log('\n--- Suite 1: Live Evidence Verification Engine Integration ---');
       liveSourceDocument: mockLiveDoc,
       expectedOrigin: 'live_source',
       expectedNumericValue: 4.0,
+      extractedLiveDocument: mockExtractedDoc,
     }
   );
 
@@ -211,7 +212,7 @@ console.log('\n--- Suite 1: Live Evidence Verification Engine Integration ---');
     '4.0%',
     verifiedRes,
     'reported_kpi',
-    { expectedOrigin: 'live_source', expectedContentHash: VALID_SHA256 }
+    { expectedOrigin: 'live_source', expectedContentHash: VALID_SHA256, extractedLiveDocument: mockExtractedDoc }
   );
   assert(validation.valid && validation.mismatches.length === 0, 'Verified live result cleanly passes validateClaimVerificationResult()');
 
@@ -227,6 +228,7 @@ console.log('\n--- Suite 1: Live Evidence Verification Engine Integration ---');
       supportType: 'reported_kpi',
       expectedOrigin: 'live_source',
       expectedContentHash: VALID_SHA256,
+      extractedLiveDocument: mockExtractedDoc,
     }
   );
   assert(resolvedState === 'claim_verified', 'Valid live verification result promotes to claim_verified in resolveClaimVerificationState()');
@@ -248,6 +250,7 @@ console.log('\n--- Suite 2: Forged Live Result Tests & Strict Downgrade Gate ---
       liveSourceDocument: mockLiveDoc,
       expectedOrigin: 'live_source',
       expectedNumericValue: 4.0,
+      extractedLiveDocument: mockExtractedDoc,
     }
   ) as ClaimVerifiedResult;
 
@@ -421,6 +424,7 @@ console.log('\n--- Suite 2: Forged Live Result Tests & Strict Downgrade Gate ---
         expectedNumericValue: 4.0,
         expectedOrigin: overrideOptions?.expectedOrigin ?? 'live_source',
         expectedContentHash: overrideOptions?.expectedContentHash ?? VALID_SHA256,
+        extractedLiveDocument: mockExtractedDoc,
       }
     );
 
@@ -441,6 +445,7 @@ console.log('\n--- Suite 2: Forged Live Result Tests & Strict Downgrade Gate ---
         supportType: 'reported_kpi',
         expectedOrigin: overrideOptions?.expectedOrigin ?? 'live_source',
         expectedContentHash: overrideOptions?.expectedContentHash ?? VALID_SHA256,
+        extractedLiveDocument: mockExtractedDoc,
       }
     );
 
@@ -494,7 +499,7 @@ console.log('\n--- Suite 3: Live vs Fixture Compatibility & Origin Immutability 
     mockSourceDoc,
     '4.0%',
     'reported_kpi',
-    { liveCandidate: validCandidate, expectedOrigin: 'live_source' }
+    { liveCandidate: validCandidate, expectedOrigin: 'live_source', extractedLiveDocument: mockExtractedDoc }
   );
   assert(liveRes.state === 'claim_verified', 'Valid live_source produces claim_verified');
   assert(liveRes.verificationOrigin === 'live_source', 'Live result origin is live_source');
@@ -514,7 +519,7 @@ console.log('\n--- Suite 3: Live vs Fixture Compatibility & Origin Immutability 
     mockSourceDoc,
     '99.9%',
     'reported_kpi',
-    { liveCandidate: validCandidate, expectedOrigin: 'live_source' }
+    { liveCandidate: validCandidate, expectedOrigin: 'live_source', extractedLiveDocument: mockExtractedDoc }
   );
   assert(forgedLive.state === 'source_verified', 'Forged live value downgrades to source_verified');
 

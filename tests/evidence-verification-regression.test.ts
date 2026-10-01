@@ -23,6 +23,7 @@ import {
   ClaimEvidenceLocator,
   ClaimVerifiedResult,
   ScopeExceptionEvidence,
+  ExtractedLiveDocument,
 } from '../src/types/metrics';
 
 let passed = 0;
@@ -798,25 +799,63 @@ console.log('\n--- 16. State Resolution Integration ---');
     );
   }
 
-  // 5. Valid live_source verification result (STEP 4-24.2, P0-3, P0-6, P0-7 Case D)
+  // 5. Valid live_source verification result (STEP 4-24.2, P0-3, P0-6, P0-7 Case D; STEP 5 Remediation Round 2 P0-1)
+  const mockExtHash = 'a'.repeat(64);
+  const mockLiveExtractedDoc: ExtractedLiveDocument = {
+    sourceDocument: {
+      id: baselineDoc.id,
+      url: baselineDoc.officialUrl,
+      finalUrl: baselineDoc.officialUrl,
+      retrievedAt: new Date().toISOString(),
+      httpStatus: 200,
+      contentType: 'text/html',
+      contentLength: 100,
+      contentHash: mockExtHash,
+      hashAlgorithm: 'sha256',
+      sourceKind: 'official_ir',
+      sourceDocId: baselineDoc.id,
+    },
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Operating profit 2.3%',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block-1',
+        blockType: 'paragraph',
+        text: 'Operating profit 2.3%',
+        locator: 'page:1:p:1',
+      },
+    ],
+  };
+
   const validLiveSourceResult: ClaimVerifiedResult = {
     ...validEngineResult,
     verificationOrigin: 'live_source',
-    sourceContentHash: undefined,
+    sourceContentHash: mockExtHash,
+    blockId: 'block-1',
   };
   const valLive = validateClaimVerificationResult(
     baselineClaim,
     baselineDoc,
     '2.3',
     validLiveSourceResult,
-    'reported_kpi'
+    'reported_kpi',
+    { extractedLiveDocument: mockLiveExtractedDoc }
   );
-  assert(valLive.valid === true, 'Valid live_source result passes validation without requiring fixture hash (Case D)');
+  assert(valLive.valid === true, 'Valid live_source result passes validation with authoritative extracted document (Case D)');
   const liveState = resolveClaimVerificationState(
     mockEvidence,
     true,
     validLiveSourceResult,
-    { claim: baselineClaim, sourceDoc: baselineDoc, expectedValue: '2.3', supportType: 'reported_kpi' }
+    {
+      claim: baselineClaim,
+      sourceDoc: baselineDoc,
+      expectedValue: '2.3',
+      supportType: 'reported_kpi',
+      extractedLiveDocument: mockLiveExtractedDoc,
+    }
   );
   assert(liveState === 'claim_verified', 'Valid live_source result promotes to claim_verified (Case D)');
 }

@@ -184,37 +184,79 @@ export function parseValueAndUnit(rawValue: string, targetUnit?: MetricUnit): Pa
 }
 
 /**
- * Checks whether a raw textual or numeric value is present in a document block text (STEP 5 Remediation, P0-1).
+ * Checks whether a raw textual or numeric value is present in a document block text (STEP 5 Remediation Round 2, P0-2).
+ *
+ * Rules:
+ *  1. Enforces explicit token boundaries: (?<![\d.]) and (?![\d.])
+ *  2. Preserves signs, decimal precision, separators, percentage markers (%), and unit semantics.
+ *  3. Rejects prefix/suffix numbers (e.g. 4.0 vs 14.0, 4.0 vs 4.01).
+ *  4. Distinguishes percentage from pure numbers (e.g. 4.0% vs 4.0).
+ *  5. Rejects sign mismatch (e.g. -4.0 vs 4.0).
+ *  6. Normalizes valid thousands separators (e.g. 1,200 matches 1200).
+ *  7. Enforces unit scale semantics (e.g. €1.2 billion does not match 1.2 million).
+ *  8. Ambiguity gate: returns true ONLY if exactly one token in the block matches; multiple ambiguous matching values return false.
  */
 export function isValuePresentInBlock(
   blockText: string,
   rawValue: string,
-  numericValue?: number
+  numericValue?: number,
+  targetUnit?: MetricUnit
 ): boolean {
   if (!blockText || !rawValue) return false;
-  const normBlock = blockText.replace(/\s+/g, ' ').trim();
-  const normRaw = rawValue.replace(/\s+/g, ' ').trim();
 
-  // 1. Direct substring match (case-insensitive)
-  if (normBlock.toLowerCase().includes(normRaw.toLowerCase())) {
-    return true;
+  const claimParsed = parseValueAndUnit(rawValue, targetUnit);
+  const targetNum = numericValue !== undefined && Number.isFinite(numericValue) ? numericValue : claimParsed.numericValue;
+
+  // Non-numeric text presence check
+  if (targetNum === undefined || !Number.isFinite(targetNum)) {
+    const normBlock = blockText.replace(/\s+/g, ' ').trim().toLowerCase();
+    const normRaw = rawValue.replace(/\s+/g, ' ').trim().toLowerCase();
+    return normBlock.includes(normRaw);
   }
 
-  // 2. Comma-stripped match (e.g. 1,200 vs 1200 or €36,743 million vs 36743)
-  const stripCommas = (s: string) => s.replace(/,/g, '');
-  if (stripCommas(normBlock).toLowerCase().includes(stripCommas(normRaw).toLowerCase())) {
-    return true;
-  }
+  const claimHasPercent = rawValue.includes('%') || targetUnit === 'percentage' || claimParsed.detectedUnit === 'percentage';
+  const targetSign = Math.sign(targetNum);
 
-  // 3. Numeric value match
-  if (numericValue !== undefined && Number.isFinite(numericValue)) {
-    const numStr = String(numericValue);
-    if (stripCommas(normBlock).includes(numStr)) {
-      return true;
+  // Extract candidate tokens using strict boundary regex (?<![\d.]) and (?![\d.])
+  // Replace sentence-ending periods with space so (?![\d.]) does not conflict with sentence full stops
+  const sanitized = blockText.replace(/\.(?=\s|$)/g, ' ');
+  const TOKEN_REGEX = /(?<![\d.])(?:[€$£¥]\s*)?[+-]?\d+(?:,\d{3})*(?:\.\d+)?\s*(?:%|billion|bn|b\b|million|m\b|thousand\s+units|k\s+units|k\b|units\b)?(?![\d.])/gi;
+  const rawTokens = sanitized.match(TOKEN_REGEX) || [];
+
+  const matchingTokens: string[] = [];
+
+  for (const rawToken of rawTokens) {
+    const tokenParsed = parseValueAndUnit(rawToken, targetUnit);
+    if (tokenParsed.numericValue === undefined || !Number.isFinite(tokenParsed.numericValue)) {
+      continue;
     }
+
+    // 1. Sign match (+ vs -)
+    if (Math.sign(tokenParsed.numericValue) !== targetSign) {
+      continue;
+    }
+
+    // 2. Percentage marker match: both must have % or neither
+    const tokenHasPercent = rawToken.includes('%') || tokenParsed.detectedUnit === 'percentage';
+    if (claimHasPercent !== tokenHasPercent) {
+      continue;
+    }
+
+    // 3. Unit semantics if both declare detected unit
+    if (claimParsed.detectedUnit && tokenParsed.detectedUnit && claimParsed.detectedUnit !== tokenParsed.detectedUnit) {
+      continue;
+    }
+
+    // 4. Exact decimal precision and value match (within 1e-4)
+    if (Math.abs(tokenParsed.numericValue - targetNum) > 1e-4) {
+      continue;
+    }
+
+    matchingTokens.push(rawToken);
   }
 
-  return false;
+  // Exact single match required: 0 matches = false; multiple ambiguous matches = false
+  return matchingTokens.length === 1;
 }
 
 /**
@@ -703,7 +745,7 @@ export function validateLiveEvidenceCandidate(
       if (candidate.evidenceText !== matchedBlock.text) {
         mismatches.push('verificationBlockTextMismatch');
       }
-      if (!isValuePresentInBlock(matchedBlock.text, candidate.rawValue, candidate.numericValue)) {
+      if (!isValuePresentInBlock(matchedBlock.text, candidate.rawValue, candidate.numericValue, candidate.unit)) {
         mismatches.push('verificationBlockValueMismatch');
       }
     }

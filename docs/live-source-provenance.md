@@ -323,4 +323,30 @@ To eliminate verification forgery gaps, live evidence is strictly bound to an au
 5. `verifyClaimEvidence()` and `validateClaimVerificationResult()` enforce that the resolved `blockId` exists in the extracted document, its text matches the candidate evidence text, and the claimed value appears in the block text.
 6. Synthesized fallback `SourceDocument` metadata instances remain strictly `isVerified: false` (`verificationStatus: 'unverified'`).
 
+### 6. Mandatory Live Evidence Binding & Security Hardening (STEP 5 Remediation Round 2)
+1. **Mandatory Extracted Document Gate (P0-1)**:
+   - For all live verification paths (`verificationOrigin === 'live_source'`), `extractedLiveDocument` is strictly mandatory.
+   - If missing in `verifyClaimEvidence()`, the verification immediately downgrades to `source_verified` with `failureReason: 'liveExtractedDocumentMissing'`.
+   - If missing in `validateClaimVerificationResult()`, validation fails with `verificationExtractedDocumentMissing`.
+   - The candidate's `blockId` must resolve to exactly one block in `extractedLiveDocument.blocks`. Zero or multiple matches fail with `verificationBlockNotFound` or `verificationBlockAmbiguous`.
+   - Candidate `sourceDocId` and `sourceContentHash` must match the extracted document's source document.
+   - Authoritative block text and raw values are verified against the resolved block.
+2. **Strict Token-Boundary Numeric Matching (P0-2)**:
+   - `isValuePresentInBlock()` enforces explicit token boundaries with lookbehind and lookahead: `(?<![\d.])` and `(?![\d.])`.
+   - Preserves signs (`-4.0` does not match `4.0`).
+   - Rejects numeric substrings (`4.0` does not match `14.0` or `4.01`).
+   - Preserves percentage semantics (`4.0%` does not match pure number `4.0`).
+   - Normalizes thousands separators (`1,200` matches `1200`).
+   - Respects scale and unit semantics (`€1.2 billion` does not match `1.2 million`).
+   - Ambiguity rejection: If multiple tokens in the block match the target value/unit, returns `false` (fails ambiguous resolution).
+3. **DNS/IP SSRF Protection (P1-1)**:
+   - `fetchOfficialIrSource()` resolves hostnames to IP addresses before dispatching the initial request and before following every redirect hop.
+   - Rejects private, loopback, link-local, carrier-grade, reserved, multicast, or non-public IP addresses.
+   - Configurable `dnsLookupFn` allows complete network independence and deterministic unit testing.
+   - In production deployments, DNS rebinding mitigations (e.g. egress proxy or socket-level IP pinning) should be combined with pre-flight resolution.
+4. **Registered Claims vs Verified Claims & Mock Tagging (P1-2)**:
+   - `targetClaims` in the official IR registry represent explicit targets/expectations to be verified, never pre-verified claims.
+   - Pipeline executions via mock HTTP transports are explicitly tagged with `isMockVerification: true` and cannot be counted as real live-source verifications.
+
+
 

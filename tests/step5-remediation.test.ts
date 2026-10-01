@@ -20,7 +20,7 @@
 
 import { fetchOfficialIrSource } from '../src/services/liveSourceFetcher';
 import { extractPdfDocument } from '../src/services/liveDocumentExtractor';
-import { bindLiveEvidence } from '../src/services/liveEvidenceBinder';
+import { bindLiveEvidence, isValuePresentInBlock } from '../src/services/liveEvidenceBinder';
 import {
   verifyClaimEvidence,
   validateClaimVerificationResult,
@@ -29,6 +29,7 @@ import {
   executeOfficialSourcePipeline,
   verifyOfficialSourceClaim,
 } from '../src/services/officialSourcePipeline';
+import { OFFICIAL_IR_SOURCES } from '../src/data/officialSources';
 import {
   ClaimEvidenceLocator,
   ClaimVerifiedResult,
@@ -821,6 +822,512 @@ console.log('\n--- Test 14: Repository Fixture Invariants Preserved ---');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Test 15: P0-1 — Live Verification Without extractedLiveDocument Fails
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 15: P0-1 — Live Verification Without extractedLiveDocument Fails ---');
+{
+  const validHash = 'f'.repeat(64);
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_2026_q2',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'adjusted',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_2026_q2',
+    companyId: 'mercedes_benz',
+    title: 'Q2 2026',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/q2.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const candidate: LiveEvidenceCandidate = {
+    sourceDocId: 'mbg_2026_q2',
+    sourceContentHash: validHash,
+    verificationOrigin: 'live_source',
+    blockId: 'block_ros',
+    blockResolutionStatus: 'resolved',
+    rawValue: '4.0%',
+    numericValue: 4.0,
+    unit: 'percentage',
+    metricId: 'operating_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    supportType: 'reported_kpi',
+    locator: { blockId: 'block_ros', rawLocator: 'table:1:row:2' },
+    evidenceText: 'Adjusted Return on Sales: 4.0%',
+  };
+
+  // Calling verifyClaimEvidence without extractedLiveDocument
+  const result = verifyClaimEvidence(claim, sourceDoc, '4.0%', 'reported_kpi', {
+    liveCandidate: candidate,
+    expectedOrigin: 'live_source',
+    // extractedLiveDocument is intentionally omitted!
+  });
+
+  assert(result.state === 'source_verified', 'Structurally valid live candidate without extractedLiveDocument strictly returns source_verified');
+  assert(
+    result.diagnostics?.failureReason === 'liveExtractedDocumentMissing',
+    'Diagnostic failureReason is liveExtractedDocumentMissing'
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 16: P0-1 — validateClaimVerificationResult Requires extractedLiveDocument
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 16: P0-1 — validateClaimVerificationResult Requires extractedLiveDocument ---');
+{
+  const validHash = 'f'.repeat(64);
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_2026_q2',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'adjusted',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_2026_q2',
+    companyId: 'mercedes_benz',
+    title: 'Q2 2026',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/q2.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const liveResult: ClaimVerifiedResult = {
+    state: 'claim_verified',
+    verificationOrigin: 'live_source',
+    verificationMethod: 'parser',
+    engineId: 'test_engine',
+    engineVersion: '1.0.0',
+    sourceDocId: 'mbg_2026_q2',
+    sourceContentHash: validHash,
+    blockId: 'block_ros',
+    claimSupportType: 'reported_kpi',
+    verifiedValue: '4.0%',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 4.0,
+    verifiedUnit: 'percentage',
+    verifiedScope: 'cars_segment',
+    verifiedAccountingBasis: 'adjusted',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
+    verifiedAt: new Date().toISOString(),
+  };
+
+  const validation = validateClaimVerificationResult(claim, sourceDoc, '4.0%', liveResult, 'reported_kpi', {
+    expectedOrigin: 'live_source',
+    expectedContentHash: validHash,
+    // extractedLiveDocument is intentionally omitted!
+  });
+
+  assert(validation.valid === false, 'validateClaimVerificationResult rejects live result without extractedLiveDocument');
+  assert(
+    validation.mismatches.includes('verificationExtractedDocumentMissing'),
+    'Mismatches includes verificationExtractedDocumentMissing'
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 17: P0-1 — Ambiguous blockId in Extracted Document Fails
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 17: P0-1 — Ambiguous blockId in Extracted Document Fails ---');
+{
+  const validHash = 'f'.repeat(64);
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_2026_q2',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_2026_q2',
+    companyId: 'mercedes_benz',
+    title: 'Q2 2026',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/q2.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_2026_q2',
+    url: 'https://group.mercedes-benz.com/q2.html',
+    finalUrl: 'https://group.mercedes-benz.com/q2.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: validHash,
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  // Extracted document has 2 blocks with the exact same ID (ambiguous!)
+  const ambiguousDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'RoS 4.0% RoS 4.0%',
+    pageCount: 1,
+    blocks: [
+      { id: 'duplicate_id', blockType: 'paragraph', text: 'Cars RoS: 4.0%', locator: 'p1' },
+      { id: 'duplicate_id', blockType: 'paragraph', text: 'Cars RoS: 4.0%', locator: 'p2' },
+    ],
+  };
+
+  const liveResult: ClaimVerifiedResult = {
+    state: 'claim_verified',
+    verificationOrigin: 'live_source',
+    verificationMethod: 'parser',
+    engineId: 'test_engine',
+    engineVersion: '1.0.0',
+    sourceDocId: 'mbg_2026_q2',
+    sourceContentHash: validHash,
+    blockId: 'duplicate_id',
+    claimSupportType: 'reported_kpi',
+    verifiedValue: '4.0%',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 4.0,
+    verifiedUnit: 'percentage',
+    verifiedAt: new Date().toISOString(),
+  };
+
+  const validation = validateClaimVerificationResult(claim, sourceDoc, '4.0%', liveResult, 'reported_kpi', {
+    expectedOrigin: 'live_source',
+    expectedContentHash: validHash,
+    extractedLiveDocument: ambiguousDoc,
+  });
+
+  assert(validation.valid === false, 'validateClaimVerificationResult rejects ambiguous blockId');
+  assert(
+    validation.mismatches.includes('verificationBlockAmbiguous'),
+    'Mismatches includes verificationBlockAmbiguous'
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 18: P0-1 — Candidate sourceDocId/contentHash Mismatch Against Extracted Document Fails
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 18: P0-1 — Candidate sourceDocId/contentHash Mismatch Against Extracted Document Fails ---');
+{
+  const docHash = '1'.repeat(64);
+  const candHash = '2'.repeat(64);
+
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'doc_alpha',
+    sourceDocId: 'doc_alpha',
+    url: 'https://group.mercedes-benz.com/q2.html',
+    finalUrl: 'https://group.mercedes-benz.com/q2.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: docHash,
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Cars RoS: 4.0%',
+    pageCount: 1,
+    blocks: [
+      { id: 'b1', blockType: 'paragraph', text: 'Cars RoS: 4.0%', locator: 'p1' },
+    ],
+  };
+
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'doc_alpha',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'doc_alpha',
+    companyId: 'mercedes_benz',
+    title: 'Q2 2026',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/q2.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  // Result carries mismatched contentHash
+  const mismatchedHashResult: ClaimVerifiedResult = {
+    state: 'claim_verified',
+    verificationOrigin: 'live_source',
+    verificationMethod: 'parser',
+    engineId: 'test',
+    engineVersion: '1.0.0',
+    sourceDocId: 'doc_alpha',
+    sourceContentHash: candHash, // DOES NOT MATCH docHash!
+    blockId: 'b1',
+    claimSupportType: 'reported_kpi',
+    verifiedValue: '4.0%',
+    verifiedNumericValue: 4.0,
+    verifiedUnit: 'percentage',
+    verifiedAt: new Date().toISOString(),
+  };
+
+  const valHash = validateClaimVerificationResult(claim, sourceDoc, '4.0%', mismatchedHashResult, 'reported_kpi', {
+    extractedLiveDocument: extDoc,
+  });
+
+  assert(valHash.valid === false, 'Rejects live result with contentHash mismatching extracted document');
+  assert(
+    valHash.mismatches.includes('verificationContentHashMismatch'),
+    'Mismatches includes verificationContentHashMismatch'
+  );
+
+  // Result carries mismatched sourceDocId
+  const mismatchedDocResult: ClaimVerifiedResult = {
+    ...mismatchedHashResult,
+    sourceDocId: 'doc_beta', // DOES NOT MATCH doc_alpha!
+    sourceContentHash: docHash,
+  };
+
+  const valDoc = validateClaimVerificationResult(claim, sourceDoc, '4.0%', mismatchedDocResult, 'reported_kpi', {
+    extractedLiveDocument: extDoc,
+  });
+
+  assert(valDoc.valid === false, 'Rejects live result with sourceDocId mismatching extracted document');
+  assert(
+    valDoc.mismatches.includes('verificationSourceDocMismatch'),
+    'Mismatches includes verificationSourceDocMismatch'
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 19: P0-2 — Strict Token-Boundary Numeric Matching in isValuePresentInBlock
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 19: P0-2 — Strict Token-Boundary Numeric Matching in isValuePresentInBlock ---');
+{
+  // 19.1: 4.0 vs 14.0 (must NOT match)
+  assert(
+    isValuePresentInBlock('Operating margin was 14.0', '4.0', 4.0) === false,
+    '19.1: 4.0 does NOT match inside 14.0'
+  );
+
+  // 19.2: 4.0 vs 4.01 (must NOT match)
+  assert(
+    isValuePresentInBlock('Operating margin was 4.01', '4.0', 4.0) === false,
+    '19.2: 4.0 does NOT match 4.01'
+  );
+
+  // 19.3: -4.0 vs 4.0 (sign preservation: must NOT match)
+  assert(
+    isValuePresentInBlock('Operating margin was -4.0', '4.0', 4.0) === false,
+    '19.3: -4.0 does NOT match 4.0 (sign preservation)'
+  );
+
+  // 19.4: 4.0% vs 4.0 (percentage marker semantics: must NOT match)
+  assert(
+    isValuePresentInBlock('Operating margin was 4.0%', '4.0', 4.0) === false,
+    '19.4a: pure number 4.0 does NOT match percentage 4.0%'
+  );
+  assert(
+    isValuePresentInBlock('Operating margin was 4.0', '4.0%') === false,
+    '19.4b: percentage 4.0% does NOT match pure number 4.0'
+  );
+
+  // 19.5: 1,200 vs 1200 (thousands separator normalization: MUST match)
+  assert(
+    isValuePresentInBlock('Deliveries reached 1,200 units', '1200', 1200) === true,
+    '19.5a: 1200 matches formatted 1,200'
+  );
+  assert(
+    isValuePresentInBlock('Deliveries reached 1200 units', '1,200', 1200) === true,
+    '19.5b: formatted 1,200 matches 1200'
+  );
+
+  // 19.6: €1.2 billion vs 1.2 million (scale/unit semantics: must NOT match)
+  assert(
+    isValuePresentInBlock('Revenue was €1.2 billion', '1.2 million', 1.2, 'currency_millions') === false,
+    '19.6: €1.2 billion does NOT match 1.2 million'
+  );
+
+  // 19.7: Multiple ambiguous numeric values in one block (must fail)
+  assert(
+    isValuePresentInBlock('Adjusted RoS was 4.0% in Q2 and 4.0% in Q1', '4.0%', 4.0) === false,
+    '19.7: Multiple ambiguous 4.0% occurrences in block fails matching'
+  );
+
+  // 19.8: Valid exact single match (MUST match)
+  assert(
+    isValuePresentInBlock('Mercedes-Benz Cars Adjusted Return on Sales: 4.0%', '4.0%', 4.0) === true,
+    '19.8: Single unambiguous 4.0% matches cleanly'
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 20: P1-1 — DNS Resolution SSRF Protection on Initial URL
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 20: P1-1 — DNS Resolution SSRF Protection on Initial URL ---');
+await (async () => {
+  const dispatchedUrls: string[] = [];
+
+  const mockFetch = (async (input: RequestInfo | URL) => {
+    const urlStr = typeof input === 'string' ? input : 'href' in input ? input.href : input.url;
+    dispatchedUrls.push(urlStr);
+    return new Response('Should never be called', { status: 200 });
+  }) as unknown as typeof fetch;
+
+  // Custom DNS resolver that resolves an apparently official domain to a private loopback address (127.0.0.1)
+  const maliciousDnsLookup = async (_hostname: string) => {
+    return ['127.0.0.1'];
+  };
+
+  const result = await fetchOfficialIrSource('https://group.mercedes-benz.com/report.html', {
+    fetchFn: mockFetch,
+    dnsLookupFn: maliciousDnsLookup,
+    officialDomain: ['group.mercedes-benz.com'],
+  });
+
+  assert(result.success === false, 'Fetch rejected domain resolving via DNS to 127.0.0.1');
+  assert(
+    !result.success && result.error.code === 'invalidUrl',
+    'Error code is invalidUrl when resolved IP is restricted'
+  );
+  assert(dispatchedUrls.length === 0, 'Strictly 0 HTTP requests sent (dispatchedUrls.length === 0)');
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 21: P1-1 — DNS Resolution SSRF Protection on Redirect Target
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 21: P1-1 — DNS Resolution SSRF Protection on Redirect Target ---');
+await (async () => {
+  const dispatchedUrls: string[] = [];
+
+  const mockRedirectFetch = (async (input: RequestInfo | URL) => {
+    const urlStr = typeof input === 'string' ? input : 'href' in input ? input.href : input.url;
+    dispatchedUrls.push(urlStr);
+
+    if (urlStr === 'https://group.mercedes-benz.com/initial.html') {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: 'https://internal-report.mercedes-benz.com/private.html',
+        },
+      });
+    }
+
+    return new Response('Should never be reached', { status: 200 });
+  }) as unknown as typeof fetch;
+
+  // DNS resolver returns public IP for initial URL, but private RFC 1918 (10.0.0.5) for redirect target
+  const splitDnsLookup = async (hostname: string) => {
+    if (hostname === 'group.mercedes-benz.com') {
+      return ['194.12.185.10']; // Benign public IP
+    }
+    return ['10.0.0.5']; // Private network IP
+  };
+
+  const result = await fetchOfficialIrSource('https://group.mercedes-benz.com/initial.html', {
+    fetchFn: mockRedirectFetch,
+    dnsLookupFn: splitDnsLookup,
+    officialDomain: ['group.mercedes-benz.com', 'internal-report.mercedes-benz.com'],
+  });
+
+  assert(result.success === false, 'Fetch rejected redirect to host resolving to private IP 10.0.0.5');
+  assert(
+    !result.success && result.error.code === 'invalidUrl',
+    'Error code is invalidUrl on private redirect target'
+  );
+  assert(dispatchedUrls.length === 1, 'Only initial request was dispatched (dispatchedUrls.length === 1)');
+  assert(!dispatchedUrls.some((u) => u.includes('private.html')), 'Redirect destination was never contacted');
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 22: P1-2 — Mock Transport Flagging in Official Source Pipeline
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 22: P1-2 — Mock Transport Flagging in Official Source Pipeline ---');
+await (async () => {
+  const source = OFFICIAL_IR_SOURCES[0]; // mbg_2026_q2_results
+  const claim = source.targetClaims![2]; // operating_margin 4.0%
+
+  const htmlContent = '<html><body><table><tr><td>Mercedes-Benz Cars Adjusted Return on Sales: 4.0%</td></tr></table></body></html>';
+  const rawBytes = new TextEncoder().encode(htmlContent);
+
+  const mockFetch = (async () => {
+    return new Response(rawBytes, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+    });
+  }) as unknown as typeof fetch;
+
+  const result = await executeOfficialSourcePipeline({
+    source,
+    claim,
+    bindingParams: {
+      locator: { rawLocator: 'table:0:row:0', tableIndex: 0, rowIndex: 0 },
+      rawValue: '4.0%',
+      evidenceText: 'Mercedes-Benz Cars Adjusted Return on Sales: 4.0%',
+      supportType: 'reported_kpi',
+    },
+    options: {
+      customFetch: mockFetch,
+    },
+  });
+
+  assert(result.success === true, 'Pipeline executes successfully with mock fetch');
+  assert(result.isMockVerification === true, 'Pipeline explicitly sets isMockVerification: true for mock transport');
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 23: P1-2 — Registered targetClaims Integrity & Non-Pre-Verification Invariant
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 23: P1-2 — Registered targetClaims Integrity & Non-Pre-Verification Invariant ---');
+{
+  assert(OFFICIAL_IR_SOURCES.length === 3, 'Official IR registry contains exactly 3 OEM sources');
+  for (const src of OFFICIAL_IR_SOURCES) {
+    assert(Array.isArray(src.targetClaims) && src.targetClaims.length > 0, `Source "${src.id}" defines target claims`);
+    for (const clm of src.targetClaims!) {
+      assert(typeof clm.metricId === 'string' && clm.metricId.length > 0, 'Target claim has metricId');
+      assert(typeof clm.value === 'number', 'Target claim has numeric value');
+      assert(typeof clm.unit === 'string', 'Target claim has unit');
+      assert(typeof clm.period === 'string', 'Target claim has period');
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Summary
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n=============================================================================');
@@ -830,5 +1337,5 @@ console.log('===================================================================
 if (failed > 0) {
   process.exit(1);
 } else {
-  console.log('\n🎉 All 14 STEP 5 Remediation tests passed!\n');
+  console.log('\n🎉 All STEP 5 Remediation Round 1 & Round 2 tests passed!\n');
 }
