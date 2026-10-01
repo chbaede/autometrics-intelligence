@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
+import { isUrlInOfficialDomain } from '../data/officialSources';
 export type {
   LiveSourceDocument,
   LiveSourceFetchError,
@@ -74,32 +76,103 @@ export function parseContentType(headerValue: string | null | undefined): Parsed
 }
 
 /**
- * Checks if a hostname resolves to a private, loopback, or internal IP address (STEP 5-1, Section 9).
+ * Checks if a hostname resolves to a private, loopback, link-local, carrier-grade, or reserved IP address (STEP 5-1; STEP 5 Remediation, P1-2).
  *
- * Restricts SSRF attempts targeting localhost, 127.0.0.1, ::1, link-local, and RFC 1918 private subnets.
+ * Comprehensive SSRF mitigation covering:
+ * - Localhost / loopback: localhost, 127.0.0.0/8, ::1, [::1], ::
+ * - RFC 1918 Private ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+ * - Link-local / APIPA: 169.254.0.0/16, fe80::/10
+ * - Shared address space / CGNAT: 100.64.0.0/10 (100.64 - 100.127)
+ * - IETF Protocol / Test-nets: 192.0.0.0/24, 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24
+ * - Benchmarking: 198.18.0.0/15 (198.18 - 198.19)
+ * - Multicast & Reserved: 224.0.0.0/4, 240.0.0.0/4, 255.255.255.255, 0.0.0.0/8
+ * - IPv6 Unique Local: fc00::/7
+ * - IPv4-mapped IPv6: ::ffff:x.x.x.x
+ * - Integer, octal, hex IP notations (e.g. 2130706433, 0x7f000001)
+ * - Internal mDNS / local domain suffixes: .local, .localhost, .internal, .lan, .home, .arpa
  */
 export function isPrivateOrLoopbackHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().trim();
-  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0' || host === '[::1]') {
+  if (!hostname || typeof hostname !== 'string') return false;
+  let host = hostname.toLowerCase().trim();
+
+  // Strip brackets if IPv6
+  if (host.startsWith('[') && host.endsWith(']')) {
+    host = host.slice(1, -1);
+  }
+
+  // Exact names
+  if (host === 'localhost' || host === '0.0.0.0') {
     return true;
   }
 
-  // IPv4 dotted-decimal private & loopback ranges:
-  // 127.0.0.0/8 (loopback)
-  // 10.0.0.0/8 (private)
-  // 172.16.0.0/12 (private: 172.16 - 172.31)
-  // 192.168.0.0/16 (private)
-  // 169.254.0.0/16 (link-local)
+  // Domain suffixes
+  if (
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host.endsWith('.lan') ||
+    host.endsWith('.home') ||
+    host.endsWith('.arpa')
+  ) {
+    return true;
+  }
+
+  // Single integer or hex or octal IP notation (e.g. 2130706433 or 0x7f000001)
+  if (/^(0x[0-9a-f]+|\d+)$/i.test(host)) {
+    return true;
+  }
+
+  // Check IPv4
   const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4Match) {
-    const oct1 = parseInt(ipv4Match[1], 10);
-    const oct2 = parseInt(ipv4Match[2], 10);
-    if (oct1 === 127) return true;
-    if (oct1 === 10) return true;
-    if (oct1 === 172 && oct2 >= 16 && oct2 <= 31) return true;
-    if (oct1 === 192 && oct2 === 168) return true;
-    if (oct1 === 169 && oct2 === 254) return true;
-    if (oct1 === 0) return true;
+    const [b0, b1, b2, b3] = ipv4Match.slice(1).map((s) => parseInt(s, 10));
+    if (b0 > 255 || b1 > 255 || b2 > 255 || b3 > 255) return true;
+
+    // 0.0.0.0/8
+    if (b0 === 0) return true;
+    // 10.0.0.0/8 (RFC 1918)
+    if (b0 === 10) return true;
+    // 100.64.0.0/10 (Shared Address Space / CGNAT: 100.64 - 100.127)
+    if (b0 === 100 && b1 >= 64 && b1 <= 127) return true;
+    // 127.0.0.0/8 (Loopback)
+    if (b0 === 127) return true;
+    // 169.254.0.0/16 (Link Local)
+    if (b0 === 169 && b1 === 254) return true;
+    // 172.16.0.0/12 (RFC 1918: 172.16 - 172.31)
+    if (b0 === 172 && b1 >= 16 && b1 <= 31) return true;
+    // 192.0.0.0/24 (IETF Protocol Assignments)
+    if (b0 === 192 && b1 === 0 && b2 === 0) return true;
+    // 192.0.2.0/24 (TEST-NET-1)
+    if (b0 === 192 && b1 === 0 && b2 === 2) return true;
+    // 192.168.0.0/16 (RFC 1918)
+    if (b0 === 192 && b1 === 168) return true;
+    // 198.18.0.0/15 (Network benchmark: 198.18 - 198.19)
+    if (b0 === 198 && (b1 === 18 || b1 === 19)) return true;
+    // 198.51.100.0/24 (TEST-NET-2)
+    if (b0 === 198 && b1 === 51 && b2 === 100) return true;
+    // 203.0.113.0/24 (TEST-NET-3)
+    if (b0 === 203 && b1 === 0 && b2 === 113) return true;
+    // 224.0.0.0/4 (Multicast) & 240.0.0.0/4 (Reserved / Broadcast)
+    if (b0 >= 224) return true;
+
+    return false;
+  }
+
+  // Check IPv6
+  const ipVer = isIP(host);
+  if (ipVer === 6 || host.includes(':')) {
+    // ::1 loopback
+    if (host === '::1' || host === '0:0:0:0:0:0:0:1' || host === '::') return true;
+    // fe80::/10 link-local
+    if (/^fe[89ab]/i.test(host)) return true;
+    // fc00::/7 unique local
+    if (/^f[cd]/i.test(host)) return true;
+    // IPv4-mapped IPv6 ::ffff:x.x.x.x
+    const ipv4Mapped = host.match(/::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
+    if (ipv4Mapped) {
+      return isPrivateOrLoopbackHost(ipv4Mapped[1]);
+    }
+    return true; // Any explicit IPv6 address literal should be treated as private/restricted for official IR web URLs
   }
 
   return false;
@@ -114,10 +187,11 @@ export function isPrivateOrLoopbackHost(hostname: string): boolean {
  *  - Must use the HTTPS protocol (rejects http, file, data, javascript, etc.)
  *  - Must contain a valid hostname
  *  - Rejects loopback / private IP targets unless allowLocalhost is explicitly enabled (SSRF guard)
+ *  - Checks official domain policy if officialDomain option is supplied (STEP 5 Remediation, P1-1)
  */
 export function validateTransportUrl(
   url: string,
-  options?: { allowLocalhost?: boolean }
+  options?: { allowLocalhost?: boolean; officialDomain?: string | string[] }
 ): { valid: boolean; errorCode?: LiveSourceFetchErrorCode; message?: string; urlObj?: URL } {
   if (!url || typeof url !== 'string' || url.trim() === '') {
     return {
@@ -160,6 +234,14 @@ export function validateTransportUrl(
       valid: false,
       errorCode: 'invalidUrl',
       message: `Access to private or loopback address "${urlObj.hostname}" is restricted by default SSRF policy.`,
+    };
+  }
+
+  if (options?.officialDomain && !isUrlInOfficialDomain(urlObj.href, options.officialDomain)) {
+    return {
+      valid: false,
+      errorCode: 'unauthorizedSource',
+      message: `URL "${urlObj.href}" does not match approved official domain policy: ${Array.isArray(options.officialDomain) ? options.officialDomain.join(', ') : options.officialDomain}.`,
     };
   }
 
@@ -252,7 +334,10 @@ export async function fetchOfficialIrSource(
   const originalUrl = (url ?? '').trim();
 
   // 1. Validate initial URL transport security
-  const urlValidation = validateTransportUrl(originalUrl, { allowLocalhost: options.allowLocalhost });
+  const urlValidation = validateTransportUrl(originalUrl, {
+    allowLocalhost: options.allowLocalhost,
+    officialDomain: options.officialDomain,
+  });
   if (!urlValidation.valid) {
     return {
       success: false,
@@ -434,6 +519,20 @@ export async function fetchOfficialIrSource(
           };
         }
 
+        // Enforce official domain policy BEFORE making next request (STEP 5 Remediation, P1-1)
+        if (options.officialDomain && !isUrlInOfficialDomain(nextUrlObj.href, options.officialDomain)) {
+          return {
+            success: false,
+            error: {
+              code: 'unauthorizedDomainRedirect',
+              message: `Insecure redirect rejected before request: Target URL "${nextUrlObj.href}" does not match approved official domain policy (${Array.isArray(options.officialDomain) ? options.officialDomain.join(', ') : options.officialDomain}).`,
+              url: originalUrl,
+              finalUrl: nextUrlObj.href,
+              httpStatus: res.status,
+            },
+          };
+        }
+
         // Redirect loop detection
         if (visitedUrls.has(nextUrlObj.href)) {
           return {
@@ -522,46 +621,76 @@ export async function fetchOfficialIrSource(
       }
     }
 
-    // 9. Read exact raw bytes with chunk-level size enforcement
+    // 9. Read exact raw bytes with chunk-level size enforcement and stream error normalization (STEP 5 Remediation, P1-5)
     let rawBytes: Uint8Array;
-    if (res.body && typeof res.body.getReader === 'function') {
-      const reader = res.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let totalReceived = 0;
+    try {
+      if (res.body && typeof res.body.getReader === 'function') {
+        const reader = res.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let totalReceived = 0;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          totalReceived += value.byteLength;
-          if (totalReceived > maxResponseBytes) {
-            sizeAborted = true;
-            await reader.cancel();
-            controller.abort();
-            return {
-              success: false,
-              error: {
-                code: 'responseTooLarge',
-                message: `Streamed response exceeded maximum allowed size limit (${maxResponseBytes} bytes).`,
-                url: originalUrl,
-                finalUrl: currentUrl,
-                httpStatus: res.status,
-                contentType: rawContentType ?? undefined,
-              },
-            };
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            totalReceived += value.byteLength;
+            if (totalReceived > maxResponseBytes) {
+              sizeAborted = true;
+              await reader.cancel();
+              controller.abort();
+              return {
+                success: false,
+                error: {
+                  code: 'responseTooLarge',
+                  message: `Streamed response exceeded maximum allowed size limit (${maxResponseBytes} bytes).`,
+                  url: originalUrl,
+                  finalUrl: currentUrl,
+                  httpStatus: res.status,
+                  contentType: rawContentType ?? undefined,
+                },
+              };
+            }
+            chunks.push(value);
           }
-          chunks.push(value);
         }
+        rawBytes = concatUint8Arrays(chunks, totalReceived);
+      } else {
+        const arrayBuffer = await res.arrayBuffer();
+        if (arrayBuffer.byteLength > maxResponseBytes) {
+          return {
+            success: false,
+            error: {
+              code: 'responseTooLarge',
+              message: `Response size (${arrayBuffer.byteLength} bytes) exceeded maximum allowed limit (${maxResponseBytes} bytes).`,
+              url: originalUrl,
+              finalUrl: currentUrl,
+              httpStatus: res.status,
+              contentType: rawContentType ?? undefined,
+            },
+          };
+        }
+        rawBytes = new Uint8Array(arrayBuffer);
       }
-      rawBytes = concatUint8Arrays(chunks, totalReceived);
-    } else {
-      const arrayBuffer = await res.arrayBuffer();
-      if (arrayBuffer.byteLength > maxResponseBytes) {
+    } catch (streamErr: any) {
+      if (timedOut || controller.signal.aborted) {
+        if (sizeAborted) {
+          return {
+            success: false,
+            error: {
+              code: 'responseTooLarge',
+              message: `Response size exceeded maximum allowed limit (${maxResponseBytes} bytes).`,
+              url: originalUrl,
+              finalUrl: currentUrl,
+              httpStatus: res.status,
+              contentType: rawContentType ?? undefined,
+            },
+          };
+        }
         return {
           success: false,
           error: {
-            code: 'responseTooLarge',
-            message: `Response size (${arrayBuffer.byteLength} bytes) exceeded maximum allowed limit (${maxResponseBytes} bytes).`,
+            code: 'requestTimeout',
+            message: `Response body read timed out after ${timeoutMs}ms.`,
             url: originalUrl,
             finalUrl: currentUrl,
             httpStatus: res.status,
@@ -569,7 +698,18 @@ export async function fetchOfficialIrSource(
           },
         };
       }
-      rawBytes = new Uint8Array(arrayBuffer);
+      return {
+        success: false,
+        error: {
+          code: 'networkError',
+          message: `Response body stream read failed: ${streamErr?.message || String(streamErr)}`,
+          url: originalUrl,
+          finalUrl: currentUrl,
+          httpStatus: res.status,
+          contentType: rawContentType ?? undefined,
+          details: String(streamErr),
+        },
+      };
     }
 
     // 10. Compute exact cryptographic SHA-256 on raw response bytes

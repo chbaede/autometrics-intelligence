@@ -311,4 +311,16 @@ OfficialSourcePipelineResult {
    If an official IR endpoint returns different bytes tomorrow (even a single byte or header change), the recomputed `contentHash` will differ. The system treats this as a distinct source version; prior verification results cannot be transferred or assumed valid without re-evaluating the new bytes.
 4. **Offline Test Determinism**:
    To ensure that build pipelines and CI never depend on external server availability or transient network outages, standard test suites (`npm test`) use deterministic mock transport representations of authentic live disclosures. Real live network requests are isolated to optional test commands (`npm run test:live`).
+5. **DNS Rebinding Limitation**:
+   In production environments with public DNS resolvers, a hostname could resolve to a benign IP during pre-flight checks and later resolve to a private IP during fetch. True anti-rebinding requires custom socket-level connection binding / IP pinning, an egress proxy with strict DNS validation, or RFC 6761 local domain filtering at the network level. The application-layer checks implemented here guard against host-header and URL-level redirection attacks, but do not replace kernel- or network-level DNS pinning.
+
+### 5. Evidence-to-Document Block Resolution (STEP 5 Remediation)
+To eliminate verification forgery gaps, live evidence is strictly bound to an authoritative extracted document content block:
+1. `bindLiveEvidence()` resolves the supplied locator against `ExtractedLiveDocument.blocks`.
+2. Exactly one matching block is required; zero or ambiguous matches strictly fail with `blockResolutionStatus: 'failed'`.
+3. Authoritative evidence text is derived directly from the matched block (`matchedBlock.text`), ignoring unverified caller claims.
+4. The claimed raw value is verified to be present in the matched block's text.
+5. `verifyClaimEvidence()` and `validateClaimVerificationResult()` enforce that the resolved `blockId` exists in the extracted document, its text matches the candidate evidence text, and the claimed value appears in the block text.
+6. Synthesized fallback `SourceDocument` metadata instances remain strictly `isVerified: false` (`verificationStatus: 'unverified'`).
+
 

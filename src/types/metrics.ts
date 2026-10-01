@@ -425,6 +425,8 @@ export interface ClaimVerifiedResult extends BaseClaimVerificationResult {
   verifiedAccountingBasis?: AccountingBasis;
   verifiedPeriod?: string;
   verifiedPeriodType?: PeriodType;
+  /** Exact identifier of the resolved ExtractedLiveDocument block (STEP 5 Remediation, P0-1) */
+  blockId?: string;
 }
 
 /**
@@ -488,7 +490,8 @@ export type LiveSourceFetchErrorCode =
   | 'missingContentType'
   | 'unsupportedContentType'
   | 'networkError'
-  | 'unauthorizedSource';
+  | 'unauthorizedSource'
+  | 'unauthorizedDomainRedirect';
 
 /**
  * Structured error details for live source fetching failures (STEP 5-1, Section 4).
@@ -539,6 +542,8 @@ export interface LiveSourceFetchOptions {
   authorizedSources?: SourceDocument[];
   /** Allow loopback/private network addresses (default: false, set true in unit tests) */
   allowLocalhost?: boolean;
+  /** Approved official domain(s); every redirect destination must stay within this perimeter (STEP 5 Remediation, P1-1) */
+  officialDomain?: string | string[];
 }
 
 /**
@@ -585,6 +590,13 @@ export interface ExtractedLiveDocument {
   blocks: DocumentContentBlock[];
   /** Optional derived SHA-256 digest of the extracted text (strictly distinguished from raw byte contentHash) */
   derivedTextHash?: string;
+  /** Optional extraction diagnostics and parser telemetry (STEP 5 Remediation, P1-4) */
+  diagnostics?: {
+    totalObjectsParsed?: number;
+    pageObjectsFound?: number;
+    contentStreamsParsed?: number;
+    unsupportedFeatures?: string[];
+  };
 }
 
 /**
@@ -594,7 +606,8 @@ export type LiveDocumentExtractionErrorCode =
   | 'unsupportedContentType'
   | 'invalidDocument'
   | 'extractionUnavailable'
-  | 'emptyDocument';
+  | 'emptyDocument'
+  | 'unsupportedPdfStructure';
 
 /**
  * Structured error details for document extraction failures (STEP 5-2, Section 1 & 7).
@@ -643,6 +656,8 @@ export interface LiveEvidenceLocator {
   tableIndex?: number;
   rowIndex?: number;
   rawLocator?: string;
+  /** Exact identifier of the resolved content block (STEP 5 Remediation, P0-1) */
+  blockId?: string;
 }
 
 /**
@@ -662,6 +677,8 @@ export interface LiveEvidenceCandidate {
   sourceContentHash: string;
   /** Evidence origin identifier */
   verificationOrigin: 'live_source';
+  /** Exact identifier of the resolved ExtractedLiveDocument block (STEP 5 Remediation, P0-1) */
+  blockId?: string;
 
   /** Explicit target metric identifier */
   metricId?: string;
@@ -692,6 +709,11 @@ export interface LiveEvidenceCandidate {
 
   /** Verbatim evidence text snippet from extracted document */
   evidenceText: string;
+
+  /** Status of resolving the candidate against the extracted document blocks (STEP 5 Remediation, P0-1) */
+  blockResolutionStatus?: 'resolved' | 'failed';
+  /** Detailed error reason if block resolution failed */
+  blockResolutionError?: string;
 }
 
 /**

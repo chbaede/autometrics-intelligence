@@ -122,11 +122,22 @@ export async function executeOfficialSourcePipeline(
     };
   }
 
-  // 2. Secure HTTPS Fetch with cryptographic raw-byte hashing (STEP 5-1)
+  // 1b. Production safety: forbid allowLocalhost without customFetch (STEP 5 Remediation, P1-2)
+  if (options.allowLocalhost && !options.customFetch) {
+    return {
+      success: false,
+      officialSource,
+      errorCode: 'unauthorizedSource',
+      errorMessage: 'allowLocalhost is forbidden in production pipeline without an explicit mock customFetch.',
+    };
+  }
+
+  // 2. Secure HTTPS Fetch with cryptographic raw-byte hashing (STEP 5-1, P1-1)
   const fetchResult = await fetchOfficialIrSource(officialSource.url, {
     ...options.fetchOptions,
     fetchFn: options.customFetch,
     allowLocalhost: options.allowLocalhost,
+    officialDomain: officialSource.officialDomain,
     id: officialSource.id,
   });
 
@@ -134,7 +145,7 @@ export async function executeOfficialSourcePipeline(
     return {
       success: false,
       officialSource,
-      errorCode: 'fetchFailed',
+      errorCode: fetchResult.error.code === 'unauthorizedDomainRedirect' ? 'unauthorizedDomainRedirect' : 'fetchFailed',
       errorMessage: `Fetch failed [${fetchResult.error.code}]: ${fetchResult.error.message}`,
       details: { fetchError: fetchResult.error },
     };
@@ -205,6 +216,7 @@ export async function executeOfficialSourcePipeline(
     periodType: officialSource.periodType,
   });
 
+  // Fallback synthesized SourceDocument must NOT be marked isVerified: true (STEP 5 Remediation, P1-3)
   const registeredSourceDoc: SourceDocument = SOURCES_MAP[officialSource.id] || {
     id: officialSource.id,
     companyId: officialSource.companyId,
@@ -214,7 +226,8 @@ export async function executeOfficialSourcePipeline(
     periodType: officialSource.periodType,
     publicationDate: new Date(liveDoc.retrievedAt).toISOString().split('T')[0],
     officialUrl: officialSource.url,
-    isVerified: true,
+    isVerified: false,
+    verificationStatus: 'unverified',
     lastChecked: new Date(liveDoc.retrievedAt).toISOString().split('T')[0],
   };
 
@@ -258,7 +271,7 @@ export async function executeOfficialSourcePipeline(
     };
   }
 
-  // 6. Claim Verification Engine Execution (STEP 5-4)
+  // 6. Claim Verification Engine Execution (STEP 5-4, STEP 5 Remediation P0-2)
   const verificationResult: ClaimVerificationResult = verifyClaimEvidence(
     claimLocator,
     registeredSourceDoc,
@@ -269,6 +282,7 @@ export async function executeOfficialSourcePipeline(
       liveSourceDocument: liveDoc,
       expectedOrigin: 'live_source',
       expectedNumericValue: claim.value,
+      extractedLiveDocument: extractedDoc,
     }
   );
 
@@ -303,6 +317,9 @@ export async function executeOfficialSourcePipeline(
     {
       expectedOrigin: 'live_source',
       expectedContentHash: liveDoc.contentHash,
+      expectedNumericValue: claim.value,
+      extractedLiveDocument: extractedDoc,
+      requireBlockBinding: true,
     }
   );
 
@@ -340,3 +357,9 @@ export async function executeOfficialSourcePipeline(
     verificationState: resolvedState,
   };
 }
+
+/**
+ * Pipeline entry point alias (STEP 5 Remediation)
+ */
+export const verifyOfficialSourceClaim = executeOfficialSourcePipeline;
+

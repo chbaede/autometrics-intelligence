@@ -259,7 +259,7 @@ await (async () => {
     claim: mbgClaim,
     bindingParams: {
       rawValue: '4.0%',
-      locator: { rawLocator: 'html:table:0:row:2', section: 'Mercedes-Benz Cars' },
+      locator: { rawLocator: 'html:table:0:row:3', section: 'Mercedes-Benz Cars' },
       evidenceText: 'Adjusted Return on Sales (RoS) Mercedes-Benz Cars: 4.0%',
       supportType: 'reported_kpi',
     },
@@ -316,7 +316,7 @@ await (async () => {
     claim: bmwClaim,
     bindingParams: {
       rawValue: '2.3%',
-      locator: { rawLocator: 'html:table:0:row:2', section: 'Automotive Segment' },
+      locator: { rawLocator: 'html:table:0:row:3', section: 'Automotive Segment' },
       evidenceText: 'Automotive EBIT margin Automotive Segment: 2.3%',
       supportType: 'reported_kpi',
     },
@@ -414,7 +414,7 @@ await (async () => {
     claim: mbgClaim,
     bindingParams: {
       rawValue: '4.0%',
-      locator: { rawLocator: 'html:table:0:row:2' },
+      locator: { rawLocator: 'html:table:0:row:3' },
       evidenceText: 'Adjusted Return on Sales (RoS) Mercedes-Benz Cars: 4.0%',
       supportType: 'reported_kpi',
     },
@@ -484,7 +484,7 @@ await (async () => {
     claim: mbgClaim,
     bindingParams: {
       rawValue: '4.0%',
-      locator: { rawLocator: 'html:table:0:row:2' },
+      locator: { rawLocator: 'html:table:0:row:3' },
       evidenceText: '4.0%',
     },
     options: {
@@ -504,7 +504,7 @@ await (async () => {
     claim: mbgClaim,
     bindingParams: {
       rawValue: '4.0%',
-      locator: { rawLocator: 'html:table:0:row:2' },
+      locator: { rawLocator: 'html:table:0:row:3' },
       evidenceText: '4.0%',
     },
     options: {
@@ -529,7 +529,7 @@ await (async () => {
     claim: mbgClaim, // requires 4.0%
     bindingParams: {
       rawValue: '3.5%', // document states 3.5%
-      locator: { rawLocator: 'html:table:0:row:2' },
+      locator: { rawLocator: 'html:table:0:row:3' },
       evidenceText: 'Adjusted Return on Sales (RoS) Mercedes-Benz Cars: 3.5%',
     },
     options: {
@@ -546,7 +546,7 @@ await (async () => {
     claim: { ...mbgClaim, scope: 'consolidated_group' }, // claim asks for consolidated_group
     bindingParams: {
       rawValue: '4.0%',
-      locator: { rawLocator: 'html:table:0:row:2' },
+      locator: { rawLocator: 'html:table:0:row:3' },
       evidenceText: 'Adjusted Return on Sales: 4.0%',
       scope: 'cars_segment', // document evidence is cars_segment
     },
@@ -565,7 +565,7 @@ await (async () => {
     claim: { ...mbgClaim, accountingBasis: 'reported' }, // claim asks for reported
     bindingParams: {
       rawValue: '4.0%',
-      locator: { rawLocator: 'html:table:0:row:2' },
+      locator: { rawLocator: 'html:table:0:row:3' },
       evidenceText: 'Adjusted Return on Sales: 4.0%',
       accountingBasis: 'adjusted', // document evidence is adjusted
     },

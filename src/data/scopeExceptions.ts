@@ -57,8 +57,10 @@ import {
   MetricUnit,
   LiveEvidenceCandidate,
   LiveSourceDocument,
+  ExtractedLiveDocument,
 } from '../types/metrics';
 import { numericValuesMatch, hasLocatorNumericContradiction } from '../utils/metricCalculations';
+import { isValuePresentInBlock } from '../services/liveEvidenceBinder';
 
 export type {
   EvidencePurpose,
@@ -1676,6 +1678,8 @@ export interface VerifyClaimEvidenceOptions {
   expectedContentHash?: string;
   /** Live source document for transport provenance validation */
   liveSourceDocument?: LiveSourceDocument;
+  /** Extracted live document containing authoritative content blocks (STEP 5 Remediation, P0-2) */
+  extractedLiveDocument?: ExtractedLiveDocument;
 }
 
 /**
@@ -1852,6 +1856,42 @@ export function verifyClaimEvidence(
         return false;
       }
 
+      // 4b. Block resolution status & blockId checks (STEP 5 Remediation, P0-1 & P0-2)
+      if (cand.blockResolutionStatus === 'failed') {
+        liveFailureReason = 'liveEvidenceResolutionFailed';
+        liveFailureDiagnostic = `Live claim verification failed: candidate block resolution failed (${cand.blockResolutionError ?? 'unknown error'})`;
+        return false;
+      }
+      if (!cand.blockId || cand.blockResolutionStatus !== 'resolved') {
+        liveFailureReason = 'liveEvidenceResolutionFailed';
+        liveFailureDiagnostic = 'Live claim verification failed: candidate lacks resolved blockId or resolution status is not resolved';
+        return false;
+      }
+      if (options?.extractedLiveDocument) {
+        const docBlocks = options.extractedLiveDocument.blocks ?? [];
+        const matchedDocBlock = docBlocks.find((b) => b.id === cand.blockId);
+        if (!matchedDocBlock) {
+          liveFailureReason = 'liveEvidenceBlockForged';
+          liveFailureDiagnostic = `Live claim verification failed: blockId "${cand.blockId}" not found in extracted live document`;
+          return false;
+        }
+
+        const blockTextNorm = matchedDocBlock.text.replace(/\s+/g, ' ').trim();
+        const candEvidenceNorm = (cand.evidenceText ?? '').replace(/\s+/g, ' ').trim();
+        if (!blockTextNorm.includes(candEvidenceNorm) && !candEvidenceNorm.includes(blockTextNorm)) {
+          liveFailureReason = 'liveEvidenceBlockForged';
+          liveFailureDiagnostic = 'Live claim verification failed: candidate evidenceText does not match extracted document block text';
+          return false;
+        }
+
+        const hasValInBlock = isValuePresentInBlock(matchedDocBlock.text, cand.rawValue, cand.numericValue);
+        if (!hasValInBlock) {
+          liveFailureReason = 'liveEvidenceBlockForged';
+          liveFailureDiagnostic = `Live claim verification failed: claimed value "${cand.rawValue}" is not present in resolved document block text`;
+          return false;
+        }
+      }
+
       // 5. Support type check (allow numeric_margin_value <-> reported_kpi)
       const supportCompatible =
         !supportType ||
@@ -2021,6 +2061,7 @@ export function verifyClaimEvidence(
         verifiedAccountingBasis: matchedCandidate.accountingBasis,
         verifiedPeriod: matchedCandidate.period ?? sourceDoc.period,
         verifiedPeriodType: matchedCandidate.periodType ?? sourceDoc.periodType,
+        blockId: matchedCandidate.blockId,
         expectedValue,
         verifiedAt,
         sourceContentHash: matchedCandidate.sourceContentHash,
@@ -2282,6 +2323,10 @@ export interface ClaimVerificationValidationOptions {
   expectedOrigin?: 'repository_fixture' | 'live_source';
   supportType?: EvidenceSupportType;
   expectedNumericValue?: number;
+  /** Extracted live document containing authoritative document blocks (STEP 5 Remediation, P0-2) */
+  extractedLiveDocument?: ExtractedLiveDocument;
+  /** Require explicit blockId binding for live_source verification (STEP 5 Remediation, P0-2) */
+  requireBlockBinding?: boolean;
 }
 
 /**
@@ -2463,6 +2508,27 @@ export function validateClaimVerificationResult(
       mismatches.push('verificationContentHashMismatch');
     } else if ((sourceDoc as any)?.contentHash && result.sourceContentHash.trim() !== (sourceDoc as any).contentHash) {
       mismatches.push('verificationContentHashMismatch');
+    }
+  }
+
+  // 13. Block binding verification for live sources (STEP 5 Remediation, P0-2)
+  if (result.verificationOrigin === 'live_source') {
+    if (options?.requireBlockBinding || options?.extractedLiveDocument) {
+      if (!result.blockId || typeof result.blockId !== 'string' || result.blockId.trim() === '') {
+        mismatches.push('verificationBlockIdMissing');
+      }
+    }
+    if (options?.extractedLiveDocument && result.blockId) {
+      const docBlocks = options.extractedLiveDocument.blocks ?? [];
+      const matchedBlock = docBlocks.find((b) => b.id === result.blockId);
+      if (!matchedBlock) {
+        mismatches.push('verificationBlockNotFound');
+      } else {
+        const val = result.verifiedValue ?? (result.verifiedNumericValue !== undefined ? String(result.verifiedNumericValue) : '');
+        if (!isValuePresentInBlock(matchedBlock.text, val, result.verifiedNumericValue)) {
+          mismatches.push('verificationValueNotFoundInBlock');
+        }
+      }
     }
   }
 

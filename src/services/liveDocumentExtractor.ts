@@ -244,6 +244,21 @@ export function extractPdfDocument(
 
   const rawString = buffer.toString('latin1');
 
+  // 1b. Encryption / password protection check (STEP 5 Remediation, P1-4)
+  if (/\/Encrypt\b/.test(rawString)) {
+    return {
+      success: false,
+      error: {
+        code: 'unsupportedPdfStructure',
+        message: 'PDF document is encrypted or password-protected; decryption is not supported in this extraction engine.',
+        contentType: sourceDocument.contentType,
+        sourceDocId: sourceDocument.sourceDocId,
+        details: 'Found /Encrypt dictionary in PDF structure.',
+      },
+      sourceDocument,
+    };
+  }
+
   // 2. Parse PDF indirect objects: N M obj ... endobj
   const objRegex = /(\d+)\s+(\d+)\s+obj([\s\S]*?)endobj/g;
   const objects = new Map<string, { body: string; offset: number }>();
@@ -273,6 +288,11 @@ export function extractPdfDocument(
     }
   }
 
+  // Track stream metrics and unsupported filters (STEP 5 Remediation, P1-4)
+  const unsupportedFilters = new Set<string>();
+  let contentStreamsParsed = 0;
+  let decompressionFailures = 0;
+
   // Helper to extract decompress streams from an object body
   function getDecompressedStream(objBody: string): Buffer | null {
     const streamStartIdx = objBody.indexOf('stream');
@@ -289,12 +309,27 @@ export function extractPdfDocument(
     if (streamEndIdx === -1 || streamEndIdx <= dataStart) return null;
 
     const streamRaw = Buffer.from(objBody.slice(dataStart, streamEndIdx), 'latin1');
+    contentStreamsParsed++;
+
+    // Check filters
+    const filterMatch = objBody.match(/\/Filter\s*(\[[^\]]+\]|\/[a-zA-Z0-9]+)/);
+    if (filterMatch) {
+      const filterStr = filterMatch[1];
+      const filters = filterStr.match(/\/[a-zA-Z0-9]+/g) || [];
+      for (const f of filters) {
+        if (f !== '/FlateDecode') {
+          unsupportedFilters.add(f);
+        }
+      }
+    }
+
     const isFlate = /\/Filter\s*(?:\[\s*)?\/FlateDecode/.test(objBody);
 
     if (isFlate) {
       try {
         return inflateSync(streamRaw);
       } catch {
+        decompressionFailures++;
         return streamRaw;
       }
     }
@@ -383,6 +418,35 @@ export function extractPdfDocument(
     };
   }
 
+  // 5b. Check if extraction failed due to unsupported filters or decompression failures
+  if (blocks.length === 0 && unsupportedFilters.size > 0) {
+    return {
+      success: false,
+      error: {
+        code: 'unsupportedPdfStructure',
+        message: `PDF uses unsupported stream filter(s): ${Array.from(unsupportedFilters).join(', ')}.`,
+        contentType: sourceDocument.contentType,
+        sourceDocId: sourceDocument.sourceDocId,
+        details: `Encountered unsupported filter(s): ${Array.from(unsupportedFilters).join(', ')}`,
+      },
+      sourceDocument,
+    };
+  }
+
+  if (blocks.length === 0 && decompressionFailures > 0) {
+    return {
+      success: false,
+      error: {
+        code: 'unsupportedPdfStructure',
+        message: 'Failed to decompress PDF content stream(s).',
+        contentType: sourceDocument.contentType,
+        sourceDocId: sourceDocument.sourceDocId,
+        details: `Encountered ${decompressionFailures} decompression failures.`,
+      },
+      sourceDocument,
+    };
+  }
+
   const extractedText = blocks.map((b) => b.text).join('\n\n');
   const derivedTextHash =
     options?.computeDerivedTextHash !== false ? computeDerivedTextHash(extractedText) : undefined;
@@ -396,6 +460,12 @@ export function extractPdfDocument(
     pageCount,
     blocks,
     derivedTextHash,
+    diagnostics: {
+      totalObjectsParsed: objects.size,
+      pageObjectsFound: pageEntries.length,
+      contentStreamsParsed,
+      unsupportedFeatures: unsupportedFilters.size > 0 ? Array.from(unsupportedFilters) : undefined,
+    },
   };
 
   return {

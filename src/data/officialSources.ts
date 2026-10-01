@@ -151,3 +151,4 @@ export function validateOfficialSource(source: OfficialIrSource): { valid: boole
   }
   return { valid: true };
 }
+

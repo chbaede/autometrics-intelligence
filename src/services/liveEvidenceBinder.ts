@@ -184,6 +184,176 @@ export function parseValueAndUnit(rawValue: string, targetUnit?: MetricUnit): Pa
 }
 
 /**
+ * Checks whether a raw textual or numeric value is present in a document block text (STEP 5 Remediation, P0-1).
+ */
+export function isValuePresentInBlock(
+  blockText: string,
+  rawValue: string,
+  numericValue?: number
+): boolean {
+  if (!blockText || !rawValue) return false;
+  const normBlock = blockText.replace(/\s+/g, ' ').trim();
+  const normRaw = rawValue.replace(/\s+/g, ' ').trim();
+
+  // 1. Direct substring match (case-insensitive)
+  if (normBlock.toLowerCase().includes(normRaw.toLowerCase())) {
+    return true;
+  }
+
+  // 2. Comma-stripped match (e.g. 1,200 vs 1200 or €36,743 million vs 36743)
+  const stripCommas = (s: string) => s.replace(/,/g, '');
+  if (stripCommas(normBlock).toLowerCase().includes(stripCommas(normRaw).toLowerCase())) {
+    return true;
+  }
+
+  // 3. Numeric value match
+  if (numericValue !== undefined && Number.isFinite(numericValue)) {
+    const numStr = String(numericValue);
+    if (stripCommas(normBlock).includes(numStr)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Result of resolving a locator against extracted document blocks (STEP 5 Remediation, P0-1).
+ */
+export interface BlockResolutionResult {
+  status: 'resolved' | 'failed';
+  matchedBlock?: DocumentContentBlock;
+  error?: string;
+  structuredLocator: LiveEvidenceLocator;
+}
+
+/**
+ * Resolves a locator parameter against extracted document blocks with strict single-block semantics (STEP 5 Remediation, P0-1).
+ */
+export function resolveDocumentBlock(
+  blocks: DocumentContentBlock[] | undefined,
+  locatorParam: LiveEvidenceLocator | string,
+  expectedRawValue?: string,
+  expectedNumericValue?: number
+): BlockResolutionResult {
+  const { structuredLocator } = resolveLocator(locatorParam, blocks);
+
+  if (!blocks || blocks.length === 0) {
+    return {
+      status: 'failed',
+      error: 'Extracted document contains no blocks for evidence resolution.',
+      structuredLocator,
+    };
+  }
+
+  let candidates: DocumentContentBlock[] = [];
+
+  if (typeof locatorParam === 'string') {
+    const raw = locatorParam.trim();
+    // 1. Direct match by id
+    const byId = blocks.filter((b) => b.id === raw);
+    if (byId.length === 1) {
+      candidates = byId;
+    } else {
+      // 2. Direct match by locator string
+      const byLoc = blocks.filter((b) => b.locator === raw);
+      if (byLoc.length === 1) {
+        candidates = byLoc;
+      }
+    }
+  } else if (locatorParam.blockId) {
+    candidates = blocks.filter((b) => b.id === locatorParam.blockId);
+  } else if (locatorParam.rawLocator) {
+    const raw = locatorParam.rawLocator.trim();
+    const byId = blocks.filter((b) => b.id === raw);
+    if (byId.length === 1) {
+      candidates = byId;
+    } else {
+      const byLoc = blocks.filter((b) => b.locator === raw);
+      if (byLoc.length === 1) {
+        candidates = byLoc;
+      }
+    }
+  }
+
+  // If no direct single match yet, resolve by structured coordinates
+  if (candidates.length === 0) {
+    const hasCoords =
+      structuredLocator.page !== undefined ||
+      structuredLocator.section !== undefined ||
+      structuredLocator.paragraphIndex !== undefined ||
+      structuredLocator.tableIndex !== undefined ||
+      structuredLocator.rowIndex !== undefined ||
+      structuredLocator.blockId !== undefined;
+
+    if (hasCoords) {
+      candidates = blocks.filter((b) => {
+        if (structuredLocator.blockId && b.id !== structuredLocator.blockId) return false;
+        if (structuredLocator.page !== undefined && b.pageNumber !== structuredLocator.page) return false;
+        if (structuredLocator.tableIndex !== undefined && b.tableIndex !== structuredLocator.tableIndex) return false;
+        if (structuredLocator.rowIndex !== undefined && b.rowIndex !== structuredLocator.rowIndex) return false;
+        if (structuredLocator.paragraphIndex !== undefined && b.paragraphIndex !== structuredLocator.paragraphIndex) return false;
+        if (structuredLocator.section !== undefined) {
+          const sec = structuredLocator.section.toLowerCase();
+          if (!b.sectionHeading || !b.sectionHeading.toLowerCase().includes(sec)) return false;
+        }
+        return true;
+      });
+    }
+  }
+
+  if (candidates.length === 0) {
+    return {
+      status: 'failed',
+      error: 'Zero blocks matched the specified locator.',
+      structuredLocator,
+    };
+  }
+
+  if (candidates.length > 1) {
+    return {
+      status: 'failed',
+      error: `Ambiguous locator: matched ${candidates.length} blocks. Exact single block match required.`,
+      structuredLocator,
+    };
+  }
+
+  const matched = candidates[0];
+
+  // Validate value presence in matched block text
+  if (expectedRawValue !== undefined && expectedRawValue.trim() !== '') {
+    const present = isValuePresentInBlock(matched.text, expectedRawValue, expectedNumericValue);
+    if (!present) {
+      return {
+        status: 'failed',
+        matchedBlock: matched,
+        error: `Raw value "${expectedRawValue}" is not present in resolved block text "${matched.text}".`,
+        structuredLocator: {
+          ...structuredLocator,
+          blockId: matched.id,
+          rawLocator: matched.locator ?? structuredLocator.rawLocator,
+        },
+      };
+    }
+  }
+
+  return {
+    status: 'resolved',
+    matchedBlock: matched,
+    structuredLocator: {
+      ...structuredLocator,
+      blockId: matched.id,
+      rawLocator: matched.locator ?? structuredLocator.rawLocator,
+      page: matched.pageNumber ?? structuredLocator.page,
+      section: matched.sectionHeading ?? structuredLocator.section,
+      paragraphIndex: matched.paragraphIndex ?? structuredLocator.paragraphIndex,
+      tableIndex: matched.tableIndex ?? structuredLocator.tableIndex,
+      rowIndex: matched.rowIndex ?? structuredLocator.rowIndex,
+    },
+  };
+}
+
+/**
  * Resolves a locator parameter into a structured LiveEvidenceLocator (STEP 5-3, Section 9).
  */
 export function resolveLocator(
@@ -210,6 +380,7 @@ export function resolveLocator(
         tableIndex: matchedBlock.tableIndex,
         rowIndex: matchedBlock.rowIndex,
         rawLocator: matchedBlock.locator,
+        blockId: matchedBlock.id,
       },
       matchedBlock,
     };
@@ -237,14 +408,15 @@ export function resolveLocator(
 }
 
 /**
- * Binds extracted live document content to a structured LiveEvidenceCandidate (STEP 5-3).
+ * Binds extracted live document content to a structured LiveEvidenceCandidate (STEP 5-3, STEP 5 Remediation P0-1).
  *
  * CRITICAL INVARIANTS:
  *  1. Cryptographically bound to sourceDocument.contentHash and sourceDocId.
  *  2. verificationOrigin is strictly 'live_source'.
  *  3. Preserves raw textual value and normalized numeric value.
  *  4. Binds explicit metric, scope, accounting basis, period, period type, and support type.
- *  5. DOES NOT create state: 'claim_verified' (claim verification deferred to STEP 5-4).
+ *  5. Resolves strictly against an authoritative document block; derives evidenceText from block.
+ *  6. DOES NOT create state: 'claim_verified' (claim verification deferred to STEP 5-4).
  */
 export function bindLiveEvidence(
   extractedDoc: ExtractedLiveDocument,
@@ -254,19 +426,50 @@ export function bindLiveEvidence(
   const sourceDocId = params.sourceDocId ?? sourceDoc.sourceDocId ?? sourceDoc.id;
   const sourceContentHash = sourceDoc.contentHash;
 
-  // 1. Resolve locator and extract matching block if found
-  const { structuredLocator, matchedBlock } = resolveLocator(params.locator, extractedDoc.blocks);
-
-  // 2. Parse value and unit
+  // 1. Parse value and unit
   const parsedValue = parseValueAndUnit(params.rawValue, params.unit);
 
-  // 3. Resolve evidence text
-  const evidenceText = params.evidenceText ?? matchedBlock?.text ?? params.rawValue;
+  // 2. Resolve document block and validate value presence (STEP 5 Remediation, P0-1)
+  const resolution = resolveDocumentBlock(
+    extractedDoc.blocks,
+    params.locator,
+    params.rawValue,
+    parsedValue.numericValue
+  );
 
+  const structuredLocator = resolution.structuredLocator;
+
+  if (resolution.status === 'resolved' && resolution.matchedBlock) {
+    const matchedBlock = resolution.matchedBlock;
+    return {
+      sourceDocId,
+      sourceContentHash,
+      verificationOrigin: 'live_source',
+      blockId: matchedBlock.id,
+      blockResolutionStatus: 'resolved',
+      metricId: params.metricId,
+      rawValue: params.rawValue,
+      normalizedValue: parsedValue.normalizedValue,
+      numericValue: parsedValue.numericValue,
+      unit: params.unit ?? parsedValue.unit,
+      scope: params.scope,
+      accountingBasis: params.accountingBasis,
+      period: params.period,
+      periodType: params.periodType,
+      supportType: params.supportType,
+      locator: structuredLocator,
+      evidenceText: matchedBlock.text, // Authoritative evidence text derived from matched block!
+    };
+  }
+
+  // Failed resolution
   return {
     sourceDocId,
     sourceContentHash,
     verificationOrigin: 'live_source',
+    blockResolutionStatus: 'failed',
+    blockResolutionError: resolution.error,
+    blockId: resolution.matchedBlock?.id,
     metricId: params.metricId,
     rawValue: params.rawValue,
     normalizedValue: parsedValue.normalizedValue,
@@ -278,7 +481,7 @@ export function bindLiveEvidence(
     periodType: params.periodType,
     supportType: params.supportType,
     locator: structuredLocator,
-    evidenceText,
+    evidenceText: resolution.matchedBlock?.text ?? params.evidenceText ?? params.rawValue ?? '',
   };
 }
 
@@ -294,7 +497,7 @@ export interface LiveEvidenceCandidateValidationOptions {
 }
 
 /**
- * Validates a LiveEvidenceCandidate against target claims, sources, and cryptographic invariants (STEP 5-3, Section 10).
+ * Validates a LiveEvidenceCandidate against target claims, sources, and cryptographic invariants (STEP 5-3, Section 10; STEP 5 Remediation P0-1 & P0-2).
  *
  * Anti-Forgery Gates Enforced:
  *  - verificationOrigin must exist and be 'live_source'
@@ -311,6 +514,8 @@ export interface LiveEvidenceCandidateValidationOptions {
  *  - supportType must match claim.supportType (with reported_kpi <-> numeric_margin_value tolerance)
  *  - evidenceText must be non-empty
  *  - locator must be non-empty
+ *  - blockResolutionStatus must be 'resolved' and blockId must be present
+ *  - blockId must exist in extracted document and block text/value must match candidate
  */
 export function validateLiveEvidenceCandidate(
   candidate: LiveEvidenceCandidate | null | undefined,
@@ -481,6 +686,29 @@ export function validateLiveEvidenceCandidate(
     mismatches.push('verificationLocatorMissing');
   }
 
+  // 17. Block resolution status check (STEP 5 Remediation, P0-1)
+  if (candidate.blockResolutionStatus === 'failed') {
+    mismatches.push('verificationBlockResolutionFailed');
+  } else if (!candidate.blockId || candidate.blockResolutionStatus !== 'resolved') {
+    mismatches.push('verificationBlockResolutionMissing');
+  }
+
+  // 18. ExtractedLiveDocument block consistency check (if ExtractedLiveDocument provided)
+  if (options?.sourceDocument && 'blocks' in options.sourceDocument) {
+    const extDoc = options.sourceDocument as ExtractedLiveDocument;
+    const matchedBlock = extDoc.blocks?.find((b) => b.id === candidate.blockId);
+    if (!matchedBlock) {
+      mismatches.push('verificationBlockNotFoundInDocument');
+    } else {
+      if (candidate.evidenceText !== matchedBlock.text) {
+        mismatches.push('verificationBlockTextMismatch');
+      }
+      if (!isValuePresentInBlock(matchedBlock.text, candidate.rawValue, candidate.numericValue)) {
+        mismatches.push('verificationBlockValueMismatch');
+      }
+    }
+  }
+
   return {
     valid: mismatches.length === 0,
     mismatches,
@@ -488,7 +716,7 @@ export function validateLiveEvidenceCandidate(
 }
 
 /**
- * Bridges a LiveEvidenceCandidate into a ClaimVerifiedResult for evaluation by the existing claim verification engine (STEP 5-3, Section 10).
+ * Bridges a LiveEvidenceCandidate into a ClaimVerifiedResult for evaluation by the existing claim verification engine (STEP 5-3, Section 10; STEP 5 Remediation P0-2).
  */
 export function candidateToVerificationResult(
   candidate: LiveEvidenceCandidate,
@@ -509,6 +737,7 @@ export function candidateToVerificationResult(
     engineVersion: options?.engineVersion ?? '1.0.0',
     sourceDocId: candidate.sourceDocId,
     sourceContentHash: candidate.sourceContentHash,
+    blockId: candidate.blockId,
     claimSupportType: candidate.supportType,
     verifiedValue: verifiedVal,
     verifiedMetricId: candidate.metricId,
