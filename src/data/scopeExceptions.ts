@@ -60,7 +60,7 @@ import {
   ExtractedLiveDocument,
 } from '../types/metrics';
 import { numericValuesMatch, hasLocatorNumericContradiction } from '../utils/metricCalculations';
-import { isValuePresentInBlock } from '../services/liveEvidenceBinder';
+import { isValuePresentInBlock, verifyDocumentClaimDimensions } from '../services/liveEvidenceBinder';
 
 export type {
   EvidencePurpose,
@@ -1844,6 +1844,7 @@ export function verifyClaimEvidence(
     let liveFailureDiagnostic: string | undefined;
     let bestCandidate: LiveEvidenceCandidate | undefined;
     let candidatePriority = 0;
+    let matchedDimProof: any;
 
     const matchedCandidate = liveCandidates.find((cand) => {
       // 1. Source doc ID check
@@ -1939,12 +1940,30 @@ export function verifyClaimEvidence(
       }
 
       // 4f. Authoritative value presence in block (P0-1.7, P0-2)
-      const hasValInBlock = isValuePresentInBlock(matchedDocBlock.text, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit);
+      const hasValInBlock = matchedDocBlock.cells && matchedDocBlock.cells.length > 0
+        ? matchedDocBlock.cells.some((c) => isValuePresentInBlock(c, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit))
+        : isValuePresentInBlock(matchedDocBlock.text, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit);
       if (!hasValInBlock) {
         liveFailureReason = 'liveEvidenceBlockForged';
         liveFailureDiagnostic = `Live claim verification failed: claimed value "${cand.rawValue}" is not present in resolved document block text`;
         return false;
       }
+
+      // 4g. Authoritative document dimension proof (STEP 5 Remediation Round 3, P0)
+      const dimProof = verifyDocumentClaimDimensions(
+        matchedDocBlock,
+        claim,
+        cand.rawValue,
+        cand.numericValue,
+        cand.unit ?? claim?.claimedUnit,
+        extDoc
+      );
+      if (!dimProof.valid) {
+        liveFailureReason = dimProof.failureReason;
+        liveFailureDiagnostic = dimProof.failureDiagnostic;
+        return false;
+      }
+      matchedDimProof = dimProof;
 
       // 5. Support type check (allow numeric_margin_value <-> reported_kpi)
       const supportCompatible =
@@ -2116,6 +2135,8 @@ export function verifyClaimEvidence(
         verifiedPeriod: matchedCandidate.period ?? sourceDoc.period,
         verifiedPeriodType: matchedCandidate.periodType ?? sourceDoc.periodType,
         blockId: matchedCandidate.blockId,
+        provenDimensions: matchedDimProof?.provenDimensions ?? matchedCandidate.provenDimensions,
+        tableCoordinates: matchedDimProof?.provenDimensions?.tableCoordinates ?? matchedCandidate.provenDimensions?.tableCoordinates,
         expectedValue,
         verifiedAt,
         sourceContentHash: matchedCandidate.sourceContentHash,
@@ -2606,8 +2627,34 @@ export function validateClaimVerificationResult(
         }
 
         const val = result.verifiedValue ?? (result.verifiedNumericValue !== undefined ? String(result.verifiedNumericValue) : '');
-        if (!isValuePresentInBlock(matchedBlock.text, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit)) {
+        const isPresent = matchedBlock.cells && matchedBlock.cells.length > 0
+          ? matchedBlock.cells.some((c) => isValuePresentInBlock(c, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit))
+          : isValuePresentInBlock(matchedBlock.text, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit);
+        if (!isPresent) {
           mismatches.push('verificationValueNotFoundInBlock');
+        }
+
+        // Validate document-derived semantic dimensions (STEP 5 Remediation Round 3, P0)
+        const dimProof = verifyDocumentClaimDimensions(
+          matchedBlock,
+          claim ?? undefined,
+          val,
+          result.verifiedNumericValue,
+          result.verifiedUnit ?? claim?.claimedUnit,
+          options.extractedLiveDocument
+        );
+        if (!dimProof.valid) {
+          if (dimProof.failureReason === 'unprovenMetricSemantic') {
+            mismatches.push('verificationMetricUnprovenInDocument');
+          } else if (dimProof.failureReason === 'unprovenAccountingBasis') {
+            mismatches.push('verificationAccountingBasisUnprovenInDocument');
+          } else if (dimProof.failureReason === 'unprovenReportingScope') {
+            mismatches.push('verificationScopeUnprovenInDocument');
+          } else if (dimProof.failureReason === 'unprovenReportingPeriod' || dimProof.failureReason === 'periodMismatch') {
+            mismatches.push('verificationPeriodUnprovenInDocument');
+          } else {
+            mismatches.push('verificationDimensionUnprovenInDocument');
+          }
         }
       }
     }

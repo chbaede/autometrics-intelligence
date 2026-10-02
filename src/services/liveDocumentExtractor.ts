@@ -367,12 +367,16 @@ export function extractPdfDocument(
             for (const line of lines) {
               const trimmed = line.trim();
               if (trimmed) {
+                const isTable = trimmed.includes(' | ');
+                const cells = isTable ? trimmed.split(' | ').map((s) => s.trim()) : undefined;
                 blocks.push({
                   id: `pdf_p${pageNum}_b${blockIndexCounter}`,
-                  blockType: 'paragraph',
+                  blockType: isTable ? 'table_row' : 'paragraph',
                   text: trimmed,
                   pageNumber: pageNum,
                   locator: `page:${pageNum}:block:${blockIndexCounter}`,
+                  cells: isTable ? cells : undefined,
+                  rowHeader: isTable && cells && cells.length > 1 ? cells[0] : undefined,
                 });
                 blockIndexCounter++;
               }
@@ -390,12 +394,16 @@ export function extractPdfDocument(
         for (const line of lines) {
           const trimmed = line.trim();
           if (trimmed) {
+            const isTable = trimmed.includes(' | ');
+            const cells = isTable ? trimmed.split(' | ').map((s) => s.trim()) : undefined;
             blocks.push({
               id: `pdf_b${blockIndexCounter}`,
-              blockType: 'paragraph',
+              blockType: isTable ? 'table_row' : 'paragraph',
               text: trimmed,
               pageNumber: 1,
               locator: `page:1:block:${blockIndexCounter}`,
+              cells: isTable ? cells : undefined,
+              rowHeader: isTable && cells && cells.length > 1 ? cells[0] : undefined,
             });
             blockIndexCounter++;
           }
@@ -585,31 +593,118 @@ export function extractHtmlDocument(
       let rowMatch: RegExpExecArray | null;
       let rowIdx = 0;
 
+      interface ParsedHtmlRow {
+        rowIdx: number;
+        cells: string[];
+        isHeader: boolean;
+      }
+      const rawRows: ParsedHtmlRow[] = [];
+
+      const pendingRowspans: Array<{ remainingRows: number; text: string; isTh: boolean }> = [];
+
       while ((rowMatch = rowRegex.exec(innerHtml)) !== null) {
-        const cellRegex = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
+        const rowContent = rowMatch[1];
+        const cellRegex = /<(td|th)[^>]*>([\s\S]*?)<\/\1>/gi;
         let cellMatch: RegExpExecArray | null;
         const cells: string[] = [];
+        let thCount = 0;
+        let totalCells = 0;
+        let colIdx = 0;
 
-        while ((cellMatch = cellRegex.exec(rowMatch[1])) !== null) {
-          const rawCell = cellMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        cellMatch = cellRegex.exec(rowContent);
+        while (cellMatch !== null || (colIdx < pendingRowspans.length && pendingRowspans[colIdx]?.remainingRows > 0)) {
+          if (colIdx < pendingRowspans.length && pendingRowspans[colIdx] && pendingRowspans[colIdx].remainingRows > 0) {
+            cells.push(pendingRowspans[colIdx].text);
+            totalCells++;
+            if (pendingRowspans[colIdx].isTh) thCount++;
+            pendingRowspans[colIdx].remainingRows--;
+            colIdx++;
+            continue;
+          }
+
+          if (!cellMatch) break;
+
+          const cellTag = cellMatch[1].toLowerCase();
+          const openTag = cellMatch[0];
+          const colspanMatch = openTag.match(/colspan=["']?(\d+)["']?/i);
+          const colspan = colspanMatch ? parseInt(colspanMatch[1], 10) : 1;
+          const rowspanMatch = openTag.match(/rowspan=["']?(\d+)["']?/i);
+          const rowspan = rowspanMatch ? parseInt(rowspanMatch[1], 10) : 1;
+          const rawCell = cellMatch[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
           const cleanCell = decodeHtmlEntities(rawCell);
-          if (cleanCell) cells.push(cleanCell);
+          const spanCount = Math.max(1, colspan);
+
+          for (let s = 0; s < spanCount; s++) {
+            cells.push(cleanCell);
+            totalCells++;
+            if (cellTag === 'th') thCount++;
+            if (rowspan > 1) {
+              pendingRowspans[colIdx + s] = {
+                remainingRows: rowspan - 1,
+                text: cleanCell,
+                isTh: cellTag === 'th',
+              };
+            }
+          }
+          colIdx += spanCount;
+          cellMatch = cellRegex.exec(rowContent);
         }
 
         if (cells.length > 0) {
-          const rowText = cells.join(' | ');
-          blocks.push({
-            id: `html_t${currentTableIdx}_r${rowIdx}`,
-            blockType: 'table_row',
-            text: rowText,
-            tableIndex: currentTableIdx,
-            rowIndex: rowIdx,
-            sectionHeading: currentSectionHeading,
-            locator: `html:table:${currentTableIdx}:row:${rowIdx}`,
-          });
+          const isHeader = (thCount > 0 && thCount === totalCells) || (rawRows.length === 0 && thCount > 0);
+          rawRows.push({ rowIdx, cells, isHeader });
           rowIdx++;
-          blockCounter++;
         }
+      }
+
+      // Collect leading header rows to support multi-level headers
+      const headerRows: ParsedHtmlRow[] = [];
+      let dataRowStart = 0;
+      for (let i = 0; i < rawRows.length; i++) {
+        if (rawRows[i].isHeader || (i === 0 && rawRows.length > 1 && rawRows[i].cells.every((c) => isNaN(Number(c.replace(/[%€$]/g, '').trim()))))) {
+          headerRows.push(rawRows[i]);
+          dataRowStart = i + 1;
+        } else {
+          break;
+        }
+      }
+
+      // Combine multi-level column headers
+      let columnHeaders: string[] = [];
+      if (headerRows.length > 0) {
+        const maxCols = Math.max(...rawRows.map((r) => r.cells.length));
+        columnHeaders = new Array(maxCols).fill('');
+        for (let col = 0; col < maxCols; col++) {
+          const colParts: string[] = [];
+          for (const hRow of headerRows) {
+            if (col < hRow.cells.length && hRow.cells[col]) {
+              colParts.push(hRow.cells[col]);
+            }
+          }
+          columnHeaders[col] = colParts.join(' | ');
+        }
+      }
+
+      // Generate content blocks preserving row/cell association
+      for (const r of rawRows) {
+        const isData = r.rowIdx >= dataRowStart;
+        const rowText = r.cells.join(' | ');
+        const rowHeader = isData && r.cells.length > 1 ? r.cells[0] : undefined;
+
+        blocks.push({
+          id: `html_t${currentTableIdx}_r${r.rowIdx}`,
+          blockType: 'table_row',
+          text: rowText,
+          tableIndex: currentTableIdx,
+          rowIndex: r.rowIdx,
+          sectionHeading: currentSectionHeading,
+          locator: `html:table:${currentTableIdx}:row:${r.rowIdx}`,
+          cells: r.cells,
+          columnHeaders: isData && columnHeaders.length > 0 ? columnHeaders : undefined,
+          rowHeader,
+          contextHeaders: headerRows.map((h) => h.cells.join(' | ')),
+        });
+        blockCounter++;
       }
     } else if (tag === 'li') {
       const rawText = innerHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();

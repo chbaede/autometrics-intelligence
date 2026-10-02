@@ -19,11 +19,15 @@
  */
 
 import { fetchOfficialIrSource } from '../src/services/liveSourceFetcher';
-import { extractPdfDocument } from '../src/services/liveDocumentExtractor';
-import { bindLiveEvidence, isValuePresentInBlock } from '../src/services/liveEvidenceBinder';
+import { extractPdfDocument, extractHtmlDocument } from '../src/services/liveDocumentExtractor';
+import {
+  bindLiveEvidence,
+  isValuePresentInBlock,
+} from '../src/services/liveEvidenceBinder';
 import {
   verifyClaimEvidence,
   validateClaimVerificationResult,
+  resolveClaimVerificationState,
 } from '../src/data/scopeExceptions';
 import {
   executeOfficialSourcePipeline,
@@ -33,11 +37,13 @@ import { OFFICIAL_IR_SOURCES } from '../src/data/officialSources';
 import {
   ClaimEvidenceLocator,
   ClaimVerifiedResult,
+  DocumentContentBlock,
   ExtractedLiveDocument,
   LiveEvidenceCandidate,
   LiveSourceDocument,
   SourceClaim,
   SourceDocument,
+  ScopeExceptionEvidence,
 } from '../src/types/metrics';
 
 let passed = 0;
@@ -378,6 +384,7 @@ console.log('\n--- Test 6: verifyClaimEvidence Produces claim_verified with bloc
 
   const extractedDoc: ExtractedLiveDocument = {
     sourceDocument: mockLiveDoc,
+    documentTitle: 'Mercedes-Benz Group Q2 2026 Results',
     extractionMethod: 'test',
     extractionVersion: '1.0.0',
     extractedAt: new Date().toISOString(),
@@ -633,7 +640,7 @@ await (async () => {
     accountingBasis: 'adjusted',
   };
 
-  const HTML = `<!DOCTYPE html><html><body><table><tr><td>Metric</td><td>Value</td></tr><tr><td>Adjusted RoS</td><td>4.0%</td></tr></table></body></html>`;
+  const HTML = `<!DOCTYPE html><html><head><title>Mercedes-Benz Cars Q2 2026 Report</title></head><body><table><tr><td>Metric</td><td>Value</td></tr><tr><td>Adjusted RoS</td><td>4.0%</td></tr></table></body></html>`;
 
   const mockFetch = (async () => {
     return new Response(Buffer.from(HTML, 'utf-8'), {
@@ -1282,7 +1289,7 @@ await (async () => {
   const source = OFFICIAL_IR_SOURCES[0]; // mbg_2026_q2_results
   const claim = source.targetClaims![2]; // operating_margin 4.0%
 
-  const htmlContent = '<html><body><table><tr><td>Mercedes-Benz Cars Adjusted Return on Sales: 4.0%</td></tr></table></body></html>';
+  const htmlContent = '<html><head><title>Mercedes-Benz Group Q2 2026 Results</title></head><body><table><tr><td>Mercedes-Benz Cars Adjusted Return on Sales: 4.0%</td></tr></table></body></html>';
   const rawBytes = new TextEncoder().encode(htmlContent);
 
   const mockFetch = (async () => {
@@ -1328,6 +1335,737 @@ console.log('\n--- Test 23: P1-2 — Registered targetClaims Integrity & Non-Pre
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Test 24: P0 — Numeric presence alone cannot prove metric semantic
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 24: P0 — Numeric presence alone cannot prove metric semantic ---');
+{
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_2026_q2_test24',
+    url: 'https://group.mercedes-benz.com/q2.html',
+    finalUrl: 'https://group.mercedes-benz.com/q2.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: 'f'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractedDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    documentTitle: 'Mercedes-Benz Group Q2 2026 Results',
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Key figure: 4.0%',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block_num_only',
+        blockType: 'paragraph',
+        text: 'Key figure: 4.0%',
+        locator: 'page:1:p:1',
+      },
+    ],
+  };
+
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_2026_q2_test24',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'adjusted',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_2026_q2_test24',
+    companyId: 'mercedes_benz',
+    title: 'Mercedes-Benz Group Q2 2026 Results',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/q2.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const candidate = bindLiveEvidence(extractedDoc, {
+    locator: 'page:1:p:1',
+    rawValue: '4.0%',
+    metricId: 'operating_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    unit: 'percentage',
+    supportType: 'reported_kpi',
+  });
+
+  assert(candidate.provenDimensions?.bindingStatus === 'unproven', 'Candidate marks dimensions as unproven');
+  assert(candidate.provenDimensions?.unprovenReasons?.includes('unprovenMetricSemantic') === true, 'Records unprovenMetricSemantic');
+
+  const result = verifyClaimEvidence(claim, sourceDoc, '4.0%', 'reported_kpi', {
+    liveCandidate: candidate,
+    liveSourceDocument: mockLiveDoc,
+    extractedLiveDocument: extractedDoc,
+    expectedOrigin: 'live_source',
+  });
+
+  assert(result.state === 'source_verified', 'Fails to verify claim without metric semantic proof');
+  assert(result.diagnostics?.failureReason === 'unprovenMetricSemantic', 'Failure reason is unprovenMetricSemantic');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 25: P0 — Metric & value presence cannot prove adjusted accounting basis
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 25: P0 — Metric & value presence cannot prove adjusted accounting basis ---');
+{
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_2026_q2_test25',
+    url: 'https://group.mercedes-benz.com/q2.html',
+    finalUrl: 'https://group.mercedes-benz.com/q2.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: 'e'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractedDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    documentTitle: 'Mercedes-Benz Group Q2 2026 Results',
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Mercedes-Benz Cars Return on Sales: 4.0%',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block_unadjusted',
+        blockType: 'paragraph',
+        text: 'Mercedes-Benz Cars Return on Sales: 4.0%',
+        locator: 'page:1:p:1',
+      },
+    ],
+  };
+
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_2026_q2_test25',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'adjusted',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_2026_q2_test25',
+    companyId: 'mercedes_benz',
+    title: 'Mercedes-Benz Group Q2 2026 Results',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/q2.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const candidate = bindLiveEvidence(extractedDoc, {
+    locator: 'page:1:p:1',
+    rawValue: '4.0%',
+    metricId: 'operating_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    unit: 'percentage',
+    supportType: 'reported_kpi',
+  });
+
+  assert(candidate.provenDimensions?.unprovenReasons?.includes('unprovenAccountingBasis') === true, 'Records unprovenAccountingBasis');
+
+  const result = verifyClaimEvidence(claim, sourceDoc, '4.0%', 'reported_kpi', {
+    liveCandidate: candidate,
+    liveSourceDocument: mockLiveDoc,
+    extractedLiveDocument: extractedDoc,
+    expectedOrigin: 'live_source',
+  });
+
+  assert(result.state === 'source_verified', 'Fails to verify adjusted basis when text has no adjusted indicator');
+  assert(result.diagnostics?.failureReason === 'unprovenAccountingBasis', 'Failure reason is unprovenAccountingBasis');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 26: P0 — Contradictory reporting period strictly fails
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 26: P0 — Contradictory reporting period strictly fails ---');
+{
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_2026_q2_test26',
+    url: 'https://group.mercedes-benz.com/q2.html',
+    finalUrl: 'https://group.mercedes-benz.com/q2.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: 'd'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractedDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    documentTitle: 'Mercedes-Benz Group Q1 2026 Report',
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Mercedes-Benz Cars Adjusted Return on Sales: 4.0% in Q1 2026',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block_q1',
+        blockType: 'paragraph',
+        text: 'Mercedes-Benz Cars Adjusted Return on Sales: 4.0% in Q1 2026',
+        locator: 'page:1:p:1',
+      },
+    ],
+  };
+
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_2026_q2_test26',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'adjusted',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_2026_q2_test26',
+    companyId: 'mercedes_benz',
+    title: 'Mercedes-Benz Group Q2 2026 Results',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/q2.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const candidate = bindLiveEvidence(extractedDoc, {
+    locator: 'page:1:p:1',
+    rawValue: '4.0%',
+    metricId: 'operating_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    unit: 'percentage',
+    supportType: 'reported_kpi',
+  });
+
+  assert(candidate.provenDimensions?.bindingStatus === 'contradicted', 'Candidate detects contradictory period');
+
+  const result = verifyClaimEvidence(claim, sourceDoc, '4.0%', 'reported_kpi', {
+    liveCandidate: candidate,
+    liveSourceDocument: mockLiveDoc,
+    extractedLiveDocument: extractedDoc,
+    expectedOrigin: 'live_source',
+  });
+
+  assert(result.state === 'source_verified', 'Contradictory period fails verification');
+  assert(result.diagnostics?.failureReason === 'unprovenReportingPeriod', 'Failure reason is unprovenReportingPeriod');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 27: P0 — Unstructured block with multiple metrics fails ambiguity gate
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 27: P0 — Unstructured block with multiple metrics fails ambiguity gate ---');
+{
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_2026_q2_test27',
+    url: 'https://group.mercedes-benz.com/q2.html',
+    finalUrl: 'https://group.mercedes-benz.com/q2.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: 'b'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractedDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    documentTitle: 'Mercedes-Benz Group Q2 2026 Results',
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Consolidated results: Revenue was €36,743 million, EBIT was €4,037 million, RoS was 4.0% in Q2 2026.',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block_multi_metric',
+        blockType: 'paragraph',
+        text: 'Consolidated results: Revenue was €36,743 million, EBIT was €4,037 million, RoS was 4.0% in Q2 2026.',
+        locator: 'page:1:p:1',
+      },
+    ],
+  };
+
+  const candidate = bindLiveEvidence(extractedDoc, {
+    locator: 'page:1:p:1',
+    rawValue: '4,037',
+    metricId: 'operating_margin',
+    scope: 'consolidated_group',
+    accountingBasis: 'reported',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    unit: 'currency_millions',
+    supportType: 'reported_kpi',
+  });
+
+  assert(candidate.provenDimensions?.bindingStatus === 'unproven', 'Multi-metric unstructured block fails ambiguity check');
+  assert(candidate.provenDimensions?.unprovenReasons?.includes('ambiguousDimensionEvidence') === true, 'Records ambiguousDimensionEvidence');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 28: P1 — Multi-level table headers and side-by-side comparative periods
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 28: P1 — Multi-level table headers and side-by-side comparative periods ---');
+{
+  const htmlContent = `
+    <html>
+      <head><title>Mercedes-Benz Group Interim Report Q2 2026</title></head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              <th rowspan="2">Division</th>
+              <th colspan="2">Three Months Ended June 30, 2026</th>
+              <th colspan="2">Three Months Ended June 30, 2025</th>
+            </tr>
+            <tr>
+              <th>Reported</th>
+              <th>Adjusted</th>
+              <th>Reported</th>
+              <th>Adjusted</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Mercedes-Benz Cars Return on Sales</td>
+              <td>3.8%</td>
+              <td>4.0%</td>
+              <td>4.5%</td>
+              <td>4.8%</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+  const rawBytes = new TextEncoder().encode(htmlContent);
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_2026_q2_table',
+    url: 'https://group.mercedes-benz.com/table.html',
+    finalUrl: 'https://group.mercedes-benz.com/table.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: rawBytes.length,
+    contentHash: '9'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractRes = extractHtmlDocument(mockLiveDoc, rawBytes);
+  assert(extractRes.success === true, 'HTML table extracted successfully');
+  if (!extractRes.success) throw new Error('HTML extraction failed');
+  const extDoc = extractRes.document;
+  const dataRowBlock = extDoc.blocks.find((b: DocumentContentBlock) => b.blockType === 'table_row' && b.cells && b.cells[0]?.includes('Mercedes-Benz Cars'));
+  assert(Boolean(dataRowBlock), 'Found data row block');
+  assert(dataRowBlock?.cells?.length === 5, 'Data row has 5 cells');
+  assert(dataRowBlock?.columnHeaders?.[2]?.includes('Adjusted') === true, 'Cell 2 column header includes Adjusted');
+  assert(dataRowBlock?.columnHeaders?.[2]?.includes('2026') === true, 'Cell 2 column header includes 2026');
+
+  // Bind evidence specifically targeting cell 2 (4.0% Adjusted Q2 2026)
+  const candidate = bindLiveEvidence(extDoc, {
+    locator: dataRowBlock!.locator!,
+    columnIndex: 2,
+    rawValue: '4.0%',
+    metricId: 'cars_adjusted_ebit_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    unit: 'percentage',
+    supportType: 'reported_kpi',
+  });
+
+  assert(candidate.provenDimensions?.bindingStatus === 'proven', 'Structured table row proves dimensions');
+  assert(candidate.tableCoordinates?.columnIndex === 2, 'Candidate carries exact table coordinates');
+  assert(candidate.provenDimensions?.provenMetricId === 'cars_adjusted_ebit_margin', 'provenMetricId matches');
+  assert(candidate.provenDimensions?.provenAccountingBasis === 'adjusted', 'provenAccountingBasis matches');
+  assert(candidate.provenDimensions?.provenPeriod === '2026-Q2', 'provenPeriod matches');
+
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_2026_q2_table',
+    claimedValue: '4.0%',
+    claimedMetricId: 'cars_adjusted_ebit_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'adjusted',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_2026_q2_table',
+    companyId: 'mercedes_benz',
+    title: 'Mercedes-Benz Group Interim Report Q2 2026',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/table.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const verResult = verifyClaimEvidence(claim, sourceDoc, '4.0%', 'reported_kpi', {
+    liveCandidate: candidate,
+    liveSourceDocument: mockLiveDoc,
+    extractedLiveDocument: extDoc,
+    expectedOrigin: 'live_source',
+  });
+
+  assert(verResult.state === 'claim_verified', 'Structured table row verifies claim to claim_verified');
+  const verified = verResult as ClaimVerifiedResult;
+  assert(verified.tableCoordinates?.columnIndex === 2, 'Carries tableCoordinates into ClaimVerifiedResult');
+  assert(verified.provenDimensions?.bindingStatus === 'proven', 'Carries provenDimensions into ClaimVerifiedResult');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 29: P1 — Disambiguation of repeated value across columns
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 29: P1 — Disambiguation of repeated value across columns ---');
+{
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_repeated_table',
+    url: 'https://group.mercedes-benz.com/rep.html',
+    finalUrl: 'https://group.mercedes-benz.com/rep.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: '8'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractedDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    documentTitle: 'Mercedes-Benz Group Comparative Financials',
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Cars RoS: Q2 2026: 4.0% | Q2 2025: 4.0%',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block_rep_row',
+        blockType: 'table_row',
+        text: 'Mercedes-Benz Cars Adjusted RoS | 4.0% | 4.0%',
+        locator: 'table:0:row:1',
+        cells: ['Mercedes-Benz Cars Adjusted RoS', '4.0%', '4.0%'],
+        columnHeaders: ['Metric', 'Q2 2026 Adjusted', 'Q2 2025 Adjusted'],
+        rowHeader: 'Mercedes-Benz Cars Adjusted RoS',
+      },
+    ],
+  };
+
+  const cand2026 = bindLiveEvidence(extractedDoc, {
+    locator: 'table:0:row:1',
+    rawValue: '4.0%',
+    metricId: 'cars_adjusted_ebit_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    unit: 'percentage',
+    supportType: 'reported_kpi',
+  });
+  assert(cand2026.tableCoordinates?.columnIndex === 1, 'Repeated value disambiguated to column 1 for 2026-Q2');
+
+  const cand2025 = bindLiveEvidence(extractedDoc, {
+    locator: 'table:0:row:1',
+    rawValue: '4.0%',
+    metricId: 'cars_adjusted_ebit_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'adjusted',
+    period: '2025-Q2',
+    periodType: 'quarterly',
+    unit: 'percentage',
+    supportType: 'reported_kpi',
+  });
+  assert(cand2025.tableCoordinates?.columnIndex === 2, 'Repeated value disambiguated to column 2 for 2025-Q2');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 30: P0 — Caller candidate cannot override contradictory document text
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 30: P0 — Caller candidate cannot override contradictory document text ---');
+{
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_contradictory_doc',
+    url: 'https://group.mercedes-benz.com/doc.html',
+    finalUrl: 'https://group.mercedes-benz.com/doc.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: '7'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractedDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    documentTitle: 'Mercedes-Benz Group Q2 2026 Results',
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Mercedes-Benz Cars Adjusted Return on Sales: 4.0% in Q2 2026',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block_adj',
+        blockType: 'paragraph',
+        text: 'Mercedes-Benz Cars Adjusted Return on Sales: 4.0% in Q2 2026',
+        locator: 'page:1:p:1',
+      },
+    ],
+  };
+
+  const candidate = bindLiveEvidence(extractedDoc, {
+    locator: 'page:1:p:1',
+    rawValue: '4.0%',
+    metricId: 'cars_adjusted_ebit_margin',
+    scope: 'cars_segment',
+    accountingBasis: 'reported',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    unit: 'percentage',
+    supportType: 'reported_kpi',
+  });
+
+  assert(candidate.provenDimensions?.bindingStatus === 'contradicted', 'Contradictory caller accounting basis detected');
+  assert(candidate.provenDimensions?.unprovenReasons?.includes('accountingBasisMismatch') === true, 'Records accountingBasisMismatch');
+
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_contradictory_doc',
+    claimedValue: '4.0%',
+    claimedMetricId: 'cars_adjusted_ebit_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'reported',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_contradictory_doc',
+    companyId: 'mercedes_benz',
+    title: 'Mercedes-Benz Group Q2 2026 Results',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/doc.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const result = verifyClaimEvidence(claim, sourceDoc, '4.0%', 'reported_kpi', {
+    liveCandidate: candidate,
+    liveSourceDocument: mockLiveDoc,
+    extractedLiveDocument: extractedDoc,
+    expectedOrigin: 'live_source',
+  });
+
+  assert(result.state === 'source_verified', 'Contradictory caller basis strictly returns source_verified');
+  assert(result.diagnostics?.failureReason === 'accountingBasisMismatch', 'Failure reason is accountingBasisMismatch');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 31: P0 — Forged ClaimVerifiedResult with unproven dimensions fails state resolver
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 31: P0 — Forged ClaimVerifiedResult with unproven dimensions fails state resolver ---');
+{
+  const mockExtHash = '6'.repeat(64);
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_forged_claim_test',
+    url: 'https://group.mercedes-benz.com/rep.html',
+    finalUrl: 'https://group.mercedes-benz.com/rep.html',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'text/html',
+    contentLength: 100,
+    contentHash: mockExtHash,
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractedDoc: ExtractedLiveDocument = {
+    sourceDocument: mockLiveDoc,
+    extractionMethod: 'test',
+    extractionVersion: '1.0.0',
+    extractedAt: new Date().toISOString(),
+    extractedText: 'Operating profit 4.0%',
+    pageCount: 1,
+    blocks: [
+      {
+        id: 'block_generic',
+        blockType: 'paragraph',
+        text: 'Operating profit 4.0%',
+        locator: 'page:1:p:1',
+      },
+    ],
+  };
+
+  const claim: ClaimEvidenceLocator = {
+    sourceDocId: 'mbg_forged_claim_test',
+    claimedValue: '4.0%',
+    claimedMetricId: 'operating_margin',
+    claimedNumericValue: 4.0,
+    claimedUnit: 'percentage',
+    claimedScope: 'cars_segment',
+    claimedAccountingBasis: 'adjusted',
+    claimedPeriod: '2026-Q2',
+    claimedPeriodType: 'quarterly',
+  };
+
+  const sourceDoc: SourceDocument = {
+    id: 'mbg_forged_claim_test',
+    companyId: 'mercedes_benz',
+    title: 'Mercedes-Benz Group Q2 2026 Results',
+    docType: 'quarterly_report',
+    period: '2026-Q2',
+    periodType: 'quarterly',
+    publicationDate: '2026-07-31',
+    officialUrl: 'https://group.mercedes-benz.com/rep.html',
+    isVerified: true,
+    lastChecked: '2026-07-31',
+  };
+
+  const forgedResult: ClaimVerifiedResult = {
+    state: 'claim_verified',
+    verificationMethod: 'rule_engine',
+    verificationOrigin: 'live_source',
+    engineId: 'deterministic_content_verifier',
+    engineVersion: '1.0.0',
+    sourceDocId: 'mbg_forged_claim_test',
+    claimSupportType: 'reported_kpi',
+    verifiedValue: '4.0%',
+    verifiedMetricId: 'operating_margin',
+    verifiedNumericValue: 4.0,
+    verifiedUnit: 'percentage',
+    verifiedScope: 'cars_segment',
+    verifiedAccountingBasis: 'adjusted',
+    verifiedPeriod: '2026-Q2',
+    verifiedPeriodType: 'quarterly',
+    sourceContentHash: mockExtHash,
+    blockId: 'block_generic',
+    verifiedAt: new Date().toISOString(),
+  };
+
+  const validation = validateClaimVerificationResult(
+    claim,
+    sourceDoc,
+    '4.0%',
+    forgedResult,
+    'reported_kpi',
+    { extractedLiveDocument: extractedDoc }
+  );
+
+  assert(validation.valid === false, 'Validator rejects forged result with unproven dimensions');
+  assert(validation.mismatches.some((m) => m.includes('UnprovenInDocument')), 'Validator records dimension unproven mismatch');
+
+  const mockEvidence: ScopeExceptionEvidence[] = [
+    {
+      sourceDocId: 'mbg_forged_claim_test',
+      sectionReference: 'Mercedes-Benz Cars',
+      tableReference: 'KPIs',
+      evidenceReference: 'RoS: 4.0%',
+      purpose: 'reported_kpi',
+      supports: ['reported_kpi'],
+      supportEvidence: { reported_kpi: claim },
+    },
+  ];
+
+  const state = resolveClaimVerificationState(mockEvidence, true, forgedResult, {
+    claim,
+    sourceDoc,
+    expectedValue: '4.0%',
+    supportType: 'reported_kpi',
+    extractedLiveDocument: extractedDoc,
+  });
+
+  assert(state === 'source_verified', 'State resolver strictly downgrades forged result to source_verified');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 32: P1 — PDF pipe-delimited table extraction preserves cells & rowHeader
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- Test 32: P1 — PDF pipe-delimited table extraction preserves cells & rowHeader ---');
+{
+  const streamData = 'BT /F1 10 Tf (Mercedes-Benz Cars Adjusted Return on Sales | 4.0% | 4.5%) Tj ET';
+  const pdfContent = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length ${streamData.length} >>\nstream\n${streamData}\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000187 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n300\n%%EOF`;
+  const rawBytes = new TextEncoder().encode(pdfContent);
+
+  const mockLiveDoc: LiveSourceDocument = {
+    id: 'mbg_pdf_table',
+    url: 'https://group.mercedes-benz.com/table.pdf',
+    finalUrl: 'https://group.mercedes-benz.com/table.pdf',
+    retrievedAt: new Date().toISOString(),
+    httpStatus: 200,
+    contentType: 'application/pdf',
+    contentLength: rawBytes.length,
+    contentHash: '5'.repeat(64),
+    hashAlgorithm: 'sha256',
+    sourceKind: 'official_ir',
+  };
+
+  const extractRes = extractPdfDocument(mockLiveDoc, rawBytes);
+  assert(extractRes.success === true, 'PDF extracted successfully');
+  if (!extractRes.success) throw new Error('PDF extraction failed');
+  const rowBlock = extractRes.document.blocks.find((b: DocumentContentBlock) => b.blockType === 'table_row');
+  assert(Boolean(rowBlock), 'Extracted table_row block from PDF pipe stream');
+  assert(rowBlock?.cells?.length === 3, 'PDF table row has 3 cells');
+  assert(rowBlock?.rowHeader === 'Mercedes-Benz Cars Adjusted Return on Sales', 'PDF rowHeader captured');
+  assert(rowBlock?.cells?.[1] === '4.0%', 'PDF cell 1 has 4.0%');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Summary
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n=============================================================================');
@@ -1337,5 +2075,5 @@ console.log('===================================================================
 if (failed > 0) {
   process.exit(1);
 } else {
-  console.log('\n🎉 All STEP 5 Remediation Round 1 & Round 2 tests passed!\n');
+  console.log('\n🎉 All STEP 5 Remediation Round 1, Round 2 & Round 3 tests passed!\n');
 }

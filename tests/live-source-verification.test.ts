@@ -107,6 +107,7 @@ const mockSourceDoc: SourceDocument & { sourceKind: 'official_ir'; contentHash: 
 
 const mockExtractedDoc: ExtractedLiveDocument = {
   sourceDocument: mockLiveDoc,
+  documentTitle: 'Mercedes-Benz Group Q2 2026 Interim Report',
   extractionMethod: 'deterministic_text_stream',
   extractionVersion: '1.0.0',
   extractedAt: '2026-07-31T07:01:00.000Z',

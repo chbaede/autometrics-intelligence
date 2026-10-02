@@ -818,13 +818,14 @@ console.log('\n--- 16. State Resolution Integration ---');
     extractionMethod: 'test',
     extractionVersion: '1.0.0',
     extractedAt: new Date().toISOString(),
-    extractedText: 'Operating profit 2.3%',
+    documentTitle: 'BMW Group Half-Year Report Q2 2026',
+    extractedText: 'BMW Group Automotive EBIT margin: 2.3% in Q2 2026',
     pageCount: 1,
     blocks: [
       {
         id: 'block-1',
         blockType: 'paragraph',
-        text: 'Operating profit 2.3%',
+        text: 'BMW Group Automotive EBIT margin: 2.3% in Q2 2026',
         locator: 'page:1:p:1',
       },
     ],

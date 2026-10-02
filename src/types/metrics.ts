@@ -427,6 +427,16 @@ export interface ClaimVerifiedResult extends BaseClaimVerificationResult {
   verifiedPeriodType?: PeriodType;
   /** Exact identifier of the resolved ExtractedLiveDocument block (STEP 5 Remediation, P0-1) */
   blockId?: string;
+  /** Authoritative document-derived claim dimensions (STEP 5 Remediation Round 3, P0) */
+  provenDimensions?: ProvenanceClaimDimensions;
+  /** Exact table/row/cell coordinates if resolved from table structure (STEP 5 Remediation Round 3, P0) */
+  tableCoordinates?: {
+    tableIndex?: number;
+    rowIndex?: number;
+    columnIndex?: number;
+    columnHeader?: string;
+    rowHeader?: string;
+  };
 }
 
 /**
@@ -562,6 +572,14 @@ export interface DocumentContentBlock {
   tableIndex?: number;
   rowIndex?: number;
   paragraphIndex?: number;
+  /** Structured cell values for table rows (STEP 5 Remediation Round 3, P1) */
+  cells?: string[];
+  /** Column headers associated with the columns of this table row */
+  columnHeaders?: string[];
+  /** Row header (label/descriptor for this row) */
+  rowHeader?: string;
+  /** Multi-level header context or table section titles */
+  contextHeaders?: string[];
 }
 
 /**
@@ -657,9 +675,51 @@ export interface LiveEvidenceLocator {
   paragraphIndex?: number;
   tableIndex?: number;
   rowIndex?: number;
+  /** Column index if resolved from table structure (STEP 5 Remediation Round 3, P0) */
+  columnIndex?: number;
   rawLocator?: string;
   /** Exact identifier of the resolved content block (STEP 5 Remediation, P0-1) */
   blockId?: string;
+}
+
+/**
+ * Authoritative document-derived claim dimensions (STEP 5 Remediation Round 3, P0-4).
+ * Every dimension here is proven directly from document structure (block text, table headers, coordinates)
+ * rather than asserted solely by caller metadata.
+ */
+export interface ProvenanceClaimDimensions {
+  /** Metric semantic proven from document text (e.g. 'operating_margin') */
+  provenMetricId?: string;
+  /** Matched textual metric label in document (e.g. 'Return on Sales (RoS)') */
+  matchedMetricLabel?: string;
+  /** Reporting scope proven from document (e.g. 'cars_segment') */
+  provenScope?: ReportingScope;
+  /** Matched scope text in document (e.g. 'Mercedes-Benz Cars') */
+  matchedScopeLabel?: string;
+  /** Accounting basis proven from document (e.g. 'adjusted') */
+  provenAccountingBasis?: AccountingBasis;
+  /** Matched basis indicator in document (e.g. 'Adjusted', 'bereinigt') */
+  matchedBasisLabel?: string;
+  /** Period proven from document (e.g. '2026-Q2') */
+  provenPeriod?: string;
+  /** Period type proven from document (quarterly | annual) */
+  provenPeriodType?: PeriodType;
+  /** Matched period text in document (e.g. 'Q2 2026', 'Second Quarter 2026') */
+  matchedPeriodLabel?: string;
+  /** Unit proven from document (e.g. 'percentage') */
+  provenUnit?: MetricUnit;
+  /** Table cell coordinates if resolved from table structure */
+  tableCoordinates?: {
+    tableIndex?: number;
+    rowIndex?: number;
+    columnIndex?: number;
+    columnHeader?: string;
+    rowHeader?: string;
+  };
+  /** Status of semantic binding */
+  bindingStatus: 'proven' | 'unproven' | 'contradicted';
+  /** Specific diagnostic reasons if unproven or contradicted */
+  unprovenReasons?: string[];
 }
 
 /**
@@ -716,6 +776,18 @@ export interface LiveEvidenceCandidate {
   blockResolutionStatus?: 'resolved' | 'failed';
   /** Detailed error reason if block resolution failed */
   blockResolutionError?: string;
+
+  /** Authoritative document-derived claim dimensions (STEP 5 Remediation Round 3, P0) */
+  provenDimensions?: ProvenanceClaimDimensions;
+
+  /** Table cell coordinates if resolved from table structure (STEP 5 Remediation Round 3, P1) */
+  tableCoordinates?: {
+    tableIndex?: number;
+    rowIndex?: number;
+    columnIndex?: number;
+    columnHeader?: string;
+    rowHeader?: string;
+  };
 }
 
 /**

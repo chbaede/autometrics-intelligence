@@ -348,5 +348,56 @@ To eliminate verification forgery gaps, live evidence is strictly bound to an au
    - `targetClaims` in the official IR registry represent explicit targets/expectations to be verified, never pre-verified claims.
    - Pipeline executions via mock HTTP transports are explicitly tagged with `isMockVerification: true` and cannot be counted as real live-source verifications.
 
+---
+
+### 7. Evidence-to-Claim Semantic Binding (STEP 5 Remediation Round 3, P0)
+
+Prior to Round 3, the live verification path verified that numeric tokens appeared in an extracted document block and checked that candidate metadata matched the requested claim. However, the candidate's `metricId`, `scope`, `accountingBasis`, `period`, and related dimensions could still be caller-supplied. Numeric presence alone does not prove these dimensions (e.g. a block containing `Cars division: 4.0%` must not automatically prove `metric = operating_margin`, `accountingBasis = adjusted`, and `period = 2026-Q2`).
+
+#### Strict Document-Derived Dimension Proof
+1. **Traceability Gate**: Every path producing `state: 'claim_verified'` from a live source requires authoritative, document-derived evidence for every necessary claim dimension:
+   - `metricId`: Proven by explicit metric labels in cell text, row headers, column headers, or section headings (e.g. `Return on Sales`, `EBIT margin`, `Operating profit`).
+   - `rawValue` / `numericValue`: Proven by exact token-boundary numeric matching in the cell or block text.
+   - `unit`: Proven by explicit unit tokens (`%`, `million`, `billion`, `units`) or document table headers.
+   - `scope`: Proven by explicit segment/division labels (`Mercedes-Benz Cars`, `Automotive Segment`, `Consolidated Group`).
+   - `accountingBasis`: Proven by explicit accounting basis indicators (`Adjusted`, `Adj.`, `Bereinigt`, `Reported`, `Before special items`).
+   - `period` & `periodType`: Proven by explicit reporting periods in column headers, row headers, section headings, or document title (`Q2 2026`, `2026-Q2`, `Three Months Ended June 30, 2026`).
+   - `tableCoordinates`: Table index, row index, column index, and resolved column/row headers.
+2. **Anti-Contradiction Gate**: Caller-supplied metadata cannot override contradictory document text. For example, if a table row specifies `Adjusted Return on Sales: 4.0%`, a caller claiming `reported` basis is strictly rejected with `accountingBasisMismatch`.
+3. **Multi-Metric Ambiguity Rejection**: Unstructured blocks containing multiple metrics and numbers without structured token pairing strictly fail with `ambiguousDimensionEvidence`.
+4. **Mandatory Downgrade**: If an extracted block provides the numeric value but lacks document proof for one or more dimensions, verification strictly downgrades to `source_verified` and records specific diagnostic failure codes:
+   - `unprovenMetricSemantic`
+   - `unprovenAccountingBasis`
+   - `unprovenReportingScope`
+   - `unprovenReportingPeriod`
+   - `unprovenUnit`
+   - `ambiguousDimensionEvidence`
+
+---
+
+### 8. Structured Table Extraction & Semantic Association (STEP 5 Remediation Round 3, P1)
+
+Financial reports present data predominantly in structured tables. The extraction and binding layers preserve complete two-dimensional table structures:
+1. **Multi-Level Headers (`colspan` & `rowspan`)**:
+   - The HTML extractor (`extractHtmlDocument`) tracks active `rowspan` and `colspan` attributes across rows.
+   - Generates composite, hierarchical column headers (e.g. `Three Months Ended June 30, 2026 | Adjusted`).
+2. **Comparative Periods Side-by-Side**:
+   - Accurately associates adjacent columns with distinct reporting periods (e.g. `Q2 2026` vs `Q2 2025`).
+3. **Repeated Value Disambiguation**:
+   - When identical numeric values appear across multiple columns (e.g. `4.0%` in Q2 2026 and `4.0%` in Q2 2025), the binder disambiguates cell coordinates using column headers matching the claimed period and accounting basis.
+4. **Coordinate Tracking**:
+   - `LiveEvidenceCandidate` and `ClaimVerifiedResult` carry `tableCoordinates` (`tableIndex`, `rowIndex`, `columnIndex`, `columnHeader`, `rowHeader`) and `provenDimensions` (`ProvenanceClaimDimensions`) ensuring full audit traceability.
+
+---
+
+### 9. DNS Rebinding & Socket Pinning Limitations
+
+- **Preflight DNS Check vs Socket Pinning**: The preflight DNS resolution check in `fetchOfficialIrSource()` verifies that the target domain does not resolve to a private or loopback IP before dispatching the HTTP request or following a redirect.
+- **Limitation**: In standard Node.js `fetch()`, the preflight resolution and the underlying socket connection use separate DNS queries. If an attacker controls the authoritative nameserver and sets a 0-second TTL (DNS rebinding), the IP could theoretically change between preflight and socket connection.
+- **Production Architecture Requirement**: For production environments requiring strict protection against DNS rebinding, deployment architecture must enforce:
+  1. An egress HTTP proxy with strict destination IP validation, OR
+  2. A custom socket-level dispatcher (e.g. `undici` `Agent` with `connect` options) that pins the socket connection directly to the preflight-validated IP address, OR
+  3. Network-level DNS firewall / egress filtering rules.
+
 
 
