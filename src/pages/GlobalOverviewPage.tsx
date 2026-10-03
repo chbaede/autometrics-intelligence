@@ -7,8 +7,9 @@ import {
   getDistinctPeriods,
   getCompanyById,
 } from '../utils/metricQueries';
-import { MetricObservation } from '../types/metrics';
+import { MetricObservation, PeriodType } from '../types/metrics';
 import { formatPeriodLabel } from '../utils/metricCalculations';
+import { validateScatterObservationCompatibility } from '../utils/scatterDataUtils';
 import { MetricBarChart } from '../components/metrics/charts/MetricBarChart';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { GuidanceRangeChart } from '../components/metrics/charts/GuidanceRangeChart';
@@ -243,22 +244,32 @@ export const GlobalOverviewPage: React.FC = () => {
     };
   }).filter((pt) => pt.volumeThousand > 0 && pt.marginPercent > 0);
 
+  const currentPeriodType: PeriodType = selectedPeriod.toUpperCase().includes('FY') ? 'annual' : 'quarterly';
+
   // Profit Scatter matrix points (Absolute Operating Profit vs Margin)
-  const profitScatterPoints = selectedCompanies.map((cid) => {
-    const comp = getCompanyById(cid)!;
-    const vol = getObservations([cid], ['deliveries_global'], selectedPeriod)[0]?.value || 0;
-    const margin = getObservations([cid], ['operating_margin'], selectedPeriod)[0]?.value || 0;
-    const ebit = getObservations([cid], ['operating_income'], selectedPeriod)[0]?.value;
-    const rev = getObservations([cid], ['revenue'], selectedPeriod)[0]?.value;
-    return {
-      company: comp,
-      volumeThousand: vol,
-      marginPercent: margin,
-      operatingIncome: ebit,
-      revenue: rev,
-      currency: comp.reportingCurrency,
-    };
-  }).filter((pt) => pt.marginPercent > 0 && pt.operatingIncome !== undefined && pt.operatingIncome !== null);
+  // Preserves loss-making companies and strictly validates observation compatibility
+  const profitScatterPoints = selectedCompanies
+    .map((cid) => {
+      const comp = getCompanyById(cid);
+      if (!comp) return null;
+      const ebitObs = getObservations([cid], ['operating_income'], selectedPeriod)[0];
+      const marginObs = getObservations([cid], ['operating_margin'], selectedPeriod)[0];
+      const volObs = getObservations([cid], ['deliveries_global'], selectedPeriod)[0];
+      const revObs = getObservations([cid], ['revenue'], selectedPeriod)[0];
+
+      const validation = validateScatterObservationCompatibility(
+        comp,
+        selectedPeriod,
+        currentPeriodType,
+        ebitObs,
+        marginObs,
+        volObs,
+        revObs
+      );
+
+      return validation.valid && validation.point ? validation.point : null;
+    })
+    .filter((pt): pt is NonNullable<typeof pt> => pt !== null);
 
   // Guidance data
   const guidanceList = getAllGuidance().filter((g) => selectedCompanies.includes(g.companyId));
@@ -553,6 +564,8 @@ export const GlobalOverviewPage: React.FC = () => {
           title={t.charts.profitVsMargin}
           subtitle={t.charts.profitVsMarginSubtitle}
           points={profitScatterPoints}
+          period={selectedPeriod}
+          periodType={currentPeriodType}
         />
       </div>
 

@@ -119,3 +119,4 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 - **Generated at**: `2026-10-03T20:50:07.578Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
+- **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

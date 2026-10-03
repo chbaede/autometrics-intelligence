@@ -73,14 +73,26 @@ assert(formatMetricValue(null, 'percentage') === 'Not reported', 'Format: null v
 assert(formatMetricValue(50000, 'currency_millions', 'EUR') === '€50,000M', 'Format: currency millions EUR');
 
 // 7. FX Conversion & Profit Normalization Tests (ProfitScatterChart)
-import { convertMillionsToKRW, convertMillionsToUSD, formatLocalizedProfit } from '../src/utils/currencyUtils';
+import { convertMillionsToKRW, convertMillionsToUSD, formatLocalizedProfit, formatOriginalCurrencyCompact } from '../src/utils/currencyUtils';
 
 assert(convertMillionsToKRW(1000, 'USD') === 1_380_000_000_000, 'FX: 1000M USD = 1.38조 KRW');
 assert(convertMillionsToKRW(1000, 'EUR') === 1_500_000_000_000, 'FX: 1000M EUR = 1.50조 KRW');
 assert(convertMillionsToKRW(null, 'USD') === null, 'FX: Null amount returns null');
+assert(convertMillionsToKRW(1000, 'INR') === null, 'FX: Unsupported currency INR returns null');
+assert(convertMillionsToKRW(1000, 'CAD') === null, 'FX: Unsupported currency CAD returns null');
 assert(convertMillionsToUSD(1380, 'USD') === 1_380_000_000, 'FX: 1380M USD = 1.38B USD');
+assert(convertMillionsToUSD(1000, 'XYZ') === null, 'FX: Unsupported currency XYZ returns null');
+
+// Loss and zero profit formatting
 assert(formatLocalizedProfit(2950, 'EUR', 'ko') === '₩4.42조', 'Profit Format: €2,950M in KRW = ₩4.42조');
 assert(formatLocalizedProfit(398, 'USD', 'en') === '$398M', 'Profit Format: $398M in EN = $398M');
+assert(formatLocalizedProfit(-836, 'USD', 'ko') === '-₩1.15조', 'Profit Format: Negative loss in KRW = -₩1.15조');
+assert(formatLocalizedProfit(-836, 'USD', 'en') === '-$836M', 'Profit Format: Negative loss in USD = -$836M');
+assert(formatLocalizedProfit(0, 'USD', 'ko') === '₩0', 'Profit Format: Zero profit in KRW');
+assert(formatLocalizedProfit(0, 'USD', 'en') === '$0', 'Profit Format: Zero profit in USD');
+assert(formatLocalizedProfit(1000, 'INR', 'ko') === '-', 'Profit Format: Unsupported currency returns - in ko');
+assert(formatLocalizedProfit(1000, 'INR', 'en') === '-', 'Profit Format: Unsupported currency returns - in en');
+assert(formatOriginalCurrencyCompact(-836, 'USD') === '-$836M', 'Compact format preserves negative sign');
 
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {

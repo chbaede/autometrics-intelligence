@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Company } from '../../../types/metrics';
+import { Company, PeriodType } from '../../../types/metrics';
 import { TermBadge } from '../TermBadge';
 import { useLanguage } from '../../../i18n/LanguageContext';
-import { TrendingUp, DollarSign, RefreshCw, ExternalLink, X } from 'lucide-react';
+import { TrendingUp, DollarSign, ExternalLink, X, Scale } from 'lucide-react';
 import {
   formatLocalizedProfit,
   convertMillionsToKRW,
   convertMillionsToUSD,
+  FX_BENCHMARK_METADATA,
 } from '../../../utils/currencyUtils';
 import { ScatterPoint } from './MarginScatterChart';
 
@@ -15,115 +16,188 @@ interface ProfitScatterChartProps {
   title: string;
   subtitle?: string;
   points: ScatterPoint[];
+  period?: string;
+  periodType?: PeriodType;
   onSelectCompany?: (company: Company) => void;
+}
+
+interface ProcessedPoint extends ScatterPoint {
+  profitNormalized: number;
 }
 
 export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   title,
   subtitle,
   points,
+  period,
+  periodType,
   onSelectCompany,
 }) => {
   const { language } = useLanguage();
   const [hovered, setHovered] = useState<ScatterPoint | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<ScatterPoint | null>(null);
 
-  const activePoint = selectedPoint || hovered;
+  // 1. Explicit Period Type Determination (Never infer from value magnitude)
+  const isAnnual =
+    periodType === 'annual' ||
+    (period ? period.toUpperCase().includes('FY') : false);
 
-  // Filter to only include points that have valid operating income and positive margin
-  const validPoints = (points || []).filter(
-    (p) =>
+  // 2. Normalization helper: Same conversion basis across coordinates, labels, and panels
+  // In Korean: KRW in Trillions (조원)
+  // In English: USD in Billions ($B)
+  const getNormalizedProfit = (pt: ScatterPoint): number | null => {
+    const curr = pt.currency || pt.company.reportingCurrency;
+    const rawIncome = pt.operatingIncome;
+    if (rawIncome === null || rawIncome === undefined || !Number.isFinite(rawIncome)) {
+      return null;
+    }
+    if (language === 'ko') {
+      const won = convertMillionsToKRW(rawIncome, curr);
+      return won !== null ? won / 1_000_000_000_000 : null;
+    } else {
+      const usd = convertMillionsToUSD(rawIncome, curr);
+      return usd !== null ? usd / 1_000_000_000 : null;
+    }
+  };
+
+  // 3. Filter valid points — PRESERVE loss-making companies (negative EBIT and negative margins)
+  const processedPoints: ProcessedPoint[] = [];
+  (points || []).forEach((p) => {
+    if (
       p.operatingIncome !== undefined &&
       p.operatingIncome !== null &&
       Number.isFinite(p.operatingIncome) &&
-      p.marginPercent > 0
-  );
+      Number.isFinite(p.marginPercent)
+    ) {
+      const profitNorm = getNormalizedProfit(p);
+      if (profitNorm !== null && Number.isFinite(profitNorm)) {
+        processedPoints.push({
+          ...p,
+          profitNormalized: profitNorm,
+        });
+      }
+    }
+  });
 
-  if (validPoints.length === 0) return null;
+  // 4. Synchronize selection to prevent stale data when period/points change
+  useEffect(() => {
+    if (selectedPoint) {
+      const exists = processedPoints.some((p) => p.company.id === selectedPoint.company.id);
+      if (!exists) {
+        setSelectedPoint(null);
+      }
+    }
+  }, [processedPoints, selectedPoint]);
 
-  // Chart dimensions with generous padding for explicit axis titles
+  // Resolve current active selection strictly from current processed points
+  const resolvedSelectedPoint = selectedPoint
+    ? processedPoints.find((p) => p.company.id === selectedPoint.company.id) ?? null
+    : null;
+
+  const resolvedHovered = hovered
+    ? processedPoints.find((p) => p.company.id === hovered.company.id) ?? null
+    : null;
+
+  const activePoint = resolvedSelectedPoint || resolvedHovered;
+
+  if (processedPoints.length === 0) return null;
+
+  // Chart layout dimensions
   const width = 1060;
-  const height = 600;
-  const padLeft = 85;
-  const padBottom = 80;
+  const height = 620;
+  const padLeft = 90;
+  const padBottom = 85;
   const padRight = 55;
   const padTop = 55;
 
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
-  // Helper to extract normalized profit value for each point based on active language
-  // In Korean: KRW in Trillions (조원)
-  // In English: USD in Billions ($B)
-  const getNormalizedProfit = (pt: ScatterPoint): number => {
-    const curr = pt.currency || pt.company.reportingCurrency;
-    const rawIncome = pt.operatingIncome ?? 0;
-    if (language === 'ko') {
-      const won = convertMillionsToKRW(rawIncome, curr);
-      return won ? won / 1_000_000_000_000 : 0;
-    } else {
-      const usd = convertMillionsToUSD(rawIncome, curr);
-      return usd ? usd / 1_000_000_000 : 0;
-    }
-  };
+  // 5. Calculate X-axis bounds from both positive and negative observed profit
+  const observedMinProfit = Math.min(...processedPoints.map((p) => p.profitNormalized));
+  const observedMaxProfit = Math.max(...processedPoints.map((p) => p.profitNormalized));
 
-  const rawMaxProfit = Math.max(...validPoints.map(getNormalizedProfit), 1);
-
-  // Dynamic bounds for X-axis (Operating Profit)
+  let minProfit: number;
   let maxProfit: number;
   let profitStep: number;
-  let midProfit: number;
 
   if (language === 'ko') {
-    const isAnnual = rawMaxProfit > 18;
     if (isAnnual) {
-      maxProfit = Math.max(50, Math.ceil((rawMaxProfit * 1.1) / 10) * 10);
-      profitStep = 10;
-      midProfit = 12.0;
+      minProfit = observedMinProfit < 0 ? Math.floor(observedMinProfit / 5) * 5 : 0;
+      maxProfit = Math.max(minProfit + 30, Math.ceil((Math.max(observedMaxProfit, 10) * 1.1) / 10) * 10);
+      profitStep = (maxProfit - minProfit) > 50 ? 10 : 5;
     } else {
-      maxProfit = Math.max(10, Math.ceil((rawMaxProfit * 1.1) / 2) * 2);
-      profitStep = 2;
-      midProfit = 3.5;
+      minProfit = observedMinProfit < 0 ? Math.floor(observedMinProfit) : 0;
+      maxProfit = Math.max(minProfit + 8, Math.ceil((Math.max(observedMaxProfit, 4) * 1.1) / 2) * 2);
+      profitStep = (maxProfit - minProfit) > 12 ? 2 : 1;
     }
   } else {
-    const isAnnual = rawMaxProfit > 14;
     if (isAnnual) {
-      maxProfit = Math.max(35, Math.ceil((rawMaxProfit * 1.1) / 5) * 5);
-      profitStep = 5;
-      midProfit = 9.0;
+      minProfit = observedMinProfit < 0 ? Math.floor(observedMinProfit / 5) * 5 : 0;
+      maxProfit = Math.max(minProfit + 25, Math.ceil((Math.max(observedMaxProfit, 10) * 1.1) / 5) * 5);
+      profitStep = (maxProfit - minProfit) > 40 ? 10 : 5;
     } else {
-      maxProfit = Math.max(8, Math.ceil(rawMaxProfit * 1.15));
-      profitStep = maxProfit > 8 ? 2 : 1;
-      midProfit = 2.5;
+      minProfit = observedMinProfit < 0 ? Math.floor(observedMinProfit) : 0;
+      maxProfit = Math.max(minProfit + 6, Math.ceil(Math.max(observedMaxProfit, 3) * 1.15));
+      profitStep = (maxProfit - minProfit) > 10 ? 2 : 1;
     }
   }
 
-  // Bounds for Y-axis (Operating Margin %)
-  const rawMaxMargin = Math.max(...validPoints.map((p) => p.marginPercent), 8);
-  const maxMargin = rawMaxMargin > 12 ? 14 : 12;
-  const minMargin = 0;
-  const marginStep = 2;
-  const midMargin = 7.0; // Industry benchmark Return on Sales
+  // 6. Calculate Y-axis bounds from both positive and negative observed margins
+  const observedMinMargin = Math.min(...processedPoints.map((p) => p.marginPercent));
+  const observedMaxMargin = Math.max(...processedPoints.map((p) => p.marginPercent));
 
+  let minMargin: number;
+  let maxMargin: number;
+  let marginStep: number;
+
+  if (observedMinMargin < 0) {
+    if (observedMinMargin < -25) {
+      minMargin = Math.floor(observedMinMargin / 10) * 10;
+      maxMargin = Math.max(14, Math.ceil(observedMaxMargin / 5) * 5);
+      marginStep = (maxMargin - minMargin) > 50 ? 10 : 5;
+    } else {
+      minMargin = Math.floor(observedMinMargin / 5) * 5;
+      maxMargin = Math.max(12, Math.ceil(observedMaxMargin / 2) * 2);
+      marginStep = 2;
+    }
+  } else {
+    minMargin = 0;
+    maxMargin = observedMaxMargin > 12 ? 14 : 12;
+    marginStep = 2;
+  }
+
+  // 7. Semantically aligned analytical reference thresholds
+  const midMargin = 7.0; // Analytical Reference: 7.0% Return on Sales
+  const midProfitKRW = isAnnual ? 12.0 : 3.5;
+  const midProfitUSD = (midProfitKRW * 1_000_000_000_000) / (1380.0 * 1_000_000_000); // ~8.70 $B annual, ~2.54 $B quarterly
+  const midProfit = language === 'ko' ? midProfitKRW : midProfitUSD;
+
+  // Coordinate projections
   const getX = (profitVal: number) =>
-    padLeft + (Math.min(maxProfit, Math.max(0, profitVal)) / maxProfit) * chartW;
+    padLeft +
+    ((Math.min(maxProfit, Math.max(minProfit, profitVal)) - minProfit) /
+      (maxProfit - minProfit)) *
+      chartW;
 
-  const getY = (margin: number) =>
+  const getY = (marginVal: number) =>
     height -
     padBottom -
-    ((Math.min(maxMargin, Math.max(minMargin, margin)) - minMargin) /
+    ((Math.min(maxMargin, Math.max(minMargin, marginVal)) - minMargin) /
       (maxMargin - minMargin)) *
       chartH;
 
   // Generate X axis ticks
   const xTicks: number[] = [];
-  for (let p = 0; p <= maxProfit; p += profitStep) {
+  const startXTick = Math.ceil(minProfit / profitStep) * profitStep;
+  for (let p = startXTick; p <= maxProfit; p += profitStep) {
     xTicks.push(p);
   }
 
   // Generate Y axis ticks
   const yTicks: number[] = [];
-  for (let m = minMargin; m <= maxMargin; m += marginStep) {
+  const startYTick = Math.ceil(minMargin / marginStep) * marginStep;
+  for (let m = startYTick; m <= maxMargin; m += marginStep) {
     yTicks.push(m);
   }
 
@@ -144,12 +218,14 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
     if (n.includes('honda')) return '#c2410c';
     if (n.includes('nissan')) return '#9333ea';
     if (n.includes('geely')) return '#0284c7';
+    if (n.includes('rivian')) return '#d97706';
+    if (n.includes('volvo')) return '#0f766e';
     return '#64748b';
   };
 
-  // Anti-collision label layout computation
+  // Anti-collision label layout
   interface PlacedLabel {
-    point: ScatterPoint;
+    point: ProcessedPoint;
     profitVal: number;
     x: number;
     y: number;
@@ -165,30 +241,28 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
 
   const placedLabels: PlacedLabel[] = [];
 
-  // Sort points to place high profit or high margin points first
-  const sortedPoints = [...validPoints].sort((a, b) => {
-    return getNormalizedProfit(b) - getNormalizedProfit(a);
-  });
+  const sortedPoints = [...processedPoints].sort(
+    (a, b) => b.profitNormalized - a.profitNormalized
+  );
 
   sortedPoints.forEach((pt) => {
-    const profitVal = getNormalizedProfit(pt);
+    const profitVal = pt.profitNormalized;
     const px = getX(profitVal);
     const py = getY(pt.marginPercent);
     const curr = pt.currency || pt.company.reportingCurrency;
 
-    // Converted profit display
     const profitStr = formatLocalizedProfit(pt.operatingIncome, curr, language);
     const volumeStr =
       pt.volumeThousand >= 1000
         ? `${(pt.volumeThousand / 1000).toFixed(2)}M`
-        : `${Math.round(pt.volumeThousand)}k`;
+        : pt.volumeThousand > 0
+        ? `${Math.round(pt.volumeThousand)}k`
+        : '-';
 
-    // Width and height of the mini-card
     const boxW = 162;
     const boxH = 44;
     const color = getOemColor(pt.company.name);
 
-    // Smart candidate offsets relative to (px, py)
     const candidates = [
       { dx: 18, dy: -50, hasLeader: true },
       { dx: -boxW - 18, dy: -50, hasLeader: true },
@@ -214,7 +288,6 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
       const by = py + c.dy;
       let penalty = 0;
 
-      // Check boundary violation
       if (bx < padLeft + 4) penalty += (padLeft + 4 - bx) * 120;
       if (bx + boxW > width - padRight - 4)
         penalty += (bx + boxW - (width - padRight - 4)) * 120;
@@ -222,7 +295,6 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
       if (by + boxH > height - padBottom - 4)
         penalty += (by + boxH - (height - padBottom - 4)) * 120;
 
-      // Check overlap with other placed label boxes with 8px buffer
       for (const placed of placedLabels) {
         const overlapX = Math.max(
           0,
@@ -240,9 +312,8 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
         }
       }
 
-      // Check overlap with bubble markers with safe buffer
-      for (const p of validPoints) {
-        const pointX = getX(getNormalizedProfit(p));
+      for (const p of processedPoints) {
+        const pointX = getX(p.profitNormalized);
         const pointY = getY(p.marginPercent);
         if (
           bx <= pointX + 16 &&
@@ -256,7 +327,6 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
         }
       }
 
-      // Distance penalty
       penalty += Math.sqrt(c.dx * c.dx + c.dy * c.dy);
 
       if (penalty < minPenalty) {
@@ -290,7 +360,6 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
     <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-        {/* Row 1: Title & Main Category on Left, Core Axis Indicators on Right */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 flex-wrap">
             <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -304,7 +373,6 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             </span>
           </div>
 
-          {/* Axis & Card Value Indicators */}
           <div className="flex items-center gap-2 flex-wrap text-xs">
             <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5 shadow-xs whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
@@ -333,21 +401,20 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
           </div>
         </div>
 
-        {/* Row 2: Subtitle on Left, Exchange Rate on Right */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
           {subtitle && (
             <p className="text-xs text-slate-500 dark:text-slate-400 break-keep">
               {subtitle}
             </p>
           )}
-          {language === 'ko' && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-blue-700 dark:text-blue-300 text-[11px] font-mono whitespace-nowrap sm:ml-auto">
-              <RefreshCw className="w-3 h-3 text-blue-500 shrink-0" />
-              <span>
-                실시간 기준환율 (USD 1,380 · EUR 1,500 · JPY 9.2 · CNY 192)
-              </span>
-            </div>
-          )}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-mono whitespace-nowrap sm:ml-auto">
+            <Scale className="w-3 h-3 text-slate-500 shrink-0" />
+            <span>
+              {language === 'ko'
+                ? FX_BENCHMARK_METADATA.descriptionKo
+                : FX_BENCHMARK_METADATA.descriptionEn}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -359,7 +426,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Quadrant Tinted Background Panels */}
-          {/* Top-Right: Scale & Profit Leaders */}
+          {/* Top-Right: High Profit & High Margin Leaders */}
           <rect
             x={getX(midProfit)}
             y={padTop}
@@ -386,7 +453,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             className="fill-amber-500/5 dark:fill-amber-500/10"
             rx="8"
           />
-          {/* Bottom-Left: Restructuring & Margin Recovery */}
+          {/* Bottom-Left: Restructuring & Turnaround (Includes Losses) */}
           <rect
             x={padLeft}
             y={getY(midMargin)}
@@ -396,7 +463,35 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             rx="8"
           />
 
-          {/* Quadrant Dividing Crosshairs */}
+          {/* Zero Axis Guideline for Profit (if loss exists) */}
+          {minProfit < 0 && maxProfit > 0 && (
+            <line
+              x1={getX(0)}
+              y1={padTop}
+              x2={getX(0)}
+              y2={height - padBottom}
+              stroke="#64748b"
+              strokeDasharray="4 4"
+              strokeWidth="1.2"
+              className="opacity-70"
+            />
+          )}
+
+          {/* Zero Axis Guideline for Margin (if negative margin exists) */}
+          {minMargin < 0 && maxMargin > 0 && (
+            <line
+              x1={padLeft}
+              y1={getY(0)}
+              x2={width - padRight}
+              y2={getY(0)}
+              stroke="#64748b"
+              strokeDasharray="4 4"
+              strokeWidth="1.2"
+              className="opacity-70"
+            />
+          )}
+
+          {/* Analytical Reference Dividing Crosshairs */}
           <line
             x1={getX(midProfit)}
             y1={padTop}
@@ -405,7 +500,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             stroke="#94a3b8"
             strokeDasharray="5 5"
             strokeWidth="1.5"
-            className="opacity-40"
+            className="opacity-50"
           />
           <line
             x1={padLeft}
@@ -415,11 +510,11 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             stroke="#94a3b8"
             strokeDasharray="5 5"
             strokeWidth="1.5"
-            className="opacity-40"
+            className="opacity-50"
           />
 
-          {/* Quadrant Watermark Badges with Rounded Pill Containers */}
-          {/* Top-Right: Profit & Margin Leaders */}
+          {/* Analytical Reference Badges */}
+          {/* Top-Right: Leaders */}
           <g
             transform={`translate(${width - padRight - (language === 'ko' ? 255 : 205)}, ${padTop + 10})`}
           >
@@ -441,7 +536,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             </text>
           </g>
 
-          {/* Top-Left: High Margin Specialists */}
+          {/* Top-Left: Specialists */}
           <g transform={`translate(${padLeft + 12}, ${padTop + 10})`}>
             <rect
               width={language === 'ko' ? 245 : 185}
@@ -461,18 +556,16 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             </text>
           </g>
 
-          {/* Bottom-Left: Turnaround & Restructuring */}
-          <g
-            transform={`translate(${padLeft + 12}, ${height - padBottom - 32})`}
-          >
+          {/* Bottom-Left: Turnaround */}
+          <g transform={`translate(${padLeft + 12}, ${height - padBottom - 32})`}>
             <rect
-              width={language === 'ko' ? 245 : 195}
+              width={language === 'ko' ? 255 : 205}
               height={22}
               rx={6}
               className="fill-slate-500/10 dark:fill-slate-500/15 stroke-slate-500/25"
             />
             <text
-              x={(language === 'ko' ? 245 : 195) / 2}
+              x={(language === 'ko' ? 255 : 205) / 2}
               y={15}
               textAnchor="middle"
               className="fill-slate-700 dark:fill-slate-300 font-bold text-[10.5px] font-sans"
@@ -483,7 +576,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             </text>
           </g>
 
-          {/* Bottom-Right: High Scale, Margin Diluted */}
+          {/* Bottom-Right: Scale */}
           <g
             transform={`translate(${width - padRight - (language === 'ko' ? 245 : 185)}, ${height - padBottom - 32})`}
           >
@@ -549,10 +642,16 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   x={x}
                   y={height - padBottom + 22}
                   textAnchor="middle"
-                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
+                  className={`text-[11px] font-mono font-bold ${
+                    profitTick < 0
+                      ? 'fill-rose-600 dark:fill-rose-400'
+                      : 'fill-slate-600 dark:fill-slate-400'
+                  }`}
                 >
                   {language === 'ko'
                     ? `${profitTick}${xUnitLabel}`
+                    : profitTick < 0
+                    ? `-$${Math.abs(profitTick)}${xUnitLabel}`
                     : `$${profitTick}${xUnitLabel}`}
                 </text>
               </g>
@@ -585,7 +684,11 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   x={padLeft - 10}
                   y={y + 4}
                   textAnchor="end"
-                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
+                  className={`text-[11px] font-mono font-bold ${
+                    m < 0
+                      ? 'fill-rose-600 dark:fill-rose-400'
+                      : 'fill-slate-600 dark:fill-slate-400'
+                  }`}
                 >
                   {m}%
                 </text>
@@ -595,15 +698,15 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
 
           {/* EXPLICIT AXIS TITLES */}
           {/* Y-Axis Title (Top Left) */}
-          <g transform={`translate(${padLeft - 75}, ${padTop - 40})`}>
+          <g transform={`translate(${padLeft - 80}, ${padTop - 40})`}>
             <rect
-              width={160}
+              width={170}
               height={26}
               rx={7}
               className="fill-white dark:fill-slate-800 shadow-xs stroke-slate-200 dark:stroke-slate-700"
             />
             <text
-              x={80}
+              x={85}
               y={17.5}
               textAnchor="middle"
               className="fill-slate-800 dark:fill-slate-200 font-bold text-[11px] font-sans"
@@ -616,23 +719,23 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
 
           {/* X-Axis Title (Bottom Center) */}
           <g
-            transform={`translate(${padLeft + chartW / 2 - 175}, ${height - padBottom + 36})`}
+            transform={`translate(${padLeft + chartW / 2 - 190}, ${height - padBottom + 40})`}
           >
             <rect
-              width={350}
+              width={380}
               height={28}
               rx={7}
               className="fill-white dark:fill-slate-800 shadow-xs stroke-slate-200 dark:stroke-slate-700"
             />
             <text
-              x={175}
+              x={190}
               y={18.5}
               textAnchor="middle"
               className="fill-slate-800 dark:fill-slate-200 font-bold text-[11.5px] font-sans"
             >
               {language === 'ko'
-                ? '➔ X축: 글로벌 절대 영업이익 규모 (한화 조원 환산)'
-                : '➔ X: Absolute Operating Profit / EBIT (Normalized $B)'}
+                ? `➔ X축: 글로벌 절대 영업이익 규모 (${xUnitLabel} 정규화 / 손익 반영)`
+                : `➔ X: Absolute Operating Profit / EBIT (Normalized ${xUnitLabel} / Reflects Losses)`}
             </text>
           </g>
 
@@ -665,6 +768,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             const isSelected = selectedPoint?.company.id === pt.company.id;
             const isActive = isHovered || isSelected;
             const color = lbl.color;
+            const isLoss = pt.operatingIncome !== undefined && pt.operatingIncome !== null && pt.operatingIncome < 0;
 
             return (
               <g
@@ -774,10 +878,8 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                     height="16"
                     rx="4"
                     className={
-                      isActive
-                        ? pt.marginPercent >= 7.0
-                          ? 'fill-emerald-100 dark:fill-emerald-950/70 stroke-emerald-400 dark:stroke-emerald-600 stroke-1'
-                          : 'fill-brand-100 dark:fill-brand-950/70 stroke-brand-400 dark:stroke-brand-600 stroke-1'
+                      pt.marginPercent < 0
+                        ? 'fill-rose-100 dark:fill-rose-950/70 stroke-rose-400 dark:stroke-rose-600 stroke-1'
                         : pt.marginPercent >= 7.0
                         ? 'fill-emerald-500/15 dark:fill-emerald-400/20'
                         : 'fill-slate-100 dark:fill-slate-800'
@@ -785,10 +887,12 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   />
                   <text
                     x={lbl.boxW - 27}
-                    y="16.5"
+                    y={16.5}
                     textAnchor="middle"
                     className={`font-mono font-bold text-[10px] ${
-                      pt.marginPercent >= 7.0
+                      pt.marginPercent < 0
+                        ? 'fill-rose-700 dark:fill-rose-400'
+                        : pt.marginPercent >= 7.0
                         ? 'fill-emerald-700 dark:fill-emerald-400'
                         : 'fill-brand-700 dark:fill-brand-400'
                     }`}
@@ -801,7 +905,9 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                     x="12"
                     y="34"
                     className={`font-mono text-[9.5px] font-bold ${
-                      isActive
+                      isLoss
+                        ? 'fill-rose-600 dark:fill-rose-400'
+                        : isActive
                         ? 'fill-emerald-600 dark:fill-emerald-400'
                         : 'fill-emerald-700 dark:fill-emerald-400'
                     }`}
@@ -851,7 +957,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                     {language === 'ko' ? '공시통화' : 'Currency'}:{' '}
                     {activePoint.company.reportingCurrency}
                   </span>
-                  {selectedPoint && (
+                  {resolvedSelectedPoint && (
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                       {language === 'ko' ? '선택됨' : 'Selected'}
                     </span>
@@ -860,7 +966,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                 <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5 font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   {activePoint.marginPercent >= midMargin &&
-                  getNormalizedProfit(activePoint) >= midProfit
+                  (getNormalizedProfit(activePoint) ?? 0) >= midProfit
                     ? language === 'ko'
                       ? '★ 절대 영업이익 규모와 고수익률을 동시 달성한 핵심 리더'
                       : '★ Premier Profit Leader with massive earnings scale and high margins'
@@ -868,12 +974,16 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                     ? language === 'ko'
                       ? '고마진 실속형 / 뛰어난 수익성 효율을 보유한 특화 기업'
                       : 'High Margin Specialist with superior profitability efficiency'
-                    : getNormalizedProfit(activePoint) >= midProfit
+                    : (getNormalizedProfit(activePoint) ?? 0) >= midProfit
                     ? language === 'ko'
-                      ? '규모의 경제로 대규모 절대 이익 창출 (이익률 제고 여력 존재)'
+                      ? '대규모 절대 이익 창출 (수익성 개선 여력 존재)'
                       : 'High Absolute Profit Scale with margin expansion opportunities'
+                    : (activePoint.operatingIncome ?? 0) < 0
+                    ? language === 'ko'
+                      ? '영업적자 기록 기업 / 흑자 전환 및 체질 개선 추진 단계'
+                      : 'Operating loss recorded / Turnaround & restructuring phase'
                     : language === 'ko'
-                    ? '수익성 개선 및 영업이익 정상화를 위한 구조개편 단계'
+                    ? '수익성 개선 및 영업이익 확대를 위한 구조개편 단계'
                     : 'Restructuring & operational turnaround phase'}
                 </p>
               </div>
@@ -881,14 +991,20 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
 
             {/* Right: Key Financial & Volume Numbers + Quick Link */}
             <div className="flex items-center gap-2.5 flex-wrap">
-              {/* KRW Converted Profit */}
+              {/* Converted Profit */}
               <div className="bg-white dark:bg-slate-800/90 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
                 <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
                   {language === 'ko'
                     ? '영업이익 (환율 환산)'
-                    : 'Operating Profit (EBIT)'}
+                    : 'Operating Profit (Normalized)'}
                 </span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm sm:text-base">
+                <span
+                  className={`font-bold font-mono text-sm sm:text-base ${
+                    (activePoint.operatingIncome ?? 0) < 0
+                      ? 'text-rose-600 dark:rose-400'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
                   {formatLocalizedProfit(
                     activePoint.operatingIncome,
                     activePoint.currency ||
@@ -904,7 +1020,13 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                 <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '영업이익률 (RoS)' : 'EBIT Margin (RoS)'}
                 </span>
-                <span className="text-brand-600 dark:text-brand-400 font-bold font-mono text-sm sm:text-base">
+                <span
+                  className={`font-bold font-mono text-sm sm:text-base ${
+                    activePoint.marginPercent < 0
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-brand-600 dark:text-brand-400'
+                  }`}
+                >
                   {activePoint.marginPercent.toFixed(1)}%
                 </span>
               </div>
@@ -917,7 +1039,9 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                 <span className="text-slate-900 dark:text-white font-bold font-mono text-sm sm:text-base">
                   {activePoint.volumeThousand >= 1000
                     ? `${(activePoint.volumeThousand / 1000).toFixed(2)}M`
-                    : `${Math.round(activePoint.volumeThousand).toLocaleString()}k`}
+                    : activePoint.volumeThousand > 0
+                    ? `${Math.round(activePoint.volumeThousand).toLocaleString()}k`
+                    : '-'}
                 </span>
               </div>
 
@@ -931,7 +1055,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
               </Link>
 
               {/* Dismiss Button if selected */}
-              {selectedPoint && (
+              {resolvedSelectedPoint && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

@@ -1,8 +1,11 @@
 /**
  * Currency Conversion and Formatting Utilities for AutoMetrics Intelligence
  *
- * Provides real-time benchmark exchange rates to KRW (Korean Won)
+ * Provides fixed analytical comparison exchange rates (Fixed Comparison Baseline: 2024–2026 Reference)
  * and localized currency formatting for global financial metrics.
+ *
+ * NOTE: These rates are static analytical assumptions for cross-OEM comparability,
+ * NOT live or real-time market feeds.
  */
 
 export const FX_RATES_TO_KRW: Record<string, number> = {
@@ -16,58 +19,83 @@ export const FX_RATES_TO_KRW: Record<string, number> = {
   SEK: 130.0,
 };
 
+export const FX_BENCHMARK_METADATA = {
+  type: 'fixed_analytical_comparison',
+  referencePeriod: '2024-2026 Baseline Reference',
+  descriptionEn: 'Fixed Comparison FX Rates (USD 1,380 · EUR 1,500 · JPY 9.2 · CNY 192 KRW / Analytical Baseline)',
+  descriptionKo: '고정 분석 기준환율 (USD 1,380 · EUR 1,500 · JPY 9.2 · CNY 192 / 분석용 가산환율)',
+};
+
 /**
  * Converts an amount in millions from the source currency to Korean Won (KRW).
  * @param amountInMillions Value in currency_millions (e.g. 2950 for €2,950M)
- * @param sourceCurrency ISO currency code (USD, EUR, JPY, CNY, KRW, SEK, etc.)
- * @returns Total amount in KRW (won)
+ * @param sourceCurrency ISO currency code (USD, EUR, JPY, CNY, KRW, SEK, GBP, etc.)
+ * @returns Total amount in KRW (won), or null if invalid or currency is unsupported.
  */
 export function convertMillionsToKRW(
   amountInMillions: number | null | undefined,
-  sourceCurrency = 'USD'
+  sourceCurrency?: string
 ): number | null {
   if (amountInMillions === null || amountInMillions === undefined || !Number.isFinite(amountInMillions)) {
     return null;
   }
+  if (!sourceCurrency) {
+    return null;
+  }
   const curr = sourceCurrency.toUpperCase();
-  const rate = FX_RATES_TO_KRW[curr] ?? 1380.0;
+  const rate = FX_RATES_TO_KRW[curr];
+  if (rate === undefined) {
+    // Explicit failure for unsupported/unknown currencies — never silently default to USD
+    return null;
+  }
   return amountInMillions * rate * 1_000_000;
 }
 
 /**
  * Converts an amount in millions from the source currency to US Dollars (USD).
+ * Uses the same fixed comparison conversion basis.
  * @param amountInMillions Value in currency_millions
  * @param sourceCurrency ISO currency code
- * @returns Total amount in USD (dollars)
+ * @returns Total amount in USD (dollars), or null if invalid or currency is unsupported.
  */
 export function convertMillionsToUSD(
   amountInMillions: number | null | undefined,
-  sourceCurrency = 'USD'
+  sourceCurrency?: string
 ): number | null {
-  const krw = convertMillionsToKRW(amountInMillions, sourceCurrency);
+  if (amountInMillions === null || amountInMillions === undefined || !Number.isFinite(amountInMillions)) {
+    return null;
+  }
+  if (!sourceCurrency) {
+    return null;
+  }
+  const curr = sourceCurrency.toUpperCase();
+  if (curr === 'USD') {
+    return amountInMillions * 1_000_000;
+  }
+  const krw = convertMillionsToKRW(amountInMillions, curr);
   if (krw === null) return null;
   return krw / 1380.0;
 }
 
 /**
- * Formats profit / operating income localized into Korean Won (KRW) or original currency.
- * When language is 'ko', converts foreign amounts to KRW (조/억원) with optional original currency note.
+ * Formats profit / operating income localized into Korean Won (KRW) or US Dollars (USD).
+ * Both Korean and English share a consistent normalized comparison conversion basis.
  *
- * Examples:
- * - formatLocalizedProfit(2950, 'EUR', 'ko') => "₩4.43조"
- * - formatLocalizedProfit(1280000, 'JPY', 'ko') => "₩11.78조"
- * - formatLocalizedProfit(2150, 'USD', 'ko') => "₩2.97조"
- * - formatLocalizedProfit(3920000, 'KRW', 'ko') => "₩3.92조"
+ * Handles negative operating losses, zero, and positive profits explicitly.
+ * Returns '-' on conversion failure or unsupported currency.
  */
 export function formatLocalizedProfit(
   amountInMillions: number | null | undefined,
-  sourceCurrency = 'USD',
+  sourceCurrency?: string,
   language = 'ko',
   options?: {
     showOriginal?: boolean;
   }
 ): string {
   if (amountInMillions === null || amountInMillions === undefined || !Number.isFinite(amountInMillions)) {
+    return '-';
+  }
+  if (!sourceCurrency) {
     return '-';
   }
 
@@ -99,12 +127,33 @@ export function formatLocalizedProfit(
     return krwFormatted;
   }
 
-  // English formatting (original reported currency)
-  return formatOriginalCurrencyCompact(amountInMillions, curr);
+  // English formatting: Normalized USD comparison basis
+  const usdAmount = convertMillionsToUSD(amountInMillions, curr);
+  if (usdAmount === null) return '-';
+
+  const absUsd = Math.abs(usdAmount);
+  const sign = usdAmount < 0 ? '-' : '';
+  let usdFormatted = '';
+
+  if (absUsd >= 1_000_000_000) {
+    usdFormatted = `${sign}$${(absUsd / 1_000_000_000).toFixed(2)}B`;
+  } else if (absUsd >= 1_000_000) {
+    usdFormatted = `${sign}$${Math.round(absUsd / 1_000_000)}M`;
+  } else {
+    usdFormatted = `${sign}$${Math.round(absUsd).toLocaleString()}`;
+  }
+
+  if (options?.showOriginal && curr !== 'USD') {
+    const origFormatted = formatOriginalCurrencyCompact(amountInMillions, curr);
+    return `${usdFormatted} (${origFormatted})`;
+  }
+
+  return usdFormatted;
 }
 
 /**
- * Compact original currency formatter (e.g. $2.15B, €2.95B, ¥1.28T)
+ * Compact original currency formatter (e.g. $2.15B, €2.95B, ¥1.28T, -$836M)
+ * Preserves negative sign on operating losses.
  */
 export function formatOriginalCurrencyCompact(
   amountInMillions: number | null | undefined,
@@ -115,45 +164,54 @@ export function formatOriginalCurrencyCompact(
   }
 
   const curr = currency.toUpperCase();
+  const sign = amountInMillions < 0 ? '-' : '';
+  const abs = Math.abs(amountInMillions);
 
   if (curr === 'KRW') {
-    if (amountInMillions >= 1_000_000) {
-      return `₩${(amountInMillions / 1_000_000).toFixed(2)}T`;
+    if (abs >= 1_000_000) {
+      return `${sign}₩${(abs / 1_000_000).toFixed(2)}T`;
     }
-    return `₩${Math.round(amountInMillions / 100).toLocaleString()}B`;
+    return `${sign}₩${Math.round(abs / 100).toLocaleString()}B`;
   }
 
   if (curr === 'JPY') {
-    if (amountInMillions >= 1_000_000) {
-      return `¥${(amountInMillions / 1_000_000).toFixed(2)}T`;
+    if (abs >= 1_000_000) {
+      return `${sign}¥${(abs / 1_000_000).toFixed(2)}T`;
     }
-    return `¥${(amountInMillions / 1000).toFixed(1)}B`;
+    return `${sign}¥${(abs / 1000).toFixed(1)}B`;
   }
 
   if (curr === 'CNY' || curr === 'RMB') {
-    if (amountInMillions >= 1000) {
-      return `¥${(amountInMillions / 1000).toFixed(2)}B`;
+    if (abs >= 1000) {
+      return `${sign}¥${(abs / 1000).toFixed(2)}B`;
     }
-    return `¥${amountInMillions}M`;
+    return `${sign}¥${abs}M`;
   }
 
   if (curr === 'EUR') {
-    if (amountInMillions >= 1000) {
-      return `€${(amountInMillions / 1000).toFixed(2)}B`;
+    if (abs >= 1000) {
+      return `${sign}€${(abs / 1000).toFixed(2)}B`;
     }
-    return `€${amountInMillions}M`;
+    return `${sign}€${abs}M`;
   }
 
   if (curr === 'SEK') {
-    if (amountInMillions >= 1000) {
-      return `SEK ${(amountInMillions / 1000).toFixed(1)}B`;
+    if (abs >= 1000) {
+      return `${sign}SEK ${(abs / 1000).toFixed(1)}B`;
     }
-    return `SEK ${amountInMillions}M`;
+    return `${sign}SEK ${abs}M`;
+  }
+
+  if (curr === 'GBP') {
+    if (abs >= 1000) {
+      return `${sign}£${(abs / 1000).toFixed(2)}B`;
+    }
+    return `${sign}£${abs}M`;
   }
 
   // Default USD
-  if (amountInMillions >= 1000) {
-    return `$${(amountInMillions / 1000).toFixed(2)}B`;
+  if (abs >= 1000) {
+    return `${sign}$${(abs / 1000).toFixed(2)}B`;
   }
-  return `$${amountInMillions}M`;
+  return `${sign}$${abs}M`;
 }

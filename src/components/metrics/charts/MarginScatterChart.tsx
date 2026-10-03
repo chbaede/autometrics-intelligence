@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { Company } from '../../../types/metrics';
 import { TermBadge } from '../TermBadge';
 import { useLanguage } from '../../../i18n/LanguageContext';
-import { Layers, DollarSign, RefreshCw, ExternalLink, X } from 'lucide-react';
-import { formatLocalizedProfit } from '../../../utils/currencyUtils';
+import { Layers, DollarSign, ExternalLink, X } from 'lucide-react';
+import { formatLocalizedProfit, FX_BENCHMARK_METADATA } from '../../../utils/currencyUtils';
 
 export interface ScatterPoint {
   company: Company;
@@ -251,12 +251,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
               {subtitle}
             </p>
           )}
-          {language === 'ko' && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-blue-700 dark:text-blue-300 text-[11px] font-mono whitespace-nowrap sm:ml-auto">
-              <RefreshCw className="w-3 h-3 text-blue-500 shrink-0" />
-              <span>실시간 기준환율 (USD 1,380 · EUR 1,500 · JPY 9.2 · CNY 192)</span>
-            </div>
-          )}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-mono whitespace-nowrap sm:ml-auto">
+            <span>
+              {language === 'ko'
+                ? FX_BENCHMARK_METADATA.descriptionKo
+                : FX_BENCHMARK_METADATA.descriptionEn}
+            </span>
+          </div>
         </div>
       </div>
 

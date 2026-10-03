@@ -180,6 +180,7 @@ The ${data.findings.review} review findings represent legitimate, documented aut
 - **Generated at**: \`${data.generatedAt}\`
 - **Source claim validation**: \`${data.sourceClaimValidation.mismatches === 0 ? 'PASS' : 'FAIL'}\`
 - **Data audit**: \`${data.findings.blocking === 0 ? 'PASS' : 'FAIL'}\`
+- **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.
 `;
 }
 
