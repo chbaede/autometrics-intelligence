@@ -53,6 +53,8 @@ export interface Translations {
     historicalSubtitle: string;
     revenueVsMargin: string;
     revenueVsMarginSubtitle: string;
+    profitVsMargin: string;
+    profitVsMarginSubtitle: string;
     powertrainMix: string;
     powertrainMixSubtitle: string;
     sourceFooter: string;
@@ -120,6 +122,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       historicalSubtitle: 'Tracking historical quarterly and annual trajectory (2024 - 2026)',
       revenueVsMargin: 'Volume vs. Operating Profitability Matrix',
       revenueVsMarginSubtitle: 'Delivery volume (x-axis) vs operating margin % (y-axis)',
+      profitVsMargin: 'Operating Profit vs. Margin Matrix',
+      profitVsMarginSubtitle: 'Operating profit (x-axis, FX-normalized) vs operating margin % (y-axis)',
       powertrainMix: 'Electrification Powertrain Mix',
       powertrainMixSubtitle: 'Pure BEV, Plug-in Hybrid (PHEV), and ICE volume distribution',
       sourceFooter: 'Source: Official OEM IR Filings & Regulatory Announcements',
@@ -185,6 +189,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       historicalSubtitle: '분기별 매출액 및 수익성 궤적 시각화 (2024 - 2026)',
       revenueVsMargin: '판매 규모 vs. 수익성 4분면 매트릭스',
       revenueVsMarginSubtitle: '판매량(X축) 대비 영업이익률(Y축) 상관관계',
+      profitVsMargin: '영업이익 vs. 수익성 4분면 매트릭스',
+      profitVsMarginSubtitle: '영업이익(X축, 환율 정규화) 대비 영업이익률(Y축) 상관관계',
       powertrainMix: '파워트레인 전동화 구성비 (BEV vs PHEV vs 내연기관)',
       powertrainMixSubtitle: '순수전기차, 플러그인 하이브리드, 일반 내연기관 볼륨 구성',
       sourceFooter: '출처: 각 완성차 제조사 공식 IR 및 규제기관 공시 자료',

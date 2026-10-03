@@ -14,6 +14,7 @@ import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { GuidanceRangeChart } from '../components/metrics/charts/GuidanceRangeChart';
 import { PowertrainMixChart } from '../components/metrics/charts/PowertrainMixChart';
 import { MarginScatterChart } from '../components/metrics/charts/MarginScatterChart';
+import { ProfitScatterChart } from '../components/metrics/charts/ProfitScatterChart';
 import { DataTable } from '../components/metrics/DataTable';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
@@ -241,6 +242,23 @@ export const GlobalOverviewPage: React.FC = () => {
       currency: comp.reportingCurrency,
     };
   }).filter((pt) => pt.volumeThousand > 0 && pt.marginPercent > 0);
+
+  // Profit Scatter matrix points (Absolute Operating Profit vs Margin)
+  const profitScatterPoints = selectedCompanies.map((cid) => {
+    const comp = getCompanyById(cid)!;
+    const vol = getObservations([cid], ['deliveries_global'], selectedPeriod)[0]?.value || 0;
+    const margin = getObservations([cid], ['operating_margin'], selectedPeriod)[0]?.value || 0;
+    const ebit = getObservations([cid], ['operating_income'], selectedPeriod)[0]?.value;
+    const rev = getObservations([cid], ['revenue'], selectedPeriod)[0]?.value;
+    return {
+      company: comp,
+      volumeThousand: vol,
+      marginPercent: margin,
+      operatingIncome: ebit,
+      revenue: rev,
+      currency: comp.reportingCurrency,
+    };
+  }).filter((pt) => pt.marginPercent > 0 && pt.operatingIncome !== undefined && pt.operatingIncome !== null);
 
   // Guidance data
   const guidanceList = getAllGuidance().filter((g) => selectedCompanies.includes(g.companyId));
@@ -526,6 +544,15 @@ export const GlobalOverviewPage: React.FC = () => {
           title={t.charts.revenueVsMargin}
           subtitle={t.charts.revenueVsMarginSubtitle}
           points={scatterPoints}
+        />
+      </div>
+
+      {/* SECTION 2-B: 4-Quadrant Strategic Operating Profit vs Margin Matrix */}
+      <div className="w-full">
+        <ProfitScatterChart
+          title={t.charts.profitVsMargin}
+          subtitle={t.charts.profitVsMarginSubtitle}
+          points={profitScatterPoints}
         />
       </div>
 

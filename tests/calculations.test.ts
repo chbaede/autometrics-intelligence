@@ -72,6 +72,16 @@ assert(formatMetricValue(123456, 'units') === '123,456 units', 'Format: units');
 assert(formatMetricValue(null, 'percentage') === 'Not reported', 'Format: null value returns Not reported');
 assert(formatMetricValue(50000, 'currency_millions', 'EUR') === '€50,000M', 'Format: currency millions EUR');
 
+// 7. FX Conversion & Profit Normalization Tests (ProfitScatterChart)
+import { convertMillionsToKRW, convertMillionsToUSD, formatLocalizedProfit } from '../src/utils/currencyUtils';
+
+assert(convertMillionsToKRW(1000, 'USD') === 1_380_000_000_000, 'FX: 1000M USD = 1.38조 KRW');
+assert(convertMillionsToKRW(1000, 'EUR') === 1_500_000_000_000, 'FX: 1000M EUR = 1.50조 KRW');
+assert(convertMillionsToKRW(null, 'USD') === null, 'FX: Null amount returns null');
+assert(convertMillionsToUSD(1380, 'USD') === 1_380_000_000, 'FX: 1380M USD = 1.38B USD');
+assert(formatLocalizedProfit(2950, 'EUR', 'ko') === '₩4.42조', 'Profit Format: €2,950M in KRW = ₩4.42조');
+assert(formatLocalizedProfit(398, 'USD', 'en') === '$398M', 'Profit Format: $398M in EN = $398M');
+
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {
   process.exit(1);
