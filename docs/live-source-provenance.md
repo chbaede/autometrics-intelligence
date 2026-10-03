@@ -487,6 +487,60 @@ Loose regexes and unvalidated caller claims are replaced by a formal `METRIC_SEM
      - `document_definition`: Global unit definition.
    - Missing or unproven units fail closed with `unprovenUnit`.
 
+---
+
+### 15. Column-Local Period Evidence & Disambiguation (STEP 5 Remediation Round 5, P0)
+
+Period verification for tabular disclosures is strictly column-local:
+1. **Header Path Isolation**:
+   - Concatenated context header searches across the entire table are removed.
+   - The period for any tabular numeric value must be derived exclusively from the header path directly associated with the resolved `columnIndex`.
+   - If the selected column has no reliable header path, verification fails closed with `unprovenReportingPeriod`.
+2. **Comparator Column Disambiguation**:
+   - When comparator periods (e.g. Q2 2026 vs Q2 2025) appear side-by-side in the same row, values must be uniquely bound to the specific column header matching the claim. A cell belonging to a prior-year comparator column cannot satisfy a current-year claim even if the current year is mentioned in adjacent headers or the document title.
+3. **Period Type Strictness**:
+   - Cumulative indicators (`6M`, `9M`, `YTD`, `first half`, `nine months`) are strictly differentiated from quarterly indicators. A quarterly claim fails closed with `periodTypeMismatch` if bound to a cumulative column.
+
+---
+
+### 16. Value-Local Metric Identity & Unit Compatibility (Round 5, P0)
+
+1. **Local Row/Cell Metric Proof**:
+   - Section headings and table captions alone **cannot** independently establish the metric identity of a numeric value.
+   - For table rows, the metric identity must be proven by an authoritative row header label, row descriptor cell, or explicit local association. Broad section headings (e.g. "Operating Margin by Division") cannot promote a generic row label (e.g. "Total") to a specific metric.
+2. **Contradictory Semantic Rejection**:
+   - If a section heading mentions one metric (e.g. "Revenue") but the selected row label specifies another (e.g. "Operating profit"), verification fails immediately with `incompatibleMetricSemantic`.
+3. **Metric Unit Contract Enforcement**:
+   - `MetricSemanticRule.expectedUnits` is strictly enforced against the proven unit.
+   - An operating margin claim expecting `percentage` or `basis_points` fails with `unitMismatch` if the proven unit is `currency_millions`.
+
+---
+
+### 17. Explicit Unit Scale Verification (Round 5, P1)
+
+1. **Currency Symbol Insufficiency**:
+   - A bare currency symbol (`€`, `$`, `EUR`, `USD`) alone does **not** prove numeric scale (millions or billions).
+   - Numeric values lacking explicit scale suffixes (`m`, `million`, `bn`, `billion`) or explicit column/caption scale declarations fail closed with `unprovenUnit`.
+2. **Contradictory Scale Rejection**:
+   - If a column header specifies `billions` while a table caption or row header declares `millions`, the conflicting scales cannot be silently merged or inferred. The candidate fails closed with `contradictedUnit` and is never promoted.
+
+---
+
+### 18. Malformed Table Promotion Gate & Coordinate Integrity (Round 5, P1)
+
+1. **Malformed Table Gate**:
+   - Table rows flagged with `isMalformed === true` during structural HTML/PDF extraction are strictly blocked from verification.
+   - `validateLiveEvidenceCandidate()` emits `verificationTableMalformed`.
+   - `verifyClaimEvidence()` downgrades the claim to `source_verified` with diagnostic code `tableMalformed`.
+   - `validateClaimVerificationResult()` rejects any forged or promoted result with `verificationTableMalformed`.
+2. **Cross-Boundary Coordinate Integrity**:
+   - Structural coordinates (`tableIndex`, `rowIndex`, `columnIndex`) must match across all stages:
+     - Candidate locator vs candidate `tableCoordinates`.
+     - Candidate `tableCoordinates` vs matched document content block.
+     - Verified result `tableCoordinates` vs authoritative extracted document block.
+   - Any coordinate discrepancy produces `verificationCoordinateMismatch` and fails validation/promotion closed.
+
+
 
 
 

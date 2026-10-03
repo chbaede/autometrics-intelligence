@@ -408,6 +408,7 @@ export interface BaseClaimVerificationResult {
   sourceContentHash?: string;
   verificationOrigin?: 'repository_fixture' | 'live_source';
   diagnostics?: ClaimVerificationDiagnosticDetails;
+  diagnosticReasons?: string[];
 }
 
 /**
@@ -700,6 +701,8 @@ export interface ProvenanceClaimDimensions {
   provenMetricId?: string;
   /** Matched textual metric label in document (e.g. 'Return on Sales (RoS)') */
   matchedMetricLabel?: string;
+  /** Proven metric label in document (alias for matchedMetricLabel) */
+  provenMetricLabel?: string;
   /** Reporting scope proven from document (e.g. 'cars_segment') */
   provenScope?: ReportingScope;
   /** Matched scope text in document (e.g. 'Mercedes-Benz Cars') */

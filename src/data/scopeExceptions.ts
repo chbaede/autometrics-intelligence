@@ -1939,11 +1939,27 @@ export function verifyClaimEvidence(
         return false;
       }
 
-      // 4f. Authoritative value presence in block & table cell resolution (P0-1.7, P0-2, Round 4 P0)
+      // 4f. Authoritative value presence in block & table cell resolution (P0-1.7, P0-2, Round 4 P0, Round 5 P1)
       if (matchedDocBlock.blockType === 'table_row') {
+        if (matchedDocBlock.isMalformed) {
+          liveFailureReason = 'tableMalformed';
+          liveFailureDiagnostic = 'Live claim verification failed: table structure is malformed and cannot support claim verification.';
+          return false;
+        }
         if (!cand.tableCoordinates || cand.tableCoordinates.columnIndex === undefined) {
           liveFailureReason = 'unresolvedTableCell';
           liveFailureDiagnostic = 'Live claim verification failed: table-derived claim requires resolved tableCoordinates with columnIndex.';
+          return false;
+        }
+        // Coordinate integrity check
+        if (cand.tableCoordinates.tableIndex !== undefined && matchedDocBlock.tableIndex !== undefined && cand.tableCoordinates.tableIndex !== matchedDocBlock.tableIndex) {
+          liveFailureReason = 'verificationCoordinateMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: tableCoordinates.tableIndex (${cand.tableCoordinates.tableIndex}) does not match document block tableIndex (${matchedDocBlock.tableIndex}).`;
+          return false;
+        }
+        if (cand.tableCoordinates.rowIndex !== undefined && matchedDocBlock.rowIndex !== undefined && cand.tableCoordinates.rowIndex !== matchedDocBlock.rowIndex) {
+          liveFailureReason = 'verificationCoordinateMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: tableCoordinates.rowIndex (${cand.tableCoordinates.rowIndex}) does not match document block rowIndex (${matchedDocBlock.rowIndex}).`;
           return false;
         }
         const cell = matchedDocBlock.cells?.[cand.tableCoordinates.columnIndex];
@@ -2182,6 +2198,7 @@ export function verifyClaimEvidence(
       verifiedValue: undefined,
       expectedValue,
       verifiedAt,
+      diagnosticReasons: liveFailureReason ? [liveFailureReason] : [],
       diagnostics: {
         inspectedLocation,
         expectedMetric: claim?.claimedMetricId,
@@ -2605,13 +2622,14 @@ export function validateClaimVerificationResult(
       mismatches.push('verificationExtractedDocumentMissing');
     }
 
-    if (!result.blockId || typeof result.blockId !== 'string' || result.blockId.trim() === '') {
+    const effectiveBlockId = result.blockId ?? (result as any).matchedBlockId;
+    if (!effectiveBlockId || typeof effectiveBlockId !== 'string' || effectiveBlockId.trim() === '') {
       mismatches.push('verificationBlockIdMissing');
     }
 
-    if (options?.extractedLiveDocument && result.blockId) {
+    if (options?.extractedLiveDocument && effectiveBlockId) {
       const docBlocks = options.extractedLiveDocument.blocks ?? [];
-      const matchingBlocks = docBlocks.filter((b) => b.id === result.blockId);
+      const matchingBlocks = docBlocks.filter((b) => b.id === effectiveBlockId);
       if (matchingBlocks.length === 0) {
         mismatches.push('verificationBlockNotFound');
       } else if (matchingBlocks.length > 1) {
@@ -2642,9 +2660,19 @@ export function validateClaimVerificationResult(
         const val = result.verifiedValue ?? (result.verifiedNumericValue !== undefined ? String(result.verifiedNumericValue) : '');
 
         if (matchedBlock.blockType === 'table_row') {
+          if (matchedBlock.isMalformed) {
+            mismatches.push('verificationTableMalformed');
+          }
           if (!result.tableCoordinates || result.tableCoordinates.columnIndex === undefined) {
             mismatches.push('verificationTableCoordinatesMissing');
           } else {
+            // Coordinate integrity checks (Round 5 P1)
+            if (matchedBlock.tableIndex !== undefined && result.tableCoordinates.tableIndex !== undefined && matchedBlock.tableIndex !== result.tableCoordinates.tableIndex) {
+              mismatches.push('verificationCoordinateMismatch');
+            }
+            if (matchedBlock.rowIndex !== undefined && result.tableCoordinates.rowIndex !== undefined && matchedBlock.rowIndex !== result.tableCoordinates.rowIndex) {
+              mismatches.push('verificationCoordinateMismatch');
+            }
             const cell = matchedBlock.cells?.[result.tableCoordinates.columnIndex];
             if (!cell || !isValuePresentInBlock(cell, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit)) {
               mismatches.push('verificationValueNotFoundInBlock');

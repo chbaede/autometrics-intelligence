@@ -33,14 +33,16 @@ export interface SemanticContext {
   tableCaption?: string;
   claimedScope?: ReportingScope;
   claimedAccountingBasis?: AccountingBasis;
-  unitContext?: MetricUnit;
+  unitContext?: MetricUnit | string;
+  provenUnit?: MetricUnit;
+  isTableRow?: boolean;
 }
 
 export interface SemanticEvaluationResult {
   valid: boolean;
   matchedLabel?: string;
   matchedRuleType?: 'exact' | 'alias' | 'conditional';
-  failureReason?: 'incompatibleMetricSemantic' | 'unprovenMetricSemantic' | 'unknownMetricId' | 'conditionalRequirementNotMet';
+  failureReason?: 'incompatibleMetricSemantic' | 'unprovenMetricSemantic' | 'unknownMetricId' | 'conditionalRequirementNotMet' | 'unitMismatch';
   failureDiagnostic?: string;
 }
 
@@ -285,7 +287,15 @@ function containsAlias(textNorm: string, alias: string): boolean {
 }
 
 /**
- * Evaluates authoritative document text against the metric semantic contract (P1).
+ * Evaluates authoritative document text against the metric semantic contract (Round 4 P1, Round 5 P0).
+ *
+ * Rules:
+ *  1. Unknown metric IDs fail closed with unknownMetricId.
+ *  2. Enforce MetricSemanticRule.expectedUnits against proven unit.
+ *  3. Incompatible labels are checked FIRST -> fails immediately.
+ *  4. For table cells/rows, metric identity MUST be proven by local row/cell/column context.
+ *     Section heading and table caption alone CANNOT establish metric identity.
+ *  5. Exact labels, approved aliases, and qualified conditional aliases must match local context.
  */
 export function evaluateMetricSemantic(
   metricId: string,
@@ -302,17 +312,26 @@ export function evaluateMetricSemantic(
     };
   }
 
-  // Combine authoritative context strings
-  const combinedContext = [
-    context.rowHeader,
-    context.columnHeader,
-    context.cellText,
-    context.sectionHeading,
-    context.tableCaption,
-  ]
-    .filter(Boolean)
-    .join(' | ');
+  // 1b. Enforce MetricSemanticRule.expectedUnits against proven unit (Round 5 P0-6)
+  const unitToCheck = context.provenUnit ?? (context.unitContext as MetricUnit | undefined);
+  if (unitToCheck && rule.expectedUnits && rule.expectedUnits.length > 0) {
+    if (!rule.expectedUnits.includes(unitToCheck as MetricUnit)) {
+      return {
+        valid: false,
+        failureReason: 'unitMismatch',
+        failureDiagnostic: `Proven unit "${unitToCheck}" is not compatible with expected units [${rule.expectedUnits.join(', ')}] for metric "${metricId}".`,
+      };
+    }
+  }
 
+  // Authoritative contexts separated into local vs broad (Round 5 P0)
+  const localRowLabelContext = [context.rowHeader, context.cellText].filter(Boolean).join(' | ');
+  const localColumnContext = context.columnHeader ?? '';
+  const localContext = [localRowLabelContext, localColumnContext].filter(Boolean).join(' | ');
+  const broadContext = [context.sectionHeading, context.tableCaption].filter(Boolean).join(' | ');
+  const combinedContext = [localContext, broadContext].filter(Boolean).join(' | ');
+
+  const normLocal = normalizeText(localContext);
   const normCombined = normalizeText(combinedContext);
 
   if (!normCombined) {
@@ -324,19 +343,128 @@ export function evaluateMetricSemantic(
   }
 
   // 2. Incompatible Labels check FIRST -> fails immediately
+  // Check local context first
   for (const incomp of rule.incompatibleLabels) {
-    if (containsAlias(normCombined, incomp)) {
+    if (containsAlias(normLocal, incomp)) {
       // Special allowance: if text contains both ros and ebit margin where ros is approved
       if (
         metricId === 'operating_margin' &&
-        (containsAlias(normCombined, 'ros') || containsAlias(normCombined, 'return on sales')) &&
+        (containsAlias(normLocal, 'ros') || containsAlias(normLocal, 'return on sales')) &&
         (incomp === 'operating profit' || incomp === 'ebit') &&
-        (containsAlias(normCombined, 'ebit margin') || containsAlias(normCombined, 'adjusted ros') || containsAlias(normCombined, 'ros'))
+        (containsAlias(normLocal, 'ebit margin') || containsAlias(normLocal, 'adjusted ros') || containsAlias(normLocal, 'ros'))
       ) {
-        // e.g. "Adjusted RoS" or "EBIT margin" is present, allow it
         continue;
       }
 
+      return {
+        valid: false,
+        failureReason: 'incompatibleMetricSemantic',
+        failureDiagnostic: `Authoritative local context contains incompatible label "${incomp}" which contradicts claimed metric "${metricId}".`,
+      };
+    }
+  }
+
+  // Check if broad section heading or caption contradicts local row/cell (e.g. section heading is Revenue, but row is operating income)
+  if (context.sectionHeading && normLocal) {
+    for (const incomp of rule.incompatibleLabels) {
+      if (containsAlias(normalizeText(context.sectionHeading), incomp) && containsAlias(normLocal, incomp)) {
+        return {
+          valid: false,
+          failureReason: 'incompatibleMetricSemantic',
+          failureDiagnostic: `Context contains incompatible label "${incomp}" which contradicts claimed metric "${metricId}".`,
+        };
+      }
+    }
+  }
+
+  // 3. Section heading or table caption ALONE cannot establish metric identity (Round 5 P0-1/2)
+  const isTable = context.isTableRow !== false && (
+    context.rowHeader !== undefined ||
+    context.columnHeader !== undefined ||
+    context.cellText !== undefined ||
+    context.isTableRow === true
+  );
+
+  if (isTable) {
+    if (!normLocal || normLocal.trim() === '') {
+      return {
+        valid: false,
+        failureReason: 'unprovenMetricSemantic',
+        failureDiagnostic: `Selected cell or row has no metric label. Section heading or caption alone cannot establish metric identity.`,
+      };
+    }
+
+    // Must find metric match in localContext
+    let localMatchedLabel: string | undefined;
+    let localMatchedRuleType: 'exact' | 'alias' | 'conditional' | undefined;
+
+    for (const exact of rule.exactLabels) {
+      if (containsAlias(normLocal, exact)) {
+        localMatchedLabel = exact;
+        localMatchedRuleType = 'exact';
+        break;
+      }
+    }
+
+    if (!localMatchedLabel) {
+      for (const alias of rule.approvedAliases) {
+        if (containsAlias(normLocal, alias)) {
+          localMatchedLabel = alias;
+          localMatchedRuleType = 'alias';
+          break;
+        }
+      }
+    }
+
+    if (!localMatchedLabel && rule.conditionallyEquivalent && rule.conditionallyEquivalent.length > 0) {
+      for (const cond of rule.conditionallyEquivalent) {
+        if (containsAlias(normLocal, cond.alias)) {
+          let conditionMet = true;
+          let failureDetails = '';
+
+          if (cond.requiredScope && context.claimedScope !== cond.requiredScope) {
+            conditionMet = false;
+            failureDetails += `Requires scope "${cond.requiredScope}" but claimed scope is "${context.claimedScope ?? 'none'}". `;
+          }
+
+          if (cond.requiredBasis && context.claimedAccountingBasis !== cond.requiredBasis) {
+            conditionMet = false;
+            failureDetails += `Requires accounting basis "${cond.requiredBasis}" but claimed basis is "${context.claimedAccountingBasis ?? 'none'}". `;
+          }
+
+          if (conditionMet) {
+            localMatchedLabel = cond.alias;
+            localMatchedRuleType = 'conditional';
+            break;
+          } else {
+            return {
+              valid: false,
+              failureReason: 'conditionalRequirementNotMet',
+              failureDiagnostic: `Alias "${cond.alias}" found for "${metricId}", but conditional requirements failed: ${failureDetails.trim()}`,
+            };
+          }
+        }
+      }
+    }
+
+    if (!localMatchedLabel) {
+      return {
+        valid: false,
+        failureReason: 'unprovenMetricSemantic',
+        failureDiagnostic: `Selected row/cell lacks a metric label matching "${metricId}". Section heading or caption alone cannot establish metric identity for a table cell.`,
+      };
+    }
+
+    return {
+      valid: true,
+      matchedLabel: localMatchedLabel,
+      matchedRuleType: localMatchedRuleType,
+    };
+  }
+
+  // Non-table paragraph or text block fallback
+  for (const incomp of rule.incompatibleLabels) {
+    if (containsAlias(normCombined, incomp)) {
       return {
         valid: false,
         failureReason: 'incompatibleMetricSemantic',
@@ -345,7 +473,6 @@ export function evaluateMetricSemantic(
     }
   }
 
-  // 3. Exact Labels check
   for (const exact of rule.exactLabels) {
     if (containsAlias(normCombined, exact)) {
       return {
@@ -356,7 +483,6 @@ export function evaluateMetricSemantic(
     }
   }
 
-  // 4. Approved Aliases check
   for (const alias of rule.approvedAliases) {
     if (containsAlias(normCombined, alias)) {
       return {
@@ -367,7 +493,6 @@ export function evaluateMetricSemantic(
     }
   }
 
-  // 5. Conditionally Equivalent Aliases check
   if (rule.conditionallyEquivalent && rule.conditionallyEquivalent.length > 0) {
     for (const cond of rule.conditionallyEquivalent) {
       if (containsAlias(normCombined, cond.alias)) {

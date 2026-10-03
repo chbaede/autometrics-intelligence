@@ -360,7 +360,7 @@ export function verifyDocumentClaimDimensions(
   rawValue: string,
   numericValue?: number,
   targetUnit?: MetricUnit,
-  extDoc?: ExtractedLiveDocument,
+  _extDoc?: ExtractedLiveDocument,
   locatorColIdx?: number
 ): DocumentDimensionVerificationResult {
   const blockText = matchedBlock.text ?? '';
@@ -532,7 +532,7 @@ export function verifyDocumentClaimDimensions(
     }
   }
 
-  // 3. Metric Semantic Verification (P1 Centralized Metric Semantic Contract)
+  // 3. Metric Semantic Verification (P1 Centralized Metric Semantic Contract, Round 5 P0)
   let matchedMetricLabel: string | undefined;
   if (claim?.claimedMetricId) {
     const semEval = evaluateMetricSemantic(claim.claimedMetricId, {
@@ -543,6 +543,9 @@ export function verifyDocumentClaimDimensions(
       tableCaption: matchedBlock.tableCaption,
       claimedScope: claim.claimedScope,
       claimedAccountingBasis: claim.claimedAccountingBasis,
+      unitContext: matchedBlock.unitContext,
+      provenUnit: claim.claimedUnit ?? targetUnit,
+      isTableRow: matchedBlock.blockType === 'table_row',
     });
 
     if (!semEval.valid) {
@@ -560,10 +563,11 @@ export function verifyDocumentClaimDimensions(
     matchedMetricLabel = semEval.matchedLabel;
   }
 
-  // 4. Accounting Basis Verification (P0 Positive Proof)
+  // 4. Accounting Basis Verification (P0 Positive Proof, Round 5 P1)
   let matchedBasisLabel: string | undefined;
   if (claim?.claimedAccountingBasis) {
-    const basisContext = [columnHeader, rowHeader, cellText, matchedBlock.tableCaption, matchedBlock.sectionHeading, matchedBlock.text].filter(Boolean).join(' | ');
+    // For table rows, basis must be locally bound to row/cell/col/caption, NOT broad document or section heading
+    const basisContext = [matchedBlock.text, columnHeader, matchedBlock.tableCaption].filter(Boolean).join(' | ');
 
     if (claim.claimedAccountingBasis === 'adjusted') {
       const match = basisContext.match(/\b(adjusted|adj\.?|bereinigt|before\s+special\s+items|vor\s+sondereinflüssen)\b/i);
@@ -612,10 +616,8 @@ export function verifyDocumentClaimDimensions(
         };
       }
       // Positive proof required (no silent inference from absence of "adjusted")
-      const reportedMatch =
-        basisContext.match(/\b(as\s+reported|reported|ifrs|us\s+gaap|gaap|statutory|unadjusted|gemäß\s+ifrs)\b/i) ||
-        (matchedBlock.tableCaption && matchedBlock.tableCaption.match(/\b(ifrs|gaap|reported)\b/i)) ||
-        (extDoc?.documentTitle && extDoc.documentTitle.match(/\b(ifrs|gaap)\b/i));
+      // A section title such as "IFRS Results" must not automatically prove every KPI is reported (Round 5 P1-3)
+      const reportedMatch = basisContext.match(/\b(as\s+reported|reported|ifrs|us\s+gaap|gaap|statutory|unadjusted|gemäß\s+ifrs)\b/i);
 
       if (reportedMatch) {
         matchedBasisLabel = reportedMatch[0];
@@ -623,7 +625,7 @@ export function verifyDocumentClaimDimensions(
         return {
           valid: false,
           failureReason: 'unprovenAccountingBasis',
-          failureDiagnostic: 'Accounting basis "reported" requires explicit basis indicator (IFRS/GAAP/reported) or documented source convention; absence of "adjusted" alone is insufficient.',
+          failureDiagnostic: 'Accounting basis "reported" requires explicit basis indicator (IFRS/GAAP/reported) in row, column, cell, or table caption; broad section headings or absence of "adjusted" alone is insufficient.',
           provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenAccountingBasis'], tableCoordinates },
         };
       }
@@ -637,10 +639,11 @@ export function verifyDocumentClaimDimensions(
     }
   }
 
-  // 5. Reporting Scope Verification (P0 Positive Proof)
+  // 5. Reporting Scope Verification (P0 Positive Proof, Round 5 P1)
   let matchedScopeLabel: string | undefined;
   if (claim?.claimedScope) {
-    const scopeContext = [rowHeader, columnHeader, cellText, matchedBlock.tableCaption, matchedBlock.sectionHeading, matchedBlock.text].filter(Boolean).join(' | ');
+    // For table rows, scope can be proven from row text, column header, table caption, or table section heading
+    const scopeContext = [matchedBlock.text, columnHeader, matchedBlock.tableCaption, matchedBlock.sectionHeading].filter(Boolean).join(' | ');
 
     if (claim.claimedScope === 'cars_segment') {
       const match = scopeContext.match(/\b(mercedes-benz\s+cars|cars\s+division|cars\s+segment|cars|passenger\s+cars|pkw)\b/i);
@@ -677,15 +680,15 @@ export function verifyDocumentClaimDimensions(
           provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['scopeMismatch'], tableCoordinates },
         };
       }
-      // Positive proof required: absence of contradiction is insufficient
-      const groupMatch = scopeContext.match(/\b(consolidated\s+group|group|consolidated|total\s+group|total|gesamt|konzern)\b/i);
+      // Positive proof required: absence of contradiction is insufficient; "total" alone is NOT sufficient (Round 5 P1-2)
+      const groupMatch = scopeContext.match(/\b(consolidated\s+group|group\s+at\s+a\s+glance|group\s+kpis?|group|consolidated|total\s+group|gesamtkonzern|konzern)\b/i);
       if (groupMatch) {
         matchedScopeLabel = groupMatch[0];
       } else {
         return {
           valid: false,
           failureReason: 'unprovenReportingScope',
-          failureDiagnostic: 'Reporting scope "consolidated_group" requires authoritative group/consolidated context linked to the selected value; absence of segment contradiction alone is insufficient.',
+          failureDiagnostic: 'Reporting scope "consolidated_group" requires authoritative group/consolidated context linked to the selected value; "total" alone or absence of segment contradiction is insufficient.',
           provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingScope'], tableCoordinates },
         };
       }
@@ -699,108 +702,75 @@ export function verifyDocumentClaimDimensions(
     }
   }
 
-  // 6. Reporting Period Verification (P0: bound to value, not merely present in document)
+  // 6. Reporting Period Verification (Round 5 P0: strictly column-local for tables)
   let matchedPeriodLabel: string | undefined;
   if (claim?.claimedPeriod) {
     const targetPeriod = claim.claimedPeriod;
 
     if (matchedBlock.blockType === 'table_row') {
-      let boundPeriodFound = false;
-
-      // a. Check column header (prefer explicit column header and hierarchical header associations)
-      if (columnHeader) {
-        const colPeriods = extractPeriodsFromText(columnHeader);
-        if (colPeriods.length > 0) {
-          const hasQuarterly = colPeriods.some((p) => p.periodType === 'quarterly');
-          const hasNonQuarterly = colPeriods.some((p) => p.periodType && p.periodType !== 'quarterly');
-          if (claim.claimedPeriodType === 'quarterly' && !hasQuarterly && hasNonQuarterly) {
-            return {
-              valid: false,
-              failureReason: 'periodTypeMismatch',
-              failureDiagnostic: `Table column specifies non-quarterly period ("${colPeriods[0].raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
-              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
-            };
-          }
-
-          const matchesCol = colPeriods.find((p) => p.normalized === targetPeriod);
-          if (!matchesCol) {
-            return {
-              valid: false,
-              failureReason: 'unprovenReportingPeriod',
-              failureDiagnostic: `Authoritative table column specifies period "${colPeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
-              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
-            };
-          }
-
-          if (claim.claimedPeriodType === 'quarterly' && matchesCol.periodType && matchesCol.periodType !== 'quarterly') {
-            return {
-              valid: false,
-              failureReason: 'periodTypeMismatch',
-              failureDiagnostic: `Table column specifies ${matchesCol.periodType} period ("${matchesCol.raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
-              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
-            };
-          }
-
-          // Check if row header or cell explicitly specifies a conflicting period
-          const rowOrCellContext = [rowHeader, cellText].filter(Boolean).join(' | ');
-          const rowPeriods = extractPeriodsFromText(rowOrCellContext);
-          if (rowPeriods.length > 0 && !rowPeriods.some((p) => p.normalized === targetPeriod)) {
-            return {
-              valid: false,
-              failureReason: 'contradictedReportingPeriod',
-              failureDiagnostic: `Conflicting period in row/cell ("${rowPeriods[0].raw}") contradicts column period "${targetPeriod}".`,
-              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['contradictedReportingPeriod'], tableCoordinates },
-            };
-          }
-
-          matchedPeriodLabel = matchesCol.raw;
-          boundPeriodFound = true;
-        }
-      }
-
-      // b. Check hierarchical context headers / table caption / rowHeader if not in columnHeader
-      if (!boundPeriodFound) {
-        const tableContext = [
-          ...(matchedBlock.contextHeaders ?? []),
-          matchedBlock.tableCaption,
-          rowHeader,
-          cellText,
-        ].filter(Boolean).join(' | ');
-
-        const tablePeriods = extractPeriodsFromText(tableContext);
-        if (tablePeriods.length > 0) {
-          const match = tablePeriods.find((p) => p.normalized === targetPeriod);
-          if (match) {
-            if (claim.claimedPeriodType === 'quarterly' && match.periodType && match.periodType !== 'quarterly') {
-              return {
-                valid: false,
-                failureReason: 'periodTypeMismatch',
-                failureDiagnostic: `Table context specifies ${match.periodType} period ("${match.raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
-                provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
-              };
-            }
-            matchedPeriodLabel = match.raw;
-            boundPeriodFound = true;
-          } else {
-            return {
-              valid: false,
-              failureReason: 'unprovenReportingPeriod',
-              failureDiagnostic: `Table structure specifies period "${tablePeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
-              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
-            };
-          }
-        }
-      }
-
-      // c. Fail closed: do NOT fall back to global documentTitle or global heading
-      if (!boundPeriodFound) {
+      // Period proof for a table value must use only the header path associated with the selected columnIndex (Round 5 P0-2)
+      if (!columnHeader || columnHeader.trim() === '') {
         return {
           valid: false,
           failureReason: 'unprovenReportingPeriod',
-          failureDiagnostic: `Period "${targetPeriod}" cannot be bound to the selected table cell or table structure. Document title or global heading alone is insufficient proof.`,
+          failureDiagnostic: `Selected column (index ${tableCoordinates?.columnIndex ?? 'unknown'}) has no reliable column header path. Period proof must be column-local.`,
           provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
         };
       }
+
+      const colPeriods = extractPeriodsFromText(columnHeader);
+      if (colPeriods.length === 0) {
+        return {
+          valid: false,
+          failureReason: 'unprovenReportingPeriod',
+          failureDiagnostic: `Selected column header path "${columnHeader}" contains no recognized reporting period for claimed period "${targetPeriod}".`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
+        };
+      }
+
+      const hasQuarterly = colPeriods.some((p) => p.periodType === 'quarterly');
+      const hasNonQuarterly = colPeriods.some((p) => p.periodType && p.periodType !== 'quarterly');
+      if (claim.claimedPeriodType === 'quarterly' && !hasQuarterly && hasNonQuarterly) {
+        return {
+          valid: false,
+          failureReason: 'periodTypeMismatch',
+          failureDiagnostic: `Table column specifies non-quarterly period ("${colPeriods[0].raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
+        };
+      }
+
+      const matchesCol = colPeriods.find((p) => p.normalized === targetPeriod);
+      if (!matchesCol) {
+        return {
+          valid: false,
+          failureReason: 'unprovenReportingPeriod',
+          failureDiagnostic: `Selected column header path "${columnHeader}" specifies period "${colPeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
+        };
+      }
+
+      if (claim.claimedPeriodType === 'quarterly' && matchesCol.periodType && matchesCol.periodType !== 'quarterly') {
+        return {
+          valid: false,
+          failureReason: 'periodTypeMismatch',
+          failureDiagnostic: `Table column specifies ${matchesCol.periodType} period ("${matchesCol.raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
+        };
+      }
+
+      // Check if row header or cell explicitly specifies a conflicting period
+      const rowOrCellContext = [rowHeader, cellText].filter(Boolean).join(' | ');
+      const rowPeriods = extractPeriodsFromText(rowOrCellContext);
+      if (rowPeriods.length > 0 && !rowPeriods.some((p) => p.normalized === targetPeriod)) {
+        return {
+          valid: false,
+          failureReason: 'contradictedReportingPeriod',
+          failureDiagnostic: `Conflicting period in row/cell ("${rowPeriods[0].raw}") contradicts column period "${targetPeriod}".`,
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['contradictedReportingPeriod'], tableCoordinates },
+        };
+      }
+
+      matchedPeriodLabel = matchesCol.raw;
     } else {
       // Paragraph or text block: check block text itself
       const blockPeriods = extractPeriodsFromText(blockText);
@@ -826,7 +796,7 @@ export function verifyDocumentClaimDimensions(
     }
   }
 
-  // 7. Unit Provenance Verification (P1 Positive Proof)
+  // 7. Unit Provenance Verification (P1 Explicit Unit Scale, Round 5 P1)
   let unitProvenance: 'cell' | 'column_header' | 'table_caption' | 'row_header' | 'section_heading' | 'document_definition' | undefined;
   if (claim?.claimedUnit) {
     const targetU = claim.claimedUnit;
@@ -850,38 +820,79 @@ export function verifyDocumentClaimDimensions(
         };
       }
     } else if (targetU === 'currency_millions') {
-      if (/(?:€|\$|EUR|USD)?\s*\d+(?:,\d{3})*(?:\.\d+)?\s*(?:m|million|M)\b/i.test(cellText) || /(?:€|\$|EUR|USD)/i.test(cellText)) {
+      // Round 5 P1: A currency symbol alone does NOT prove currency_millions or currency_billions!
+      // Scale must be explicit in cell suffix, selected column header, applicable caption, or row header.
+      const hasMillionsInCell = /(?:\d|\s)(?:m|million|millions|M)\b/i.test(cellText);
+      const hasMillionsInCol = Boolean(columnHeader && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|\bmillions?\b)/i.test(columnHeader));
+      const hasBillionsInCol = Boolean(columnHeader && /(?:in\s+billions|in\s+€\s*billions?|in\s+bn|€bn|\$bn|\bbillions?\b|\bbn\b)/i.test(columnHeader));
+
+      // Contradiction: if column explicitly says billions, claim of millions fails!
+      // Contradiction: if column explicitly says billions, claim of millions fails!
+      if (hasBillionsInCol) {
+        return {
+          valid: false,
+          failureReason: 'contradictedUnit',
+          failureDiagnostic: `Selected column header explicitly specifies billions ("${columnHeader}"), which contradicts claimed unit "currency_millions".`,
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['contradictedUnit'], tableCoordinates },
+        };
+      }
+
+      const hasMillionsInCaption = Boolean(
+        (matchedBlock.tableCaption && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|\bmillions?\b)/i.test(matchedBlock.tableCaption)) ||
+        matchedBlock.unitContext === 'currency_millions'
+      );
+      const hasMillionsInRow = Boolean(rowHeader && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|\bmillion\b)/i.test(rowHeader));
+
+      if (hasMillionsInCell) {
         unitProvenance = 'cell';
-      } else if (columnHeader && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|million)/i.test(columnHeader)) {
+      } else if (hasMillionsInCol) {
         unitProvenance = 'column_header';
-      } else if (matchedBlock.tableCaption && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|million)/i.test(matchedBlock.tableCaption)) {
+      } else if (hasMillionsInCaption) {
         unitProvenance = 'table_caption';
-      } else if (rowHeader && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|million)/i.test(rowHeader)) {
+      } else if (hasMillionsInRow) {
         unitProvenance = 'row_header';
-      } else if (matchedBlock.unitContext === 'currency_millions') {
-        unitProvenance = 'table_caption';
       } else {
         return {
           valid: false,
           failureReason: 'unprovenUnit',
-          failureDiagnostic: `Unit "currency_millions" is not proven by cell, column header, caption, or row header. Numeric value alone cannot prove unit.`,
+          failureDiagnostic: `Unit "currency_millions" requires explicit scale indication (e.g. "million", "€m", "in millions"). A currency symbol alone does not prove numeric scale.`,
           provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenUnit'], tableCoordinates },
         };
       }
     } else if (targetU === 'currency_billions') {
-      if (/(?:billion|bn|b\b)/i.test(cellText)) {
+      const hasBillionsInCell = /(?:\d|\s)(?:b|billion|billions|bn|B)\b/i.test(cellText);
+      const hasBillionsInCol = Boolean(columnHeader && /(?:in\s+billions|in\s+€\s*billions?|in\s+bn|€bn|\$bn|\bbillions?\b|\bbn\b)/i.test(columnHeader));
+      const hasMillionsInCol = Boolean(columnHeader && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|\bmillions?\b)/i.test(columnHeader));
+
+      // Contradiction: if column explicitly says millions, claim of billions fails!
+      if (hasMillionsInCol) {
+        return {
+          valid: false,
+          failureReason: 'contradictedUnit',
+          failureDiagnostic: `Selected column header explicitly specifies millions ("${columnHeader}"), which contradicts claimed unit "currency_billions".`,
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['contradictedUnit'], tableCoordinates },
+        };
+      }
+
+      const hasBillionsInCaption = Boolean(
+        (matchedBlock.tableCaption && /(?:in\s+billions|in\s+€\s*billions?|in\s+bn|\bbillions?\b|\bbn\b)/i.test(matchedBlock.tableCaption)) ||
+        matchedBlock.unitContext === 'currency_billions'
+      );
+      const hasBillionsInRow = Boolean(rowHeader && /(?:in\s+billions|in\s+€\s*billions?|in\s+bn|\bbillions?\b)/i.test(rowHeader));
+
+      if (hasBillionsInCell) {
         unitProvenance = 'cell';
-      } else if (columnHeader && /(?:billion|bn)/i.test(columnHeader)) {
+      } else if (hasBillionsInCol) {
         unitProvenance = 'column_header';
-      } else if (matchedBlock.tableCaption && /(?:billion|bn)/i.test(matchedBlock.tableCaption)) {
+      } else if (hasBillionsInCaption) {
         unitProvenance = 'table_caption';
-      } else if (matchedBlock.unitContext === 'currency_billions') {
-        unitProvenance = 'table_caption';
+      } else if (hasBillionsInRow) {
+        unitProvenance = 'row_header';
       } else {
         return {
           valid: false,
           failureReason: 'unprovenUnit',
-          failureDiagnostic: `Unit "currency_billions" is not proven by authoritative document text.`,
+          failureDiagnostic: `Unit "currency_billions" requires explicit scale indication (e.g. "billion", "€bn", "in billions"). A currency symbol alone does not prove numeric scale.`,
           provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenUnit'], tableCoordinates },
         };
       }
@@ -931,6 +942,7 @@ export function verifyDocumentClaimDimensions(
     provenDimensions: {
       provenMetricId: claim?.claimedMetricId,
       matchedMetricLabel,
+      provenMetricLabel: matchedMetricLabel,
       provenScope: claim?.claimedScope,
       matchedScopeLabel,
       provenAccountingBasis: claim?.claimedAccountingBasis,
@@ -979,13 +991,14 @@ export function resolveDocumentBlock(
 
   if (typeof locatorParam === 'string') {
     const raw = locatorParam.trim();
+    const baseLocator = raw.replace(/:(?:cell|col|column):\d+$/i, '');
     // 1. Direct match by id
-    const byId = blocks.filter((b) => b.id === raw);
+    const byId = blocks.filter((b) => b.id === raw || (baseLocator !== raw && b.id === baseLocator));
     if (byId.length === 1) {
       candidates = byId;
     } else {
       // 2. Direct match by locator string
-      const byLoc = blocks.filter((b) => b.locator === raw);
+      const byLoc = blocks.filter((b) => b.locator === raw || (baseLocator !== raw && b.locator === baseLocator));
       if (byLoc.length === 1) {
         candidates = byLoc;
       }
@@ -994,11 +1007,12 @@ export function resolveDocumentBlock(
     candidates = blocks.filter((b) => b.id === locatorParam.blockId);
   } else if (locatorParam.rawLocator) {
     const raw = locatorParam.rawLocator.trim();
-    const byId = blocks.filter((b) => b.id === raw);
+    const baseLocator = raw.replace(/:(?:cell|col|column):\d+$/i, '');
+    const byId = blocks.filter((b) => b.id === raw || (baseLocator !== raw && b.id === baseLocator));
     if (byId.length === 1) {
       candidates = byId;
     } else {
-      const byLoc = blocks.filter((b) => b.locator === raw);
+      const byLoc = blocks.filter((b) => b.locator === raw || (baseLocator !== raw && b.locator === baseLocator));
       if (byLoc.length === 1) {
         candidates = byLoc;
       }
@@ -1149,6 +1163,9 @@ export function resolveLocator(
   const rowMatch = raw.match(/\brow:(\d+)/i);
   if (rowMatch) result.rowIndex = parseInt(rowMatch[1], 10);
 
+  const cellMatch = raw.match(/\b(?:cell|col|column):(\d+)/i);
+  if (cellMatch) result.columnIndex = parseInt(cellMatch[1], 10);
+
   return { structuredLocator: result };
 }
 
@@ -1273,6 +1290,8 @@ export interface LiveEvidenceCandidateValidationOptions {
   supportType?: EvidenceSupportType;
   /** When supplied, strictly binds the candidate to this source document */
   sourceDocument?: LiveSourceDocument | ExtractedLiveDocument;
+  /** When supplied, strictly binds the candidate to this extracted document */
+  extractedLiveDocument?: ExtractedLiveDocument;
 }
 
 /**
@@ -1465,6 +1484,19 @@ export function validateLiveEvidenceCandidate(
     mismatches.push('verificationLocatorMissing');
   }
 
+  // 16b. Coordinate integrity check between locator and tableCoordinates (Round 5 P1)
+  if (candidate.tableCoordinates) {
+    if (loc?.tableIndex !== undefined && candidate.tableCoordinates.tableIndex !== undefined && loc.tableIndex !== candidate.tableCoordinates.tableIndex) {
+      mismatches.push('verificationCoordinateMismatch');
+    }
+    if (loc?.rowIndex !== undefined && candidate.tableCoordinates.rowIndex !== undefined && loc.rowIndex !== candidate.tableCoordinates.rowIndex) {
+      mismatches.push('verificationCoordinateMismatch');
+    }
+    if (loc?.columnIndex !== undefined && candidate.tableCoordinates.columnIndex !== undefined && loc.columnIndex !== candidate.tableCoordinates.columnIndex) {
+      mismatches.push('verificationCoordinateMismatch');
+    }
+  }
+
   // 17. Block resolution status check (STEP 5 Remediation, P0-1)
   if (candidate.blockResolutionStatus === 'failed') {
     mismatches.push('verificationBlockResolutionFailed');
@@ -1473,17 +1505,41 @@ export function validateLiveEvidenceCandidate(
   }
 
   // 18. ExtractedLiveDocument block consistency check (if ExtractedLiveDocument provided)
-  if (options?.sourceDocument && 'blocks' in options.sourceDocument) {
-    const extDoc = options.sourceDocument as ExtractedLiveDocument;
+  const extDoc = (options?.extractedLiveDocument ?? (options?.sourceDocument && 'blocks' in options.sourceDocument ? options.sourceDocument : undefined)) as ExtractedLiveDocument | undefined;
+  if (extDoc) {
     const matchedBlock = extDoc.blocks?.find((b) => b.id === candidate.blockId);
     if (!matchedBlock) {
       mismatches.push('verificationBlockNotFoundInDocument');
     } else {
+      // Malformed table rejection (Round 5 P1-1)
+      if (matchedBlock.isMalformed) {
+        mismatches.push('verificationTableMalformed');
+      }
+
       if (candidate.evidenceText !== matchedBlock.text) {
         mismatches.push('verificationBlockTextMismatch');
       }
-      if (!isValuePresentInBlock(matchedBlock.text, candidate.rawValue, candidate.numericValue, candidate.unit)) {
-        mismatches.push('verificationBlockValueMismatch');
+
+      if (matchedBlock.blockType === 'table_row') {
+        if (!candidate.tableCoordinates || candidate.tableCoordinates.columnIndex === undefined) {
+          mismatches.push('verificationTableCoordinatesMissing');
+        } else {
+          // Verify coordinate integrity with matched block
+          if (matchedBlock.tableIndex !== undefined && candidate.tableCoordinates.tableIndex !== undefined && matchedBlock.tableIndex !== candidate.tableCoordinates.tableIndex) {
+            mismatches.push('verificationCoordinateMismatch');
+          }
+          if (matchedBlock.rowIndex !== undefined && candidate.tableCoordinates.rowIndex !== undefined && matchedBlock.rowIndex !== candidate.tableCoordinates.rowIndex) {
+            mismatches.push('verificationCoordinateMismatch');
+          }
+          const cell = matchedBlock.cells?.[candidate.tableCoordinates.columnIndex];
+          if (!cell || !isValuePresentInBlock(cell, candidate.rawValue, candidate.numericValue, candidate.unit)) {
+            mismatches.push('verificationBlockValueMismatch');
+          }
+        }
+      } else {
+        if (!isValuePresentInBlock(matchedBlock.text, candidate.rawValue, candidate.numericValue, candidate.unit)) {
+          mismatches.push('verificationBlockValueMismatch');
+        }
       }
     }
   }
