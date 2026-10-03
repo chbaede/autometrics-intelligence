@@ -399,5 +399,94 @@ Financial reports present data predominantly in structured tables. The extractio
   2. A custom socket-level dispatcher (e.g. `undici` `Agent` with `connect` options) that pins the socket connection directly to the preflight-validated IP address, OR
   3. Network-level DNS firewall / egress filtering rules.
 
+---
+
+### 10. Table Cell Resolution Must Fail Closed (STEP 5 Remediation Round 4, P0)
+
+When extracting values from structured disclosures, row-level proximity is not sufficient. In `verifyDocumentClaimDimensions()`:
+1. **Mandatory Exact Cell Resolution**:
+   - If `matchedBlock.blockType === 'table_row'`, exactly one cell must match the claimed numeric value.
+   - Zero matching cells return invalid immediately (`failureReason: 'unresolvedTableCell'`).
+   - Multiple matching cells return invalid (`failureReason: 'ambiguousDimensionEvidence'`) unless a unique cell is definitively resolved using authoritative column/row header metadata.
+2. **Prohibition of Unstructured Row Fallback**:
+   - A table row block **never** falls back to unstructured whole-row text validation when cell resolution fails or produces ambiguity.
+3. **Mandatory Table Coordinates**:
+   - Every table-derived claim that reaches `claim_verified` must possess populated `tableCoordinates`:
+     - `tableIndex`: zero-based index of the table within the extracted document.
+     - `rowIndex`: zero-based index of the data row.
+     - `columnIndex`: resolved zero-based cell coordinate.
+     - `columnHeader`: composite resolved column header (including multi-tier hierarchy).
+     - `rowHeader`: resolved row header or metric label.
+     - `cellText`: exact authoritative cell text.
+     - `unitContext`: unit context resolved from table caption or headers.
+4. **Coordinate Verification in Claim Verification**:
+   - `validateClaimVerificationResult()` and `verifyClaimEvidence()` strictly require `tableCoordinates` when `blockType === 'table_row'`. Missing coordinates or index mismatches fail with `cellIndexMismatch` or `unresolvedTableCell`.
+
+---
+
+### 11. Value-Bound Period Proof & Period Type Mismatch Prevention (Round 4, P0)
+
+A reporting period must be bound directly to the value itself, not merely present in the document title or section heading:
+1. **Header Hierarchy Requirement**:
+   - `documentTitle` or top-level headings are explicitly rejected as sufficient proof of period for a specific table value.
+   - Authoritative period proof requires explicit column headers, hierarchical table headers, or structured row labels.
+2. **Period Contradiction Prevention**:
+   - If a row or cell contains an explicit period that conflicts with a column header (e.g. Q2 vs FY comparator), verification rejects the candidate with `contradictedReportingPeriod`.
+3. **Period Type Mismatch Prevention**:
+   - The system strictly distinguishes `periodType` (`quarterly`, `semi_annual`, `nine_months`, `annual`).
+   - A quarterly claim (`quarterly`) cannot match a cumulative 6-month / H1 (`semi_annual`) or 9-month / 9M (`nine_months`) column header, even if both cover the same calendar year. Attempting to verify a quarterly claim against cumulative periods fails closed with `periodTypeMismatch`.
+
+---
+
+### 12. Scope & Accounting Basis Positive Proof (Round 4, P0)
+
+1. **Positive Scope Proof**:
+   - `consolidated_group` scope requires positive document-level or section-level proof (e.g. explicit "Group", "Consolidated", or "Group at a glance" indicators).
+   - The absence of a segment label is **never** accepted as default proof of `consolidated_group`.
+   - Ambiguous or conflicting scopes (e.g. Vans segment vs Cars segment) fail closed with `unprovenReportingScope`.
+2. **Positive Accounting Basis Proof**:
+   - `reported` accounting basis requires positive proof of an official accounting framework (e.g. "IFRS", "GAAP", "Statutory", "Reported", "Consolidated Statements").
+   - The mere absence of the word "adjusted" is **never** accepted as proof of `reported` basis.
+   - The engine strictly differentiates between:
+     - `adjusted`: explicitly non-GAAP adjusted metrics ("Adjusted", "Adj.", "before special items", "RoS adjusted").
+     - `non_gaap`: general non-GAAP disclosures.
+     - `management_defined`: internal KPIs or operational definitions.
+
+---
+
+### 13. Centralized Metric Semantic Contract & Registry (Round 4, P1)
+
+Loose regexes and unvalidated caller claims are replaced by a formal `METRIC_SEMANTIC_REGISTRY` (`src/services/metricSemanticContract.ts`):
+1. **Priority Incompatibility Checks**:
+   - Evaluated before alias matching to prevent metric confusion:
+     - Operating profit / EBIT / operating income does **not** satisfy `operating_margin`.
+     - Net profit / net margin does **not** satisfy `operating_margin`.
+     - Deliveries / wholesale shipments does **not** satisfy `retail_deliveries`.
+     - Total deliveries does **not** satisfy `bev_deliveries`.
+2. **Conditionally Equivalent Aliases**:
+   - Aliases such as "Return on Sales" or "RoS" are only approved if the reporting scope matches `automotive_segment` or `cars_segment`.
+3. **Fail-Closed Unknown Metric Resolution**:
+   - Any metric ID not explicitly defined in the registry fails closed immediately with `failureReason: 'unknownMetricId'`.
+
+---
+
+### 14. Robust 2D HTML Table Extraction & Unit Provenance (Round 4, P1)
+
+1. **Depth-Balanced Tag Parser**:
+   - Replaced fragile non-greedy regex matching with a depth-tracking balanced scanner for `<table>...</table>`. Inner nested tables are safely neutralized without prematurely terminating parent row extraction.
+2. **2D Grid Matrix Alignment**:
+   - Handles multi-tbody structures sequentially.
+   - Populates an explicit 2D grid matrix mapping `colspan` and `rowspan` to cell coordinates.
+   - Detects malformed tables (irregular cell counts or unbalanced spans) and marks blocks with `isMalformed: true`.
+3. **Unit Provenance Tracking**:
+   - Tracks the exact authoritative provenance of numeric units (`unitProvenance`):
+     - `cell`: Unit symbol or suffix present directly in the cell text (e.g. `%`, `€M`).
+     - `column_header`: Unit specified in column headers (e.g. `in € million`).
+     - `table_caption`: Unit declared in table caption or header note (e.g. `in thousands`).
+     - `row_header`: Unit present in row label.
+     - `document_definition`: Global unit definition.
+   - Missing or unproven units fail closed with `unprovenUnit`.
+
+
 
 

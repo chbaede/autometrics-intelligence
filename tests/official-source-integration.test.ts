@@ -95,10 +95,10 @@ const MBG_HTML = `<!DOCTYPE html>
   <h1>Mercedes-Benz Group Q2 2026 Financial Results Presentation</h1>
   <p>Official investor presentation covering Group revenue, Group EBIT, and Cars segment adjusted RoS.</p>
   <table>
-    <thead><tr><th>Metric</th><th>Scope</th><th>Value</th></tr></thead>
+    <thead><tr><th>Metric</th><th>Scope</th><th>Q2 2026</th></tr></thead>
     <tbody>
-      <tr><td>Revenue</td><td>Consolidated Group</td><td>€32,060 million</td></tr>
-      <tr><td>EBIT</td><td>Consolidated Group</td><td>€1,550 million</td></tr>
+      <tr><td>Revenue (reported / IFRS)</td><td>Consolidated Group</td><td>€32,060 million</td></tr>
+      <tr><td>EBIT (reported / IFRS)</td><td>Consolidated Group</td><td>€1,550 million</td></tr>
       <tr><td>Adjusted Return on Sales (RoS)</td><td>Mercedes-Benz Cars</td><td>4.0%</td></tr>
     </tbody>
   </table>
@@ -112,18 +112,18 @@ const BMW_HTML = `<!DOCTYPE html>
   <h1>BMW Group Quarterly Statement to 30 June 2026 (Q2)</h1>
   <p>Official BMW Group quarterly statement covering deliveries, Group EBIT, and Automotive segment EBIT margin.</p>
   <table>
-    <thead><tr><th>Performance Indicator</th><th>Scope</th><th>Result</th></tr></thead>
+    <thead><tr><th>Performance Indicator (reported / IFRS)</th><th>Scope</th><th>Q2 2026</th></tr></thead>
     <tbody>
-      <tr><td>Revenues</td><td>Group</td><td>€31,300 million</td></tr>
-      <tr><td>EBIT</td><td>Group</td><td>€1,705 million</td></tr>
-      <tr><td>Automotive EBIT margin</td><td>Automotive Segment</td><td>2.3%</td></tr>
+      <tr><td>Revenues (reported / IFRS)</td><td>Consolidated Group</td><td>€31,300 million</td></tr>
+      <tr><td>EBIT (reported / IFRS)</td><td>Consolidated Group</td><td>€1,705 million</td></tr>
+      <tr><td>Automotive EBIT margin (reported / IFRS)</td><td>Automotive Segment</td><td>2.3%</td></tr>
     </tbody>
   </table>
 </body>
 </html>`;
 
 const TSLA_PDF_BYTES = createSinglePagePdf(
-  'Tesla Q2 2026 Update Global deliveries reached 480.13 thousand units'
+  'Tesla Group Q2 2026 Update Consolidated Group global deliveries reached 480.13 thousand units'
 );
 
 console.log('🧪 Starting Official OEM Investor Relations Source Integration Test Suite (STEP 5-5)...\n');
@@ -359,7 +359,7 @@ await (async () => {
     bindingParams: {
       rawValue: '480.13 thousand units',
       locator: { page: 1, rawLocator: 'page:1:stream:0' },
-      evidenceText: 'Global deliveries reached 480.13 thousand units',
+      evidenceText: 'Consolidated Group global deliveries reached 480.13 thousand units',
       supportType: 'reported_kpi',
     },
     options: {

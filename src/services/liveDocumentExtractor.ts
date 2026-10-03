@@ -542,17 +542,54 @@ export function extractHtmlDocument(
   }
 
   // 4. Extract structural elements in document order (h1-h6, p, table, li)
-  const elementRegex = /<(h[1-6]|p|table|li)[^>]*>([\s\S]*?)<\/\1>/gi;
-  let match: RegExpExecArray | null;
+  const openTagRegex = /<(h[1-6]|p|table|li)(?:\s+[^>]*)?>/gi;
   let currentSectionHeading: string | undefined;
   let pIdx = 0;
   let hIdx = 0;
   let tIdx = 0;
   let liIdx = 0;
 
-  while ((match = elementRegex.exec(cleanHtml)) !== null) {
+  let match: RegExpExecArray | null;
+  while ((match = openTagRegex.exec(cleanHtml)) !== null) {
     const tag = match[1].toLowerCase();
-    const innerHtml = match[2];
+    const startIndex = match.index + match[0].length;
+    let innerHtml = '';
+    let endIndex = startIndex;
+
+    if (tag === 'table') {
+      let depth = 1;
+      const tagRegex = /<\/?table(?:\s+[^>]*)?>/gi;
+      tagRegex.lastIndex = startIndex;
+      let m: RegExpExecArray | null;
+      while ((m = tagRegex.exec(cleanHtml)) !== null) {
+        if (m[0].toLowerCase().startsWith('</table')) {
+          depth--;
+          if (depth === 0) {
+            innerHtml = cleanHtml.slice(startIndex, m.index);
+            endIndex = m.index + m[0].length;
+            break;
+          }
+        } else {
+          depth++;
+        }
+      }
+      if (depth !== 0) {
+        innerHtml = cleanHtml.slice(startIndex);
+        endIndex = cleanHtml.length;
+      }
+    } else {
+      const closeTag = `</${tag}>`;
+      const closeIdx = cleanHtml.toLowerCase().indexOf(closeTag.toLowerCase(), startIndex);
+      if (closeIdx === -1) {
+        innerHtml = cleanHtml.slice(startIndex);
+        endIndex = cleanHtml.length;
+      } else {
+        innerHtml = cleanHtml.slice(startIndex, closeIdx);
+        endIndex = closeIdx + closeTag.length;
+      }
+    }
+
+    openTagRegex.lastIndex = endIndex;
 
     if (tag.startsWith('h')) {
       const headingLevel = parseInt(tag[1], 10);
@@ -589,6 +626,32 @@ export function extractHtmlDocument(
     } else if (tag === 'table') {
       const currentTableIdx = tIdx;
       tIdx++;
+
+      // 4a. Extract table caption and unit context (STEP 5 Remediation Round 4, P1)
+      let tableCaption: string | undefined;
+      let unitContext: string | undefined;
+      const captionMatch = innerHtml.match(/<caption[^>]*>([\s\S]*?)<\/caption>/i);
+      if (captionMatch) {
+        tableCaption = decodeHtmlEntities(captionMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+        if (/(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m)/i.test(tableCaption)) {
+          unitContext = 'currency_millions';
+        } else if (/(?:in\s+billions|in\s+€\s*billions?|in\s+bn)/i.test(tableCaption)) {
+          unitContext = 'currency_billions';
+        } else if (/(?:in\s+percent|in\s+%|\(%|percentage)/i.test(tableCaption)) {
+          unitContext = 'percentage';
+        } else if (/(?:in\s+thousands|thousand\s+units|k\s+units)/i.test(tableCaption)) {
+          unitContext = 'thousand_units';
+        } else if (/(?:units|vehicles)/i.test(tableCaption)) {
+          unitContext = 'units';
+        }
+      }
+
+      // 4b. Isolate and neutralize nested tables so their tr/td do not contaminate parent table
+      const processedHtml = innerHtml.replace(/<table[^>]*>[\s\S]*?<\/table>/gi, (nested) => {
+        const textOnly = nested.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        return ` [Nested Table: ${decodeHtmlEntities(textOnly)}] `;
+      });
+
       const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
       let rowMatch: RegExpExecArray | null;
       let rowIdx = 0;
@@ -599,70 +662,94 @@ export function extractHtmlDocument(
         isHeader: boolean;
       }
       const rawRows: ParsedHtmlRow[] = [];
+      let isMalformed = false;
 
-      const pendingRowspans: Array<{ remainingRows: number; text: string; isTh: boolean }> = [];
+      // 2D grid matrix to place cells accurately with rowspan and colspan
+      const grid: string[][] = [];
+      const isThGrid: boolean[][] = [];
 
-      while ((rowMatch = rowRegex.exec(innerHtml)) !== null) {
+      while ((rowMatch = rowRegex.exec(processedHtml)) !== null) {
         const rowContent = rowMatch[1];
         const cellRegex = /<(td|th)[^>]*>([\s\S]*?)<\/\1>/gi;
         let cellMatch: RegExpExecArray | null;
-        const cells: string[] = [];
-        let thCount = 0;
-        let totalCells = 0;
+
+        if (!grid[rowIdx]) {
+          grid[rowIdx] = [];
+          isThGrid[rowIdx] = [];
+        }
+
         let colIdx = 0;
+        let cellCountInRow = 0;
 
-        cellMatch = cellRegex.exec(rowContent);
-        while (cellMatch !== null || (colIdx < pendingRowspans.length && pendingRowspans[colIdx]?.remainingRows > 0)) {
-          if (colIdx < pendingRowspans.length && pendingRowspans[colIdx] && pendingRowspans[colIdx].remainingRows > 0) {
-            cells.push(pendingRowspans[colIdx].text);
-            totalCells++;
-            if (pendingRowspans[colIdx].isTh) thCount++;
-            pendingRowspans[colIdx].remainingRows--;
+        while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
+          // Advance past any cells occupied by previous rows' rowspans
+          while (grid[rowIdx][colIdx] !== undefined) {
             colIdx++;
-            continue;
           }
-
-          if (!cellMatch) break;
 
           const cellTag = cellMatch[1].toLowerCase();
           const openTag = cellMatch[0];
+          const isTh = cellTag === 'th';
+
           const colspanMatch = openTag.match(/colspan=["']?(\d+)["']?/i);
-          const colspan = colspanMatch ? parseInt(colspanMatch[1], 10) : 1;
+          const rawColspan = colspanMatch ? parseInt(colspanMatch[1], 10) : 1;
+          const colspan = isNaN(rawColspan) || rawColspan < 1 ? 1 : Math.min(rawColspan, 50);
+
           const rowspanMatch = openTag.match(/rowspan=["']?(\d+)["']?/i);
-          const rowspan = rowspanMatch ? parseInt(rowspanMatch[1], 10) : 1;
+          const rawRowspan = rowspanMatch ? parseInt(rowspanMatch[1], 10) : 1;
+          const rowspan = isNaN(rawRowspan) || rawRowspan < 1 ? 1 : Math.min(rawRowspan, 50);
+
           const rawCell = cellMatch[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
           const cleanCell = decodeHtmlEntities(rawCell);
-          const spanCount = Math.max(1, colspan);
+          cellCountInRow++;
 
-          for (let s = 0; s < spanCount; s++) {
-            cells.push(cleanCell);
-            totalCells++;
-            if (cellTag === 'th') thCount++;
-            if (rowspan > 1) {
-              pendingRowspans[colIdx + s] = {
-                remainingRows: rowspan - 1,
-                text: cleanCell,
-                isTh: cellTag === 'th',
-              };
+          // Fill the 2D grid for this cell (including spans)
+          for (let r = 0; r < rowspan; r++) {
+            const targetRow = rowIdx + r;
+            if (!grid[targetRow]) {
+              grid[targetRow] = [];
+              isThGrid[targetRow] = [];
+            }
+            for (let c = 0; c < colspan; c++) {
+              const targetCol = colIdx + c;
+              grid[targetRow][targetCol] = cleanCell;
+              isThGrid[targetRow][targetCol] = isTh;
             }
           }
-          colIdx += spanCount;
-          cellMatch = cellRegex.exec(rowContent);
+
+          colIdx += colspan;
         }
 
-        if (cells.length > 0) {
-          const isHeader = (thCount > 0 && thCount === totalCells) || (rawRows.length === 0 && thCount > 0);
-          rawRows.push({ rowIdx, cells, isHeader });
-          rowIdx++;
+        if (cellCountInRow === 0 && rowContent.trim().length > 0) {
+          isMalformed = true;
         }
+
+        rowIdx++;
+      }
+
+      // Convert grid into rawRows
+      for (let r = 0; r < grid.length; r++) {
+        const rowCells = grid[r] || [];
+        if (rowCells.length > 0) {
+          const isHeader = isThGrid[r] ? isThGrid[r].every(Boolean) : false;
+          rawRows.push({ rowIdx: r, cells: rowCells, isHeader });
+        }
+      }
+
+      // If grid has no rows or is malformed
+      if (rawRows.length === 0) {
+        isMalformed = true;
       }
 
       // Collect leading header rows to support multi-level headers
       const headerRows: ParsedHtmlRow[] = [];
       let dataRowStart = 0;
       for (let i = 0; i < rawRows.length; i++) {
-        if (rawRows[i].isHeader || (i === 0 && rawRows.length > 1 && rawRows[i].cells.every((c) => isNaN(Number(c.replace(/[%€$]/g, '').trim()))))) {
-          headerRows.push(rawRows[i]);
+        const row = rawRows[i];
+        const allTh = row.isHeader;
+        const nonNumericText = row.cells.every((c) => isNaN(Number(c.replace(/[%€$,\s]/g, '').trim())));
+        if (allTh || (i === 0 && rawRows.length > 1 && nonNumericText)) {
+          headerRows.push(row);
           dataRowStart = i + 1;
         } else {
           break;
@@ -678,10 +765,27 @@ export function extractHtmlDocument(
           const colParts: string[] = [];
           for (const hRow of headerRows) {
             if (col < hRow.cells.length && hRow.cells[col]) {
-              colParts.push(hRow.cells[col]);
+              const part = hRow.cells[col].trim();
+              if (part && !colParts.includes(part)) {
+                colParts.push(part);
+              }
             }
           }
           columnHeaders[col] = colParts.join(' | ');
+        }
+      }
+
+      // Check header-level unit hints if caption did not specify unit
+      if (!unitContext && columnHeaders.length > 0) {
+        const allHeadersText = columnHeaders.join(' | ');
+        if (/(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m)/i.test(allHeadersText)) {
+          unitContext = 'currency_millions';
+        } else if (/(?:in\s+billions|in\s+€\s*billions?|in\s+bn)/i.test(allHeadersText)) {
+          unitContext = 'currency_billions';
+        } else if (/(?:in\s+percent|in\s+%|\(%|percentage)/i.test(allHeadersText)) {
+          unitContext = 'percentage';
+        } else if (/(?:in\s+thousands|thousand\s+units|k\s+units)/i.test(allHeadersText)) {
+          unitContext = 'thousand_units';
         }
       }
 
@@ -703,6 +807,9 @@ export function extractHtmlDocument(
           columnHeaders: isData && columnHeaders.length > 0 ? columnHeaders : undefined,
           rowHeader,
           contextHeaders: headerRows.map((h) => h.cells.join(' | ')),
+          tableCaption,
+          unitContext,
+          isMalformed: isMalformed ? true : undefined,
         });
         blockCounter++;
       }

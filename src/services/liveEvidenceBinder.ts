@@ -17,6 +17,7 @@ import {
   SourceDocument,
 } from '../types/metrics';
 import { numericValuesMatch } from '../utils/metricCalculations';
+import { evaluateMetricSemantic } from './metricSemanticContract';
 
 export type {
   LiveEvidenceCandidate,
@@ -273,36 +274,76 @@ export interface DocumentDimensionVerificationResult {
   provenDimensions: ProvenanceClaimDimensions;
 }
 
+export interface ExtractedPeriod {
+  raw: string;
+  normalized: string;
+  periodType?: PeriodType;
+}
+
 /**
- * Extracts and normalizes fiscal periods from text (e.g. 'Q2 2026', '2026-Q2', 'Second Quarter 2026').
+ * Extracts and normalizes fiscal periods from text (e.g. 'Q2 2026', '2026-Q2', 'Second Quarter 2026', 'Six Months Ended...').
  */
-export function extractPeriodsFromText(text: string): { raw: string; normalized: string }[] {
+export function extractPeriodsFromText(text: string): ExtractedPeriod[] {
   if (!text) return [];
-  const results: { raw: string; normalized: string }[] = [];
-  const re = /\b(?:(Q[1-4])\s*(20\d\d)|(20\d\d)\s*[-/]\s*(Q[1-4])|(FY)\s*(20\d\d)|(20\d\d)\s*[-/]\s*(FY)|(Three\s+Months\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(20\d\d))|(Second\s+Quarter|First\s+Quarter|Third\s+Quarter|Fourth\s+Quarter)\s*(20\d\d)|to\s+\d{1,2}\s+[A-Za-z]+\s+(20\d\d)\s*\((Q[1-4])\))\b/gi;
+  const results: ExtractedPeriod[] = [];
+  const re = /\b(?:(Q[1-4])\s*(20\d\d)|(20\d\d)\s*[-/]\s*(Q[1-4])|(FY)\s*(20\d\d)|(20\d\d)\s*[-/]\s*(FY)|(Three\s+Months\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(20\d\d))|(Six\s+Months\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(20\d\d))|(Nine\s+Months\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(20\d\d))|(Twelve\s+Months\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(20\d\d))|(Second\s+Quarter|First\s+Quarter|Third\s+Quarter|Fourth\s+Quarter)\s*(20\d\d)|to\s+\d{1,2}\s+[A-Za-z]+\s+(20\d\d)\s*\((Q[1-4])\)|(H[12]|First\s+Half)\s*(20\d\d)|(9M|Nine\s+Months)\s*(20\d\d))\b/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const raw = m[0];
     let normalized = '';
-    if (m[1] && m[2]) normalized = `${m[2]}-${m[1].toUpperCase()}`;
-    else if (m[3] && m[4]) normalized = `${m[3]}-${m[4].toUpperCase()}`;
-    else if (m[5] && m[6]) normalized = `${m[6]}-FY`;
-    else if (m[7] && m[8]) normalized = `${m[7]}-FY`;
-    else if (m[9] && m[10]) {
+    let periodType: PeriodType | undefined;
+
+    if (m[1] && m[2]) {
+      normalized = `${m[2]}-${m[1].toUpperCase()}`;
+      periodType = 'quarterly';
+    } else if (m[3] && m[4]) {
+      normalized = `${m[3]}-${m[4].toUpperCase()}`;
+      periodType = 'quarterly';
+    } else if (m[5] && m[6]) {
+      normalized = `${m[6]}-FY`;
+      periodType = 'annual';
+    } else if (m[7] && m[8]) {
+      normalized = `${m[7]}-FY`;
+      periodType = 'annual';
+    } else if (m[9] && m[10]) {
       const year = m[10];
       const lower = m[9].toLowerCase();
       const q = lower.includes('march') ? 'Q1' : lower.includes('june') ? 'Q2' : lower.includes('september') ? 'Q3' : lower.includes('december') ? 'Q4' : '';
       if (q) normalized = `${year}-${q}`;
+      periodType = 'quarterly';
     } else if (m[11] && m[12]) {
       const year = m[12];
-      const lower = m[11].toLowerCase();
+      normalized = `${year}-H1`;
+      periodType = 'semi_annual';
+    } else if (m[13] && m[14]) {
+      const year = m[14];
+      normalized = `${year}-9M`;
+      periodType = 'nine_months';
+    } else if (m[15] && m[16]) {
+      const year = m[16];
+      normalized = `${year}-FY`;
+      periodType = 'annual';
+    } else if (m[17] && m[18]) {
+      const year = m[18];
+      const lower = m[17].toLowerCase();
       const q = lower.includes('first') ? 'Q1' : lower.includes('second') ? 'Q2' : lower.includes('third') ? 'Q3' : 'Q4';
       normalized = `${year}-${q}`;
-    } else if (m[13] && m[14]) {
-      normalized = `${m[13]}-${m[14].toUpperCase()}`;
+      periodType = 'quarterly';
+    } else if (m[19] && m[20]) {
+      normalized = `${m[19]}-${m[20].toUpperCase()}`;
+      periodType = 'quarterly';
+    } else if (m[21] && m[22]) {
+      const year = m[22];
+      normalized = `${year}-H1`;
+      periodType = 'semi_annual';
+    } else if (m[23] && m[24]) {
+      const year = m[24];
+      normalized = `${year}-9M`;
+      periodType = 'nine_months';
     }
+
     if (normalized && !results.some((r) => r.normalized === normalized)) {
-      results.push({ raw, normalized });
+      results.push({ raw, normalized, periodType });
     }
   }
   return results;
@@ -311,7 +352,7 @@ export function extractPeriodsFromText(text: string): { raw: string; normalized:
 /**
  * Authoritatively verifies that the extracted document block and its table structure
  * directly prove every claimed dimension (metric, accounting basis, reporting scope, period, unit)
- * rather than trusting unverified caller assertions (STEP 5 Remediation Round 3, P0 & P1).
+ * rather than trusting unverified caller assertions (STEP 5 Remediation Round 3 & 4).
  */
 export function verifyDocumentClaimDimensions(
   matchedBlock: DocumentContentBlock,
@@ -319,16 +360,43 @@ export function verifyDocumentClaimDimensions(
   rawValue: string,
   numericValue?: number,
   targetUnit?: MetricUnit,
-  extDoc?: ExtractedLiveDocument
+  extDoc?: ExtractedLiveDocument,
+  locatorColIdx?: number
 ): DocumentDimensionVerificationResult {
   const blockText = matchedBlock.text ?? '';
   let cellText = blockText;
   let columnHeader: string | undefined;
   let rowHeader: string | undefined;
-  let tableCoordinates: { tableIndex?: number; rowIndex?: number; columnIndex?: number; columnHeader?: string; rowHeader?: string } | undefined;
+  let tableCoordinates: {
+    tableIndex?: number;
+    rowIndex?: number;
+    columnIndex?: number;
+    columnHeader?: string;
+    rowHeader?: string;
+    cellText?: string;
+    unitContext?: string;
+  } | undefined;
 
-  // 1. Table cell resolution
-  if (matchedBlock.blockType === 'table_row' && matchedBlock.cells && matchedBlock.cells.length > 0) {
+  // 1. Table cell resolution (fail closed)
+  if (matchedBlock.blockType === 'table_row') {
+    if (matchedBlock.isMalformed) {
+      return {
+        valid: false,
+        failureReason: 'unresolvedTableCell',
+        failureDiagnostic: 'Table structure is malformed and cannot reliably support claim verification.',
+        provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unresolvedTableCell'] },
+      };
+    }
+
+    if (!matchedBlock.cells || matchedBlock.cells.length === 0) {
+      return {
+        valid: false,
+        failureReason: 'unresolvedTableCell',
+        failureDiagnostic: 'Table row lacks structured cell metadata. Whole-row text fallback is forbidden.',
+        provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unresolvedTableCell'] },
+      };
+    }
+
     const matchingCellIndices: number[] = [];
     matchedBlock.cells.forEach((c, idx) => {
       if (isValuePresentInBlock(c, rawValue, numericValue, targetUnit ?? claim?.claimedUnit)) {
@@ -336,75 +404,95 @@ export function verifyDocumentClaimDimensions(
       }
     });
 
-    let resolvedColIdx: number | undefined;
-    if (matchingCellIndices.length === 1) {
-      resolvedColIdx = matchingCellIndices[0];
-    } else if (matchingCellIndices.length > 1) {
-      // Repeated value in multiple columns: disambiguate using column headers
-      const targetPeriod = claim?.claimedPeriod;
-      const targetBasis = claim?.claimedAccountingBasis;
-      const filtered = matchingCellIndices.filter((idx) => {
-        const colH = (matchedBlock.columnHeaders?.[idx] ?? '').toLowerCase();
-        if (targetPeriod) {
-          const periods = extractPeriodsFromText(colH);
-          if (periods.length > 0 && !periods.some((p) => p.normalized === targetPeriod)) return false;
-        }
-        if (targetBasis === 'adjusted') {
-          if (!/\b(adjusted|adj\.?|bereinigt)\b/i.test(colH)) return false;
-        } else if (targetBasis === 'reported') {
-          if (/\b(adjusted|adj\.?|bereinigt)\b/i.test(colH)) return false;
-        }
-        return true;
-      });
+    if (matchingCellIndices.length === 0) {
+      return {
+        valid: false,
+        failureReason: 'unresolvedTableCell',
+        failureDiagnostic: `Claimed value "${rawValue}" does not match any cell in table row. Whole-row text fallback is forbidden.`,
+        provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unresolvedTableCell'] },
+      };
+    }
 
-      if (filtered.length === 1) {
-        resolvedColIdx = filtered[0];
-      } else {
+    let resolvedColIdx: number | undefined;
+    const targetCol = locatorColIdx;
+
+    if (targetCol !== undefined) {
+      if (!matchingCellIndices.includes(targetCol)) {
         return {
           valid: false,
-          failureReason: 'ambiguousDimensionEvidence',
-          failureDiagnostic: `Repeated value "${rawValue}" matched multiple table columns (${matchingCellIndices.join(', ')}) without unambiguous header resolution.`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['ambiguousDimensionEvidence'],
-          },
+          failureReason: 'cellIndexMismatch',
+          failureDiagnostic: `Target column index ${targetCol} does not contain claimed value "${rawValue}". Value exists elsewhere in the row or is absent from target cell.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['cellIndexMismatch'] },
         };
+      }
+      resolvedColIdx = targetCol;
+    } else {
+      if (matchingCellIndices.length === 1) {
+        resolvedColIdx = matchingCellIndices[0];
+      } else {
+        // Repeated values in two or more columns: disambiguate using column headers
+        const targetPeriod = claim?.claimedPeriod;
+        const targetBasis = claim?.claimedAccountingBasis;
+        const targetMetric = claim?.claimedMetricId;
+
+        const filtered = matchingCellIndices.filter((idx) => {
+          const colH = (matchedBlock.columnHeaders?.[idx] ?? '').toLowerCase();
+          if (targetPeriod) {
+            const periods = extractPeriodsFromText(colH);
+            if (periods.length > 0 && !periods.some((p) => p.normalized === targetPeriod)) return false;
+          }
+          if (targetBasis === 'adjusted') {
+            if (/\b(unadjusted|reported|statutory)\b/i.test(colH)) return false;
+          } else if (targetBasis === 'reported') {
+            if (/\b(adjusted|adj\.?|bereinigt)\b/i.test(colH)) return false;
+          }
+          if (targetMetric) {
+            const sem = evaluateMetricSemantic(targetMetric, { columnHeader: colH });
+            if (/\b(revenue|ebit|deliveries|margin|profit|sales)\b/i.test(colH) && !sem.valid) return false;
+          }
+          return true;
+        });
+
+        if (filtered.length === 1) {
+          resolvedColIdx = filtered[0];
+        } else {
+          return {
+            valid: false,
+            failureReason: 'ambiguousDimensionEvidence',
+            failureDiagnostic: `Repeated value "${rawValue}" matched multiple table columns (${matchingCellIndices.join(', ')}) without unambiguous header resolution.`,
+            provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['ambiguousDimensionEvidence'] },
+          };
+        }
       }
     }
 
-    if (resolvedColIdx !== undefined) {
-      cellText = matchedBlock.cells[resolvedColIdx];
-      columnHeader = matchedBlock.columnHeaders?.[resolvedColIdx];
-      rowHeader = matchedBlock.rowHeader ?? (matchedBlock.cells.length > 1 ? matchedBlock.cells[0] : undefined);
-      tableCoordinates = {
-        tableIndex: matchedBlock.tableIndex,
-        rowIndex: matchedBlock.rowIndex,
-        columnIndex: resolvedColIdx,
-        columnHeader,
-        rowHeader,
+    if (resolvedColIdx === undefined) {
+      return {
+        valid: false,
+        failureReason: 'unresolvedTableCell',
+        failureDiagnostic: `Could not resolve a unique table cell for value "${rawValue}".`,
+        provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unresolvedTableCell'] },
       };
     }
+
+    cellText = matchedBlock.cells[resolvedColIdx];
+    columnHeader = matchedBlock.columnHeaders?.[resolvedColIdx];
+    rowHeader = matchedBlock.rowHeader ?? (matchedBlock.cells.length > 1 ? matchedBlock.cells[0] : undefined);
+    tableCoordinates = {
+      tableIndex: matchedBlock.tableIndex,
+      rowIndex: matchedBlock.rowIndex,
+      columnIndex: resolvedColIdx,
+      columnHeader,
+      rowHeader,
+      cellText,
+      unitContext: matchedBlock.unitContext,
+    };
   }
 
-  // Authoritative semantic context for this specific cell / block
-  const docHeading = extDoc?.documentTitle ?? extDoc?.blocks?.find((b) => b.blockType === 'heading')?.text;
-  const semanticContext = [
-    columnHeader,
-    rowHeader,
-    matchedBlock.sectionHeading,
-    docHeading,
-    blockText,
-  ]
-    .filter(Boolean)
-    .join(' | ');
-
-  const contextLower = semanticContext.toLowerCase();
-
-  // 2. Multi-Metric / Multi-Value Ambiguity Check in unstructured blocks
+  // 2. Unstructured block multi-metric ambiguity check
   if (matchedBlock.blockType !== 'table_row' || !tableCoordinates) {
     const numberMatches = blockText.match(/(?<![\d.])[+-]?\d+(?:,\d{3})*(?:\.\d+)?%?(?![\d.])/g) || [];
     if (numberMatches.length > 1) {
-      // Check if multiple metrics are mentioned in block
       const metricMatchesCount =
         (/\b(revenue|revenues)\b/i.test(blockText) ? 1 : 0) +
         (/\b(ebit|operating\s+(?:profit|income|result))\b/i.test(blockText) ? 1 : 0) +
@@ -412,7 +500,6 @@ export function verifyDocumentClaimDimensions(
         (/\b(deliveries|sales\s+volume)\b/i.test(blockText) ? 1 : 0);
 
       if (metricMatchesCount > 1) {
-        // Disambiguate if target value is explicitly paired with target metric in text
         const targetValEsc = rawValue.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
         let isPaired = false;
         if (claim?.claimedMetricId === 'operating_margin') {
@@ -445,315 +532,395 @@ export function verifyDocumentClaimDimensions(
     }
   }
 
-  // 3. Metric Semantic Verification
+  // 3. Metric Semantic Verification (P1 Centralized Metric Semantic Contract)
   let matchedMetricLabel: string | undefined;
   if (claim?.claimedMetricId) {
-    const metricId = claim.claimedMetricId;
-    if (metricId === 'operating_margin') {
-      const match = semanticContext.match(/\b(return\s+on\s+sales|ros|operating\s+margin|ebit\s+margin|operating\s+profit\s+margin|ebit-marge|umsatzrendite)\b/i);
-      if (match) {
-        matchedMetricLabel = match[0];
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}"). Numeric presence alone cannot prove metric semantic.`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
-    } else if (metricId === 'operating_income') {
-      const match = semanticContext.match(/\b(operating\s+(?:income|profit|result)|ebit|operatives\s+ergebnis)\b/i);
-      if (match) {
-        matchedMetricLabel = match[0];
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
-    } else if (metricId === 'revenue') {
-      const match = semanticContext.match(/\b(revenue|revenues|sales\s+revenue|total\s+revenue|net\s+revenues?|umsatzerlöse|umsatz)\b/i);
-      if (match) {
-        matchedMetricLabel = match[0];
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
-    } else if (metricId === 'deliveries_global') {
-      const match = semanticContext.match(/\b(deliveries|deliveries\s+to\s+customers|vehicle\s+deliveries|retail\s+deliveries|sales\s+volume|wholesales?|shipments|delivered)\b/i);
-      if (match) {
-        matchedMetricLabel = match[0];
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
-    } else if (metricId === 'bev_deliveries') {
-      const match = semanticContext.match(/\b(bev|all-electric|pure\s+electric|battery\s+electric)\b/i);
-      if (match) {
-        matchedMetricLabel = match[0];
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
-    } else if (metricId === 'automotive_segment_ebit') {
-      const match = semanticContext.match(/\b(automotive\s+ebit|automotive\s+segment\s+ebit|automotive\s+operating\s+profit|ebit\s+automotive)\b/i);
-      if (match) {
-        matchedMetricLabel = match[0];
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
-    } else if (metricId === 'cars_adjusted_ebit_margin') {
-      const match = semanticContext.match(/\b(cars\s+adjusted\s+return\s+on\s+sales|adjusted\s+return\s+on\s+sales|return\s+on\s+sales|ros|operating\s+margin)\b/i);
-      if (match) {
-        matchedMetricLabel = match[0];
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
-    } else {
-      // Generic metric identifier match
-      const genericWord = metricId.replace(/_/g, ' ');
-      if (contextLower.includes(genericWord)) {
-        matchedMetricLabel = genericWord;
-      } else {
-        return {
-          valid: false,
-          failureReason: 'unprovenMetricSemantic',
-          failureDiagnostic: `Metric "${metricId}" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenMetricSemantic'],
-            tableCoordinates,
-          },
-        };
-      }
+    const semEval = evaluateMetricSemantic(claim.claimedMetricId, {
+      cellText,
+      columnHeader,
+      rowHeader,
+      sectionHeading: matchedBlock.sectionHeading,
+      tableCaption: matchedBlock.tableCaption,
+      claimedScope: claim.claimedScope,
+      claimedAccountingBasis: claim.claimedAccountingBasis,
+    });
+
+    if (!semEval.valid) {
+      return {
+        valid: false,
+        failureReason: semEval.failureReason,
+        failureDiagnostic: semEval.failureDiagnostic,
+        provenDimensions: {
+          bindingStatus: 'unproven',
+          unprovenReasons: [semEval.failureReason ?? 'unprovenMetricSemantic'],
+          tableCoordinates,
+        },
+      };
     }
+    matchedMetricLabel = semEval.matchedLabel;
   }
 
-  // 4. Accounting Basis Verification
+  // 4. Accounting Basis Verification (P0 Positive Proof)
   let matchedBasisLabel: string | undefined;
   if (claim?.claimedAccountingBasis) {
+    const basisContext = [columnHeader, rowHeader, cellText, matchedBlock.tableCaption, matchedBlock.sectionHeading, matchedBlock.text].filter(Boolean).join(' | ');
+
     if (claim.claimedAccountingBasis === 'adjusted') {
-      const match = semanticContext.match(/\b(adjusted|adj\.?|bereinigt|before\s+special\s+items|vor\s+sondereinflüssen|non-gaap|non\s+gaap)\b/i);
+      const match = basisContext.match(/\b(adjusted|adj\.?|bereinigt|before\s+special\s+items|vor\s+sondereinflüssen)\b/i);
       if (match) {
         matchedBasisLabel = match[0];
       } else {
         return {
           valid: false,
           failureReason: 'unprovenAccountingBasis',
-          failureDiagnostic: `Accounting basis "adjusted" is not proven by authoritative document text ("${blockText}"). Source text/table lacks explicit "adjusted" indicator.`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenAccountingBasis'],
-            tableCoordinates,
-          },
+          failureDiagnostic: `Accounting basis "adjusted" is not proven by authoritative text ("${basisContext}"). Source text/table lacks explicit "adjusted" indicator.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenAccountingBasis'], tableCoordinates },
+        };
+      }
+    } else if (claim.claimedAccountingBasis === 'non_gaap') {
+      const match = basisContext.match(/\b(non-gaap|non\s+gaap|apm|alternative\s+performance\s+measures?)\b/i);
+      if (match) {
+        matchedBasisLabel = match[0];
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenAccountingBasis',
+          failureDiagnostic: `Accounting basis "non_gaap" is not proven by authoritative text ("${basisContext}").`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenAccountingBasis'], tableCoordinates },
+        };
+      }
+    } else if (claim.claimedAccountingBasis === 'management_defined') {
+      const match = basisContext.match(/\b(management-defined|management\s+definition|internal\s+management\s+view)\b/i);
+      if (match) {
+        matchedBasisLabel = match[0];
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenAccountingBasis',
+          failureDiagnostic: `Accounting basis "management_defined" is not proven by authoritative text ("${basisContext}").`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenAccountingBasis'], tableCoordinates },
         };
       }
     } else if (claim.claimedAccountingBasis === 'reported') {
-      // If row or column explicitly claims 'adjusted', that contradicts 'reported'
-      const lineOrCol = [columnHeader, rowHeader, cellText].filter(Boolean).join(' | ');
-      if (/\b(adjusted|adj\.?|bereinigt)\b/i.test(lineOrCol)) {
+      // Contradiction check: explicit adjusted/non-gaap contradicts reported
+      if (/\b(adjusted|adj\.?|bereinigt)\b/i.test(basisContext)) {
         return {
           valid: false,
           failureReason: 'accountingBasisMismatch',
           failureDiagnostic: `Document text explicitly specifies "adjusted" accounting basis, which contradicts claimed "reported" basis.`,
-          provenDimensions: {
-            bindingStatus: 'contradicted',
-            unprovenReasons: ['accountingBasisMismatch'],
-            tableCoordinates,
-          },
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['accountingBasisMismatch'], tableCoordinates },
         };
       }
-      matchedBasisLabel = 'reported';
+      // Positive proof required (no silent inference from absence of "adjusted")
+      const reportedMatch =
+        basisContext.match(/\b(as\s+reported|reported|ifrs|us\s+gaap|gaap|statutory|unadjusted|gemäß\s+ifrs)\b/i) ||
+        (matchedBlock.tableCaption && matchedBlock.tableCaption.match(/\b(ifrs|gaap|reported)\b/i)) ||
+        (extDoc?.documentTitle && extDoc.documentTitle.match(/\b(ifrs|gaap)\b/i));
+
+      if (reportedMatch) {
+        matchedBasisLabel = reportedMatch[0];
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenAccountingBasis',
+          failureDiagnostic: 'Accounting basis "reported" requires explicit basis indicator (IFRS/GAAP/reported) or documented source convention; absence of "adjusted" alone is insufficient.',
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenAccountingBasis'], tableCoordinates },
+        };
+      }
+    } else {
+      return {
+        valid: false,
+        failureReason: 'unprovenAccountingBasis',
+        failureDiagnostic: `Accounting basis "${claim.claimedAccountingBasis}" is unknown or unproven.`,
+        provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenAccountingBasis'], tableCoordinates },
+      };
     }
   }
 
-  // 5. Reporting Scope Verification
+  // 5. Reporting Scope Verification (P0 Positive Proof)
   let matchedScopeLabel: string | undefined;
   if (claim?.claimedScope) {
+    const scopeContext = [rowHeader, columnHeader, cellText, matchedBlock.tableCaption, matchedBlock.sectionHeading, matchedBlock.text].filter(Boolean).join(' | ');
+
     if (claim.claimedScope === 'cars_segment') {
-      const match = semanticContext.match(/\b(mercedes-benz\s+cars|cars\s+division|cars\s+segment|cars|passenger\s+cars|pkw)\b/i);
+      const match = scopeContext.match(/\b(mercedes-benz\s+cars|cars\s+division|cars\s+segment|cars|passenger\s+cars|pkw)\b/i);
       if (match) {
         matchedScopeLabel = match[0];
       } else {
         return {
           valid: false,
           failureReason: 'unprovenReportingScope',
-          failureDiagnostic: `Reporting scope "cars_segment" is not proven by authoritative document text ("${blockText}"). Source lacks explicit cars segment indicator.`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenReportingScope'],
-            tableCoordinates,
-          },
+          failureDiagnostic: `Reporting scope "cars_segment" is not proven by authoritative document text. Source lacks explicit cars segment indicator.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingScope'], tableCoordinates },
         };
       }
     } else if (claim.claimedScope === 'automotive_segment') {
-      const match = semanticContext.match(/\b(automotive\s+segment|automotive\s+division|automotive|automobile|auto\s+segment)\b/i);
+      const match = scopeContext.match(/\b(automotive\s+segment|automotive\s+division|automotive|automobile|auto\s+segment)\b/i);
       if (match) {
         matchedScopeLabel = match[0];
       } else {
         return {
           valid: false,
           failureReason: 'unprovenReportingScope',
-          failureDiagnostic: `Reporting scope "automotive_segment" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenReportingScope'],
-            tableCoordinates,
-          },
+          failureDiagnostic: `Reporting scope "automotive_segment" is not proven by authoritative document text.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingScope'], tableCoordinates },
         };
       }
     } else if (claim.claimedScope === 'consolidated_group') {
-      // Must not belong to an isolated non-group division
+      // Contradiction check: must not belong to isolated segment
       const lineOrCol = [rowHeader, cellText].filter(Boolean).join(' | ');
       if (/\b(vans\s+division|trucks\s+segment|financial\s+services)\b/i.test(lineOrCol)) {
         return {
           valid: false,
           failureReason: 'scopeMismatch',
           failureDiagnostic: `Document text explicitly specifies segment "${lineOrCol}", which contradicts consolidated_group scope.`,
-          provenDimensions: {
-            bindingStatus: 'contradicted',
-            unprovenReasons: ['scopeMismatch'],
-            tableCoordinates,
-          },
+          provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['scopeMismatch'], tableCoordinates },
         };
       }
-      const match = semanticContext.match(/\b(group|consolidated|total|gesamt|konzern)\b/i);
-      matchedScopeLabel = match ? match[0] : 'consolidated_group';
+      // Positive proof required: absence of contradiction is insufficient
+      const groupMatch = scopeContext.match(/\b(consolidated\s+group|group|consolidated|total\s+group|total|gesamt|konzern)\b/i);
+      if (groupMatch) {
+        matchedScopeLabel = groupMatch[0];
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenReportingScope',
+          failureDiagnostic: 'Reporting scope "consolidated_group" requires authoritative group/consolidated context linked to the selected value; absence of segment contradiction alone is insufficient.',
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingScope'], tableCoordinates },
+        };
+      }
+    } else {
+      return {
+        valid: false,
+        failureReason: 'unprovenReportingScope',
+        failureDiagnostic: `Reporting scope "${claim.claimedScope}" is unknown or unproven.`,
+        provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingScope'], tableCoordinates },
+      };
     }
   }
 
-  // 6. Reporting Period & Period Type Verification
+  // 6. Reporting Period Verification (P0: bound to value, not merely present in document)
   let matchedPeriodLabel: string | undefined;
   if (claim?.claimedPeriod) {
     const targetPeriod = claim.claimedPeriod;
 
-    // Check if column header specifies period
-    if (columnHeader) {
-      const colPeriods = extractPeriodsFromText(columnHeader);
-      if (colPeriods.length > 0) {
-        const matchesCol = colPeriods.some((p) => p.normalized === targetPeriod);
-        if (!matchesCol) {
-          return {
-            valid: false,
-            failureReason: 'unprovenReportingPeriod',
-            failureDiagnostic: `Authoritative table column specifies period "${colPeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
-            provenDimensions: {
-              bindingStatus: 'contradicted',
-              unprovenReasons: ['unprovenReportingPeriod'],
-              tableCoordinates,
-            },
-          };
-        }
-        matchedPeriodLabel = colPeriods.find((p) => p.normalized === targetPeriod)?.raw;
-      }
-    }
+    if (matchedBlock.blockType === 'table_row') {
+      let boundPeriodFound = false;
 
-    // Check if block text specifies a contradictory period
-    const blockPeriods = extractPeriodsFromText(blockText);
-    if (blockPeriods.length > 0) {
-      const hasTarget = blockPeriods.some((p) => p.normalized === targetPeriod);
-      if (!hasTarget) {
+      // a. Check column header (prefer explicit column header and hierarchical header associations)
+      if (columnHeader) {
+        const colPeriods = extractPeriodsFromText(columnHeader);
+        if (colPeriods.length > 0) {
+          const hasQuarterly = colPeriods.some((p) => p.periodType === 'quarterly');
+          const hasNonQuarterly = colPeriods.some((p) => p.periodType && p.periodType !== 'quarterly');
+          if (claim.claimedPeriodType === 'quarterly' && !hasQuarterly && hasNonQuarterly) {
+            return {
+              valid: false,
+              failureReason: 'periodTypeMismatch',
+              failureDiagnostic: `Table column specifies non-quarterly period ("${colPeriods[0].raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
+              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
+            };
+          }
+
+          const matchesCol = colPeriods.find((p) => p.normalized === targetPeriod);
+          if (!matchesCol) {
+            return {
+              valid: false,
+              failureReason: 'unprovenReportingPeriod',
+              failureDiagnostic: `Authoritative table column specifies period "${colPeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
+              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
+            };
+          }
+
+          if (claim.claimedPeriodType === 'quarterly' && matchesCol.periodType && matchesCol.periodType !== 'quarterly') {
+            return {
+              valid: false,
+              failureReason: 'periodTypeMismatch',
+              failureDiagnostic: `Table column specifies ${matchesCol.periodType} period ("${matchesCol.raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
+              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
+            };
+          }
+
+          // Check if row header or cell explicitly specifies a conflicting period
+          const rowOrCellContext = [rowHeader, cellText].filter(Boolean).join(' | ');
+          const rowPeriods = extractPeriodsFromText(rowOrCellContext);
+          if (rowPeriods.length > 0 && !rowPeriods.some((p) => p.normalized === targetPeriod)) {
+            return {
+              valid: false,
+              failureReason: 'contradictedReportingPeriod',
+              failureDiagnostic: `Conflicting period in row/cell ("${rowPeriods[0].raw}") contradicts column period "${targetPeriod}".`,
+              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['contradictedReportingPeriod'], tableCoordinates },
+            };
+          }
+
+          matchedPeriodLabel = matchesCol.raw;
+          boundPeriodFound = true;
+        }
+      }
+
+      // b. Check hierarchical context headers / table caption / rowHeader if not in columnHeader
+      if (!boundPeriodFound) {
+        const tableContext = [
+          ...(matchedBlock.contextHeaders ?? []),
+          matchedBlock.tableCaption,
+          rowHeader,
+          cellText,
+        ].filter(Boolean).join(' | ');
+
+        const tablePeriods = extractPeriodsFromText(tableContext);
+        if (tablePeriods.length > 0) {
+          const match = tablePeriods.find((p) => p.normalized === targetPeriod);
+          if (match) {
+            if (claim.claimedPeriodType === 'quarterly' && match.periodType && match.periodType !== 'quarterly') {
+              return {
+                valid: false,
+                failureReason: 'periodTypeMismatch',
+                failureDiagnostic: `Table context specifies ${match.periodType} period ("${match.raw}"), which contradicts claimed quarterly period "${targetPeriod}".`,
+                provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['periodTypeMismatch'], tableCoordinates },
+              };
+            }
+            matchedPeriodLabel = match.raw;
+            boundPeriodFound = true;
+          } else {
+            return {
+              valid: false,
+              failureReason: 'unprovenReportingPeriod',
+              failureDiagnostic: `Table structure specifies period "${tablePeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
+              provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
+            };
+          }
+        }
+      }
+
+      // c. Fail closed: do NOT fall back to global documentTitle or global heading
+      if (!boundPeriodFound) {
         return {
           valid: false,
           failureReason: 'unprovenReportingPeriod',
-          failureDiagnostic: `Block text specifies period "${blockPeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
-          provenDimensions: {
-            bindingStatus: 'contradicted',
-            unprovenReasons: ['unprovenReportingPeriod'],
-            tableCoordinates,
-          },
+          failureDiagnostic: `Period "${targetPeriod}" cannot be bound to the selected table cell or table structure. Document title or global heading alone is insufficient proof.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
         };
       }
-      matchedPeriodLabel = matchedPeriodLabel ?? blockPeriods.find((p) => p.normalized === targetPeriod)?.raw;
-    }
-
-    // Check context (section heading or document title) if not yet proven
-    if (!matchedPeriodLabel) {
-      const contextPeriods = extractPeriodsFromText(semanticContext);
-      const match = contextPeriods.find((p) => p.normalized === targetPeriod);
-      if (match) {
-        matchedPeriodLabel = match.raw;
+    } else {
+      // Paragraph or text block: check block text itself
+      const blockPeriods = extractPeriodsFromText(blockText);
+      if (blockPeriods.length > 0) {
+        const hasTarget = blockPeriods.find((p) => p.normalized === targetPeriod);
+        if (!hasTarget) {
+          return {
+            valid: false,
+            failureReason: 'unprovenReportingPeriod',
+            failureDiagnostic: `Block text specifies period "${blockPeriods[0].raw}", which contradicts claimed period "${targetPeriod}".`,
+            provenDimensions: { bindingStatus: 'contradicted', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
+          };
+        }
+        matchedPeriodLabel = hasTarget.raw;
       } else {
         return {
           valid: false,
           failureReason: 'unprovenReportingPeriod',
-          failureDiagnostic: `Period "${targetPeriod}" is not proven by authoritative document text or structure ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenReportingPeriod'],
-            tableCoordinates,
-          },
+          failureDiagnostic: `Period "${targetPeriod}" is not present in block text. Global document title alone is insufficient.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenReportingPeriod'], tableCoordinates },
         };
       }
     }
   }
 
-  // 7. Unit Verification
+  // 7. Unit Provenance Verification (P1 Positive Proof)
+  let unitProvenance: 'cell' | 'column_header' | 'table_caption' | 'row_header' | 'section_heading' | 'document_definition' | undefined;
   if (claim?.claimedUnit) {
-    if (claim.claimedUnit === 'percentage') {
-      const hasPct = /%|percent|percentage/i.test([cellText, columnHeader, rowHeader, blockText].filter(Boolean).join(' '));
-      if (!hasPct) {
+    const targetU = claim.claimedUnit;
+    if (targetU === 'percentage') {
+      if (/%/.test(cellText)) {
+        unitProvenance = 'cell';
+      } else if (columnHeader && /%|percent|percentage/i.test(columnHeader)) {
+        unitProvenance = 'column_header';
+      } else if (matchedBlock.tableCaption && /%|percent|percentage/i.test(matchedBlock.tableCaption)) {
+        unitProvenance = 'table_caption';
+      } else if (rowHeader && /%|percent|percentage|ros|margin/i.test(rowHeader)) {
+        unitProvenance = 'row_header';
+      } else if (matchedBlock.unitContext === 'percentage') {
+        unitProvenance = 'table_caption';
+      } else {
         return {
           valid: false,
           failureReason: 'unprovenUnit',
-          failureDiagnostic: `Unit "percentage" is not proven by authoritative document text ("${blockText}").`,
-          provenDimensions: {
-            bindingStatus: 'unproven',
-            unprovenReasons: ['unprovenUnit'],
-            tableCoordinates,
-          },
+          failureDiagnostic: `Unit "percentage" is not proven by cell, column header, caption, or row header ("${blockText}"). Numeric value alone cannot prove unit.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenUnit'], tableCoordinates },
+        };
+      }
+    } else if (targetU === 'currency_millions') {
+      if (/(?:€|\$|EUR|USD)?\s*\d+(?:,\d{3})*(?:\.\d+)?\s*(?:m|million|M)\b/i.test(cellText) || /(?:€|\$|EUR|USD)/i.test(cellText)) {
+        unitProvenance = 'cell';
+      } else if (columnHeader && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|million)/i.test(columnHeader)) {
+        unitProvenance = 'column_header';
+      } else if (matchedBlock.tableCaption && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|million)/i.test(matchedBlock.tableCaption)) {
+        unitProvenance = 'table_caption';
+      } else if (rowHeader && /(?:in\s+millions|in\s+€\s*millions?|in\s+eur\s*millions?|in\s+usd\s*millions?|in\s+million\s*euros?|€m|\$m|million)/i.test(rowHeader)) {
+        unitProvenance = 'row_header';
+      } else if (matchedBlock.unitContext === 'currency_millions') {
+        unitProvenance = 'table_caption';
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenUnit',
+          failureDiagnostic: `Unit "currency_millions" is not proven by cell, column header, caption, or row header. Numeric value alone cannot prove unit.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenUnit'], tableCoordinates },
+        };
+      }
+    } else if (targetU === 'currency_billions') {
+      if (/(?:billion|bn|b\b)/i.test(cellText)) {
+        unitProvenance = 'cell';
+      } else if (columnHeader && /(?:billion|bn)/i.test(columnHeader)) {
+        unitProvenance = 'column_header';
+      } else if (matchedBlock.tableCaption && /(?:billion|bn)/i.test(matchedBlock.tableCaption)) {
+        unitProvenance = 'table_caption';
+      } else if (matchedBlock.unitContext === 'currency_billions') {
+        unitProvenance = 'table_caption';
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenUnit',
+          failureDiagnostic: `Unit "currency_billions" is not proven by authoritative document text.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenUnit'], tableCoordinates },
+        };
+      }
+    } else if (targetU === 'thousand_units') {
+      if (/(?:thousand\s+units|k\s+units|k\b)/i.test(cellText)) {
+        unitProvenance = 'cell';
+      } else if (columnHeader && /(?:in\s+thousands|thousand\s+units|k\s+units)/i.test(columnHeader)) {
+        unitProvenance = 'column_header';
+      } else if (matchedBlock.tableCaption && /(?:in\s+thousands|thousand\s+units)/i.test(matchedBlock.tableCaption)) {
+        unitProvenance = 'table_caption';
+      } else if (rowHeader && /(?:thousand|in\s+thousands)/i.test(rowHeader)) {
+        unitProvenance = 'row_header';
+      } else if (matchedBlock.unitContext === 'thousand_units') {
+        unitProvenance = 'table_caption';
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenUnit',
+          failureDiagnostic: `Unit "thousand_units" is not proven by authoritative document text.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenUnit'], tableCoordinates },
+        };
+      }
+    } else if (targetU === 'units') {
+      if (/units\b/i.test(cellText)) {
+        unitProvenance = 'cell';
+      } else if (columnHeader && /(?:units|vehicles|pieces)/i.test(columnHeader)) {
+        unitProvenance = 'column_header';
+      } else if (matchedBlock.tableCaption && /(?:units|vehicles)/i.test(matchedBlock.tableCaption)) {
+        unitProvenance = 'table_caption';
+      } else if (rowHeader && /(?:units|vehicles)/i.test(rowHeader)) {
+        unitProvenance = 'row_header';
+      } else if (matchedBlock.unitContext === 'units') {
+        unitProvenance = 'table_caption';
+      } else {
+        return {
+          valid: false,
+          failureReason: 'unprovenUnit',
+          failureDiagnostic: `Unit "units" is not proven by authoritative document text.`,
+          provenDimensions: { bindingStatus: 'unproven', unprovenReasons: ['unprovenUnit'], tableCoordinates },
         };
       }
     }
@@ -772,6 +939,7 @@ export function verifyDocumentClaimDimensions(
       provenPeriodType: claim?.claimedPeriodType,
       matchedPeriodLabel,
       provenUnit: claim?.claimedUnit ?? targetUnit,
+      unitProvenance,
       tableCoordinates,
       bindingStatus: 'proven',
     },
@@ -883,20 +1051,34 @@ export function resolveDocumentBlock(
 
   // Validate value presence in matched block text or cells
   if (expectedRawValue !== undefined && expectedRawValue.trim() !== '') {
-    const present = matched.cells && matched.cells.length > 0
-      ? matched.cells.some((c) => isValuePresentInBlock(c, expectedRawValue, expectedNumericValue))
-      : isValuePresentInBlock(matched.text, expectedRawValue, expectedNumericValue);
-    if (!present) {
-      return {
-        status: 'failed',
-        matchedBlock: matched,
-        error: `Raw value "${expectedRawValue}" is not present in resolved block text "${matched.text}".`,
-        structuredLocator: {
-          ...structuredLocator,
-          blockId: matched.id,
-          rawLocator: matched.locator ?? structuredLocator.rawLocator,
-        },
-      };
+    if (matched.blockType === 'table_row' && matched.cells && matched.cells.length > 0) {
+      const hasInAnyCell = matched.cells.some((c) => isValuePresentInBlock(c, expectedRawValue, expectedNumericValue));
+      if (!hasInAnyCell) {
+        return {
+          status: 'failed',
+          matchedBlock: matched,
+          error: `Raw value "${expectedRawValue}" is not present in any cell of table row.`,
+          structuredLocator: {
+            ...structuredLocator,
+            blockId: matched.id,
+            rawLocator: matched.locator ?? structuredLocator.rawLocator,
+          },
+        };
+      }
+    } else {
+      const present = isValuePresentInBlock(matched.text, expectedRawValue, expectedNumericValue);
+      if (!present) {
+        return {
+          status: 'failed',
+          matchedBlock: matched,
+          error: `Raw value "${expectedRawValue}" is not present in resolved block text "${matched.text}".`,
+          structuredLocator: {
+            ...structuredLocator,
+            blockId: matched.id,
+            rawLocator: matched.locator ?? structuredLocator.rawLocator,
+          },
+        };
+      }
     }
   }
 
@@ -1026,12 +1208,13 @@ export function bindLiveEvidence(
       params.rawValue,
       parsedValue.numericValue,
       params.unit ?? parsedValue.unit,
-      extractedDoc
+      extractedDoc,
+      structuredLocator.columnIndex
     );
 
     const finalLocator: LiveEvidenceLocator = {
       ...structuredLocator,
-      columnIndex: dimResult.provenDimensions.tableCoordinates?.columnIndex,
+      columnIndex: dimResult.provenDimensions.tableCoordinates?.columnIndex ?? structuredLocator.columnIndex,
     };
 
     return {
@@ -1039,7 +1222,8 @@ export function bindLiveEvidence(
       sourceContentHash,
       verificationOrigin: 'live_source',
       blockId: matchedBlock.id,
-      blockResolutionStatus: 'resolved',
+      blockResolutionStatus: resolution.status,
+      blockResolutionError: resolution.error,
       metricId: params.metricId,
       rawValue: params.rawValue,
       normalizedValue: parsedValue.normalizedValue,

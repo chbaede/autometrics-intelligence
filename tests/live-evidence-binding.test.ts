@@ -96,6 +96,9 @@ function createMockExtractedDoc(overrides?: Partial<ExtractedLiveDocument>): Ext
         tableIndex: 0,
         rowIndex: 1,
         locator: 'page:2:table:0:row:1',
+        cells: ['Mercedes-Benz Cars Adjusted Return on Sales', '4.0%'],
+        columnHeaders: ['Metric', 'Q2 2026'],
+        rowHeader: 'Adjusted Return on Sales',
       },
       {
         id: 'p3_b1',

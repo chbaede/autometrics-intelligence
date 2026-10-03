@@ -1939,24 +1939,37 @@ export function verifyClaimEvidence(
         return false;
       }
 
-      // 4f. Authoritative value presence in block (P0-1.7, P0-2)
-      const hasValInBlock = matchedDocBlock.cells && matchedDocBlock.cells.length > 0
-        ? matchedDocBlock.cells.some((c) => isValuePresentInBlock(c, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit))
-        : isValuePresentInBlock(matchedDocBlock.text, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit);
-      if (!hasValInBlock) {
-        liveFailureReason = 'liveEvidenceBlockForged';
-        liveFailureDiagnostic = `Live claim verification failed: claimed value "${cand.rawValue}" is not present in resolved document block text`;
-        return false;
+      // 4f. Authoritative value presence in block & table cell resolution (P0-1.7, P0-2, Round 4 P0)
+      if (matchedDocBlock.blockType === 'table_row') {
+        if (!cand.tableCoordinates || cand.tableCoordinates.columnIndex === undefined) {
+          liveFailureReason = 'unresolvedTableCell';
+          liveFailureDiagnostic = 'Live claim verification failed: table-derived claim requires resolved tableCoordinates with columnIndex.';
+          return false;
+        }
+        const cell = matchedDocBlock.cells?.[cand.tableCoordinates.columnIndex];
+        if (!cell || !isValuePresentInBlock(cell, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit)) {
+          liveFailureReason = 'cellIndexMismatch';
+          liveFailureDiagnostic = `Live claim verification failed: candidate tableCoordinates.columnIndex (${cand.tableCoordinates.columnIndex}) does not contain claimed value "${cand.rawValue}".`;
+          return false;
+        }
+      } else {
+        const hasValInBlock = isValuePresentInBlock(matchedDocBlock.text, cand.rawValue, cand.numericValue, cand.unit ?? claim?.claimedUnit);
+        if (!hasValInBlock) {
+          liveFailureReason = 'liveEvidenceBlockForged';
+          liveFailureDiagnostic = `Live claim verification failed: claimed value "${cand.rawValue}" is not present in resolved document block text`;
+          return false;
+        }
       }
 
-      // 4g. Authoritative document dimension proof (STEP 5 Remediation Round 3, P0)
+      // 4g. Authoritative document dimension proof (STEP 5 Remediation Round 3 & 4, P0)
       const dimProof = verifyDocumentClaimDimensions(
         matchedDocBlock,
         claim,
         cand.rawValue,
         cand.numericValue,
         cand.unit ?? claim?.claimedUnit,
-        extDoc
+        extDoc,
+        cand.tableCoordinates?.columnIndex
       );
       if (!dimProof.valid) {
         liveFailureReason = dimProof.failureReason;
@@ -2627,21 +2640,32 @@ export function validateClaimVerificationResult(
         }
 
         const val = result.verifiedValue ?? (result.verifiedNumericValue !== undefined ? String(result.verifiedNumericValue) : '');
-        const isPresent = matchedBlock.cells && matchedBlock.cells.length > 0
-          ? matchedBlock.cells.some((c) => isValuePresentInBlock(c, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit))
-          : isValuePresentInBlock(matchedBlock.text, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit);
-        if (!isPresent) {
-          mismatches.push('verificationValueNotFoundInBlock');
+
+        if (matchedBlock.blockType === 'table_row') {
+          if (!result.tableCoordinates || result.tableCoordinates.columnIndex === undefined) {
+            mismatches.push('verificationTableCoordinatesMissing');
+          } else {
+            const cell = matchedBlock.cells?.[result.tableCoordinates.columnIndex];
+            if (!cell || !isValuePresentInBlock(cell, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit)) {
+              mismatches.push('verificationValueNotFoundInBlock');
+            }
+          }
+        } else {
+          const isPresent = isValuePresentInBlock(matchedBlock.text, val, result.verifiedNumericValue, result.verifiedUnit ?? claim?.claimedUnit);
+          if (!isPresent) {
+            mismatches.push('verificationValueNotFoundInBlock');
+          }
         }
 
-        // Validate document-derived semantic dimensions (STEP 5 Remediation Round 3, P0)
+        // Validate document-derived semantic dimensions (STEP 5 Remediation Round 3 & 4, P0)
         const dimProof = verifyDocumentClaimDimensions(
           matchedBlock,
           claim ?? undefined,
           val,
           result.verifiedNumericValue,
           result.verifiedUnit ?? claim?.claimedUnit,
-          options.extractedLiveDocument
+          options.extractedLiveDocument,
+          result.tableCoordinates?.columnIndex
         );
         if (!dimProof.valid) {
           if (dimProof.failureReason === 'unprovenMetricSemantic') {
@@ -2650,10 +2674,31 @@ export function validateClaimVerificationResult(
             mismatches.push('verificationAccountingBasisUnprovenInDocument');
           } else if (dimProof.failureReason === 'unprovenReportingScope') {
             mismatches.push('verificationScopeUnprovenInDocument');
-          } else if (dimProof.failureReason === 'unprovenReportingPeriod' || dimProof.failureReason === 'periodMismatch') {
+          } else if (dimProof.failureReason === 'unprovenReportingPeriod' || dimProof.failureReason === 'periodMismatch' || dimProof.failureReason === 'periodTypeMismatch') {
             mismatches.push('verificationPeriodUnprovenInDocument');
+          } else if (dimProof.failureReason === 'unprovenUnit') {
+            mismatches.push('verificationUnitUnprovenInDocument');
+          } else if (dimProof.failureReason === 'unresolvedTableCell' || dimProof.failureReason === 'cellIndexMismatch') {
+            mismatches.push('verificationTableCellUnresolved');
           } else {
             mismatches.push('verificationDimensionUnprovenInDocument');
+          }
+        } else {
+          // Re-verify that claimed/verified dimensions match document-proven dimensions
+          if (result.verifiedMetricId && dimProof.provenDimensions.provenMetricId && result.verifiedMetricId !== dimProof.provenDimensions.provenMetricId) {
+            mismatches.push('verificationMetricMismatch');
+          }
+          if (result.verifiedScope && dimProof.provenDimensions.provenScope && result.verifiedScope !== dimProof.provenDimensions.provenScope) {
+            mismatches.push('verificationScopeMismatch');
+          }
+          if (result.verifiedAccountingBasis && dimProof.provenDimensions.provenAccountingBasis && result.verifiedAccountingBasis !== dimProof.provenDimensions.provenAccountingBasis) {
+            mismatches.push('verificationAccountingBasisMismatch');
+          }
+          if (result.verifiedPeriod && dimProof.provenDimensions.provenPeriod && result.verifiedPeriod !== dimProof.provenDimensions.provenPeriod) {
+            mismatches.push('verificationPeriodMismatch');
+          }
+          if (result.verifiedUnit && dimProof.provenDimensions.provenUnit && result.verifiedUnit !== dimProof.provenDimensions.provenUnit) {
+            mismatches.push('verificationUnitMismatch');
           }
         }
       }

@@ -436,6 +436,8 @@ export interface ClaimVerifiedResult extends BaseClaimVerificationResult {
     columnIndex?: number;
     columnHeader?: string;
     rowHeader?: string;
+    cellText?: string;
+    unitContext?: string;
   };
 }
 
@@ -580,6 +582,12 @@ export interface DocumentContentBlock {
   rowHeader?: string;
   /** Multi-level header context or table section titles */
   contextHeaders?: string[];
+  /** Table caption if declared (STEP 5 Remediation Round 4, P1) */
+  tableCaption?: string;
+  /** Table unit context if declared in caption or header (e.g. 'in millions of euros') */
+  unitContext?: string;
+  /** Flag indicating table structure could not be reliably reconstructed */
+  isMalformed?: boolean;
 }
 
 /**
@@ -708,6 +716,8 @@ export interface ProvenanceClaimDimensions {
   matchedPeriodLabel?: string;
   /** Unit proven from document (e.g. 'percentage') */
   provenUnit?: MetricUnit;
+  /** Provenance origin of the verified unit (cell | column_header | table_caption | row_header | section_heading | document_definition) */
+  unitProvenance?: 'cell' | 'column_header' | 'table_caption' | 'row_header' | 'section_heading' | 'document_definition';
   /** Table cell coordinates if resolved from table structure */
   tableCoordinates?: {
     tableIndex?: number;
@@ -715,6 +725,8 @@ export interface ProvenanceClaimDimensions {
     columnIndex?: number;
     columnHeader?: string;
     rowHeader?: string;
+    cellText?: string;
+    unitContext?: string;
   };
   /** Status of semantic binding */
   bindingStatus: 'proven' | 'unproven' | 'contradicted';
@@ -787,6 +799,8 @@ export interface LiveEvidenceCandidate {
     columnIndex?: number;
     columnHeader?: string;
     rowHeader?: string;
+    cellText?: string;
+    unitContext?: string;
   };
 }
 
