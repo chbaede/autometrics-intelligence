@@ -10,7 +10,12 @@
  */
 
 import { Company, MetricObservation, PeriodType } from '../types/metrics';
-import { DOCUMENTED_SCOPE_EXCEPTIONS } from '../data/scopeExceptions';
+import {
+  DOCUMENTED_SCOPE_EXCEPTIONS,
+  findDocumentedScopeException,
+  DocumentedScopeException,
+} from '../data/scopeExceptions';
+import { SOURCES_MAP } from '../data/sources';
 import { FX_RATES_TO_KRW } from './currencyUtils';
 
 export interface CompatibleScatterPoint {
@@ -23,6 +28,8 @@ export interface CompatibleScatterPoint {
   period: string;
   periodType: PeriodType;
   isProxy?: boolean;
+  proxyExceptionId?: string;
+  reason?: string;
 }
 
 export interface CompatibilityValidationResult {
@@ -103,20 +110,29 @@ export function validateScatterObservationCompatibility(
 
   // 5. Accounting basis and reporting scope compatibility
   let isProxy = false;
-  if (ebitObs.accountingBasis !== marginObs.accountingBasis || ebitObs.reportingScope !== marginObs.reportingScope) {
-    // Check if covered by documented scope exception
-    const hasDocumentedException = DOCUMENTED_SCOPE_EXCEPTIONS.some(
-      (e) =>
-        e.companyId === company.id &&
-        (!e.period || e.period === selectedPeriod)
-    );
+  let proxyExceptionId: string | undefined;
+  let exceptionRationale: string | undefined;
 
-    if (hasDocumentedException) {
-      isProxy = true;
+  if (ebitObs.accountingBasis !== marginObs.accountingBasis || ebitObs.reportingScope !== marginObs.reportingScope) {
+    const exceptionResult = resolveDocumentedScopeException({
+      companyId: company.id,
+      period: selectedPeriod,
+      periodType: targetPeriodType,
+      ebitObs,
+      marginObs,
+      revObs,
+    });
+
+    if (exceptionResult.matched) {
+      isProxy = exceptionResult.isProxy ?? true;
+      proxyExceptionId = exceptionResult.exceptionId;
+      exceptionRationale = exceptionResult.rationale;
     } else {
       return {
         valid: false,
-        reason: `incompatible_basis_or_scope: ebit(${ebitObs.reportingScope}/${ebitObs.accountingBasis}) vs margin(${marginObs.reportingScope}/${marginObs.accountingBasis})`,
+        reason: `incompatible_basis_or_scope: ebit(${ebitObs.reportingScope}/${ebitObs.accountingBasis}) vs margin(${marginObs.reportingScope}/${marginObs.accountingBasis})${
+          exceptionResult.reason ? ` - ${exceptionResult.reason}` : ''
+        }`,
       };
     }
   }
@@ -133,6 +149,110 @@ export function validateScatterObservationCompatibility(
       period: selectedPeriod,
       periodType: targetPeriodType,
       isProxy,
+      proxyExceptionId,
+      reason: exceptionRationale,
     },
+  };
+}
+
+export interface ResolveScopeExceptionParams {
+  companyId: string;
+  period: string;
+  periodType: PeriodType;
+  ebitObs: MetricObservation;
+  marginObs: MetricObservation;
+  revObs?: MetricObservation | null;
+  sources?: Record<string, any>;
+  exceptions?: DocumentedScopeException[];
+}
+
+export interface ResolveScopeExceptionResult {
+  matched: boolean;
+  exceptionId?: string;
+  isProxy?: boolean;
+  rationale?: string;
+  reason?: string;
+}
+
+/**
+ * Resolves documented scope exception by strictly verifying all dimensions:
+ * companyId, period, periodType, metric IDs, reporting scopes, accounting bases,
+ * and authoritative source document registrations. Fail closed on any mismatch.
+ */
+export function resolveDocumentedScopeException({
+  companyId,
+  period,
+  periodType,
+  ebitObs,
+  marginObs,
+  revObs,
+  sources = SOURCES_MAP,
+  exceptions = DOCUMENTED_SCOPE_EXCEPTIONS,
+}: ResolveScopeExceptionParams): ResolveScopeExceptionResult {
+  // Fail closed if required observations or fields are missing/empty
+  if (!companyId || !period || !periodType || !ebitObs || !marginObs) {
+    return {
+      matched: false,
+      reason: 'missing_required_exception_parameters',
+    };
+  }
+
+  // Derive candidate exception targets matching company and period
+  const matchingCandidates = exceptions.filter(
+    (e) => e.companyId === companyId && (e.period === undefined || e.period === period)
+  );
+
+  if (matchingCandidates.length === 0) {
+    return {
+      matched: false,
+      reason: `no_documented_exception: ${companyId} / ${period}`,
+    };
+  }
+
+  // Find candidate exception that matches the specific numerator and margin metric IDs
+  const matchingCandidate = matchingCandidates.find(
+    (e) => e.numeratorMetricId === ebitObs.metricId && e.marginMetricId === marginObs.metricId
+  );
+
+  const denominatorMetricId = matchingCandidate?.denominatorMetricId || revObs?.metricId || 'revenue';
+  const denominatorScope = revObs?.reportingScope || matchingCandidate?.denominatorScope;
+  const denominatorBasis = revObs?.accountingBasis || matchingCandidate?.denominatorBasis;
+
+  const observationContext = {
+    numeratorSourceDocId: ebitObs.sourceDocId,
+    marginSourceDocId: marginObs.sourceDocId,
+    revenueSourceDocId: revObs?.sourceDocId || matchingCandidate?.sourceDocIds?.[0],
+    periodType,
+  };
+
+  const validationResult = findDocumentedScopeException(
+    companyId,
+    period,
+    marginObs.metricId,
+    ebitObs.metricId,
+    denominatorMetricId,
+    ebitObs.reportingScope,
+    denominatorScope,
+    marginObs.reportingScope,
+    ebitObs.accountingBasis,
+    denominatorBasis,
+    marginObs.accountingBasis,
+    sources,
+    exceptions,
+    observationContext
+  );
+
+  if (validationResult.matched) {
+    return {
+      matched: true,
+      exceptionId: validationResult.exceptionId,
+      isProxy: validationResult.isProxy,
+      rationale: validationResult.rationale,
+    };
+  }
+
+  return {
+    matched: false,
+    reason: validationResult.rejectionReasons?.join('; ') || 'scope_exception_validation_failed',
   };
 }

@@ -244,32 +244,40 @@ export const GlobalOverviewPage: React.FC = () => {
     };
   }).filter((pt) => pt.volumeThousand > 0 && pt.marginPercent > 0);
 
-  const currentPeriodType: PeriodType = selectedPeriod.toUpperCase().includes('FY') ? 'annual' : 'quarterly';
+  // Resolve canonical periodType strictly from canonical observations for selectedPeriod
+  // Fail closed: do not infer or guess from string pattern matching
+  const canonicalPeriodObs = getObservations(undefined, undefined, selectedPeriod).find(
+    (obs) => obs.periodType !== undefined && obs.periodType !== null
+  );
+  const currentPeriodType: PeriodType | undefined = canonicalPeriodObs?.periodType;
 
   // Profit Scatter matrix points (Absolute Operating Profit vs Margin)
   // Preserves loss-making companies and strictly validates observation compatibility
-  const profitScatterPoints = selectedCompanies
-    .map((cid) => {
-      const comp = getCompanyById(cid);
-      if (!comp) return null;
-      const ebitObs = getObservations([cid], ['operating_income'], selectedPeriod)[0];
-      const marginObs = getObservations([cid], ['operating_margin'], selectedPeriod)[0];
-      const volObs = getObservations([cid], ['deliveries_global'], selectedPeriod)[0];
-      const revObs = getObservations([cid], ['revenue'], selectedPeriod)[0];
+  // Fails closed if currentPeriodType is unrecognized or undefined
+  const profitScatterPoints = currentPeriodType
+    ? selectedCompanies
+        .map((cid) => {
+          const comp = getCompanyById(cid);
+          if (!comp) return null;
+          const ebitObs = getObservations([cid], ['operating_income'], selectedPeriod)[0];
+          const marginObs = getObservations([cid], ['operating_margin'], selectedPeriod)[0];
+          const volObs = getObservations([cid], ['deliveries_global'], selectedPeriod)[0];
+          const revObs = getObservations([cid], ['revenue'], selectedPeriod)[0];
 
-      const validation = validateScatterObservationCompatibility(
-        comp,
-        selectedPeriod,
-        currentPeriodType,
-        ebitObs,
-        marginObs,
-        volObs,
-        revObs
-      );
+          const validation = validateScatterObservationCompatibility(
+            comp,
+            selectedPeriod,
+            currentPeriodType,
+            ebitObs,
+            marginObs,
+            volObs,
+            revObs
+          );
 
-      return validation.valid && validation.point ? validation.point : null;
-    })
-    .filter((pt): pt is NonNullable<typeof pt> => pt !== null);
+          return validation.valid && validation.point ? validation.point : null;
+        })
+        .filter((pt): pt is NonNullable<typeof pt> => pt !== null)
+    : [];
 
   // Guidance data
   const guidanceList = getAllGuidance().filter((g) => selectedCompanies.includes(g.companyId));

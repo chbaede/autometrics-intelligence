@@ -239,6 +239,7 @@ assert(resultUnitMismatch.valid === false, 'Rejects invalid EBIT unit');
 assert(Boolean(resultUnitMismatch.reason?.includes('unsupported_ebit_unit')), 'Fails with unsupported_ebit_unit');
 
 // Documented scope/proxy exception test (Mercedes-Benz Cars segment margin with group EBIT)
+// Uses official verified sourceDocId: mbg_2026_q2_results
 const mbgEbit: MetricObservation = {
   id: 'mbg_2026_q2_ebit',
   companyId: 'mercedes_benz',
@@ -250,7 +251,7 @@ const mbgEbit: MetricObservation = {
   unit: 'currency_millions',
   currency: 'EUR',
   valueType: 'reported',
-  sourceDocId: 'mbg_2026_q2_interim',
+  sourceDocId: 'mbg_2026_q2_results',
   reportingScope: 'consolidated_group',
   accountingBasis: 'reported',
   isComparable: true,
@@ -268,7 +269,7 @@ const mbgMargin: MetricObservation = {
   value: 4.0,
   unit: 'percentage',
   valueType: 'reported',
-  sourceDocId: 'mbg_2026_q2_interim',
+  sourceDocId: 'mbg_2026_q2_results',
   reportingScope: 'cars_segment',
   accountingBasis: 'adjusted',
   isComparable: true,
@@ -276,6 +277,7 @@ const mbgMargin: MetricObservation = {
   verificationMethod: 'official_pdf_filing',
 };
 
+// [Regression Test 1] Exact match accepted with proxy provenance preserved
 const resultMbgProxy = validateScatterObservationCompatibility(
   mockMercedes,
   '2026-Q2',
@@ -283,10 +285,73 @@ const resultMbgProxy = validateScatterObservationCompatibility(
   mbgEbit,
   mbgMargin
 );
-assert(resultMbgProxy.valid === true, 'Documented scope exception (MBG) is accepted');
-assert(resultMbgProxy.point?.isProxy === true, 'MBG point is tagged with isProxy: true');
+assert(resultMbgProxy.valid === true, 'Test 1a: Exact documented scope exception (MBG) is accepted');
+assert(resultMbgProxy.point?.isProxy === true, 'Test 1b: MBG point is tagged with isProxy: true');
+assert(
+  resultMbgProxy.point?.proxyExceptionId === 'mbg_cars_adjusted_ros_2026q2',
+  'Test 1c: MBG point preserves authoritative proxyExceptionId'
+);
 
-// Undocumented arbitrary mismatch
+// [Regression Test 2] Same company + same period, but mismatching scope or basis rejected
+const wrongScopeMargin: MetricObservation = {
+  ...mbgMargin,
+  reportingScope: 'commercial_vehicles_segment', // Mismatch against documented cars_segment
+};
+const resultWrongScope = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'quarterly',
+  mbgEbit,
+  wrongScopeMargin
+);
+assert(resultWrongScope.valid === false, 'Test 2a: Same company and period with wrong scope is rejected');
+assert(
+  Boolean(resultWrongScope.reason?.includes('incompatible_basis_or_scope')),
+  'Test 2b: Wrong scope fails with incompatible_basis_or_scope'
+);
+
+const wrongBasisMargin: MetricObservation = {
+  ...mbgMargin,
+  accountingBasis: 'management_defined', // Mismatch against documented adjusted basis
+};
+const resultWrongBasis = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'quarterly',
+  mbgEbit,
+  wrongBasisMargin
+);
+assert(resultWrongBasis.valid === false, 'Test 2c: Same company and period with wrong basis is rejected');
+
+// [Regression Test 3] Mismatching sourceDocId rejected
+const wrongDocEbit: MetricObservation = {
+  ...mbgEbit,
+  sourceDocId: 'unverified_arbitrary_doc',
+};
+const resultWrongDoc = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'quarterly',
+  wrongDocEbit,
+  mbgMargin
+);
+assert(resultWrongDoc.valid === false, 'Test 3a: Exception with unrecognized or unverified sourceDocId is rejected');
+assert(
+  Boolean(resultWrongDoc.reason?.includes('incompatible_basis_or_scope')),
+  'Test 3b: Unrecognized sourceDocId fails closed'
+);
+
+// [Regression Test 4] PeriodType mismatch rejected
+const resultWrongPeriodType = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'annual', // targetPeriodType annual vs observation quarterly
+  mbgEbit,
+  mbgMargin
+);
+assert(resultWrongPeriodType.valid === false, 'Test 4: PeriodType mismatch is rejected');
+
+// [Regression Test 5] Malformed / incomplete exception rejected (undocumented mismatch)
 const undocumentedMismatchEbit: MetricObservation = {
   ...rivianEbit,
   accountingBasis: 'reported',
@@ -304,8 +369,8 @@ const resultUndocumentedMismatch = validateScatterObservationCompatibility(
   undocumentedMismatchEbit,
   undocumentedMismatchMargin
 );
-assert(resultUndocumentedMismatch.valid === false, 'Undocumented basis/scope mismatch is rejected');
-assert(Boolean(resultUndocumentedMismatch.reason?.includes('incompatible_basis_or_scope')), 'Fails with incompatible_basis_or_scope');
+assert(resultUndocumentedMismatch.valid === false, 'Test 5a: Undocumented basis/scope mismatch is rejected');
+assert(Boolean(resultUndocumentedMismatch.reason?.includes('incompatible_basis_or_scope')), 'Test 5b: Fails with incompatible_basis_or_scope');
 
 // ─── 4. Stale Selection Resolution Tests ────────────────────────────────────
 console.log('\n--- Suite 4: Selection synchronization & stale data prevention ---');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Company, PeriodType } from '../../../types/metrics';
 import { TermBadge } from '../TermBadge';
@@ -61,23 +61,27 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   };
 
   // 3. Filter valid points — PRESERVE loss-making companies (negative EBIT and negative margins)
-  const processedPoints: ProcessedPoint[] = [];
-  (points || []).forEach((p) => {
-    if (
-      p.operatingIncome !== undefined &&
-      p.operatingIncome !== null &&
-      Number.isFinite(p.operatingIncome) &&
-      Number.isFinite(p.marginPercent)
-    ) {
-      const profitNorm = getNormalizedProfit(p);
-      if (profitNorm !== null && Number.isFinite(profitNorm)) {
-        processedPoints.push({
-          ...p,
-          profitNormalized: profitNorm,
-        });
+  // Memoized so effect doesn't re-run and selection isn't cleared on unrelated re-renders
+  const processedPoints = useMemo<ProcessedPoint[]>(() => {
+    const list: ProcessedPoint[] = [];
+    (points || []).forEach((p) => {
+      if (
+        p.operatingIncome !== undefined &&
+        p.operatingIncome !== null &&
+        Number.isFinite(p.operatingIncome) &&
+        Number.isFinite(p.marginPercent)
+      ) {
+        const profitNorm = getNormalizedProfit(p);
+        if (profitNorm !== null && Number.isFinite(profitNorm)) {
+          list.push({
+            ...p,
+            profitNormalized: profitNorm,
+          });
+        }
       }
-    }
-  });
+    });
+    return list;
+  }, [points, language]);
 
   // 4. Synchronize selection to prevent stale data when period/points change
   useEffect(() => {
