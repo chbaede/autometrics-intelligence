@@ -18,6 +18,7 @@ interface ProfitScatterChartProps {
   points: ScatterPoint[];
   period?: string;
   periodType?: PeriodType;
+  outlierExcluded?: boolean;
   onSelectCompany?: (company: Company) => void;
 }
 
@@ -31,6 +32,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   points,
   period,
   periodType,
+  outlierExcluded,
   onSelectCompany,
 }) => {
   const { language } = useLanguage();
@@ -375,6 +377,11 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                 : '4-Quadrant Operating Profit Matrix'}
               {period ? ` (${period})` : ''}
             </span>
+            {outlierExcluded && (
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 whitespace-nowrap">
+                {language === 'ko' ? '스케일 최적화: 리비안 제외됨' : 'Scale optimized: Rivian excluded'}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap text-xs">

@@ -258,9 +258,11 @@ export const GlobalOverviewPage: React.FC = () => {
 
   // Profit Scatter matrix points (Absolute Operating Profit vs Margin)
   // Preserves loss-making companies and strictly validates observation compatibility
+  // When excludeMarginOutliers is true, filters out extreme scale distortion outliers (e.g. Rivian -118.7% margin)
   // Fails closed if currentPeriodType is unrecognized or undefined
   const profitScatterPoints = currentPeriodType
     ? selectedCompanies
+        .filter((cid) => !excludeMarginOutliers || cid !== 'rivian')
         .map((cid) => {
           const comp = getCompanyById(cid);
           if (!comp) return null;
@@ -599,10 +601,15 @@ export const GlobalOverviewPage: React.FC = () => {
       <div className="w-full">
         <ProfitScatterChart
           title={t.charts.profitVsMargin}
-          subtitle={t.charts.profitVsMarginSubtitle}
+          subtitle={
+            excludeMarginOutliers
+              ? `${t.charts.profitVsMarginSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 제외됨' : 'Scale optimized: Rivian excluded'})`
+              : t.charts.profitVsMarginSubtitle
+          }
           points={profitScatterPoints}
           period={selectedPeriod}
           periodType={currentPeriodType}
+          outlierExcluded={excludeMarginOutliers}
         />
       </div>
 
