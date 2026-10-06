@@ -136,10 +136,10 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
 
       {/* Unified Horizontal Comparative Chart Area */}
       <div className="relative w-full bg-slate-50/70 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-        {/* Scale Top Axis — Perfectly aligned with the center corridor flex area */}
-        <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 mb-2">
+        {/* Scale Top Axis — Desktop only; mobile rows show individual clear target ranges */}
+        <div className="hidden sm:flex items-center gap-3 px-3 mb-2">
           {/* Left spacer matching company header */}
-          <div className="w-[100px] sm:w-[150px] shrink-0" />
+          <div className="w-[150px] shrink-0" />
 
           {/* Center axis ticks matching the exact corridor track width */}
           <div className="relative flex-1 h-6">
@@ -151,7 +151,7 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                   className="absolute top-0 bottom-0 flex flex-col items-center -translate-x-1/2"
                   style={{ left: `${leftPct}%` }}
                 >
-                  <span className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
+                  <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
                     {tick}%
                   </span>
                   <div className="w-px h-2 bg-slate-400 dark:bg-slate-600 mt-0.5" />
@@ -161,11 +161,11 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
           </div>
 
           {/* Right spacer matching summary badge */}
-          <div className="w-[75px] sm:w-[100px] shrink-0" />
+          <div className="w-[100px] shrink-0" />
         </div>
 
         {/* Unified OEM Rows */}
-        <div className="space-y-2.5">
+        <div className="space-y-3 sm:space-y-2.5">
           {sortedGuidance.map((g) => {
             const company = getCompanyById(g.companyId);
             const min = g.min ?? g.target ?? 0;
@@ -184,30 +184,36 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                 onMouseEnter={() => setHoveredId(g.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onClick={() => onSelectGuidance?.(g)}
-                className={`flex items-center gap-1.5 sm:gap-3 py-2 px-2 sm:px-3 rounded-xl transition cursor-pointer border ${
+                className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 sm:py-2 sm:px-3 rounded-xl transition cursor-pointer border ${
                   isHovered
                     ? 'bg-brand-50/90 dark:bg-brand-500/10 border-brand-300 dark:border-brand-500/40 shadow-xs'
                     : 'bg-white/80 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800/60'
                 }`}
               >
-                {/* Left Column: Full Company Name & Status */}
-                <div className="w-[100px] sm:w-[150px] shrink-0 flex items-center justify-between pr-1 sm:pr-2">
-                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                {/* Mobile Top Header: Company Name, Status, and Target Range */}
+                <div className="flex items-center justify-between gap-2 sm:w-[150px] shrink-0 sm:pr-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
-                      className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 shadow-xs"
+                      className="w-3 h-3 rounded-full shrink-0 shadow-xs"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-slate-100 truncate">
+                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
                       {company?.shortName || g.companyId}
                     </span>
                   </div>
-                  <div className="hidden xs:inline-flex sm:inline-flex">
+                  <div className="flex items-center gap-1.5 sm:hidden">
+                    {getStatusBadge(g.status)}
+                    <span className="font-mono font-bold text-[11px] text-brand-700 dark:text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded-md border border-brand-500/20">
+                      {min === max ? `${min}%` : `${min}% ~ ${max}%`}
+                    </span>
+                  </div>
+                  <div className="hidden sm:inline-flex">
                     {getStatusBadge(g.status)}
                   </div>
                 </div>
 
-                {/* Center Corridor Bar Column (Fluid flex-1) */}
-                <div className="relative flex-1 h-8 sm:h-9 min-w-[70px]">
+                {/* Center Corridor Bar Column (Full width on mobile, fluid flex-1 on desktop) */}
+                <div className="relative w-full sm:flex-1 h-8 sm:h-9">
                   {/* Background Track with Grid Guidelines */}
                   <div className="relative w-full h-full bg-slate-100/90 dark:bg-slate-900/90 rounded-lg border border-slate-200/90 dark:border-slate-800 overflow-hidden shadow-inner flex items-center">
                     {tickSteps.map((tick) => {
@@ -243,9 +249,9 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                   </div>
                 </div>
 
-                {/* Right Summary Badge (whitespace-nowrap prevents any wrapping) */}
-                <div className="w-[75px] sm:w-[100px] shrink-0 text-right">
-                  <span className="inline-block whitespace-nowrap font-mono font-bold text-[10px] sm:text-xs text-brand-700 dark:text-brand-300 bg-brand-500/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-brand-500/20 shadow-2xs">
+                {/* Desktop Right Summary Badge (hidden on mobile, shown in top mobile header instead) */}
+                <div className="hidden sm:block w-[100px] shrink-0 text-right">
+                  <span className="inline-block whitespace-nowrap font-mono font-bold text-xs text-brand-700 dark:text-brand-300 bg-brand-500/10 px-2 py-1 rounded-md border border-brand-500/20 shadow-2xs">
                     {min === max ? `${min}%` : `${min}% ~ ${max}%`}
                   </span>
                 </div>

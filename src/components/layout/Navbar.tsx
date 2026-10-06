@@ -80,23 +80,23 @@ export const Navbar: React.FC = () => {
         </nav>
 
         {/* Right Utility Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Main Hub Link */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Main Hub Link (Desktop only; moved to mobile drawer on small screens) */}
           <a
             href="https://main.yocto.co.kr/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition shadow-xs justify-center"
+            className="hidden lg:flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition shadow-xs justify-center"
             title={t.nav.mainHubDesc}
           >
-            <span className="hidden sm:inline">{t.nav.mainHub}</span>
+            <span>{t.nav.mainHub}</span>
             <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
           </a>
 
           {/* Language Switcher */}
           <button
             onClick={toggleLanguage}
-            className="flex items-center gap-1 sm:gap-1.5 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition justify-center"
+            className="flex items-center gap-1 min-h-[44px] min-w-[44px] px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition justify-center"
             title={language === 'ko' ? 'Switch to English' : '한국어로 전환'}
             aria-label="Toggle language"
           >
@@ -153,6 +153,25 @@ export const Navbar: React.FC = () => {
               </NavLink>
             );
           })}
+
+          {/* Main Hub External Link in Mobile Drawer */}
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+            <a
+              href="https://main.yocto.co.kr/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 transition border border-dashed border-slate-300 dark:border-slate-700"
+            >
+              <div className="flex items-center gap-3">
+                <ExternalLink className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                <span>{t.nav.mainHub}</span>
+              </div>
+              <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                main.yocto.co.kr
+              </span>
+            </a>
+          </div>
         </div>
       )}
     </header>

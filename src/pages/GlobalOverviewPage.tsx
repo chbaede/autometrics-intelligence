@@ -9,7 +9,10 @@ import {
 } from '../utils/metricQueries';
 import { MetricObservation, PeriodType } from '../types/metrics';
 import { formatPeriodLabel } from '../utils/metricCalculations';
-import { validateScatterObservationCompatibility } from '../utils/scatterDataUtils';
+import {
+  validateScatterObservationCompatibility,
+  resolveCanonicalPeriodType,
+} from '../utils/scatterDataUtils';
 import { MetricBarChart } from '../components/metrics/charts/MetricBarChart';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { GuidanceRangeChart } from '../components/metrics/charts/GuidanceRangeChart';
@@ -249,10 +252,9 @@ export const GlobalOverviewPage: React.FC = () => {
 
   // Resolve canonical periodType strictly from canonical observations for selectedPeriod
   // Fail closed: do not infer or guess from string pattern matching
-  const canonicalPeriodObs = getObservations(undefined, undefined, selectedPeriod).find(
-    (obs) => obs.periodType !== undefined && obs.periodType !== null
-  );
-  const currentPeriodType: PeriodType | undefined = canonicalPeriodObs?.periodType;
+  // Fails closed (returns undefined) if mixed periodTypes or zero periodTypes exist
+  const allPeriodObs = getObservations(undefined, undefined, selectedPeriod);
+  const currentPeriodType: PeriodType | undefined = resolveCanonicalPeriodType(allPeriodObs);
 
   // Profit Scatter matrix points (Absolute Operating Profit vs Margin)
   // Preserves loss-making companies and strictly validates observation compatibility

@@ -424,6 +424,30 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
 
       {/* SVG Scatter Plot Container */}
       <div className="relative w-full overflow-hidden bg-slate-50/50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800/80 p-2">
+        {/* Style block for responsive SVG label density */}
+        <style>{`
+          @media (max-width: 640px) {
+            .scatter-label-card:not(.scatter-card-active) .scatter-card-details {
+              display: none;
+            }
+            .scatter-label-card:not(.scatter-card-active) rect.scatter-card-bg {
+              height: 22px !important;
+              width: 80px !important;
+            }
+            .scatter-label-card:not(.scatter-card-active) rect.scatter-card-indicator {
+              height: 14px !important;
+            }
+            .scatter-label-card:not(.scatter-card-active) rect.scatter-card-badge {
+              display: none;
+            }
+            .scatter-label-card:not(.scatter-card-active) text.scatter-card-margin {
+              display: none;
+            }
+            .scatter-leader-line:not(.scatter-leader-active) {
+              opacity: 0.15;
+            }
+          }
+        `}</style>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-auto"
@@ -747,6 +771,9 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
           {placedLabels.map((lbl) => {
             const targetX = lbl.boxX + lbl.boxW / 2;
             const targetY = lbl.boxY + lbl.boxH / 2;
+            const isHovered = hovered?.company.id === lbl.point.company.id;
+            const isSelected = selectedPoint?.company.id === lbl.point.company.id;
+            const isActive = isHovered || isSelected;
             return (
               <g key={`leader-${lbl.point.company.id}`}>
                 <line
@@ -758,6 +785,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   strokeWidth="1.2"
                   strokeDasharray={lbl.hasLeader ? '2 2' : 'none'}
                   strokeOpacity={lbl.hasLeader ? 0.6 : 0.25}
+                  className={`scatter-leader-line ${isActive ? 'scatter-leader-active' : ''}`}
                 />
               </g>
             );
@@ -833,14 +861,17 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                 />
 
                 {/* Modern Institutional Financial Card */}
-                <g transform={`translate(${lbl.boxX}, ${lbl.boxY})`}>
+                <g
+                  transform={`translate(${lbl.boxX}, ${lbl.boxY})`}
+                  className={`scatter-label-card ${isActive ? 'scatter-card-active' : ''}`}
+                >
                   <rect
                     x="0"
                     y="0"
                     width={lbl.boxW}
                     height={lbl.boxH}
                     rx="8"
-                    className={`transition-all shadow-sm ${
+                    className={`scatter-card-bg transition-all shadow-sm ${
                       isActive
                         ? 'fill-white dark:fill-slate-800 shadow-md'
                         : 'fill-white/95 dark:fill-slate-900/95 stroke-slate-200 dark:stroke-slate-700/90'
@@ -859,13 +890,14 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                     height={lbl.boxH - 8}
                     rx="2"
                     fill={color}
+                    className="scatter-card-indicator"
                   />
 
                   {/* Row 1: Company Short Name */}
                   <text
-                    x="12"
-                    y="17"
-                    className={`font-extrabold text-[11.5px] font-sans ${
+                    x="10"
+                    y="15"
+                    className={`font-extrabold text-[11px] font-sans ${
                       isActive
                         ? 'fill-slate-950 dark:fill-white'
                         : 'fill-slate-900 dark:fill-slate-100'
@@ -881,19 +913,19 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                     width="42"
                     height="16"
                     rx="4"
-                    className={
+                    className={`scatter-card-badge ${
                       pt.marginPercent < 0
                         ? 'fill-rose-100 dark:fill-rose-950/70 stroke-rose-400 dark:stroke-rose-600 stroke-1'
                         : pt.marginPercent >= 7.0
                         ? 'fill-emerald-500/15 dark:fill-emerald-400/20'
                         : 'fill-slate-100 dark:fill-slate-800'
-                    }
+                    }`}
                   />
                   <text
                     x={lbl.boxW - 27}
                     y={16.5}
                     textAnchor="middle"
-                    className={`font-mono font-bold text-[10px] ${
+                    className={`scatter-card-margin font-mono font-bold text-[10px] ${
                       pt.marginPercent < 0
                         ? 'fill-rose-700 dark:fill-rose-400'
                         : pt.marginPercent >= 7.0
@@ -905,33 +937,35 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   </text>
 
                   {/* Row 2: Actual Profit Number & Deliveries */}
-                  <text
-                    x="12"
-                    y="34"
-                    className={`font-mono text-[9.5px] font-bold ${
-                      isLoss
-                        ? 'fill-rose-600 dark:fill-rose-400'
-                        : isActive
-                        ? 'fill-emerald-600 dark:fill-emerald-400'
-                        : 'fill-emerald-700 dark:fill-emerald-400'
-                    }`}
-                  >
-                    {lbl.profitStr}
-                  </text>
+                  <g className="scatter-card-details">
+                    <text
+                      x="12"
+                      y="34"
+                      className={`font-mono text-[9.5px] font-bold ${
+                        isLoss
+                          ? 'fill-rose-600 dark:fill-rose-400'
+                          : isActive
+                          ? 'fill-emerald-600 dark:fill-emerald-400'
+                          : 'fill-emerald-700 dark:fill-emerald-400'
+                      }`}
+                    >
+                      {lbl.profitStr}
+                    </text>
 
-                  {/* Deliveries Count */}
-                  <text
-                    x={lbl.boxW - 8}
-                    y="34"
-                    textAnchor="end"
-                    className={`font-mono text-[9.5px] ${
-                      isActive
-                        ? 'fill-slate-700 dark:fill-slate-200 font-bold'
-                        : 'fill-slate-500 dark:fill-slate-400 font-semibold'
-                    }`}
-                  >
-                    {lbl.volumeStr}
-                  </text>
+                    {/* Deliveries Count */}
+                    <text
+                      x={lbl.boxW - 8}
+                      y="34"
+                      textAnchor="end"
+                      className={`font-mono text-[9.5px] ${
+                        isActive
+                          ? 'fill-slate-700 dark:fill-slate-200 font-bold'
+                          : 'fill-slate-500 dark:fill-slate-400 font-semibold'
+                      }`}
+                    >
+                      {lbl.volumeStr}
+                    </text>
+                  </g>
                 </g>
               </g>
             );

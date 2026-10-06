@@ -1,6 +1,6 @@
-import { validateScatterObservationCompatibility } from '../src/utils/scatterDataUtils';
+import { validateScatterObservationCompatibility, resolveCanonicalPeriodType } from '../src/utils/scatterDataUtils';
 import { convertMillionsToKRW, convertMillionsToUSD, formatLocalizedProfit } from '../src/utils/currencyUtils';
-import { Company, MetricObservation } from '../src/types/metrics';
+import { Company, MetricObservation, PeriodType } from '../src/types/metrics';
 
 let passed = 0;
 let failed = 0;
@@ -551,9 +551,51 @@ const isLeaderKO = testProfitWon / 1e12 >= quarterlyMidKRW;
 const isLeaderEN = testProfitUSD >= quarterlyMidUSD;
 assert(isLeaderKO === isLeaderEN, 'OEM quadrant assignment is 100% semantically identical between KO and EN');
 
+// ─── 6. Canonical PeriodType Resolution ─────────────────────────────────────
+console.log('\n--- Suite 6: Canonical PeriodType Resolution ---');
+
+// 6-1. All quarterly observations
+const allQuarterlyObs = [
+  { periodType: 'quarterly' as PeriodType },
+  { periodType: 'quarterly' as PeriodType },
+  { periodType: 'quarterly' as PeriodType },
+];
+assert(resolveCanonicalPeriodType(allQuarterlyObs) === 'quarterly', 'All quarterly observations resolve to "quarterly"');
+
+// 6-2. All annual observations
+const allAnnualObs = [
+  { periodType: 'annual' as PeriodType },
+  { periodType: 'annual' as PeriodType },
+];
+assert(resolveCanonicalPeriodType(allAnnualObs) === 'annual', 'All annual observations resolve to "annual"');
+
+// 6-3. Mixed quarterly and annual observations -> Fail Closed (undefined)
+const mixedObs = [
+  { periodType: 'quarterly' as PeriodType },
+  { periodType: 'annual' as PeriodType },
+];
+assert(resolveCanonicalPeriodType(mixedObs) === undefined, 'Mixed quarterly and annual observations fail closed to undefined');
+
+// 6-4. Missing or empty observations -> Fail Closed (undefined)
+assert(resolveCanonicalPeriodType([]) === undefined, 'Empty observations array fails closed to undefined');
+
+const allMissingPeriodTypeObs = [
+  { periodType: undefined },
+  { periodType: null },
+];
+assert(resolveCanonicalPeriodType(allMissingPeriodTypeObs) === undefined, 'Observations with missing/null periodType fail closed to undefined');
+
+// 6-5. Single quarterly observation amongst missing periodTypes -> returns "quarterly"
+const partiallyMissingObs = [
+  { periodType: 'quarterly' as PeriodType },
+  { periodType: undefined },
+];
+assert(resolveCanonicalPeriodType(partiallyMissingObs) === 'quarterly', 'Single defined periodType with undefined entries resolves consistently');
+
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {
   process.exit(1);
 } else {
   console.log('🎉 All Profit Scatter Matrix tests passed cleanly!\n');
 }
+
