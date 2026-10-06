@@ -591,6 +591,7 @@ export const GlobalOverviewPage: React.FC = () => {
           title={t.charts.revenueVsMargin}
           subtitle={t.charts.revenueVsMarginSubtitle}
           points={scatterPoints}
+          periodType={currentPeriodType}
         />
       </div>
 

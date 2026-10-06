@@ -585,12 +585,27 @@ const allMissingPeriodTypeObs = [
 ];
 assert(resolveCanonicalPeriodType(allMissingPeriodTypeObs) === undefined, 'Observations with missing/null periodType fail closed to undefined');
 
-// 6-5. Single quarterly observation amongst missing periodTypes -> returns "quarterly"
+// 6-5. Partially missing periodTypes -> Fail Closed (undefined)
 const partiallyMissingObs = [
   { periodType: 'quarterly' as PeriodType },
   { periodType: undefined },
 ];
-assert(resolveCanonicalPeriodType(partiallyMissingObs) === 'quarterly', 'Single defined periodType with undefined entries resolves consistently');
+assert(resolveCanonicalPeriodType(partiallyMissingObs) === undefined, 'Partially missing (undefined) periodType fails closed to undefined');
+
+// 6-6. Explicit null coverage -> Fail Closed (undefined)
+const nullPeriodTypeObs = [
+  { periodType: 'quarterly' as PeriodType },
+  { periodType: null },
+];
+assert(resolveCanonicalPeriodType(nullPeriodTypeObs) === undefined, 'Partially missing (null) periodType fails closed to undefined');
+
+// 6-7. Missing entry between otherwise identical periodTypes -> Fail Closed (undefined)
+const gapMissingObs = [
+  { periodType: 'annual' as PeriodType },
+  { periodType: undefined },
+  { periodType: 'annual' as PeriodType },
+];
+assert(resolveCanonicalPeriodType(gapMissingObs) === undefined, 'Missing metadata entry cannot be hidden by surrounding identical entries');
 
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {

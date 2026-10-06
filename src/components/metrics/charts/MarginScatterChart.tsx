@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Company } from '../../../types/metrics';
+import { Company, PeriodType } from '../../../types/metrics';
 import { TermBadge } from '../TermBadge';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { Layers, DollarSign, ExternalLink, X } from 'lucide-react';
@@ -19,6 +19,7 @@ interface MarginScatterChartProps {
   title: string;
   subtitle?: string;
   points: ScatterPoint[];
+  periodType?: PeriodType;
   onSelectCompany?: (company: Company) => void;
 }
 
@@ -26,6 +27,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   title,
   subtitle,
   points,
+  periodType,
   onSelectCompany,
 }) => {
   const { language } = useLanguage();
@@ -34,7 +36,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
   const activePoint = selectedPoint || hovered;
 
-  if (!points || points.length === 0) return null;
+  // Fail closed if periodType is undefined or if no points exist
+  if (!periodType || !points || points.length === 0) return null;
 
   // Chart dimensions with generous padding for explicit axis titles
   const width = 1060;
@@ -47,9 +50,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
-  // Calculate dynamic axis bounds based on actual observations
+  // Calculate dynamic axis bounds based on actual observations and explicit periodType
   const rawMaxVol = Math.max(...points.map((p) => p.volumeThousand), 500);
-  const isAnnual = rawMaxVol > 4000;
+  const isAnnual = periodType === 'annual';
   const maxVolume = isAnnual
     ? Math.max(12000, Math.ceil((rawMaxVol * 1.08) / 1000) * 1000)
     : Math.max(3000, Math.ceil((rawMaxVol * 1.1) / 500) * 500);
@@ -545,8 +548,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
               className="fill-slate-800 dark:fill-slate-200 font-bold text-[11.5px] font-sans"
             >
               {language === 'ko'
-                ? '➔ X축: 글로벌 분기 판매량 / 인도 실적 (천 대 / 백만 대)'
-                : '➔ X: Global Quarterly Vehicle Deliveries (k / M units)'}
+                ? `➔ X축: 글로벌 ${isAnnual ? '연간' : '분기'} 판매량 / 인도 실적 (천 대 / 백만 대)`
+                : `➔ X: Global ${isAnnual ? 'Annual' : 'Quarterly'} Vehicle Deliveries (k / M units)`}
             </text>
           </g>
 

@@ -41,24 +41,32 @@ export interface CompatibilityValidationResult {
 /**
  * Resolves the canonical PeriodType for a given period from a set of observations.
  * Strict fail-closed requirements:
- * 1. Collects all non-null/non-undefined periodType entries from the observations.
- * 2. If exactly one unique periodType exists across all observations, returns that PeriodType.
- * 3. If zero periodTypes are found, returns undefined (fail closed).
- * 4. If conflicting periodTypes exist (e.g. mixed quarterly and annual), returns undefined (fail closed).
+ * 1. Requires observations array to be non-empty.
+ * 2. Requires EVERY observation to have an explicit non-null and non-undefined periodType.
+ * 3. Requires ALL periodTypes across all observations to be strictly identical.
+ * 4. Fails closed (undefined) if any observation lacks a periodType or if conflicts exist.
  */
 export function resolveCanonicalPeriodType(
   observations: { periodType?: PeriodType | null }[]
 ): PeriodType | undefined {
-  const types = new Set<PeriodType>();
+  if (!observations || observations.length === 0) {
+    return undefined;
+  }
+
+  let canonicalType: PeriodType | undefined;
+
   for (const obs of observations) {
-    if (obs.periodType !== undefined && obs.periodType !== null) {
-      types.add(obs.periodType);
+    if (obs.periodType === undefined || obs.periodType === null) {
+      return undefined;
+    }
+    if (canonicalType === undefined) {
+      canonicalType = obs.periodType;
+    } else if (canonicalType !== obs.periodType) {
+      return undefined;
     }
   }
-  if (types.size === 1) {
-    return Array.from(types)[0];
-  }
-  return undefined;
+
+  return canonicalType;
 }
 
 /**
