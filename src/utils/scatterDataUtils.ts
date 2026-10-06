@@ -114,6 +114,13 @@ export function validateScatterObservationCompatibility(
   let exceptionRationale: string | undefined;
 
   if (ebitObs.accountingBasis !== marginObs.accountingBasis || ebitObs.reportingScope !== marginObs.reportingScope) {
+    if (!revObs) {
+      return {
+        valid: false,
+        reason: 'missing_revenue_observation_for_scope_exception',
+      };
+    }
+
     const exceptionResult = resolveDocumentedScopeException({
       companyId: company.id,
       period: selectedPeriod,
@@ -221,7 +228,7 @@ export function resolveDocumentedScopeException({
   const observationContext = {
     numeratorSourceDocId: ebitObs.sourceDocId,
     marginSourceDocId: marginObs.sourceDocId,
-    revenueSourceDocId: revObs?.sourceDocId || matchingCandidate?.sourceDocIds?.[0],
+    revenueSourceDocId: revObs?.sourceDocId,
     periodType,
   };
 

@@ -37,10 +37,8 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   const [hovered, setHovered] = useState<ScatterPoint | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<ScatterPoint | null>(null);
 
-  // 1. Explicit Period Type Determination (Never infer from value magnitude)
-  const isAnnual =
-    periodType === 'annual' ||
-    (period ? period.toUpperCase().includes('FY') : false);
+  // 1. Explicit Period Type Determination (Never infer from value magnitude or period string)
+  const isAnnual = periodType === 'annual';
 
   // 2. Normalization helper: Same conversion basis across coordinates, labels, and panels
   // In Korean: KRW in Trillions (조원)
@@ -63,6 +61,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   // 3. Filter valid points — PRESERVE loss-making companies (negative EBIT and negative margins)
   // Memoized so effect doesn't re-run and selection isn't cleared on unrelated re-renders
   const processedPoints = useMemo<ProcessedPoint[]>(() => {
+    if (!periodType) return [];
     const list: ProcessedPoint[] = [];
     (points || []).forEach((p) => {
       if (
@@ -81,7 +80,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
       }
     });
     return list;
-  }, [points, language]);
+  }, [points, language, periodType]);
 
   // 4. Synchronize selection to prevent stale data when period/points change
   useEffect(() => {
@@ -104,7 +103,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
 
   const activePoint = resolvedSelectedPoint || resolvedHovered;
 
-  if (processedPoints.length === 0) return null;
+  if (!periodType || processedPoints.length === 0) return null;
 
   // Chart layout dimensions
   const width = 1060;
@@ -374,6 +373,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
               {language === 'ko'
                 ? '4분면 절대수익 매트릭스'
                 : '4-Quadrant Operating Profit Matrix'}
+              {period ? ` (${period})` : ''}
             </span>
           </div>
 

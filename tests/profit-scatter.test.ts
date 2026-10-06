@@ -277,19 +277,114 @@ const mbgMargin: MetricObservation = {
   verificationMethod: 'official_pdf_filing',
 };
 
+// Revenue observation for MBG matching exact documented exception
+const mbgRev: MetricObservation = {
+  id: 'mbg_2026_q2_rev',
+  companyId: 'mercedes_benz',
+  metricId: 'revenue',
+  period: '2026-Q2',
+  periodType: 'quarterly',
+  calendarYear: 2026,
+  value: 32060,
+  unit: 'currency_millions',
+  currency: 'EUR',
+  valueType: 'reported',
+  sourceDocId: 'mbg_2026_q2_results',
+  reportingScope: 'consolidated_group',
+  accountingBasis: 'reported',
+  isComparable: true,
+  verificationStatus: 'verified',
+  verificationMethod: 'official_pdf_filing',
+};
+
 // [Regression Test 1] Exact match accepted with proxy provenance preserved
 const resultMbgProxy = validateScatterObservationCompatibility(
   mockMercedes,
   '2026-Q2',
   'quarterly',
   mbgEbit,
-  mbgMargin
+  mbgMargin,
+  null,
+  mbgRev
 );
 assert(resultMbgProxy.valid === true, 'Test 1a: Exact documented scope exception (MBG) is accepted');
 assert(resultMbgProxy.point?.isProxy === true, 'Test 1b: MBG point is tagged with isProxy: true');
 assert(
   resultMbgProxy.point?.proxyExceptionId === 'mbg_cars_adjusted_ros_2026q2',
   'Test 1c: MBG point preserves authoritative proxyExceptionId'
+);
+
+// ─── Test A: Revenue observation missing on scope exception path ────────────
+const resultMissingRev = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'quarterly',
+  mbgEbit,
+  mbgMargin,
+  null,
+  undefined
+);
+assert(resultMissingRev.valid === false, 'Test A1: Missing revenue observation on scope exception path is rejected');
+assert(
+  resultMissingRev.reason === 'missing_revenue_observation_for_scope_exception',
+  'Test A2: Fails with explicit missing_revenue_observation_for_scope_exception'
+);
+
+// ─── Test B: Revenue sourceDocId missing / empty ────────────────────────────
+const missingDocRev: MetricObservation = {
+  ...mbgRev,
+  sourceDocId: '',
+};
+const resultMissingRevDoc = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'quarterly',
+  mbgEbit,
+  mbgMargin,
+  null,
+  missingDocRev
+);
+assert(resultMissingRevDoc.valid === false, 'Test B1: Revenue observation missing sourceDocId is rejected');
+assert(
+  Boolean(resultMissingRevDoc.reason?.includes('incompatible_basis_or_scope')),
+  'Test B2: Fails closed without falling back to exception registry metadata'
+);
+
+// ─── Test C: Revenue sourceDocId wrong / unverified ─────────────────────────
+const wrongDocRev: MetricObservation = {
+  ...mbgRev,
+  sourceDocId: 'unverified_arbitrary_doc',
+};
+const resultWrongRevDoc = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'quarterly',
+  mbgEbit,
+  mbgMargin,
+  null,
+  wrongDocRev
+);
+assert(resultWrongRevDoc.valid === false, 'Test C1: Revenue observation with wrong sourceDocId is rejected');
+assert(
+  Boolean(resultWrongRevDoc.reason?.includes('incompatible_basis_or_scope')),
+  'Test C2: Wrong revenue sourceDocId fails closed'
+);
+
+// ─── Test D: Revenue sourceDocId correct & verified ─────────────────────────
+const resultCorrectRev = validateScatterObservationCompatibility(
+  mockMercedes,
+  '2026-Q2',
+  'quarterly',
+  mbgEbit,
+  mbgMargin,
+  null,
+  mbgRev
+);
+assert(resultCorrectRev.valid === true, 'Test D1: Exact documented exception with verified revenue source succeeds');
+assert(resultCorrectRev.point?.isProxy === true, 'Test D2: Verified proxy tagged with isProxy: true');
+assert(
+  resultCorrectRev.point?.proxyExceptionId === 'mbg_cars_adjusted_ros_2026q2',
+  'Test D3: Preserves authoritative proxyExceptionId'
 );
 
 // [Regression Test 2] Same company + same period, but mismatching scope or basis rejected
@@ -302,7 +397,9 @@ const resultWrongScope = validateScatterObservationCompatibility(
   '2026-Q2',
   'quarterly',
   mbgEbit,
-  wrongScopeMargin
+  wrongScopeMargin,
+  null,
+  mbgRev
 );
 assert(resultWrongScope.valid === false, 'Test 2a: Same company and period with wrong scope is rejected');
 assert(
@@ -319,7 +416,9 @@ const resultWrongBasis = validateScatterObservationCompatibility(
   '2026-Q2',
   'quarterly',
   mbgEbit,
-  wrongBasisMargin
+  wrongBasisMargin,
+  null,
+  mbgRev
 );
 assert(resultWrongBasis.valid === false, 'Test 2c: Same company and period with wrong basis is rejected');
 
@@ -333,7 +432,9 @@ const resultWrongDoc = validateScatterObservationCompatibility(
   '2026-Q2',
   'quarterly',
   wrongDocEbit,
-  mbgMargin
+  mbgMargin,
+  null,
+  mbgRev
 );
 assert(resultWrongDoc.valid === false, 'Test 3a: Exception with unrecognized or unverified sourceDocId is rejected');
 assert(
@@ -352,6 +453,24 @@ const resultWrongPeriodType = validateScatterObservationCompatibility(
 assert(resultWrongPeriodType.valid === false, 'Test 4: PeriodType mismatch is rejected');
 
 // [Regression Test 5] Malformed / incomplete exception rejected (undocumented mismatch)
+const rivianRev: MetricObservation = {
+  id: 'rivian_rev_2026q2',
+  companyId: 'rivian',
+  metricId: 'revenue',
+  period: '2026-Q2',
+  periodType: 'quarterly',
+  calendarYear: 2026,
+  value: 1158,
+  unit: 'currency_millions',
+  currency: 'USD',
+  valueType: 'reported',
+  sourceDocId: 'rivian_2026_q2_doc',
+  reportingScope: 'consolidated_group',
+  accountingBasis: 'reported',
+  isComparable: true,
+  verificationStatus: 'verified',
+  verificationMethod: 'official_pdf_filing',
+};
 const undocumentedMismatchEbit: MetricObservation = {
   ...rivianEbit,
   accountingBasis: 'reported',
@@ -367,7 +486,9 @@ const resultUndocumentedMismatch = validateScatterObservationCompatibility(
   '2026-Q2',
   'quarterly',
   undocumentedMismatchEbit,
-  undocumentedMismatchMargin
+  undocumentedMismatchMargin,
+  null,
+  rivianRev
 );
 assert(resultUndocumentedMismatch.valid === false, 'Test 5a: Undocumented basis/scope mismatch is rejected');
 assert(Boolean(resultUndocumentedMismatch.reason?.includes('incompatible_basis_or_scope')), 'Test 5b: Fails with incompatible_basis_or_scope');
