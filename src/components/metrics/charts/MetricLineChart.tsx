@@ -55,10 +55,10 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   const minVal = allValues.length > 0 ? Math.min(...allValues, 0) : 0;
   const range = maxVal - minVal || 1;
 
-  // Chart dimensions
+  // Chart dimensions with clear vertical axis padding
   const width = 1040;
   const height = 340;
-  const paddingLeft = 70;
+  const paddingLeft = 85; // Expanded from 70 to prevent clipping/overlapping of Y-axis numbers
   const paddingRight = 40;
   const paddingTop = 35;
   const paddingBottom = 45;
@@ -187,7 +187,25 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
               className="w-full h-auto"
               preserveAspectRatio="xMidYMid meet"
             >
-              {/* Y Axis Grid lines */}
+              {/* Axes Base Lines */}
+              <line
+                x1={paddingLeft}
+                y1={height - paddingBottom}
+                x2={width - paddingRight}
+                y2={height - paddingBottom}
+                stroke="#64748b"
+                strokeWidth="1.5"
+              />
+              <line
+                x1={paddingLeft}
+                y1={paddingTop}
+                x2={paddingLeft}
+                y2={height - paddingBottom}
+                stroke="#64748b"
+                strokeWidth="1.5"
+              />
+
+              {/* Y Axis Grid lines & Ticks */}
               {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
                 const y = height - paddingBottom - ratio * chartH;
                 const val = minVal + ratio * range;
@@ -203,11 +221,19 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                       strokeDasharray="3 3"
                       strokeWidth="1"
                     />
+                    <line
+                      x1={paddingLeft - 6}
+                      y1={y}
+                      x2={paddingLeft}
+                      y2={y}
+                      stroke="#64748b"
+                      strokeWidth="1.5"
+                    />
                     <text
-                      x={paddingLeft - 10}
+                      x={paddingLeft - 12}
                       y={y + 4}
                       textAnchor="end"
-                      className="fill-slate-500 dark:fill-slate-400 text-[10.5px] font-mono font-bold"
+                      className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
                     >
                       {val.toFixed(1)}%
                     </text>

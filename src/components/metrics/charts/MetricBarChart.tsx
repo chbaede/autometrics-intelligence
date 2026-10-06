@@ -107,7 +107,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
       </div>
 
       {/* SVG/HTML Bar Chart Container */}
-      <div className="relative w-full overflow-x-auto pt-9 pb-2">
+      <div className="relative w-full overflow-x-auto pt-6 pb-2">
         <div className="min-w-[680px] w-full flex flex-col justify-start relative">
           {/* Main Bar Plot Area */}
           {hasNegative ? (
@@ -144,7 +144,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                   return (
                     <div
                       key={item.company.id}
-                      className="flex-1 min-w-[48px] sm:min-w-[56px] max-w-[72px] sm:max-w-[80px] flex flex-col items-center group relative cursor-pointer"
+                      className="flex-1 min-w-[36px] max-w-[56px] flex flex-col items-center group relative cursor-pointer"
                       onMouseEnter={() => setHoveredIndex(idx)}
                       onMouseLeave={() => setHoveredIndex(null)}
                       onClick={() => onSelectObservation?.(item.observation)}
@@ -192,7 +192,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
 
                         {/* Positive Value Label */}
                         {(isPositive || isZeroOrNull) && (
-                          <div className="text-[10px] sm:text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold mb-1 whitespace-nowrap overflow-visible text-center px-0.5">
+                          <div className="text-[10px] sm:text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold mb-1 truncate">
                             {isNull
                               ? 'N/R'
                               : item.displayValue
@@ -247,7 +247,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
 
                         {/* Negative Value Label */}
                         {isNegative && (
-                          <div className="text-[10px] sm:text-[11px] font-mono text-rose-600 dark:text-rose-400 font-extrabold mt-1 whitespace-nowrap overflow-visible text-center px-0.5">
+                          <div className="text-[10px] sm:text-[11px] font-mono text-rose-600 dark:text-rose-400 font-extrabold mt-1 truncate">
                             {item.displayValue
                               ? item.displayValue
                               : unit === 'percentage'
@@ -260,8 +260,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                       {/* Company Name Label */}
                       <div className="mt-2 text-center w-full px-0.5">
                         <span
-                          title={item.company.name}
-                          className={`text-[11px] font-semibold truncate block mx-auto max-w-[72px] sm:max-w-[80px] ${
+                          className={`text-[11px] font-semibold truncate block mx-auto max-w-[64px] ${
                             isHovered
                               ? isNegative
                                 ? 'text-rose-600 dark:text-rose-400 font-bold'
@@ -298,7 +297,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                 return (
                   <div
                     key={item.company.id}
-                    className="flex-1 min-w-[48px] sm:min-w-[56px] max-w-[72px] sm:max-w-[80px] flex flex-col items-center group relative cursor-pointer"
+                    className="flex-1 min-w-[36px] max-w-[56px] flex flex-col items-center group relative cursor-pointer"
                     onMouseEnter={() => setHoveredIndex(idx)}
                     onMouseLeave={() => setHoveredIndex(null)}
                     onClick={() => onSelectObservation?.(item.observation)}
@@ -338,7 +337,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                     )}
 
                     {/* Value Label */}
-                    <div className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 mb-1.5 whitespace-nowrap overflow-visible text-center px-0.5 group-hover:text-brand-600 dark:group-hover:text-brand-300 font-bold">
+                    <div className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 mb-1.5 truncate group-hover:text-brand-600 dark:group-hover:text-brand-300 font-bold">
                       {isNull
                         ? 'N/R'
                         : item.displayValue
@@ -373,8 +372,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                     {/* Company Label */}
                     <div className="mt-2 text-center w-full px-0.5">
                       <span
-                        title={item.company.name}
-                        className={`text-[11px] font-semibold truncate block mx-auto max-w-[72px] sm:max-w-[80px] ${
+                        className={`text-[11px] font-semibold truncate block mx-auto max-w-[64px] ${
                           isHovered
                             ? 'text-brand-600 dark:text-brand-400 font-bold'
                             : 'text-slate-700 dark:text-slate-300'

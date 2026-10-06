@@ -39,13 +39,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   // Fail closed if periodType is undefined or if no points exist
   if (!periodType || !points || points.length === 0) return null;
 
-  // Chart dimensions with generous padding for explicit axis titles
+  // Chart dimensions with generous padding for explicit axis titles and Y-axis tick clearance
   const width = 1060;
   const height = 600;
-  const padLeft = 85;
+  const padLeft = 95;   // Expanded from 85 for clear Y-axis number visibility
   const padBottom = 80; // Expanded for explicit X-axis title
   const padRight = 55;
-  const padTop = 55;    // Expanded for explicit Y-axis title
+  const padTop = 65;    // Expanded from 55 for clean separation from top Y-axis title badge
 
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
@@ -163,10 +163,15 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       { dx: -boxW / 2, dy: 26, hasLeader: true },
       { dx: -boxW / 2, dy: 52, hasLeader: true },
       { dx: -boxW / 2, dy: 78, hasLeader: true },
-      // Direct Side variants
-      { dx: 30, dy: -boxH / 2, hasLeader: true },
+      // Right-side bias options (essential for points near the left Y-axis boundary)
+      { dx: 24, dy: -boxH / 2, hasLeader: true },
+      { dx: 45, dy: -boxH / 2, hasLeader: true },
+      { dx: 24, dy: -20, hasLeader: true },
+      { dx: 24, dy: 14, hasLeader: true },
+      { dx: 16, dy: -68, hasLeader: true },
+      { dx: 16, dy: 44, hasLeader: true },
+      // Left-side options (for points far enough to the right)
       { dx: -boxW - 30, dy: -boxH / 2, hasLeader: true },
-      { dx: 45, dy: -22, hasLeader: true },
       { dx: -boxW - 45, dy: -22, hasLeader: true },
       // Offset diagonals
       { dx: -boxW / 2 + 40, dy: -68, hasLeader: true },
@@ -191,11 +196,11 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       const by = py + c.dy;
       let penalty = 0;
 
-      // Check boundary violation with strict penalties
-      if (bx < padLeft + 6) penalty += (padLeft + 6 - bx) * 200 + 4000;
-      if (bx + boxW > width - padRight - 6) penalty += (bx + boxW - (width - padRight - 6)) * 200 + 4000;
-      if (by < padTop + 6) penalty += (padTop + 6 - by) * 200 + 4000;
-      if (by + boxH > height - padBottom - 6) penalty += (by + boxH - (height - padBottom - 6)) * 200 + 4000;
+      // HARD PROHIBITION: Never allow cards to enter the Y-axis tick margin or protrude outside chart!
+      if (bx < padLeft + 6) penalty += 10_000_000;
+      if (bx + boxW > width - padRight - 6) penalty += 10_000_000;
+      if (by < padTop + 6) penalty += 10_000_000;
+      if (by + boxH > height - padBottom - 6) penalty += 10_000_000;
 
       // Check overlap with quadrant badges so text is never covered
       for (const q of quadrantBadges) {
@@ -540,7 +545,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   strokeWidth="1.5"
                 />
                 <text
-                  x={padLeft - 10}
+                  x={padLeft - 12}
                   y={y + 4}
                   textAnchor="end"
                   className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
@@ -553,7 +558,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
           {/* EXPLICIT AXIS TITLES */}
           {/* Y-Axis Title (Top Left) */}
-          <g transform={`translate(${padLeft - 75}, ${padTop - 40})`}>
+          <g transform={`translate(${padLeft - 80}, ${padTop - 44})`}>
             <rect
               width={160}
               height={26}
