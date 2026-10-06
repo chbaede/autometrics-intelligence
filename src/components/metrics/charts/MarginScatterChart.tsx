@@ -751,43 +751,43 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             </div>
 
             {/* Right: Key Financial & Volume Numbers + Quick Link */}
-            <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap w-full md:w-auto justify-start md:justify-end">
               {/* KRW Converted Profit */}
-              <div className="bg-white dark:bg-slate-800/90 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
+              <div className="bg-white dark:bg-slate-800/90 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs grow xs:grow-0">
+                <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '영업이익 (KRW 환산)' : 'Operating Profit (EBIT)'}
                 </span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm sm:text-base">
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-xs sm:text-base">
                   {formatLocalizedProfit(activePoint.operatingIncome, activePoint.currency || activePoint.company.reportingCurrency, language, { showOriginal: true })}
                 </span>
               </div>
 
               {/* Operating Margin */}
-              <div className="bg-white dark:bg-slate-800/90 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
+              <div className="bg-white dark:bg-slate-800/90 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs grow xs:grow-0">
+                <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '영업이익률 (RoS)' : 'EBIT Margin (RoS)'}
                 </span>
-                <span className="text-brand-600 dark:text-brand-400 font-bold font-mono text-sm sm:text-base">
+                <span className="text-brand-600 dark:text-brand-400 font-bold font-mono text-xs sm:text-base">
                   {activePoint.marginPercent.toFixed(1)}%
                 </span>
               </div>
 
               {/* Deliveries */}
-              <div className="bg-white dark:bg-slate-800/90 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                <span className="text-slate-500 dark:text-slate-400 text-[10.5px] block font-sans font-medium">
+              <div className="bg-white dark:bg-slate-800/90 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs grow xs:grow-0">
+                <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '글로벌 인도량' : 'Deliveries'}
                 </span>
-                <span className="text-slate-900 dark:text-white font-bold font-mono text-sm sm:text-base">
+                <span className="text-slate-900 dark:text-white font-bold font-mono text-xs sm:text-base">
                   {activePoint.volumeThousand >= 1000
                     ? `${(activePoint.volumeThousand / 1000).toFixed(2)}M`
-                    : `${Math.round(activePoint.volumeThousand).toLocaleString()}k`}
+                    : `${Math.round(activePoint.volumeThousand)}k`}
                 </span>
               </div>
 
               {/* Direct Company Dossier Link */}
               <Link
                 to={`/company/${activePoint.company.id}`}
-                className="px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition grow xs:grow-0"
               >
                 <span>{language === 'ko' ? '상세 분석' : 'Deep Dive'}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -800,8 +800,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     e.stopPropagation();
                     setSelectedPoint(null);
                   }}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition"
+                  className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition flex items-center justify-center"
                   title={language === 'ko' ? '선택 해제' : 'Deselect'}
+                  aria-label="Deselect"
                 >
                   <X className="w-4 h-4" />
                 </button>

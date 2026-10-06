@@ -124,30 +124,30 @@ export const CompanyComparisonPage: React.FC = () => {
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-5 shadow-md">
         {/* 1. Company Multi-Select (2-16) */}
         <div>
-          <div className="flex items-center justify-between mb-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Filter className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-              {language === 'ko' ? '비교 대상 기업 선택' : 'Select Automakers'} ({selectedCompanies.length} / {allCompanies.length})
+              <span>{language === 'ko' ? '비교 대상 기업 선택' : 'Select Automakers'} ({selectedCompanies.length} / {allCompanies.length})</span>
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={selectAll}
-                className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline px-2 py-0.5 rounded bg-brand-500/10"
+                className="min-h-[32px] text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline px-2 py-0.5 rounded bg-brand-500/10 flex items-center"
               >
                 {language === 'ko' ? '전체 선택 (16개)' : 'Select All'}
               </button>
               <button
                 onClick={selectTopSix}
-                className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800"
+                className="min-h-[32px] text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 flex items-center"
               >
                 {language === 'ko' ? '상위 6개' : 'Top 6'}
               </button>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono ml-1">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono ml-1 hidden xs:inline">
                 {language === 'ko' ? `2 ~ ${allCompanies.length}개 기업` : `2 ~ ${allCompanies.length} OEMs`}
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {allCompanies.map((c) => {
               const isSelected = selectedCompanies.includes(c.id);
               return (

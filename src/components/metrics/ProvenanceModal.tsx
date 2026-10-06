@@ -31,26 +31,26 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/90">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/90">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2">
+            <div className="p-2 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                {language === 'ko' ? '데이터 감사 및 공시 출처 검증' : 'Data Provenance & Source Audit'}
-                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span>{language === 'ko' ? '데이터 감사 및 공시 출처 검증' : 'Data Provenance & Source Audit'}</span>
+                <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold whitespace-nowrap">
                   {t.global.whyThisNumber}
                 </span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
                 {language === 'ko' ? '투명한 산식, 공시 원문 인용 및 비교가능성 검증' : 'Transparent calculation method, source citation, and comparability disclosure'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="min-h-[44px] min-w-[44px] p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center shrink-0"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -58,24 +58,24 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-6 text-sm">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 text-sm">
           {/* Key Value Highlight Card */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <div>
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0">
               <span className="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
                 {company?.name || observation.companyId} • {observation.period}
               </span>
-              <span className="text-lg font-bold text-slate-900 dark:text-slate-100 block">
+              <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 block break-words">
                 {metric?.name || observation.metricId}
               </span>
               {observation.originalLabel && (
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 block">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 block break-words">
                   {t.global.originalLabel}: "{observation.originalLabel}"
                 </span>
               )}
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-black font-mono text-brand-600 dark:text-brand-400">
+            <div className="text-left sm:text-right shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200 dark:border-slate-800">
+              <div className="text-xl sm:text-2xl font-black font-mono text-brand-600 dark:text-brand-400">
                 {formatMetricValue(observation.value, observation.unit, observation.currency)}
               </div>
               <span className="text-xs px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono inline-block mt-1 font-semibold">

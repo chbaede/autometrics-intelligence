@@ -65,22 +65,22 @@ export const RegionalAnalysisPage: React.FC = () => {
       </div>
 
       {/* Region Selector Pills */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 shadow-md">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 space-y-4 shadow-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
             {language === 'ko' ? '1. 분석 대상 권역 선택' : '1. Select Geographic Market'}
           </label>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <Filter className="w-3.5 h-3.5" />
-            <span>{language === 'ko' ? '2. 공시 주기 선택:' : '2. Period Filter:'}</span>
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 flex-wrap">
+            <Filter className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">{language === 'ko' ? '2. 공시 주기 선택:' : '2. Period Filter:'}</span>
+            <div className="flex items-center gap-1 flex-wrap">
               {availablePeriods.map((p) => (
                 <button
                   key={p}
                   onClick={() => setSelectedPeriod(p)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-sans font-semibold transition ${
+                  className={`min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-sans font-semibold transition ${
                     selectedPeriod === p
-                      ? 'bg-brand-600 text-white shadow-xs'
+                      ? 'bg-brand-600 text-white shadow-xs font-bold'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >

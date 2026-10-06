@@ -34,6 +34,8 @@ import {
   ExternalLink,
   TableProperties,
   EyeOff,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export const GlobalOverviewPage: React.FC = () => {
@@ -48,6 +50,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
   const [showInlineTable, setShowInlineTable] = useState<boolean>(false);
   const [excludeMarginOutliers, setExcludeMarginOutliers] = useState<boolean>(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Toggle company filter
   const toggleCompany = (companyId: string) => {
@@ -406,55 +409,42 @@ export const GlobalOverviewPage: React.FC = () => {
       </div>
 
       {/* Interactive Filter Toolbar (Sticky so period & filters are always visible when scrolling) */}
-      <div className="sticky top-16 z-20 p-3 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-md flex flex-wrap items-center justify-between gap-3 transition-all">
-        {/* Period Selector */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Calendar className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
-          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-            {t.global.periodFilter}
-          </span>
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex-wrap">
-            {periods.map((p) => (
-              <button
-                key={p}
-                onClick={() => setSelectedPeriod(p)}
-                className={`px-3 py-1.5 text-xs font-sans font-semibold rounded-lg transition ${
-                  selectedPeriod === p
-                    ? 'bg-brand-600 text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800'
-                }`}
-              >
-                {formatPeriodLabel(p, language)}
-              </button>
-            ))}
+      <div className="sticky top-16 z-20 p-3 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-md space-y-3 transition-all">
+        {/* Top Filter Row: Period Selector + Outlier / Collapse Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Period Selector */}
+          <div className="flex items-center gap-2 min-w-0 max-w-full overflow-x-auto py-0.5">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Calendar className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap hidden xs:inline">
+                {t.global.periodFilter}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
+              {periods.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setSelectedPeriod(p)}
+                  className={`min-h-[36px] sm:min-h-[32px] px-2.5 sm:px-3 py-1.5 text-xs font-sans font-semibold rounded-lg transition whitespace-nowrap ${
+                    selectedPeriod === p
+                      ? 'bg-brand-600 text-white font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {formatPeriodLabel(p, language)}
+                </button>
+              ))}
+            </div>
+            <span className="hidden xl:inline-flex text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 whitespace-nowrap">
+              {language === 'ko' ? `조회 공시 주기: ${selectedPeriod}` : `Active Period: ${selectedPeriod}`}
+            </span>
           </div>
-          <span className="hidden lg:inline-flex text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 whitespace-nowrap">
-            {language === 'ko' ? `조회 공시 주기: ${selectedPeriod}` : `Active Period: ${selectedPeriod}`}
-          </span>
-        </div>
 
-        {/* Company Quick Toggles */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mr-1">
-            {t.global.oemFilter} ({selectedCompanies.length}/{companies.length})
-          </span>
-          <div className="flex items-center gap-1 mr-2 flex-wrap">
-            <button
-              onClick={selectAllCompanies}
-              className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline px-1.5 py-0.5 rounded bg-brand-500/10"
-            >
-              {language === 'ko' ? '전체 선택' : 'All'}
-            </button>
-            <button
-              onClick={selectTopFive}
-              className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800"
-            >
-              {language === 'ko' ? '상위 5개' : 'Top 5'}
-            </button>
+          {/* Quick Actions: Outlier Toggle & Mobile OEM Drawer Trigger */}
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
             <button
               onClick={() => setExcludeMarginOutliers(!excludeMarginOutliers)}
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded transition flex items-center gap-1 border ${
+              className={`min-h-[36px] sm:min-h-[32px] text-[11px] font-semibold px-2 sm:px-2.5 py-1 rounded-xl transition flex items-center gap-1 border ${
                 excludeMarginOutliers
                   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-bold'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
@@ -468,28 +458,64 @@ export const GlobalOverviewPage: React.FC = () => {
               <EyeOff className="w-3 h-3" />
               <span>
                 {language === 'ko'
-                  ? (excludeMarginOutliers ? '마진 이상치(리비안) 제외 중' : '마진 이상치(리비안) 포함')
-                  : (excludeMarginOutliers ? 'Outlier Excluded (Rivian)' : 'Outlier Included')}
+                  ? (excludeMarginOutliers ? '리비안 제외' : '리비안 포함')
+                  : (excludeMarginOutliers ? 'Rivian Excluded' : 'Rivian Included')}
               </span>
             </button>
+
+            {/* Mobile OEM Filter Toggle */}
+            <button
+              onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+              className="lg:hidden min-h-[36px] sm:min-h-[32px] text-[11px] font-bold px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1"
+              aria-label="Toggle OEM filters"
+            >
+              <Filter className="w-3 h-3 text-brand-600 dark:text-brand-400" />
+              <span>{selectedCompanies.length}/{companies.length}</span>
+              {mobileFiltersOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
           </div>
-          {companies.map((comp) => {
-            const active = selectedCompanies.includes(comp.id);
-            return (
-              <button
-                key={comp.id}
-                onClick={() => toggleCompany(comp.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
-                  active
-                    ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/30 font-bold shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                }`}
-              >
-                {active && <Check className="w-3 h-3 text-brand-500" />}
-                <span>{comp.shortName}</span>
-              </button>
-            );
-          })}
+        </div>
+
+        {/* Company Quick Toggles (Desktop Always Visible, Mobile Collapsible) */}
+        <div className={`${mobileFiltersOpen ? 'flex' : 'hidden lg:flex'} flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800`}>
+          <div className="flex items-center gap-1 mr-2 flex-wrap">
+            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0 hidden sm:inline" />
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mr-1 whitespace-nowrap">
+              {t.global.oemFilter} ({selectedCompanies.length}/{companies.length})
+            </span>
+            <button
+              onClick={selectAllCompanies}
+              className="min-h-[30px] text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline px-2 py-0.5 rounded bg-brand-500/10 flex items-center"
+            >
+              {language === 'ko' ? '전체 선택' : 'All'}
+            </button>
+            <button
+              onClick={selectTopFive}
+              className="min-h-[30px] text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 flex items-center"
+            >
+              {language === 'ko' ? '상위 5개' : 'Top 5'}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {companies.map((comp) => {
+              const active = selectedCompanies.includes(comp.id);
+              return (
+                <button
+                  key={comp.id}
+                  onClick={() => toggleCompany(comp.id)}
+                  className={`min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                    active
+                      ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/30 font-bold shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  {active && <Check className="w-3 h-3 text-brand-500" />}
+                  <span>{comp.shortName}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
