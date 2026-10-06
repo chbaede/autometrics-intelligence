@@ -386,7 +386,10 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                           className="w-2.5 h-2.5 rounded-full shrink-0"
                           style={{ backgroundColor: item.color }}
                         />
-                        <span className="text-xs font-semibold truncate text-slate-800 dark:text-slate-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">
+                        <span
+                          title={item.company.name}
+                          className="text-xs font-semibold truncate text-slate-800 dark:text-slate-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition"
+                        >
                           {item.company.shortName}
                         </span>
                       </div>
@@ -441,7 +444,10 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                       className="w-2.5 h-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: s.color }}
                     />
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                    <span
+                      title={s.company.name}
+                      className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate"
+                    >
                       {s.company.shortName}
                     </span>
                   </div>
@@ -467,8 +473,8 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-800/60">
-                  <span>최저: {min.toFixed(1)}%</span>
-                  <span>최고: {max.toFixed(1)}%</span>
+                  <span>{language === 'ko' ? '최저:' : 'Min:'} {min.toFixed(1)}%</span>
+                  <span>{language === 'ko' ? '최고:' : 'Max:'} {max.toFixed(1)}%</span>
                 </div>
               </div>
             );

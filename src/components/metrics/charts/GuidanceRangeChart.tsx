@@ -197,7 +197,10 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                       className="w-3 h-3 rounded-full shrink-0 shadow-xs"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                    <span
+                      title={company?.name || g.companyId}
+                      className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate"
+                    >
                       {company?.shortName || g.companyId}
                     </span>
                   </div>
@@ -244,7 +247,7 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
                       style={{
                         left: `calc(${midPct}% - 7px)`,
                       }}
-                      title={`중간값: ${mid}%`}
+                      title={`${language === 'ko' ? '중앙값' : 'Midpoint'}: ${mid}%`}
                     />
                   </div>
                 </div>

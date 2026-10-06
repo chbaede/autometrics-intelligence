@@ -264,25 +264,55 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
         ? `${Math.round(pt.volumeThousand)}k`
         : '-';
 
-    const boxW = 162;
-    const boxH = 44;
+    // Width and height of the modern mini-card (expanded for generous text spacing)
+    const boxW = 176;
+    const boxH = 46;
     const color = getOemColor(pt.company.name);
 
+    // Multi-angle candidate offsets relative to (px, py)
     const candidates = [
-      { dx: 18, dy: -50, hasLeader: true },
-      { dx: -boxW - 18, dy: -50, hasLeader: true },
-      { dx: 18, dy: 18, hasLeader: true },
-      { dx: -boxW - 18, dy: 18, hasLeader: true },
-      { dx: -boxW / 2, dy: -56, hasLeader: true },
-      { dx: -boxW / 2, dy: 24, hasLeader: true },
-      { dx: 24, dy: -70, hasLeader: true },
-      { dx: -boxW - 24, dy: -70, hasLeader: true },
-      { dx: 24, dy: 44, hasLeader: true },
-      { dx: -boxW - 24, dy: 44, hasLeader: true },
-      { dx: -boxW / 2, dy: -80, hasLeader: true },
-      { dx: -boxW / 2, dy: 64, hasLeader: true },
-      { dx: 32, dy: -22, hasLeader: true },
-      { dx: -boxW - 32, dy: -22, hasLeader: true },
+      // Top-Right variants
+      { dx: 20, dy: -52, hasLeader: true },
+      { dx: 24, dy: -74, hasLeader: true },
+      { dx: 28, dy: -96, hasLeader: true },
+      // Top-Left variants
+      { dx: -boxW - 20, dy: -52, hasLeader: true },
+      { dx: -boxW - 24, dy: -74, hasLeader: true },
+      { dx: -boxW - 28, dy: -96, hasLeader: true },
+      // Bottom-Right variants
+      { dx: 20, dy: 20, hasLeader: true },
+      { dx: 24, dy: 46, hasLeader: true },
+      { dx: 28, dy: 72, hasLeader: true },
+      // Bottom-Left variants
+      { dx: -boxW - 20, dy: 20, hasLeader: true },
+      { dx: -boxW - 24, dy: 46, hasLeader: true },
+      { dx: -boxW - 28, dy: 72, hasLeader: true },
+      // Directly Above variants
+      { dx: -boxW / 2, dy: -60, hasLeader: true },
+      { dx: -boxW / 2, dy: -84, hasLeader: true },
+      { dx: -boxW / 2, dy: -108, hasLeader: true },
+      // Directly Below variants
+      { dx: -boxW / 2, dy: 26, hasLeader: true },
+      { dx: -boxW / 2, dy: 52, hasLeader: true },
+      { dx: -boxW / 2, dy: 78, hasLeader: true },
+      // Direct Side variants
+      { dx: 30, dy: -boxH / 2, hasLeader: true },
+      { dx: -boxW - 30, dy: -boxH / 2, hasLeader: true },
+      { dx: 45, dy: -22, hasLeader: true },
+      { dx: -boxW - 45, dy: -22, hasLeader: true },
+      // Offset diagonals
+      { dx: -boxW / 2 + 40, dy: -68, hasLeader: true },
+      { dx: -boxW / 2 - 40, dy: -68, hasLeader: true },
+      { dx: -boxW / 2 + 40, dy: 48, hasLeader: true },
+      { dx: -boxW / 2 - 40, dy: 48, hasLeader: true },
+    ];
+
+    // Bounding areas of quadrant title badges to avoid obscuring them
+    const quadrantBadges = [
+      { x: padLeft + 8, y: padTop + 6, w: 260, h: 28 },
+      { x: width - padRight - 265, y: padTop + 6, w: 260, h: 28 },
+      { x: padLeft + 8, y: height - padBottom - 38, w: 265, h: 28 },
+      { x: width - padRight - 255, y: height - padBottom - 38, w: 250, h: 28 },
     ];
 
     let bestCandidate = candidates[0];
@@ -293,30 +323,42 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
       const by = py + c.dy;
       let penalty = 0;
 
-      if (bx < padLeft + 4) penalty += (padLeft + 4 - bx) * 120;
-      if (bx + boxW > width - padRight - 4)
-        penalty += (bx + boxW - (width - padRight - 4)) * 120;
-      if (by < padTop + 4) penalty += (padTop + 4 - by) * 120;
-      if (by + boxH > height - padBottom - 4)
-        penalty += (by + boxH - (height - padBottom - 4)) * 120;
+      // Check boundary violation with strict penalties
+      if (bx < padLeft + 6) penalty += (padLeft + 6 - bx) * 200 + 4000;
+      if (bx + boxW > width - padRight - 6)
+        penalty += (bx + boxW - (width - padRight - 6)) * 200 + 4000;
+      if (by < padTop + 6) penalty += (padTop + 6 - by) * 200 + 4000;
+      if (by + boxH > height - padBottom - 6)
+        penalty += (by + boxH - (height - padBottom - 6)) * 200 + 4000;
 
-      for (const placed of placedLabels) {
-        const overlapX = Math.max(
-          0,
-          Math.min(bx + boxW + 8, placed.boxX + placed.boxW + 8) -
-            Math.max(bx - 8, placed.boxX - 8)
-        );
-        const overlapY = Math.max(
-          0,
-          Math.min(by + boxH + 8, placed.boxY + placed.boxH + 8) -
-            Math.max(by - 8, placed.boxY - 8)
-        );
-        const overlapArea = overlapX * overlapY;
-        if (overlapArea > 0) {
-          penalty += overlapArea * 70 + 1500;
+      // Check overlap with quadrant badges so text is never covered
+      for (const q of quadrantBadges) {
+        const oX = Math.max(0, Math.min(bx + boxW, q.x + q.w) - Math.max(bx, q.x));
+        const oY = Math.max(0, Math.min(by + boxH, q.y + q.h) - Math.max(by, q.y));
+        if (oX * oY > 0) {
+          penalty += oX * oY * 100 + 5000;
         }
       }
 
+      // Check overlap with other placed label boxes with 10px buffer
+      for (const placed of placedLabels) {
+        const overlapX = Math.max(
+          0,
+          Math.min(bx + boxW + 10, placed.boxX + placed.boxW + 10) -
+            Math.max(bx - 10, placed.boxX - 10)
+        );
+        const overlapY = Math.max(
+          0,
+          Math.min(by + boxH + 10, placed.boxY + placed.boxH + 10) -
+            Math.max(by - 10, placed.boxY - 10)
+        );
+        const overlapArea = overlapX * overlapY;
+        if (overlapArea > 0) {
+          penalty += overlapArea * 150 + 6000;
+        }
+      }
+
+      // Check overlap with bubble markers with safe buffer
       for (const p of processedPoints) {
         const pointX = getX(p.profitNormalized);
         const pointY = getY(p.marginPercent);
@@ -327,12 +369,12 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
           by + boxH >= pointY - 16
         ) {
           if (p.company.id !== pt.company.id) {
-            penalty += 1200;
+            penalty += 2500;
           }
         }
       }
 
-      penalty += Math.sqrt(c.dx * c.dx + c.dy * c.dy);
+      penalty += Math.sqrt(c.dx * c.dx + c.dy * c.dy) * 0.8;
 
       if (penalty < minPenalty) {
         minPenalty = penalty;
@@ -774,16 +816,23 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
             </text>
           </g>
 
-          {/* Leader Lines from Bubbles to Label Boxes */}
-          {placedLabels.map((lbl) => {
-            const targetX = lbl.boxX + lbl.boxW / 2;
-            const targetY = lbl.boxY + lbl.boxH / 2;
-            const isHovered = hovered?.company.id === lbl.point.company.id;
-            const isSelected = selectedPoint?.company.id === lbl.point.company.id;
-            const isActive = isHovered || isSelected;
-            return (
-              <g key={`leader-${lbl.point.company.id}`}>
+          <defs>
+            {placedLabels.map((lbl) => (
+              <clipPath key={`clip-profit-${lbl.point.company.id}`} id={`clip-profit-${lbl.point.company.id}`}>
+                <rect x="12" y="2" width="112" height="22" />
+              </clipPath>
+            ))}
+          </defs>
+
+          {/* LAYER 1: Leader Lines for Inactive Points */}
+          {placedLabels
+            .filter((lbl) => lbl.point.company.id !== activePoint?.company.id)
+            .map((lbl) => {
+              const targetX = lbl.boxX + lbl.boxW / 2;
+              const targetY = lbl.boxY + lbl.boxH / 2;
+              return (
                 <line
+                  key={`leader-${lbl.point.company.id}`}
                   x1={lbl.x}
                   y1={lbl.y}
                   x2={targetX}
@@ -792,101 +841,78 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   strokeWidth="1.2"
                   strokeDasharray={lbl.hasLeader ? '2 2' : 'none'}
                   strokeOpacity={lbl.hasLeader ? 0.6 : 0.25}
-                  className={`scatter-leader-line ${isActive ? 'scatter-leader-active' : ''}`}
+                  className="scatter-leader-line pointer-events-none"
                 />
-              </g>
-            );
-          })}
+              );
+            })}
 
-          {/* Scatter Data Points & Mini Cards */}
-          {placedLabels.map((lbl) => {
-            const pt = lbl.point;
-            const x = lbl.x;
-            const y = lbl.y;
-            const isHovered = hovered?.company.id === pt.company.id;
-            const isSelected = selectedPoint?.company.id === pt.company.id;
-            const isActive = isHovered || isSelected;
-            const color = lbl.color;
-            const isLoss = pt.operatingIncome !== undefined && pt.operatingIncome !== null && pt.operatingIncome < 0;
-
-            return (
-              <g
-                key={pt.company.id}
-                className="cursor-pointer transition-all duration-150"
-                onMouseEnter={() => setHovered(pt)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={() => {
-                  const next =
-                    selectedPoint?.company.id === pt.company.id ? null : pt;
-                  setSelectedPoint(next);
-                  onSelectCompany?.(pt.company);
-                }}
-              >
-                {/* Connecting Axis Guides on Active */}
-                {isActive && (
-                  <>
-                    <line
-                      x1={x}
-                      y1={y}
-                      x2={x}
-                      y2={height - padBottom}
-                      stroke={color}
-                      strokeDasharray="3 3"
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1={padLeft}
-                      y1={y}
-                      x2={x}
-                      y2={y}
-                      stroke={color}
-                      strokeDasharray="3 3"
-                      strokeWidth="1.5"
-                    />
-                  </>
-                )}
-
-                {/* Outer Glow Circle */}
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={isActive ? 22 : 15}
-                  fill={color}
-                  fillOpacity={isActive ? 0.35 : 0.16}
-                  className="transition-all duration-200"
-                />
-
-                {/* Main Point Marker */}
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={isActive ? 11 : 8}
-                  fill={color}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  className="shadow-lg transition-all duration-200"
-                />
-
-                {/* Modern Institutional Financial Card */}
+          {/* LAYER 2: Bubble Dots for Inactive Points */}
+          {placedLabels
+            .filter((lbl) => lbl.point.company.id !== activePoint?.company.id)
+            .map((lbl) => {
+              const pt = lbl.point;
+              return (
                 <g
-                  transform={`translate(${lbl.boxX}, ${lbl.boxY})`}
-                  className={`scatter-label-card ${isActive ? 'scatter-card-active' : ''}`}
+                  key={`bubble-${pt.company.id}`}
+                  className="cursor-pointer transition-all duration-150"
+                  onMouseEnter={() => setHovered(pt)}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => {
+                    const next = selectedPoint?.company.id === pt.company.id ? null : pt;
+                    setSelectedPoint(next);
+                    onSelectCompany?.(pt.company);
+                  }}
                 >
+                  <circle
+                    cx={lbl.x}
+                    cy={lbl.y}
+                    r={15}
+                    fill={lbl.color}
+                    fillOpacity={0.16}
+                    className="transition-all duration-200"
+                  />
+                  <circle
+                    cx={lbl.x}
+                    cy={lbl.y}
+                    r={8}
+                    fill={lbl.color}
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    className="shadow-sm transition-all duration-200"
+                  />
+                </g>
+              );
+            })}
+
+          {/* LAYER 3: Mini Financial Cards for Inactive Points */}
+          {placedLabels
+            .filter((lbl) => lbl.point.company.id !== activePoint?.company.id)
+            .map((lbl) => {
+              const pt = lbl.point;
+              const isLoss = pt.operatingIncome !== undefined && pt.operatingIncome !== null && pt.operatingIncome < 0;
+
+              return (
+                <g
+                  key={`card-${pt.company.id}`}
+                  transform={`translate(${lbl.boxX}, ${lbl.boxY})`}
+                  className="scatter-label-card cursor-pointer transition-all duration-150"
+                  onMouseEnter={() => setHovered(pt)}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => {
+                    const next = selectedPoint?.company.id === pt.company.id ? null : pt;
+                    setSelectedPoint(next);
+                    onSelectCompany?.(pt.company);
+                  }}
+                >
+                  {/* Card Background */}
                   <rect
                     x="0"
                     y="0"
                     width={lbl.boxW}
                     height={lbl.boxH}
                     rx="8"
-                    className={`scatter-card-bg transition-all shadow-sm ${
-                      isActive
-                        ? 'fill-white dark:fill-slate-800 shadow-md'
-                        : 'fill-white/95 dark:fill-slate-900/95 stroke-slate-200 dark:stroke-slate-700/90'
-                    }`}
-                    style={{
-                      stroke: isActive ? color : undefined,
-                      strokeWidth: isActive ? 2 : 1,
-                    }}
+                    className="scatter-card-bg transition-all shadow-xs fill-white/95 dark:fill-slate-900/95 stroke-slate-200 dark:stroke-slate-700/90"
+                    strokeWidth={1}
                   />
 
                   {/* Left Accent Color Indicator Bar */}
@@ -896,19 +922,16 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                     width="4"
                     height={lbl.boxH - 8}
                     rx="2"
-                    fill={color}
+                    fill={lbl.color}
                     className="scatter-card-indicator"
                   />
 
-                  {/* Row 1: Company Short Name */}
+                  {/* Row 1: Company Short Name (Protected from badge overlap by clipPath) */}
                   <text
-                    x="10"
-                    y="15"
-                    className={`font-extrabold text-[11px] font-sans ${
-                      isActive
-                        ? 'fill-slate-950 dark:fill-white'
-                        : 'fill-slate-900 dark:fill-slate-100'
-                    }`}
+                    x="12"
+                    y="17"
+                    clipPath={`url(#clip-profit-${pt.company.id})`}
+                    className="font-extrabold text-[11px] font-sans fill-slate-900 dark:fill-slate-100"
                   >
                     {pt.company.shortName}
                   </text>
@@ -930,7 +953,7 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   />
                   <text
                     x={lbl.boxW - 27}
-                    y={16.5}
+                    y="16.5"
                     textAnchor="middle"
                     className={`scatter-card-margin font-mono font-bold text-[10px] ${
                       pt.marginPercent < 0
@@ -947,36 +970,200 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                   <g className="scatter-card-details">
                     <text
                       x="12"
-                      y="34"
+                      y="35"
                       className={`font-mono text-[9.5px] font-bold ${
                         isLoss
                           ? 'fill-rose-600 dark:fill-rose-400'
-                          : isActive
-                          ? 'fill-emerald-600 dark:fill-emerald-400'
                           : 'fill-emerald-700 dark:fill-emerald-400'
                       }`}
                     >
                       {lbl.profitStr}
                     </text>
 
-                    {/* Deliveries Count */}
                     <text
-                      x={lbl.boxW - 8}
-                      y="34"
+                      x={lbl.boxW - 10}
+                      y="35"
                       textAnchor="end"
-                      className={`font-mono text-[9.5px] ${
-                        isActive
-                          ? 'fill-slate-700 dark:fill-slate-200 font-bold'
-                          : 'fill-slate-500 dark:fill-slate-400 font-semibold'
-                      }`}
+                      className="font-mono text-[9.5px] fill-slate-500 dark:fill-slate-400 font-semibold"
                     >
                       {lbl.volumeStr}
                     </text>
                   </g>
                 </g>
+              );
+            })}
+
+          {/* LAYER 4: ACTIVE POINT (Hovered or Selected) Rendered On Top Of Everything */}
+          {(() => {
+            const activeLbl = placedLabels.find(
+              (lbl) => lbl.point.company.id === activePoint?.company.id
+            );
+            if (!activeLbl) return null;
+            const pt = activeLbl.point;
+            const targetX = activeLbl.boxX + activeLbl.boxW / 2;
+            const targetY = activeLbl.boxY + activeLbl.boxH / 2;
+            const isLoss = pt.operatingIncome !== undefined && pt.operatingIncome !== null && pt.operatingIncome < 0;
+
+            return (
+              <g key={`active-${pt.company.id}`} className="scatter-active-group">
+                {/* Connecting Axis Guides */}
+                <line
+                  x1={activeLbl.x}
+                  y1={activeLbl.y}
+                  x2={activeLbl.x}
+                  y2={height - padBottom}
+                  stroke={activeLbl.color}
+                  strokeDasharray="3 3"
+                  strokeWidth="1.5"
+                />
+                <line
+                  x1={padLeft}
+                  y1={activeLbl.y}
+                  x2={activeLbl.x}
+                  y2={activeLbl.y}
+                  stroke={activeLbl.color}
+                  strokeDasharray="3 3"
+                  strokeWidth="1.5"
+                />
+
+                {/* Active Leader Line */}
+                <line
+                  x1={activeLbl.x}
+                  y1={activeLbl.y}
+                  x2={targetX}
+                  y2={targetY}
+                  stroke={activeLbl.color}
+                  strokeWidth="1.8"
+                  strokeDasharray={activeLbl.hasLeader ? '2 2' : 'none'}
+                  strokeOpacity={0.8}
+                  className="scatter-leader-line scatter-leader-active pointer-events-none"
+                />
+
+                {/* Outer Glow Circle */}
+                <circle
+                  cx={activeLbl.x}
+                  cy={activeLbl.y}
+                  r={22}
+                  fill={activeLbl.color}
+                  fillOpacity={0.35}
+                  className="transition-all duration-200"
+                />
+
+                {/* Main Point Marker */}
+                <circle
+                  cx={activeLbl.x}
+                  cy={activeLbl.y}
+                  r={11}
+                  fill={activeLbl.color}
+                  stroke="#ffffff"
+                  strokeWidth={2.5}
+                  className="shadow-lg transition-all duration-200 cursor-pointer"
+                  onClick={() => {
+                    const next = selectedPoint?.company.id === pt.company.id ? null : pt;
+                    setSelectedPoint(next);
+                    onSelectCompany?.(pt.company);
+                  }}
+                />
+
+                {/* Active Financial Card — Elevated with z-index effect */}
+                <g
+                  transform={`translate(${activeLbl.boxX}, ${activeLbl.boxY})`}
+                  className="scatter-label-card scatter-card-active cursor-pointer"
+                  onClick={() => {
+                    const next = selectedPoint?.company.id === pt.company.id ? null : pt;
+                    setSelectedPoint(next);
+                    onSelectCompany?.(pt.company);
+                  }}
+                >
+                  <rect
+                    x="0"
+                    y="0"
+                    width={activeLbl.boxW}
+                    height={activeLbl.boxH}
+                    rx="8"
+                    className="scatter-card-bg fill-white dark:fill-slate-850 shadow-xl"
+                    style={{
+                      stroke: activeLbl.color,
+                      strokeWidth: 2,
+                    }}
+                  />
+
+                  <rect
+                    x="0"
+                    y="4"
+                    width="4"
+                    height={activeLbl.boxH - 8}
+                    rx="2"
+                    fill={activeLbl.color}
+                    className="scatter-card-indicator"
+                  />
+
+                  <text
+                    x="12"
+                    y="17"
+                    clipPath={`url(#clip-profit-${pt.company.id})`}
+                    className="font-extrabold text-[11px] font-sans fill-slate-950 dark:fill-white"
+                  >
+                    {pt.company.shortName}
+                  </text>
+
+                  {/* Margin % Pill Badge */}
+                  <rect
+                    x={activeLbl.boxW - 48}
+                    y="5"
+                    width="42"
+                    height="16"
+                    rx="4"
+                    className={`scatter-card-badge ${
+                      pt.marginPercent < 0
+                        ? 'fill-rose-100 dark:fill-rose-950/70 stroke-rose-400 dark:stroke-rose-600 stroke-1'
+                        : pt.marginPercent >= 7.0
+                        ? 'fill-emerald-100 dark:fill-emerald-950/70 stroke-emerald-400 dark:stroke-emerald-600 stroke-1'
+                        : 'fill-brand-100 dark:fill-brand-950/70 stroke-brand-400 dark:stroke-brand-600 stroke-1'
+                    }`}
+                  />
+                  <text
+                    x={activeLbl.boxW - 27}
+                    y="16.5"
+                    textAnchor="middle"
+                    className={`scatter-card-margin font-mono font-bold text-[10px] ${
+                      pt.marginPercent < 0
+                        ? 'fill-rose-700 dark:fill-rose-400'
+                        : pt.marginPercent >= 7.0
+                        ? 'fill-emerald-700 dark:fill-emerald-400'
+                        : 'fill-brand-700 dark:fill-brand-400'
+                    }`}
+                  >
+                    {pt.marginPercent.toFixed(1)}%
+                  </text>
+
+                  {/* Row 2: Actual Profit Number & Deliveries */}
+                  <g className="scatter-card-details">
+                    <text
+                      x="12"
+                      y="35"
+                      className={`font-mono text-[9.5px] font-bold ${
+                        isLoss
+                          ? 'fill-rose-600 dark:fill-rose-400'
+                          : 'fill-emerald-600 dark:fill-emerald-400'
+                      }`}
+                    >
+                      {activeLbl.profitStr}
+                    </text>
+
+                    <text
+                      x={activeLbl.boxW - 10}
+                      y="35"
+                      textAnchor="end"
+                      className="font-mono text-[9.5px] fill-slate-800 dark:fill-slate-100 font-bold"
+                    >
+                      {activeLbl.volumeStr}
+                    </text>
+                  </g>
+                </g>
               </g>
             );
-          })}
+          })()}
         </svg>
 
         {/* Dynamic Interactive Detail Panel */}

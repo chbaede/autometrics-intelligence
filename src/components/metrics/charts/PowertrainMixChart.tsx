@@ -132,29 +132,29 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
                 {/* BEV Segment */}
                 {bevPct > 0 && (
                   <div
-                    className="h-full bg-emerald-500 hover:bg-emerald-400 transition-colors flex items-center justify-center text-[10px] font-mono text-slate-950 font-bold"
+                    className="h-full bg-emerald-500 hover:bg-emerald-400 transition-colors flex items-center justify-center text-[10px] font-mono text-slate-950 font-bold whitespace-nowrap px-0.5 overflow-hidden"
                     style={{ width: `${bevPct}%` }}
                     title={`BEV: ${item.bevVolume.toFixed(1)}k units (${bevPct.toFixed(1)}%)`}
                   >
-                    {bevPct >= 8 && `${bevPct.toFixed(0)}% BEV`}
+                    {bevPct >= 14 ? `${bevPct.toFixed(0)}% BEV` : bevPct >= 7 ? `${bevPct.toFixed(0)}%` : null}
                   </div>
                 )}
 
                 {/* PHEV Segment (Only if explicitly reported by OEM) */}
                 {phevPct > 0 && (
                   <div
-                    className="h-full bg-sky-500 hover:bg-sky-400 transition-colors flex items-center justify-center text-[10px] font-mono text-slate-950 font-bold"
+                    className="h-full bg-sky-500 hover:bg-sky-400 transition-colors flex items-center justify-center text-[10px] font-mono text-slate-950 font-bold whitespace-nowrap px-0.5 overflow-hidden"
                     style={{ width: `${phevPct}%` }}
                     title={`PHEV: ${phevVol.toFixed(1)}k units (${phevPct.toFixed(1)}%)`}
                   >
-                    {phevPct >= 8 && `${phevPct.toFixed(0)}% PHEV`}
+                    {phevPct >= 14 ? `${phevPct.toFixed(0)}% PHEV` : phevPct >= 7 ? `${phevPct.toFixed(0)}%` : null}
                   </div>
                 )}
 
                 {/* ICE / HEV Segment */}
                 {icePct > 0 && (
                   <div
-                    className="h-full bg-slate-300 dark:bg-slate-800 flex items-center justify-center text-[10px] font-mono text-slate-700 dark:text-slate-300"
+                    className="h-full bg-slate-300 dark:bg-slate-800 flex items-center justify-center text-[10px] font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap px-0.5 overflow-hidden"
                     style={{ width: `${icePct}%` }}
                     title={
                       hasPHEVDisclosed
@@ -162,11 +162,13 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
                         : `ICE / HEV (PHEV 미구분 포함): ${(item.totalDeliveries - item.bevVolume).toFixed(1)}k units (${icePct.toFixed(1)}%)`
                     }
                   >
-                    {icePct >= 18 && (
+                    {icePct >= 18 ? (
                       <span>
                         {icePct.toFixed(0)}% {hasPHEVDisclosed ? 'ICE/HEV' : (language === 'ko' ? '내연/HEV' : 'ICE/HEV')}
                       </span>
-                    )}
+                    ) : icePct >= 7 ? (
+                      <span>{icePct.toFixed(0)}%</span>
+                    ) : null}
                   </div>
                 )}
               </div>
