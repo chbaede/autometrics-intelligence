@@ -1436,6 +1436,7 @@ export type SourceClaimValidationErrorCode =
   | 'sourceClaimUnitMismatch'
   | 'sourceClaimScopeMismatch'
   | 'sourceClaimAccountingBasisMismatch'
+  | 'sourceClaimSemanticMismatch'
   | 'sourceClaimWithoutObservation'
   | 'ambiguousSourceClaimObservation';
 

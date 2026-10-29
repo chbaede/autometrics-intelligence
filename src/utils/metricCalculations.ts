@@ -2363,6 +2363,108 @@ export function validateBEVShare(
   };
 }
 
+export interface SemanticLabelValidationResult {
+  valid: boolean;
+  code?: string;
+  reason?: string;
+}
+
+/**
+ * Validates semantic consistency between an original reported label and a normalized metricId.
+ * Rejects semantic misclassifications (e.g. net profit / net income mapped to operating_income,
+ * or operating profit mapped to net_income, or net margin mapped to operating_margin).
+ */
+export function validateMetricLabelSemantics(
+  metricId: string,
+  originalLabel?: string
+): SemanticLabelValidationResult {
+  if (!originalLabel || typeof originalLabel !== 'string' || originalLabel.trim() === '') {
+    return { valid: true };
+  }
+
+  const lower = originalLabel.toLowerCase();
+
+  // 1. Operating Income / EBIT semantic checks
+  if (metricId === 'operating_income' || metricId === 'ebit' || metricId === 'adjusted_ebit') {
+    const hasNetProfitIndicator =
+      lower.includes('net profit') ||
+      lower.includes('net income') ||
+      lower.includes('net earnings') ||
+      lower.includes('净利润') ||
+      lower.includes('당기순이익') ||
+      lower.includes('순이익') ||
+      lower.includes('attributable to shareholders') ||
+      lower.includes('attributable to equity holders');
+
+    if (hasNetProfitIndicator) {
+      return {
+        valid: false,
+        code: 'semanticMetricLabelMismatch',
+        reason: `Original label "${originalLabel}" denotes net income / shareholder profit, but is assigned to operating income metric "${metricId}".`,
+      };
+    }
+  }
+
+  // 2. Net Income semantic checks
+  if (metricId === 'net_income') {
+    const hasOperatingProfitOnly =
+      (lower.includes('operating profit') ||
+       lower.includes('operating income') ||
+       lower.includes('operating result') ||
+       lower.includes('营业利润') ||
+       lower.includes('영업이익')) &&
+      !lower.includes('net');
+
+    if (hasOperatingProfitOnly) {
+      return {
+        valid: false,
+        code: 'semanticMetricLabelMismatch',
+        reason: `Original label "${originalLabel}" denotes operating profit, but is assigned to net income metric "${metricId}".`,
+      };
+    }
+  }
+
+  // 3. Operating Margin semantic checks
+  if (metricId === 'operating_margin') {
+    const hasNetMarginIndicator =
+      lower.includes('net margin') ||
+      lower.includes('net profit margin') ||
+      lower.includes('净利润率') ||
+      lower.includes('순이익률') ||
+      lower.includes('gross margin') ||
+      lower.includes('매출총이익률');
+
+    if (hasNetMarginIndicator) {
+      return {
+        valid: false,
+        code: 'semanticMetricLabelMismatch',
+        reason: `Original label "${originalLabel}" denotes net or gross margin, but is assigned to operating margin metric "${metricId}".`,
+      };
+    }
+  }
+
+  // 4. Revenue semantic checks
+  if (metricId === 'revenue') {
+    const hasDeliveryOrProfitIndicator =
+      lower.includes('operating income') ||
+      lower.includes('operating profit') ||
+      lower.includes('net income') ||
+      lower.includes('deliveries to customers') ||
+      lower.includes('vehicle deliveries') ||
+      lower.includes('unit sales');
+
+    if (hasDeliveryOrProfitIndicator && !lower.includes('revenue') && !lower.includes('sales revenue') && !lower.includes('net sales and revenue')) {
+      return {
+        valid: false,
+        code: 'semanticMetricLabelMismatch',
+        reason: `Original label "${originalLabel}" denotes volume or profit, but is assigned to revenue metric "${metricId}".`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 /**
  * Cross-validates an observation against its associated SourceDocument and Company entity.
  * Validates entity alignment, period alignment, official HTTPS URLs, verification status,
@@ -2497,6 +2599,15 @@ export function validateObservationProvenance(
   if (!obs.originalLabel && !obs.evidenceReference && !obs.pageNumber && !obs.tableReference) {
     reasons.push('Observation has no original label or evidence page/table reference.');
     if (severity !== 'ERROR') severity = 'WARNING';
+  }
+
+  // 12. Semantic Label Consistency Check
+  if (obs.originalLabel) {
+    const semanticCheck = validateMetricLabelSemantics(obs.metricId, obs.originalLabel);
+    if (!semanticCheck.valid) {
+      reasons.push(semanticCheck.reason || `Original label "${obs.originalLabel}" is semantically incompatible with metric "${obs.metricId}".`);
+      severity = 'ERROR';
+    }
   }
 
   const valid = severity !== 'ERROR';
@@ -2874,6 +2985,25 @@ export function validateSourceClaims(
           actual: claim.accountingBasis,
           detail: `Source claim accountingBasis "${claim.accountingBasis}" does not match observation accountingBasis "${matchingObs.accountingBasis}" for observation "${matchingObs.id}".`,
         });
+      }
+
+      // Semantic label consistency check
+      if (matchingObs.originalLabel) {
+        const semanticCheck = validateMetricLabelSemantics(matchingObs.metricId, matchingObs.originalLabel);
+        if (!semanticCheck.valid) {
+          errors.push({
+            code: 'sourceClaimSemanticMismatch',
+            sourceDocId: doc.id,
+            companyId: doc.companyId,
+            period: claim.period,
+            metricId: claim.metricId,
+            claim,
+            observationId: matchingObs.id,
+            expected: 'semantically consistent originalLabel and metricId',
+            actual: matchingObs.originalLabel,
+            detail: semanticCheck.reason || `Observation "${matchingObs.id}" has semantic label mismatch with metric "${matchingObs.metricId}".`,
+          });
+        }
       }
     }
   }

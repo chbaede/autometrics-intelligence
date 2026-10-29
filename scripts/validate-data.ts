@@ -5,7 +5,7 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 
-import { getDimensionalObservationKey, validateSourceClaims, validateSourceContentFixtures } from '../src/utils/metricCalculations';
+import { getDimensionalObservationKey, validateSourceClaims, validateSourceContentFixtures, validateMetricLabelSemantics } from '../src/utils/metricCalculations';
 import { DETERMINISTIC_SOURCE_CONTENT_FIXTURES } from '../src/data/scopeExceptions';
 
 console.log('🚀 Running AutoMetrics Data Ingestion & Strict Integrity Validator...\n');
@@ -151,6 +151,15 @@ METRIC_OBSERVATIONS.forEach((obs) => {
     }
     if (!obs.reportingScope || obs.reportingScope === 'unknown') {
       console.error(`❌ Derived Observation ${obs.id}: Missing or unknown reportingScope ("${obs.reportingScope}")`);
+      errorCount++;
+    }
+  }
+
+  // Semantic consistency check between originalLabel and normalized metricId
+  if (obs.originalLabel) {
+    const semanticCheck = validateMetricLabelSemantics(obs.metricId, obs.originalLabel);
+    if (!semanticCheck.valid) {
+      console.error(`❌ Observation ${obs.id}: Semantic label mismatch - ${semanticCheck.reason}`);
       errorCount++;
     }
   }

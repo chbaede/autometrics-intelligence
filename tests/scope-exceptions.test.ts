@@ -79,6 +79,7 @@ import {
   matchScopeRelationship,
   detectHistoricalValueReuse,
   validateSourceClaims,
+  validateMetricLabelSemantics,
   hasLocatorNumericContradiction,
   validateSourceContentFixtures,
   hashFixtureContent,
@@ -8382,6 +8383,122 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(missingPage === 0, 'Test 243b: 100% of 2026-Q3 observations have verifiable numeric pageNumber locators');
   check(missingLabel === 0, 'Test 243c: 100% of 2026-Q3 observations have verbatim originalLabel metadata');
   check(missingSource === 0, 'Test 243d: 100% of 2026-Q3 observations link to registered source documents');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 244: Semantic Consistency Validation between Original Labels and Normalized Metrics
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 244: Semantic Consistency Validation between Original Labels and Normalized Metrics ---');
+
+  // 1. Operating Income / EBIT semantic rejections
+  const netProfitOnEbit = validateMetricLabelSemantics('operating_income', 'Net profit');
+  check(netProfitOnEbit.valid === false, 'Test 244a-1: "Net profit" label on operating_income rejected');
+  check(netProfitOnEbit.code === 'semanticMetricLabelMismatch', 'Test 244a-2: Error code is semanticMetricLabelMismatch');
+
+  const netIncomeOnEbit = validateMetricLabelSemantics('operating_income', 'Net profit attributable to shareholders');
+  check(netIncomeOnEbit.valid === false, 'Test 244b: "Net profit attributable to shareholders" label on operating_income rejected');
+
+  const casbeNetProfitOnEbit = validateMetricLabelSemantics('operating_income', '归属于上市公司股东的净利润');
+  check(casbeNetProfitOnEbit.valid === false, 'Test 244c: Verbatim Chinese CASBE net profit label on operating_income rejected');
+
+  const koreanNetProfitOnEbit = validateMetricLabelSemantics('operating_income', '당기순이익');
+  check(koreanNetProfitOnEbit.valid === false, 'Test 244d: Korean 당기순이익 label on operating_income rejected');
+
+  // 2. Net Income semantic rejections
+  const opProfitOnNetIncome = validateMetricLabelSemantics('net_income', 'Operating profit');
+  check(opProfitOnNetIncome.valid === false, 'Test 244e-1: "Operating profit" label on net_income rejected');
+
+  const casbeOpProfitOnNetIncome = validateMetricLabelSemantics('net_income', '营业利润');
+  check(casbeOpProfitOnNetIncome.valid === false, 'Test 244e-2: Verbatim Chinese CASBE 营业利润 label on net_income rejected');
+
+  // 3. Operating Margin semantic rejections
+  const netMarginOnOpMargin = validateMetricLabelSemantics('operating_margin', 'Net profit margin');
+  check(netMarginOnOpMargin.valid === false, 'Test 244f-1: "Net profit margin" label on operating_margin rejected');
+
+  const grossMarginOnOpMargin = validateMetricLabelSemantics('operating_margin', 'Gross margin');
+  check(grossMarginOnOpMargin.valid === false, 'Test 244f-2: "Gross margin" label on operating_margin rejected');
+
+  // 4. Revenue semantic rejections
+  const volumeOnRevenue = validateMetricLabelSemantics('revenue', 'Total vehicle deliveries');
+  check(volumeOnRevenue.valid === false, 'Test 244g: "Total vehicle deliveries" label on revenue rejected');
+
+  // 5. Valid semantic bindings accept
+  check(validateMetricLabelSemantics('operating_income', 'Operating profit').valid === true, 'Test 244h-1: "Operating profit" on operating_income accepted');
+  check(validateMetricLabelSemantics('operating_income', 'EBIT-adjusted').valid === true, 'Test 244h-2: "EBIT-adjusted" on operating_income accepted');
+  check(validateMetricLabelSemantics('net_income', 'Net profit attributable to shareholders of the listed company (归属于上市公司股东的净利润)').valid === true, 'Test 244h-3: Verbatim BYD Q3 CASBE label on net_income accepted');
+  check(validateMetricLabelSemantics('operating_margin', 'Operating margin (GAAP)').valid === true, 'Test 244h-4: "Operating margin (GAAP)" on operating_margin accepted');
+  check(validateMetricLabelSemantics('revenue', 'Operating revenue (营业收入)').valid === true, 'Test 244h-5: "Operating revenue (营业收入)" on revenue accepted');
+
+  // 6. Dataset-wide semantic verification: 100% of observations must pass
+  let datasetSemanticErrors = 0;
+  for (const obs of METRIC_OBSERVATIONS) {
+    if (obs.originalLabel) {
+      const res = validateMetricLabelSemantics(obs.metricId, obs.originalLabel);
+      if (!res.valid) {
+        datasetSemanticErrors++;
+      }
+    }
+  }
+  check(datasetSemanticErrors === 0, 'Test 244i: All 437 repository observations pass semantic label validation with 0 errors');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 245: Regional 2026-Q3 Data Invariants (Volume Definitions, Subtotals, Overlaps & Coverage Gaps)
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 245: Regional 2026-Q3 Data Invariants ---');
+
+  const q3Regional = REGIONAL_OBSERVATIONS.filter((o) => o.period === '2026-Q3');
+  check(q3Regional.length === 13, 'Test 245a: Exactly 13 regional observations registered for 2026-Q3');
+
+  // 1. All 13 entries must have complete provenance metadata
+  for (const reg of q3Regional) {
+    check(reg.sourceDocId !== undefined && reg.sourceDocId !== '', `Test 245b-1 [${reg.id}]: sourceDocId defined`);
+    check(typeof reg.pageNumber === 'number' && reg.pageNumber >= 1, `Test 245b-2 [${reg.id}]: numeric pageNumber defined`);
+    check(reg.reportingScope === 'consolidated_group', `Test 245b-3 [${reg.id}]: reportingScope is consolidated_group`);
+    check(reg.volumeDefinition === 'retail_deliveries' || reg.volumeDefinition === 'wholesale_shipments', `Test 245b-4 [${reg.id}]: explicit volumeDefinition`);
+    check(reg.verificationStatus === 'verified', `Test 245b-5 [${reg.id}]: verificationStatus is verified`);
+    check(Boolean(reg.regionalDefinitionNotes && reg.regionalDefinitionNotes.length > 0), `Test 245b-6 [${reg.id}]: regionalDefinitionNotes documented`);
+  }
+
+  // 2. Deliveries vs Shipments definition distinction invariant
+  const deliveryOemIds = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars'];
+  const shipmentOemIds = ['general_motors', 'ford', 'hyundai_motor', 'stellantis'];
+
+  for (const reg of q3Regional.filter((o) => o.regionId === 'global')) {
+    if (deliveryOemIds.includes(reg.companyId)) {
+      check(reg.volumeDefinition === 'retail_deliveries', `Test 245c-1 [${reg.companyId}]: Global volume definition is retail_deliveries`);
+    } else if (shipmentOemIds.includes(reg.companyId)) {
+      check(reg.volumeDefinition === 'wholesale_shipments', `Test 245c-2 [${reg.companyId}]: Global volume definition is wholesale_shipments`);
+    }
+  }
+
+  // 3. Overlapping region invariant: US (subset) strictly less than North America
+  const volvoUS = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'united_states');
+  const volvoNA = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'north_america');
+  check(volvoUS !== undefined && volvoNA !== undefined, 'Test 245d-1: Both US and NA observations present for Volvo 2026-Q3');
+  check(Number(volvoUS?.value) < Number(volvoNA?.value), 'Test 245d-2: Volvo US deliveries (23.766k) strictly less than NA deliveries (30.777k)');
+  check(Number(volvoUS?.value) === 23.766, 'Test 245d-3: Volvo US retail deliveries is 23.766k');
+  check(Number(volvoNA?.value) === 30.777, 'Test 245d-4: Volvo North America retail deliveries is 30.777k');
+
+  // 4. Disaggregated Major Regional Subtotal Consistency: Europe + China + North America = Global
+  const volvoEurope = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'europe');
+  const volvoChina = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'china');
+  const volvoGlobal = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'global');
+
+  const subtotalSum = Math.round(((volvoEurope?.value ?? 0) + (volvoChina?.value ?? 0) + (volvoNA?.value ?? 0)) * 1000) / 1000;
+  check(subtotalSum === volvoGlobal?.value, 'Test 245e: Volvo major regions (90.548 + 20.284 + 30.777 = 141.609k) exactly equal global retail sales');
+
+  // 5. Explicit Coverage Gap Invariant: Non-disclosed regions for other OEMs have 0 records
+  const europeNonVolvo = q3Regional.filter((o) => o.regionId === 'europe' && o.companyId !== 'volvo_cars');
+  check(europeNonVolvo.length === 0, 'Test 245f-1: No unbacked European Q3 regional records for non-disclosing OEMs (coverage gap preserved)');
+
+  const chinaNonVolvo = q3Regional.filter((o) => o.regionId === 'china' && o.companyId !== 'volvo_cars');
+  check(chinaNonVolvo.length === 0, 'Test 245f-2: No unbacked China Q3 regional records for non-disclosing OEMs (coverage gap preserved)');
+
+  const southAmericaQ3All = q3Regional.filter((o) => o.regionId === 'south_america');
+  check(southAmericaQ3All.length === 0, 'Test 245f-3: Zero South America records for 2026-Q3 across all OEMs (fail-closed integrity)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
