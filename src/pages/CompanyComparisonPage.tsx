@@ -40,6 +40,7 @@ export const CompanyComparisonPage: React.FC = () => {
     'tesla',
   ]);
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
+  const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | 'retail_deliveries' | 'wholesale_shipments'>('all');
   const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
@@ -67,6 +68,17 @@ export const CompanyComparisonPage: React.FC = () => {
 
   // Get observations for Bar Chart
   const observations = getObservations(selectedCompanies, [selectedMetricId], selectedPeriod)
+    .filter((obs) => {
+      if (selectedMetricId === 'deliveries_global') {
+        if (volumeDefinitionFilter === 'retail_deliveries') {
+          return obs.volumeDefinition === 'retail_deliveries';
+        }
+        if (volumeDefinitionFilter === 'wholesale_shipments') {
+          return obs.volumeDefinition === 'wholesale_shipments';
+        }
+      }
+      return true;
+    })
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
       observation: obs,
@@ -208,6 +220,47 @@ export const CompanyComparisonPage: React.FC = () => {
             </select>
           </div>
         </div>
+
+        {/* Volume Definition Sub-Filter (visible when comparing deliveries_global) */}
+        {selectedMetricId === 'deliveries_global' && (
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <span className="text-slate-600 dark:text-slate-400 font-semibold">
+              {language === 'ko' ? '판매량 공시 기준 필터:' : 'Volume Reporting Perimeter:'}
+            </span>
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setVolumeDefinitionFilter('all')}
+                className={`px-2.5 py-1 rounded-md transition text-xs font-semibold ${
+                  volumeDefinitionFilter === 'all'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                {language === 'ko' ? '전체 기준 (혼합)' : 'All (Mixed)'}
+              </button>
+              <button
+                onClick={() => setVolumeDefinitionFilter('retail_deliveries')}
+                className={`px-2.5 py-1 rounded-md transition text-xs font-semibold ${
+                  volumeDefinitionFilter === 'retail_deliveries'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                {language === 'ko' ? '소매 인도 (Retail)' : 'Retail Deliveries'}
+              </button>
+              <button
+                onClick={() => setVolumeDefinitionFilter('wholesale_shipments')}
+                className={`px-2.5 py-1 rounded-md transition text-xs font-semibold ${
+                  volumeDefinitionFilter === 'wholesale_shipments'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                {language === 'ko' ? '도매 출하 (Wholesale)' : 'Wholesale Shipments'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Comparability Warning Banner */}

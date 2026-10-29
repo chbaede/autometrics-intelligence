@@ -2403,6 +2403,21 @@ export function validateMetricLabelSemantics(
         reason: `Original label "${originalLabel}" denotes net income / shareholder profit, but is assigned to operating income metric "${metricId}".`,
       };
     }
+
+    const hasGrossProfitIndicator =
+      lower.includes('gross profit') ||
+      lower.includes('gross income') ||
+      lower.includes('매출총이익') ||
+      lower.includes('毛利') ||
+      lower.includes('marge brute');
+
+    if (hasGrossProfitIndicator && !lower.includes('operating')) {
+      return {
+        valid: false,
+        code: 'semanticMetricLabelMismatch',
+        reason: `Original label "${originalLabel}" denotes gross profit / gross margin, but is assigned to operating income metric "${metricId}".`,
+      };
+    }
   }
 
   // 2. Net Income semantic checks
@@ -2446,18 +2461,58 @@ export function validateMetricLabelSemantics(
   // 4. Revenue semantic checks
   if (metricId === 'revenue') {
     const hasDeliveryOrProfitIndicator =
-      lower.includes('operating income') ||
-      lower.includes('operating profit') ||
-      lower.includes('net income') ||
-      lower.includes('deliveries to customers') ||
-      lower.includes('vehicle deliveries') ||
-      lower.includes('unit sales');
+      (lower.includes('operating income') ||
+       lower.includes('operating profit') ||
+       lower.includes('net income') ||
+       lower.includes('deliveries to customers') ||
+       lower.includes('vehicle deliveries') ||
+       lower.includes('unit sales')) &&
+      !lower.includes('revenue') &&
+      !lower.includes('sales revenue') &&
+      !lower.includes('net sales and revenue') &&
+      !lower.includes('umsatzerlöse') &&
+      !lower.includes('营业收入') &&
+      !lower.includes('매출액');
 
-    if (hasDeliveryOrProfitIndicator && !lower.includes('revenue') && !lower.includes('sales revenue') && !lower.includes('net sales and revenue')) {
+    if (hasDeliveryOrProfitIndicator) {
       return {
         valid: false,
         code: 'semanticMetricLabelMismatch',
-        reason: `Original label "${originalLabel}" denotes volume or profit, but is assigned to revenue metric "${metricId}".`,
+        reason: `Original label "${originalLabel}" denotes volume or profit without revenue/sales terminology, but is assigned to revenue metric "${metricId}".`,
+      };
+    }
+  }
+
+  // 5. Volume & Delivery metric checks
+  if (
+    metricId === 'deliveries_global' ||
+    metricId === 'wholesale_shipments' ||
+    metricId === 'bev_deliveries' ||
+    metricId === 'phev_deliveries'
+  ) {
+    const hasFinancialProfitOrRevenueIndicator =
+      (lower.includes('operating income') ||
+       lower.includes('operating profit') ||
+       lower.includes('net income') ||
+       lower.includes('net profit') ||
+       lower.includes('ebit') ||
+       lower.includes('revenue') ||
+       lower.includes('sales revenue') ||
+       lower.includes('umsatzerlöse') ||
+       lower.includes('chiffre d\'affaires') ||
+       lower.includes('营业收入') ||
+       lower.includes('매출액')) &&
+      !lower.includes('deliveries') &&
+      !lower.includes('shipments') &&
+      !lower.includes('unit sales') &&
+      !lower.includes('vehicle sales') &&
+      !lower.includes('sales volume');
+
+    if (hasFinancialProfitOrRevenueIndicator) {
+      return {
+        valid: false,
+        code: 'semanticMetricLabelMismatch',
+        reason: `Original label "${originalLabel}" denotes financial revenue/profit, but is assigned to vehicle volume metric "${metricId}".`,
       };
     }
   }

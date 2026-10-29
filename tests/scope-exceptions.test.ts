@@ -8423,12 +8423,65 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const volumeOnRevenue = validateMetricLabelSemantics('revenue', 'Total vehicle deliveries');
   check(volumeOnRevenue.valid === false, 'Test 244g: "Total vehicle deliveries" label on revenue rejected');
 
+  // 4b. Gross Profit on Operating Income rejections (dedicated regression)
+  const grossProfitOnEbit = validateMetricLabelSemantics('operating_income', 'Gross profit');
+  check(grossProfitOnEbit.valid === false, 'Test 244g-1: "Gross profit" on operating_income rejected');
+  check(grossProfitOnEbit.code === 'semanticMetricLabelMismatch', 'Test 244g-2: Error code is semanticMetricLabelMismatch');
+
+  const grossIncomeOnEbit = validateMetricLabelSemantics('operating_income', 'Gross income');
+  check(grossIncomeOnEbit.valid === false, 'Test 244g-3: "Gross income" on operating_income rejected');
+
+  const koreanGrossProfitOnEbit = validateMetricLabelSemantics('operating_income', '매출총이익');
+  check(koreanGrossProfitOnEbit.valid === false, 'Test 244g-4: Korean "매출총이익" on operating_income rejected');
+
+  const chineseGrossProfitOnEbit = validateMetricLabelSemantics('operating_income', '毛利');
+  check(chineseGrossProfitOnEbit.valid === false, 'Test 244g-5: Chinese "毛利" on operating_income rejected');
+
+  const frenchGrossProfitOnEbit = validateMetricLabelSemantics('operating_income', 'Marge brute');
+  check(frenchGrossProfitOnEbit.valid === false, 'Test 244g-6: French "Marge brute" on operating_income rejected');
+
+  // 4c. Financial revenue/profit mapped to vehicle volume metrics rejections
+  const ebitOnVolume = validateMetricLabelSemantics('deliveries_global', 'Operating income');
+  check(ebitOnVolume.valid === false, 'Test 244g-7: "Operating income" on deliveries_global rejected');
+
+  const revOnVolume = validateMetricLabelSemantics('deliveries_global', 'Total revenue');
+  check(revOnVolume.valid === false, 'Test 244g-8: "Total revenue" on deliveries_global rejected');
+
+  const netOnShipments = validateMetricLabelSemantics('wholesale_shipments', 'Net income');
+  check(netOnShipments.valid === false, 'Test 244g-9: "Net income" on wholesale_shipments rejected');
+
   // 5. Valid semantic bindings accept
   check(validateMetricLabelSemantics('operating_income', 'Operating profit').valid === true, 'Test 244h-1: "Operating profit" on operating_income accepted');
   check(validateMetricLabelSemantics('operating_income', 'EBIT-adjusted').valid === true, 'Test 244h-2: "EBIT-adjusted" on operating_income accepted');
   check(validateMetricLabelSemantics('net_income', 'Net profit attributable to shareholders of the listed company (归属于上市公司股东的净利润)').valid === true, 'Test 244h-3: Verbatim BYD Q3 CASBE label on net_income accepted');
   check(validateMetricLabelSemantics('operating_margin', 'Operating margin (GAAP)').valid === true, 'Test 244h-4: "Operating margin (GAAP)" on operating_margin accepted');
   check(validateMetricLabelSemantics('revenue', 'Operating revenue (营业收入)').valid === true, 'Test 244h-5: "Operating revenue (营业收入)" on revenue accepted');
+
+  // 5b. Multilingual and OEM-specific valid bindings accept
+  check(validateMetricLabelSemantics('operating_income', 'Operatives Ergebnis').valid === true, 'Test 244h-6: German "Operatives Ergebnis" on operating_income accepted');
+  check(validateMetricLabelSemantics('operating_income', 'EBIT (bereinigt)').valid === true, 'Test 244h-7: German "EBIT (bereinigt)" on operating_income accepted');
+  check(validateMetricLabelSemantics('operating_income', "Résultat d'exploitation").valid === true, 'Test 244h-8: French "Résultat d\'exploitation" on operating_income accepted');
+  check(validateMetricLabelSemantics('operating_income', '영업이익').valid === true, 'Test 244h-9: Korean "영업이익" on operating_income accepted');
+  check(validateMetricLabelSemantics('revenue', 'Umsatzerlöse').valid === true, 'Test 244h-10: German "Umsatzerlöse" on revenue accepted');
+  check(validateMetricLabelSemantics('revenue', "Chiffre d'affaires").valid === true, 'Test 244h-11: French "Chiffre d\'affaires" on revenue accepted');
+  check(validateMetricLabelSemantics('revenue', '매출액').valid === true, 'Test 244h-12: Korean "매출액" on revenue accepted');
+  check(validateMetricLabelSemantics('deliveries_global', 'Deliveries to customers').valid === true, 'Test 244h-13: "Deliveries to customers" on deliveries_global accepted');
+  check(validateMetricLabelSemantics('deliveries_global', 'Worldwide deliveries').valid === true, 'Test 244h-14: "Worldwide deliveries" on deliveries_global accepted');
+  check(validateMetricLabelSemantics('wholesale_shipments', 'Wholesale vehicle shipments').valid === true, 'Test 244h-15: "Wholesale vehicle shipments" on wholesale_shipments accepted');
+
+  // 5c. Missing or ambiguous original labels accept safely without false errors
+  check(validateMetricLabelSemantics('revenue', '').valid === true, 'Test 244h-16: Empty string original label accepted safely');
+  check(validateMetricLabelSemantics('operating_income', undefined as any).valid === true, 'Test 244h-17: Undefined original label accepted safely');
+  check(validateMetricLabelSemantics('revenue', 'Total').valid === true, 'Test 244h-18: Ambiguous label "Total" on revenue accepted');
+  check(validateMetricLabelSemantics('operating_income', 'Total').valid === true, 'Test 244h-19: Ambiguous label "Total" on operating_income accepted');
+  check(validateMetricLabelSemantics('deliveries_global', 'Total').valid === true, 'Test 244h-20: Ambiguous label "Total" on deliveries_global accepted');
+
+  // 5d. False positives caused by broad keyword matching guarded
+  check(validateMetricLabelSemantics('revenue', 'Net revenues').valid === true, 'Test 244h-21: "Net revenues" on revenue accepted (not rejected by "net")');
+  check(validateMetricLabelSemantics('revenue', 'Total net sales and revenue').valid === true, 'Test 244h-22: "Total net sales and revenue" on revenue accepted');
+  check(validateMetricLabelSemantics('revenue', 'Net sales').valid === true, 'Test 244h-23: "Net sales" on revenue accepted');
+  check(validateMetricLabelSemantics('operating_income', 'Operating profit before net financial items').valid === true, 'Test 244h-24: "Operating profit before net financial items" accepted');
+  check(validateMetricLabelSemantics('operating_margin', 'Adjusted EBIT margin').valid === true, 'Test 244h-25: "Adjusted EBIT margin" accepted');
 
   // 6. Dataset-wide semantic verification: 100% of observations must pass
   let datasetSemanticErrors = 0;
@@ -8499,6 +8552,63 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 
   const southAmericaQ3All = q3Regional.filter((o) => o.regionId === 'south_america');
   check(southAmericaQ3All.length === 0, 'Test 245f-3: Zero South America records for 2026-Q3 across all OEMs (fail-closed integrity)');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 246: Volume Comparability Invariants & Historical Safe Fallback
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 246: Volume Comparability Invariants & Historical Safe Fallback ---');
+
+  // 1. In 2026-Q3, all reported volume observations must explicitly carry volumeDefinition
+  const q3Volumes = METRIC_OBSERVATIONS.filter(
+    (o) => o.period === '2026-Q3' && (o.metricId === 'deliveries_global' || o.metricId === 'wholesale_shipments')
+  );
+  check(q3Volumes.length === 9, 'Test 246a-1: Exactly 9 Q3 volume observations');
+
+  const retailOems = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars'];
+  const wholesaleOems = ['general_motors', 'ford', 'hyundai_motor', 'stellantis'];
+
+  for (const obs of q3Volumes) {
+    if (retailOems.includes(obs.companyId)) {
+      check(obs.volumeDefinition === 'retail_deliveries', `Test 246a-2 [${obs.companyId}]: volumeDefinition is retail_deliveries`);
+    } else if (wholesaleOems.includes(obs.companyId)) {
+      check(obs.volumeDefinition === 'wholesale_shipments', `Test 246a-3 [${obs.companyId}]: volumeDefinition is wholesale_shipments`);
+    }
+  }
+
+  // 2. Historical records without volumeDefinition are preserved safely as undefined (no invented definitions)
+  const historicalNoVolDef = REGIONAL_OBSERVATIONS.filter(
+    (o) => o.period !== '2026-Q3' && (o.metricId === 'deliveries_global' || o.metricId === 'wholesale_shipments') && o.volumeDefinition === undefined
+  );
+  check(historicalNoVolDef.length === 344, 'Test 246b: Historical regional volume records (344) safely preserve undefined volumeDefinition without invented backfilling');
+
+  // 3. Same-definition rankings produce pure non-mixed sets
+  const retailRankings = q3Volumes
+    .filter((o) => o.volumeDefinition === 'retail_deliveries')
+    .sort((a, b) => ((b.value as number) ?? 0) - ((a.value as number) ?? 0));
+
+  check(retailRankings.length === 5, 'Test 246c-1: Exactly 5 retail delivery OEMs in Q3');
+  check(retailRankings[0].companyId === 'volkswagen_group', 'Test 246c-2: VW Group #1 in retail deliveries (1,885k)');
+  check(retailRankings[1].companyId === 'byd', 'Test 246c-3: BYD #2 in retail deliveries (1,323.07k)');
+  check(retailRankings[2].companyId === 'mercedes_benz', 'Test 246c-4: Mercedes-Benz #3 in retail deliveries (491.65k)');
+  check(retailRankings[3].companyId === 'tesla', 'Test 246c-5: Tesla #4 in retail deliveries (486.532k)');
+  check(retailRankings[4].companyId === 'volvo_cars', 'Test 246c-6: Volvo Cars #5 in retail deliveries (141.609k)');
+
+  const wholesaleRankings = q3Volumes
+    .filter((o) => o.volumeDefinition === 'wholesale_shipments')
+    .sort((a, b) => ((b.value as number) ?? 0) - ((a.value as number) ?? 0));
+
+  check(wholesaleRankings.length === 4, 'Test 246c-7: Exactly 4 wholesale shipment OEMs in Q3');
+  check(wholesaleRankings[0].companyId === 'stellantis', 'Test 246c-8: Stellantis #1 in wholesale shipments (1,286k)');
+  check(wholesaleRankings[1].companyId === 'ford', 'Test 246c-9: Ford #2 in wholesale shipments (1,040k)');
+  check(wholesaleRankings[2].companyId === 'general_motors', 'Test 246c-10: GM #3 in wholesale shipments (1,028k)');
+  check(wholesaleRankings[3].companyId === 'hyundai_motor', 'Test 246c-11: Hyundai Motor #4 in wholesale shipments (920.71k)');
+
+  // 4. Mixed ranking contains both definitions and flags mixed comparability
+  const allVolDefs = new Set(q3Volumes.map((o) => o.volumeDefinition).filter(Boolean));
+  check(allVolDefs.size === 2, 'Test 246d: Mixed ranking has 2 distinct volume definitions');
+  check(allVolDefs.has('retail_deliveries') && allVolDefs.has('wholesale_shipments'), 'Test 246e: Mixed ranking contains both retail and wholesale');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

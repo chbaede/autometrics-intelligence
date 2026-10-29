@@ -8,7 +8,7 @@ import {
   getCompanyById,
 } from '../utils/metricQueries';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
-import { MetricObservation, PeriodType } from '../types/metrics';
+import { MetricObservation, PeriodType, VolumeDefinition } from '../types/metrics';
 import { formatPeriodLabel } from '../utils/metricCalculations';
 import {
   validateScatterObservationCompatibility,
@@ -58,14 +58,27 @@ export const GlobalOverviewPage: React.FC = () => {
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
   const [showInlineTable, setShowInlineTable] = useState<boolean>(false);
   const [profitFilterMode, setProfitFilterMode] = useState<ProfitFilterMode>('exclude_loss');
+  const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | VolumeDefinition>('all');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   const [topFiveMode, setTopFiveMode] = useState<boolean>(false);
 
-  // Top 5 OEMs by global deliveries (normalized to thousand units) for a given period
-  const getTopFiveCompanyIds = (period: string): string[] =>
+  // Top 5 OEMs by global deliveries (normalized to thousand units) for a given period and volume definition
+  const getTopFiveCompanyIds = (
+    period: string,
+    vDef: 'all' | VolumeDefinition = volumeDefinitionFilter
+  ): string[] =>
     getObservations(undefined, ['deliveries_global'], period)
-      .filter((o) => o.value !== null && o.value !== undefined && Number.isFinite(o.value))
+      .filter((o) => {
+        if (o.value === null || o.value === undefined || !Number.isFinite(o.value)) return false;
+        if (vDef === 'retail_deliveries') {
+          return o.volumeDefinition === 'retail_deliveries';
+        }
+        if (vDef === 'wholesale_shipments') {
+          return o.volumeDefinition === 'wholesale_shipments';
+        }
+        return true;
+      })
       .map((o) => ({
         id: o.companyId,
         vol: o.unit === 'units' ? (o.value as number) / 1000 : (o.value as number),
@@ -74,12 +87,12 @@ export const GlobalOverviewPage: React.FC = () => {
       .slice(0, 5)
       .map((o) => o.id);
 
-  // Keep Top 5 selection in sync with the selected period
+  // Keep Top 5 selection in sync with the selected period and volume definition
   useEffect(() => {
     if (!topFiveMode) return;
-    const ids = getTopFiveCompanyIds(selectedPeriod);
+    const ids = getTopFiveCompanyIds(selectedPeriod, volumeDefinitionFilter);
     if (ids.length > 0) setSelectedCompanies(ids);
-  }, [topFiveMode, selectedPeriod]);
+  }, [topFiveMode, selectedPeriod, volumeDefinitionFilter]);
 
   // Toggle company filter
   const toggleCompany = (companyId: string) => {
@@ -99,7 +112,7 @@ export const GlobalOverviewPage: React.FC = () => {
   };
 
   const selectTopFive = () => {
-    const ids = getTopFiveCompanyIds(selectedPeriod);
+    const ids = getTopFiveCompanyIds(selectedPeriod, volumeDefinitionFilter);
     if (ids.length > 0) {
       setSelectedCompanies(ids);
       setTopFiveMode(true);
@@ -166,8 +179,17 @@ export const GlobalOverviewPage: React.FC = () => {
     return baseSubtitle;
   };
 
-  // Observations for Sales Bar Chart (ranked descending) - keeps all OEMs
+  // Observations for Sales Bar Chart (ranked descending) - filtered by volumeDefinitionFilter if active
   const salesObs = getObservations(selectedCompanies, ['deliveries_global'], selectedPeriod)
+    .filter((obs) => {
+      if (volumeDefinitionFilter === 'retail_deliveries') {
+        return obs.volumeDefinition === 'retail_deliveries';
+      }
+      if (volumeDefinitionFilter === 'wholesale_shipments') {
+        return obs.volumeDefinition === 'wholesale_shipments';
+      }
+      return true;
+    })
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
       observation: obs,
@@ -733,11 +755,60 @@ export const GlobalOverviewPage: React.FC = () => {
       {/* SECTION 1: Core Volume & Profitability Benchmarks (Ranked Descending - One Chart Per Row) */}
       <div className="flex flex-col gap-6 w-full">
         <MetricBarChart
-          title={t.charts.salesVolume}
-          subtitle={t.charts.salesSubtitle}
+          title={
+            volumeDefinitionFilter === 'retail_deliveries'
+              ? (language === 'ko' ? '글로벌 소매 판매량 (Retail Deliveries)' : 'Global Retail Deliveries')
+              : volumeDefinitionFilter === 'wholesale_shipments'
+              ? (language === 'ko' ? '글로벌 도매 출하량 (Wholesale Shipments)' : 'Global Wholesale Shipments')
+              : t.charts.salesVolume
+          }
+          subtitle={
+            volumeDefinitionFilter === 'retail_deliveries'
+              ? (language === 'ko' ? '소매 인도(Retail Deliveries) 공시 기업 단일 기준 비교' : 'Same-definition comparison: Customer handovers (Retail Deliveries)')
+              : volumeDefinitionFilter === 'wholesale_shipments'
+              ? (language === 'ko' ? '도매 출하(Wholesale Shipments) 공시 기업 단일 기준 비교' : 'Same-definition comparison: Dealer dispatches (Wholesale Shipments)')
+              : (language === 'ko' ? '소매 인도 및 도매 출하 공시 혼합 랭킹 (상단에서 동일 기준 필터 선택 가능)' : 'Mixed Retail & Wholesale ranking (same-definition filters available above)')
+          }
           observations={salesObs}
           unit="thousand_units"
           periodBadge={selectedPeriod}
+          headerAction={
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+              <button
+                onClick={() => setVolumeDefinitionFilter('all')}
+                className={`px-2 py-1 rounded-md transition ${
+                  volumeDefinitionFilter === 'all'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+                title={language === 'ko' ? '전체 공시 (소매 인도 + 도매 출하 혼합)' : 'All Volume Definitions (Mixed)'}
+              >
+                {language === 'ko' ? '전체' : 'All'}
+              </button>
+              <button
+                onClick={() => setVolumeDefinitionFilter('retail_deliveries')}
+                className={`px-2 py-1 rounded-md transition ${
+                  volumeDefinitionFilter === 'retail_deliveries'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+                title={language === 'ko' ? '고객 인도 기준(소매) 공시 기업만 비교' : 'Retail Deliveries Only'}
+              >
+                {language === 'ko' ? '소매 인도' : 'Retail'}
+              </button>
+              <button
+                onClick={() => setVolumeDefinitionFilter('wholesale_shipments')}
+                className={`px-2 py-1 rounded-md transition ${
+                  volumeDefinitionFilter === 'wholesale_shipments'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+                title={language === 'ko' ? '딜러 출하 기준(도매) 공시 기업만 비교' : 'Wholesale Shipments Only'}
+              >
+                {language === 'ko' ? '도매 출하' : 'Wholesale'}
+              </button>
+            </div>
+          }
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
         <MetricBarChart
