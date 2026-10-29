@@ -4,6 +4,7 @@ import { METRIC_OBSERVATIONS } from '../data/observations';
 import { GUIDANCE_OBSERVATIONS } from '../data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../data/regionalObservations';
 import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../data/sources';
+import { getScheduledDisclosure } from '../data/scheduledDisclosures';
 import {
   Company,
   MetricDefinition,
@@ -105,11 +106,12 @@ export function getCoverageMatrix(): {
     Record<
       string,
       {
-        status: 'available' | 'non_comparable' | 'missing';
+        status: 'available' | 'non_comparable' | 'missing' | 'scheduled';
         sourceUrl?: string;
         sourceTitle?: string;
         docType?: string;
         observationCount: number;
+        scheduledDate?: string;
       }
     >
   >;
@@ -125,11 +127,12 @@ export function getCoverageMatrix(): {
     Record<
       string,
       {
-        status: 'available' | 'non_comparable' | 'missing';
+        status: 'available' | 'non_comparable' | 'missing' | 'scheduled';
         sourceUrl?: string;
         sourceTitle?: string;
         docType?: string;
         observationCount: number;
+        scheduledDate?: string;
       }
     >
   > = {};
@@ -139,10 +142,21 @@ export function getCoverageMatrix(): {
     periods.forEach((p) => {
       const obsList = METRIC_OBSERVATIONS.filter((o) => o.companyId === comp.id && o.period === p);
       if (obsList.length === 0) {
-        matrix[comp.id][p] = {
-          status: 'missing',
-          observationCount: 0,
-        };
+        const scheduled = getScheduledDisclosure(comp.id, p);
+        if (scheduled) {
+          matrix[comp.id][p] = {
+            status: 'scheduled',
+            observationCount: 0,
+            sourceTitle: scheduled.notesKo,
+            sourceUrl: comp.irUrl,
+            scheduledDate: scheduled.scheduledDate,
+          };
+        } else {
+          matrix[comp.id][p] = {
+            status: 'missing',
+            observationCount: 0,
+          };
+        }
       } else {
         const hasNonComparable = obsList.some((o) => !o.isComparable);
         const status = hasNonComparable ? 'non_comparable' : 'available';

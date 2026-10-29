@@ -204,6 +204,15 @@ export const DataCoveragePage: React.FC = () => {
                               <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0" />
                             </a>
                           )}
+                          {status === 'scheduled' && (
+                            <span
+                              title={cell?.sourceTitle || (language === 'ko' ? '공시 예정' : 'Scheduled')}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-[10px] font-semibold transition-all shadow-xs cursor-default"
+                            >
+                              <Clock className="w-3 h-3 text-sky-500 shrink-0" />
+                              <span>{language === 'ko' ? '공시 예정' : 'Scheduled'}</span>
+                            </span>
+                          )}
                           {status === 'missing' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-800 text-[10px]">
                               N/R

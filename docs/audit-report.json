@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-03T20:50:07.578Z",
-  "sourceCommitSha": "b1beadbdafc30314211eca155ebbf498656a2777",
+  "generatedAt": "2026-10-29T21:57:58.602Z",
+  "sourceCommitSha": "caadcbe1e671a28278fcfeffce26a0460325889d",
   "counts": {
     "companies": 16,
-    "observations": 384,
+    "observations": 438,
     "regionalObservations": 344,
     "guidance": 20,
-    "sourceDocuments": 82,
+    "sourceDocuments": 91,
     "documentsWithSourceClaims": 22,
     "sourceClaims": 113
   },

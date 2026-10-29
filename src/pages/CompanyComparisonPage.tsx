@@ -7,6 +7,7 @@ import {
   getMetricById,
   getDistinctPeriods,
 } from '../utils/metricQueries';
+import { getScheduledDisclosure } from '../data/scheduledDisclosures';
 import { MetricObservation } from '../types/metrics';
 import { MetricBarChart } from '../components/metrics/charts/MetricBarChart';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
@@ -303,9 +304,20 @@ export const CompanyComparisonPage: React.FC = () => {
                             <span className="font-bold">
                               {formatMetricValue(obs.value, obs.unit, obs.currency || comp?.reportingCurrency)}
                             </span>
-                          ) : (
-                            <span className="text-slate-400 font-normal">N/R</span>
-                          )}
+                          ) : (() => {
+                            const scheduled = getScheduledDisclosure(cid, selectedPeriod);
+                            if (scheduled) {
+                              return (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold text-[10px] border border-sky-500/20"
+                                  title={language === 'ko' ? scheduled.notesKo : scheduled.notesEn}
+                                >
+                                  {language === 'ko' ? '공시 예정' : 'Scheduled'}
+                                </span>
+                              );
+                            }
+                            return <span className="text-slate-400 font-normal">N/R</span>;
+                          })()}
                         </td>
                       );
                     })}

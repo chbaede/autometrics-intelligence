@@ -7,6 +7,7 @@ import {
   getDistinctPeriods,
   getCompanyById,
 } from '../utils/metricQueries';
+import { getScheduledDisclosure } from '../data/scheduledDisclosures';
 import { MetricObservation, PeriodType } from '../types/metrics';
 import { formatPeriodLabel } from '../utils/metricCalculations';
 import {
@@ -39,6 +40,7 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
+  Clock,
 } from 'lucide-react';
 
 export const GlobalOverviewPage: React.FC = () => {
@@ -382,33 +384,43 @@ export const GlobalOverviewPage: React.FC = () => {
           </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {companies.map((c) => (
-            <Link
-              key={c.id}
-              to={`/company/${c.id}`}
-              className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-brand-500/60 hover:shadow-md transition flex flex-col justify-between group"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition truncate">
-                    {c.shortName}
-                  </span>
-                  {c.ticker && (
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                      {c.ticker}
+          {companies.map((c) => {
+            const scheduled = getScheduledDisclosure(c.id, selectedPeriod);
+            return (
+              <Link
+                key={c.id}
+                to={`/company/${c.id}`}
+                className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-brand-500/60 hover:shadow-md transition flex flex-col justify-between group"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition truncate">
+                      {c.shortName}
                     </span>
-                  )}
+                    {scheduled ? (
+                      <span
+                        className="text-[9px] font-mono px-1 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-semibold"
+                        title={language === 'ko' ? scheduled.notesKo : scheduled.notesEn}
+                      >
+                        {language === 'ko' ? '공시 예정' : 'Scheduled'}
+                      </span>
+                    ) : c.ticker ? (
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                        {c.ticker}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                    {c.hqCountry} • {c.reportingCurrency}
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                  {c.hqCountry} • {c.reportingCurrency}
-                </p>
-              </div>
-              <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-brand-600 dark:text-brand-400 font-semibold group-hover:translate-x-0.5 transition">
-                <span>{language === 'ko' ? '실적 분석' : 'Deep Dive'}</span>
-                <ExternalLink className="w-3 h-3" />
-              </div>
-            </Link>
-          ))}
+                <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-brand-600 dark:text-brand-400 font-semibold group-hover:translate-x-0.5 transition">
+                  <span>{language === 'ko' ? '실적 분석' : 'Deep Dive'}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -522,6 +534,27 @@ export const GlobalOverviewPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 2026-Q3 Reporting Season Status Banner */}
+      {selectedPeriod === '2026-Q3' && (
+        <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 shadow-xs flex items-start gap-3 text-xs leading-relaxed text-sky-900 dark:text-sky-200">
+          <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5">
+            <Clock className="w-4 h-4" />
+          </div>
+          <div className="space-y-1">
+            <div className="font-bold flex items-center gap-2">
+              <span>{language === 'ko' ? '2026년 3분기(2026-Q3) 공식 실적 공시 현황' : '2026 Q3 Official Earnings Disclosure Status'}</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold">9 Reported</span>
+              <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono text-[10px] font-bold">7 Scheduled</span>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300">
+              {language === 'ko'
+                ? '테슬라, 폭스바겐, GM, 포드, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 볼보 9개사 공식 공시 완료. 기아(10/30), BMW(11/5), 토요타(11/5), 리비안(11/5), 닛산(11/7), 혼다(11/8), 지리(11월 중순) 공시 예정.'
+                : 'Tesla, VW, GM, Ford, Hyundai, Mercedes-Benz, Stellantis, BYD, and Volvo have officially reported. Kia (Oct 30), BMW (Nov 5), Toyota (Nov 5), Rivian (Nov 5), Nissan (Nov 7), Honda (Nov 8), and Geely (Mid-Nov) are scheduled.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* SECTION 1: Core Volume & Profitability Benchmarks (Ranked Descending - One Chart Per Row) */}
       <div className="flex flex-col gap-6 w-full">

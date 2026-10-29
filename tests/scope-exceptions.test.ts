@@ -6074,7 +6074,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 {
   // 1. Original observations are never deleted from METRIC_OBSERVATIONS
   const totalObsCount = METRIC_OBSERVATIONS.length;
-  check(totalObsCount === 384, 'Test 218a: Total metric observations preserved intact (384)');
+  check(totalObsCount === 438, 'Test 218a: Total metric observations preserved intact (438: 384 historical + 54 in 2026-Q3)');
 
   const rivianObs = METRIC_OBSERVATIONS.filter(o => o.companyId === 'rivian');
   check(rivianObs.length > 0, 'Test 218b: Rivian observations remain present in dataset');
@@ -6538,8 +6538,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   // 4. Actual earnings and revenue chart metric types do not alter audit observations
   const revMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'revenue');
   const ebitMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'operating_income');
-  check(revMetrics.length === 64, 'Test 225l: Exactly 64 revenue observations (16 companies x 4 periods)');
-  check(ebitMetrics.length === 64, 'Test 225m: Exactly 64 EBIT observations (16 companies x 4 periods)');
+  check(revMetrics.length === 73, 'Test 225l: Exactly 73 revenue observations (16 companies x 4 historical periods + 9 in 2026-Q3)');
+  check(ebitMetrics.length === 73, 'Test 225m: Exactly 73 EBIT observations (16 companies x 4 historical periods + 9 in 2026-Q3)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
