@@ -39,6 +39,7 @@ if (!result.valid) {
   process.exit(1);
 }
 
-console.log(`\n✨ All ${totalClaims} source claims across ${docsWithClaims} documents are 100% consistent with observations and document metadata.\n`);
+console.log(`\n✨ Internal consistency validation passed: All ${totalClaims} source claims across ${docsWithClaims} documents match registered observations and document perimeters.`);
+console.log(`ℹ️  Note: This confirms internal relational and perimeter consistency; independent external wire verification is governed separately by the live IR audit pipeline.\n`);
 process.exit(0);
 

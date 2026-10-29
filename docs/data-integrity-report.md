@@ -2,8 +2,8 @@
 
 ## Audit Status
 
-**Commit:** a60f1275080593a5616ea620a4c8c9de40731519  
-**Generated:** 2026-10-29T22:52:27.283Z  
+**Commit:** 4c0c48e684f7a67c2cb1ced28c8500437662264e  
+**Generated:** 2026-10-29T23:17:34.503Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -16,7 +16,7 @@
 | `npm run typecheck` | ✅ 0 errors |
 | `npm run test` | ✅ All test suites passed |
 | `npm run validate-data` | ✅ 0 errors |
-| `npm run validate-source-claims` | ✅ 0 errors (158 audited, 0 mismatches) |
+| `npm run validate-source-claims` | ✅ 0 errors (157 audited, 0 mismatches) |
 | `npm run audit-data` | ✅ 0 blocking, 8 review, 0 documented exceptions, 0 corroborations (exit code 0) |
 | `npm run audit-data -- --strict` | ⚠️ 0 blocking, 8 review (exit code 1 as expected by strict policy) |
 | `npm run build` | ✅ Production bundle built successfully |
@@ -29,22 +29,31 @@
 |----------|-------|
 | Registered Automakers | 16 |
 | Metric Definitions | 17 |
-| Financial & Volume Observations | 438 |
+| Financial & Volume Observations | 437 |
 | Primary Source Documents | 91 |
 | Documents with Source Claims | 31 |
 | Forward-Looking Guidance Items | 20 |
 | Regional Delivery Observations | 357 |
-| Source Claims Audited | 158 |
+| Source Claims Audited | 157 |
 
 ---
 
 ## Audit Summary
 
 ### Source Claims Verification
-- Total Source Claims: **158** across **31** source documents
-- Claims Audited: **158**
+- Total Source Claims: **157** across **31** source documents
+- Claims Audited: **157**
 - Mismatches: **0**
-- Verification Rate: **100% verified**
+- Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
+
+### Regional Delivery & Reporting Status (2026-Q3)
+- Disaggregated regional figures: **Volvo Cars** is the sole OEM with reported regional disaggregation (Europe, China, US, North America).
+- Global totals only: 8 reporting OEMs (Tesla, VW Group, GM, Ford, Hyundai, MBG, Stellantis, BYD).
+- Fail-closed policy: Unpopulated regional segments are left empty without estimation or silent fallback.
+
+### BYD Metric Semantics (2026-Q3)
+- Net profit attributable to shareholders (RMB 10,020M) is recorded as `net_income`.
+- Standalone Q3 operating profit is not separately reported under CASBE; operating income and derived operating margin are omitted to prevent invalid metric constructs.
 
 ### Finding Dispositions
 

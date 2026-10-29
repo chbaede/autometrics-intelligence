@@ -1,8 +1,8 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-10-29T22:52:27.283Z  
-**Audited Source Commit SHA**: a60f1275080593a5616ea620a4c8c9de40731519  
+**Generated At**: 2026-10-29T23:17:34.503Z  
+**Audited Source Commit SHA**: 4c0c48e684f7a67c2cb1ced28c8500437662264e  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -11,7 +11,7 @@
 
 ## 1. Executive Summary & Audit Metrics
 
-This comprehensive data audit inspects all 16 registered automakers, 438 primary financial and delivery observations, 357 regional delivery observations, 20 management forward-looking guidance items, and 91 verified primary source documents in the AutoMetrics Intelligence platform.
+This comprehensive data audit inspects all 16 registered automakers, 437 primary financial and delivery observations, 357 regional delivery observations, 20 management forward-looking guidance items, and 91 verified primary source documents in the AutoMetrics Intelligence platform.
 
 Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were hardened with:
 1. **Source Claim Integrity Validator**: Deterministically audits all `SourceClaim` entries against `SourceDocument` metadata and `MetricObservation` records across 10 error codes (`sourceClaimCompanyMismatch`, `sourceClaimPeriodMismatch`, `sourceClaimPeriodTypeMismatch`, `sourceClaimMetricMismatch`, `sourceClaimValueMismatch`, `sourceClaimUnitMismatch`, `sourceClaimScopeMismatch`, `sourceClaimAccountingBasisMismatch`, `sourceClaimWithoutObservation`, `ambiguousSourceClaimObservation`).
@@ -26,12 +26,12 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | Metric / Dimension | Value | Status / Policy |
 | :--- | :---: | :--- |
 | **Total Registered Automakers** | 16 | Complete global OEM coverage |
-| **Total Metric Observations** | 438 | 100% audited and scoped |
+| **Total Metric Observations** | 437 | 100% audited and scoped |
 | **Total Regional Observations** | 357 | Aligned with primary source decks |
 | **Total Guidance Targets** | 20 | Verified against IR presentations |
 | **Total Verified Primary Sources** | 91 | HTTPS endpoints, audited metadata |
 | **Documents with Source Claims** | 31 | Verified primary reports |
-| **Total Source Claims Audited** | 158 | 100% consistent with observations |
+| **Total Source Claims Audited** | 157 | 100% consistent with observations |
 | **Source Claim Mismatches** | **0** | **0 errors (100% match)** |
 | **Blocking Findings** | **0** | **Pass (0 blocking errors)** |
 | **Review Findings** | **8** | Conservative proxy limitations (BMW / MBG) |
@@ -83,7 +83,7 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | :--- | :---: | :---: | :--- |
 | `npm run typecheck` | 0 | **PASS** | 0 TypeScript errors across the entire codebase |
 | `npm test` | 0 | **PASS** | Complete unit and integration regression test suite passed |
-| `npm run validate-source-claims` | 0 | **PASS** | All 158 source claims across 31 documents validated with 0 errors |
+| `npm run validate-source-claims` | 0 | **PASS** | All 157 source claims across 31 documents validated with 0 errors |
 | `npm run validate-data` | 0 | **PASS** | Strict schema, HTTPS, metadata, fixtures & source claims integrity passed with 0 errors |
 | `npm run audit-data` | 0 | **PASS** | Scope-safe semantic audit passed with 0 blocking errors (8 proxy review findings) |
 | `npm run lint` | 0 | **PASS** | ESLint verified clean codebase with zero errors |
@@ -105,7 +105,22 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 
 ---
 
-## 5. Audit Disposition & Strict Invariants
+## 5. Regional Disclosures & BYD Metric Semantics (2026-Q3 Status)
+
+### 5.1 2026-Q3 Regional Delivery Disaggregation Status
+- **Volvo Cars** is the sole OEM with officially reported geographically disaggregated deliveries for 2026-Q3 (Europe: 90.548k, China: 20.284k, North America: 30.777k, US: 23.766k).
+- The remaining 8 reporting OEMs (Tesla, Volkswagen Group, General Motors, Ford, Hyundai Motor, Mercedes-Benz Group, Stellantis, BYD) have reported **global totals only** for 2026-Q3.
+- Unpopulated regional segments are left strictly empty in accordance with fail-closed provenance policies (no silent carryover from prior periods or synthetic estimation).
+
+### 5.2 BYD Metric Semantics & Margin Numerator Integrity
+- Under CASBE / HKEX filings, BYD discloses standalone Q3 Operating Revenue (RMB 221,490M) and Net Profit Attributable to Shareholders (RMB 10,020M).
+- Standalone Q3 operating profit is not separately reported in CASBE interim quarterly financial statements.
+- Net profit is strictly mapped to `net_income` and is never used as an operating income numerator for operating margin calculations.
+- Operating margin is omitted for BYD 2026-Q3, preventing invalid net-margin / operating-margin conflation.
+
+---
+
+## 6. Audit Disposition & Strict Invariants
 
 - **Zero Tolerance for Unbacked Claims**: Numeric claims cannot achieve `claim_verified` through declarative metadata alone; verification requires a deterministic content fixture or cryptographic extraction binding.
 - **Strict Source Binding**: Source claims are bound to the exact document, metric, period, unit, scope, and accounting basis.
@@ -115,8 +130,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `a60f1275080593a5616ea620a4c8c9de40731519`
-- **Generated at**: `2026-10-29T22:52:27.283Z`
+- **Audited Source Commit SHA**: `4c0c48e684f7a67c2cb1ced28c8500437662264e`
+- **Generated at**: `2026-10-29T23:17:34.503Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

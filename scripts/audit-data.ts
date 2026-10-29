@@ -105,7 +105,16 @@ export function generateDataIntegrityReport(data: AuditReportData): string {
 - Total Source Claims: **${data.counts.sourceClaims}** across **${data.counts.documentsWithSourceClaims}** source documents
 - Claims Audited: **${data.sourceClaimValidation.checked}**
 - Mismatches: **${data.sourceClaimValidation.mismatches}**
-- Verification Rate: **100% verified**
+- Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
+
+### Regional Delivery & Reporting Status (2026-Q3)
+- Disaggregated regional figures: **Volvo Cars** is the sole OEM with reported regional disaggregation (Europe, China, US, North America).
+- Global totals only: 8 reporting OEMs (Tesla, VW Group, GM, Ford, Hyundai, MBG, Stellantis, BYD).
+- Fail-closed policy: Unpopulated regional segments are left empty without estimation or silent fallback.
+
+### BYD Metric Semantics (2026-Q3)
+- Net profit attributable to shareholders (RMB 10,020M) is recorded as \`net_income\`.
+- Standalone Q3 operating profit is not separately reported under CASBE; operating income and derived operating margin are omitted to prevent invalid metric constructs.
 
 ### Finding Dispositions
 
@@ -243,7 +252,22 @@ The ${data.findings.review} review findings represent legitimate, documented aut
 
 ---
 
-## 5. Audit Disposition & Strict Invariants
+## 5. Regional Disclosures & BYD Metric Semantics (2026-Q3 Status)
+
+### 5.1 2026-Q3 Regional Delivery Disaggregation Status
+- **Volvo Cars** is the sole OEM with officially reported geographically disaggregated deliveries for 2026-Q3 (Europe: 90.548k, China: 20.284k, North America: 30.777k, US: 23.766k).
+- The remaining 8 reporting OEMs (Tesla, Volkswagen Group, General Motors, Ford, Hyundai Motor, Mercedes-Benz Group, Stellantis, BYD) have reported **global totals only** for 2026-Q3.
+- Unpopulated regional segments are left strictly empty in accordance with fail-closed provenance policies (no silent carryover from prior periods or synthetic estimation).
+
+### 5.2 BYD Metric Semantics & Margin Numerator Integrity
+- Under CASBE / HKEX filings, BYD discloses standalone Q3 Operating Revenue (RMB 221,490M) and Net Profit Attributable to Shareholders (RMB 10,020M).
+- Standalone Q3 operating profit is not separately reported in CASBE interim quarterly financial statements.
+- Net profit is strictly mapped to \`net_income\` and is never used as an operating income numerator for operating margin calculations.
+- Operating margin is omitted for BYD 2026-Q3, preventing invalid net-margin / operating-margin conflation.
+
+---
+
+## 6. Audit Disposition & Strict Invariants
 
 - **Zero Tolerance for Unbacked Claims**: Numeric claims cannot achieve \`claim_verified\` through declarative metadata alone; verification requires a deterministic content fixture or cryptographic extraction binding.
 - **Strict Source Binding**: Source claims are bound to the exact document, metric, period, unit, scope, and accounting basis.

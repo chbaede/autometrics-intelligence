@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-10-29T22:52:27.283Z",
-  "sourceCommitSha": "a60f1275080593a5616ea620a4c8c9de40731519",
+  "generatedAt": "2026-10-29T23:17:34.503Z",
+  "sourceCommitSha": "4c0c48e684f7a67c2cb1ced28c8500437662264e",
   "counts": {
     "companies": 16,
-    "observations": 438,
+    "observations": 437,
     "regionalObservations": 357,
     "guidance": 20,
     "sourceDocuments": 91,
     "documentsWithSourceClaims": 31,
-    "sourceClaims": 158
+    "sourceClaims": 157
   },
   "sourceClaimValidation": {
-    "checked": 158,
+    "checked": 157,
     "mismatches": 0
   },
   "fixtureValidation": {

@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Award,
   Filter,
+  AlertCircle,
 } from 'lucide-react';
 
 export const RegionalAnalysisPage: React.FC = () => {
@@ -111,6 +112,23 @@ export const RegionalAnalysisPage: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* 2026-Q3 Regional Coverage Information Notice */}
+      {selectedPeriod === '2026-Q3' && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 text-xs text-amber-900 dark:text-amber-200 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="font-bold text-sm text-amber-950 dark:text-amber-100">
+              {language === 'ko' ? '2026년 3분기 권역별 공시 현황 안내' : '2026-Q3 Regional Reporting Status'}
+            </div>
+            <p className="leading-relaxed">
+              {language === 'ko'
+                ? '현재 2026년 3분기(2026-Q3)에 대해 대륙 및 국가별 세부 인도량을 공식 분리 공시한 제조사는 볼보자동차(Volvo Cars: 유럽 90.5k, 북미 30.8k, 중국 20.3k 등) 1개사입니다. 그 외 테슬라, 폭스바겐, GM, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 포드 등 8개사는 글로벌 총 인도량만 공시하였으며 미공시 세부 권역은 이전 분기로 대체하거나 임의 추정하지 않고 엄격히 비워둡니다.'
+                : 'For 2026-Q3, Volvo Cars is the sole OEM that has officially reported disaggregated geographic deliveries (Europe 90.5k, North America 30.8k, China 20.3k, etc.). Other reporting automakers (Tesla, VW Group, GM, Hyundai, Mercedes-Benz, Stellantis, BYD, Ford) have published global totals only. In accordance with primary source integrity policies, unpopulated regional segments are strictly left empty without estimation or silent fallback.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Summary KPI Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
