@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getAllCompanies,
@@ -60,8 +60,30 @@ export const GlobalOverviewPage: React.FC = () => {
   const [profitFilterMode, setProfitFilterMode] = useState<ProfitFilterMode>('exclude_loss');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
+  const [topFiveMode, setTopFiveMode] = useState<boolean>(false);
+
+  // Top 5 OEMs by global deliveries (normalized to thousand units) for a given period
+  const getTopFiveCompanyIds = (period: string): string[] =>
+    getObservations(undefined, ['deliveries_global'], period)
+      .filter((o) => o.value !== null && o.value !== undefined && Number.isFinite(o.value))
+      .map((o) => ({
+        id: o.companyId,
+        vol: o.unit === 'units' ? (o.value as number) / 1000 : (o.value as number),
+      }))
+      .sort((a, b) => b.vol - a.vol)
+      .slice(0, 5)
+      .map((o) => o.id);
+
+  // Keep Top 5 selection in sync with the selected period
+  useEffect(() => {
+    if (!topFiveMode) return;
+    const ids = getTopFiveCompanyIds(selectedPeriod);
+    if (ids.length > 0) setSelectedCompanies(ids);
+  }, [topFiveMode, selectedPeriod]);
+
   // Toggle company filter
   const toggleCompany = (companyId: string) => {
+    setTopFiveMode(false);
     if (selectedCompanies.includes(companyId)) {
       if (selectedCompanies.length > 2) {
         setSelectedCompanies(selectedCompanies.filter((id) => id !== companyId));
@@ -72,11 +94,16 @@ export const GlobalOverviewPage: React.FC = () => {
   };
 
   const selectAllCompanies = () => {
+    setTopFiveMode(false);
     setSelectedCompanies(companies.map((c) => c.id));
   };
 
   const selectTopFive = () => {
-    setSelectedCompanies(['toyota_motor', 'volkswagen_group', 'hyundai_motor', 'general_motors', 'stellantis']);
+    const ids = getTopFiveCompanyIds(selectedPeriod);
+    if (ids.length > 0) {
+      setSelectedCompanies(ids);
+      setTopFiveMode(true);
+    }
   };
 
   // Canonical operating-loss evaluation for a given company and period
@@ -652,7 +679,9 @@ export const GlobalOverviewPage: React.FC = () => {
             </button>
             <button
               onClick={selectTopFive}
-              className="min-h-[30px] text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:underline px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 flex items-center"
+              aria-pressed={topFiveMode}
+              title={language === 'ko' ? `${selectedPeriod} 판매량 기준 상위 5개 (기간 변경 시 자동 갱신)` : `Top 5 by deliveries in ${selectedPeriod} (auto-updates with period)`}
+              className={`min-h-[30px] text-[11px] font-semibold hover:underline px-2 py-0.5 rounded flex items-center ${topFiveMode ? 'bg-brand-600 text-white' : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800'}`}
             >
               {language === 'ko' ? '상위 5개' : 'Top 5'}
             </button>
