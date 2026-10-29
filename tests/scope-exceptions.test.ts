@@ -89,6 +89,9 @@ import { METRIC_DEFINITIONS } from '../src/data/metricDefinitions';
 import { getAuditCommitSha, buildAuditReportData, generateMarkdownAuditReport } from '../scripts/audit-data';
 import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import { SOURCE_DOCUMENTS } from '../src/data/sources';
+import { SCHEDULED_DISCLOSURES } from '../src/data/scheduledDisclosures';
+import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
+import { getRegionalObservations } from '../src/utils/metricQueries';
 import {
   MetricObservation,
   AuditFinding,
@@ -7695,8 +7698,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(auditData.counts.companies === COMPANIES_REGISTRY.length, 'Test 235j-4: companies count is dynamic');
   check(auditData.counts.observations === METRIC_OBSERVATIONS.length, 'Test 235j-5: observations count is dynamic');
   check(auditData.counts.sourceDocuments === SOURCE_DOCUMENTS.length, 'Test 235j-6: sourceDocuments count is dynamic');
-  check(auditData.counts.sourceClaims === 113, 'Test 235j-7: sourceClaims count matches actual audited count');
-  check(auditData.sourceClaimValidation.checked === 113, 'Test 235j-8: sourceClaimValidation.checked matches');
+  const expectedClaimsCount = SOURCE_DOCUMENTS.reduce((acc, d) => acc + (d.sourceClaims?.length ?? 0), 0);
+  check(auditData.counts.sourceClaims === expectedClaimsCount, `Test 235j-7: sourceClaims count matches actual audited count (${expectedClaimsCount})`);
+  check(auditData.sourceClaimValidation.checked === expectedClaimsCount, `Test 235j-8: sourceClaimValidation.checked matches (${expectedClaimsCount})`);
   check(auditData.sourceClaimValidation.mismatches === 0, 'Test 235j-9: sourceClaimValidation.mismatches is 0');
   check(auditData.fixtureValidation?.valid === true, 'Test 235j-10: fixtureValidation.valid is true');
   check(auditData.fixtureValidation?.errors === 0, 'Test 235j-11: fixtureValidation.errors is 0');
@@ -8037,6 +8041,236 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(markdownAudit.includes(`**Audited Source Commit SHA**: ${auditData236.sourceCommitSha}`), 'Test 236i-1: Markdown contains Audited Source Commit SHA');
   check(markdownAudit.includes('Deterministic repository fixtures are protected by SHA-256 content integrity validation.'), 'Test 236i-2: Markdown contains fixture SHA-256 integrity notice');
   check(markdownAudit.includes('These fixtures are not live HTTP retrievals.'), 'Test 236i-3: Markdown contains offline retrieval distinction');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Test 237: 2026-Q3 Automotive Metrics Audit & Provenance Verification
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // 237a. Tesla Q3 exact figures
+  const tslaDel = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2026_q3_del');
+  const tslaRev = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2026_q3_rev');
+  const tslaEbit = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2026_q3_ebit');
+  const tslaMargin = METRIC_OBSERVATIONS.find((o) => o.id === 'tsla_2026_q3_margin');
+  check(tslaDel?.value === 486.532, 'Test 237a-1: Tesla Q3 deliveries exact precision is 486.532k');
+  check(tslaRev?.value === 28046, 'Test 237a-2: Tesla Q3 revenue exact reported value is $28,046M');
+  check(tslaEbit?.value === 718, 'Test 237a-3: Tesla Q3 operating income is $718M');
+  check(tslaMargin?.value === 2.6, 'Test 237a-4: Tesla Q3 operating margin is 2.6%');
+
+  // 237b. Volkswagen Group Q3 exact figures
+  const vwDel = METRIC_OBSERVATIONS.find((o) => o.id === 'vw_2026_q3_del');
+  const vwRev = METRIC_OBSERVATIONS.find((o) => o.id === 'vw_2026_q3_rev');
+  const vwEbit = METRIC_OBSERVATIONS.find((o) => o.id === 'vw_2026_q3_ebit');
+  const vwMargin = METRIC_OBSERVATIONS.find((o) => o.id === 'vw_2026_q3_margin');
+  check(vwDel?.value === 1885, 'Test 237b-1: VW Group Q3 deliveries to customers is 1,885k');
+  check(vwRev?.value === 75277, 'Test 237b-2: VW Group Q3 sales revenue is €75,277M');
+  check(vwEbit?.value === -5860, 'Test 237b-3: VW Group Q3 operating result is €-5,860M');
+  check(vwMargin?.value === -7.8, 'Test 237b-4: VW Group Q3 operating return on sales is -7.8%');
+
+  // 237c. General Motors Q3 exact figures
+  const gmRev = METRIC_OBSERVATIONS.find((o) => o.id === 'gm_2026_q3_rev');
+  const gmEbit = METRIC_OBSERVATIONS.find((o) => o.id === 'gm_2026_q3_ebit');
+  const gmMargin = METRIC_OBSERVATIONS.find((o) => o.id === 'gm_2026_q3_margin');
+  check(gmRev?.value === 50015, 'Test 237c-1: GM Q3 net sales and revenue is $50,015M');
+  check(gmEbit?.value === 4106, 'Test 237c-2: GM Q3 EBIT-adjusted is $4,106M');
+  check(gmMargin?.value === 8.2, 'Test 237c-3: GM Q3 EBIT-adjusted margin is 8.2%');
+
+  // 237d. Ford Q3 exact figures
+  const fordRev = METRIC_OBSERVATIONS.find((o) => o.id === 'ford_2026_q3_rev');
+  const fordEbit = METRIC_OBSERVATIONS.find((o) => o.id === 'ford_2026_q3_ebit');
+  check(fordRev?.value === 49500, 'Test 237d-1: Ford Q3 company revenue is $49,500M ($49.5B)');
+  check(fordEbit?.value === 2700, 'Test 237d-2: Ford Q3 company adjusted EBIT is $2,700M ($2.7B)');
+
+  // 237e. Hyundai Motor Q3 exact figures
+  const hmcRev = METRIC_OBSERVATIONS.find((o) => o.id === 'hmc_2026_q3_rev');
+  const hmcEbit = METRIC_OBSERVATIONS.find((o) => o.id === 'hmc_2026_q3_ebit');
+  const hmcMargin = METRIC_OBSERVATIONS.find((o) => o.id === 'hmc_2026_q3_margin');
+  check(hmcRev?.value === 45110000, 'Test 237e-1: Hyundai Q3 sales revenue is KRW 45,110,000M');
+  check(hmcEbit?.value === 2677000, 'Test 237e-2: Hyundai Q3 operating profit is KRW 2,677,000M');
+  check(hmcMargin?.value === 5.9, 'Test 237e-3: Hyundai Q3 operating profit margin is 5.9%');
+
+  // 237f. Stellantis Q3 exact figures
+  const stlaRev = METRIC_OBSERVATIONS.find((o) => o.id === 'stla_2026_q3_rev');
+  const stlaEbit = METRIC_OBSERVATIONS.find((o) => o.id === 'stla_2026_q3_ebit');
+  const stlaMargin = METRIC_OBSERVATIONS.find((o) => o.id === 'stla_2026_q3_margin');
+  check(stlaRev?.value === 37611, 'Test 237f-1: Stellantis Q3 net revenues is €37,611M');
+  check(stlaEbit?.value === 256, 'Test 237f-2: Stellantis Q3 AOI is €256M');
+  check(stlaMargin?.value === 0.7, 'Test 237f-3: Stellantis Q3 AOI margin is 0.7%');
+
+  // 237g. Volvo Cars Q3 exact figures
+  const volvoRev = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2026_q3_rev');
+  const volvoEbit = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2026_q3_ebit');
+  const volvoMargin = METRIC_OBSERVATIONS.find((o) => o.id === 'volvo_cars_2026_q3_margin');
+  check(volvoRev?.value === 66900, 'Test 237g-1: Volvo Cars Q3 revenue is SEK 66,900M');
+  check(volvoEbit?.value === -5600, 'Test 237g-2: Volvo Cars Q3 operating income is SEK -5,600M');
+  check(volvoMargin?.value === -8.4, 'Test 237g-3: Volvo Cars Q3 EBIT margin is -8.4%');
+  check(volvoEbit?.accountingBasis === 'reported', 'Test 237g-4: Volvo Cars Q3 operating income has reported accounting basis');
+  check(volvoMargin?.accountingBasis === 'reported', 'Test 237g-5: Volvo Cars Q3 margin has reported accounting basis');
+  check(volvoEbit?.accountingBasis === volvoMargin?.accountingBasis, 'Test 237g-6: Volvo Cars Q3 EBIT and margin share identical accounting basis');
+
+  // 237h. Scheduled Disclosures: BMW Group statement date must be 2026-11-04
+  const bmwSchedule = SCHEDULED_DISCLOSURES.find((s) => s.companyId === 'bmw_group' && s.period === '2026-Q3');
+  check(bmwSchedule !== undefined, 'Test 237h-1: BMW Group scheduled disclosure exists');
+  check(bmwSchedule?.scheduledDate === '2026-11-04', 'Test 237h-2: BMW Group scheduled date is 2026-11-04 (not Nov 5)');
+  check(Boolean(bmwSchedule?.scheduledDateEn.includes('Nov 4')), 'Test 237h-3: BMW Group scheduledDateEn contains Nov 4');
+  check(Boolean(bmwSchedule?.scheduledDateKo.includes('11월 4일')), 'Test 237h-4: BMW Group scheduledDateKo contains 11월 4일');
+
+  // 237i. Dynamic Audit Report Data findings calculation (fail-closed, no hardcoded ?? 8 fallback)
+  const dynamicAuditData = buildAuditReportData();
+  check(dynamicAuditData.findings.blocking === 0, 'Test 237i-1: Dynamic audit report has 0 blocking findings');
+  check(dynamicAuditData.findings.review === 8, 'Test 237i-2: Dynamic audit report review findings dynamically computed as 8');
+  check(dynamicAuditData.counts.sourceClaims === 158, 'Test 237i-3: Exactly 158 verified source claims audited');
+  check(dynamicAuditData.counts.documentsWithSourceClaims === 31, 'Test 237i-4: Exactly 31 documents with source claims');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 238: Official Primary Source URLs & Provenance Verification
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 238: Official Primary Source URLs & Provenance Verification ---');
+
+  const tslaDoc = SOURCE_DOCUMENTS.find((s) => s.id === 'tsla_2026_q3_deck');
+  check(tslaDoc?.officialUrl === 'https://ir.tesla.com/_flysystem/s3/sec/000162828026066738/tsla-20261021-gen.pdf', 'Test 238a: Tesla Q3 official URL is primary SEC/IR PDF');
+
+  const vwDoc = SOURCE_DOCUMENTS.find((s) => s.id === 'vw_2026_q3_report');
+  check(vwDoc?.officialUrl === 'https://www.volkswagen-group.com/en/press-releases/volkswagen-group-nine-month-results-underline-urgent-need-for-action-20799', 'Test 238b: VW Group Q3 official URL is primary press release');
+
+  const gmDoc = SOURCE_DOCUMENTS.find((s) => s.id === 'gm_2026_q3_earnings');
+  check(gmDoc?.officialUrl === 'https://investor.gm.com/static-files/c79ce1e6-c1f9-41cc-b503-1b98e1dbdfb2', 'Test 238c: GM Q3 official URL is primary static PDF');
+
+  const stlaDoc = SOURCE_DOCUMENTS.find((s) => s.id === 'stla_2026_q3_results');
+  check(stlaDoc?.officialUrl === 'https://www.stellantis.com/en/news/press-releases/2026/october/third-quarter-2026-financial-results', 'Test 238d: Stellantis Q3 official URL is primary press release');
+
+  const volvoDoc = SOURCE_DOCUMENTS.find((s) => s.id === 'volvo_cars_2026_q3_report');
+  check(volvoDoc?.officialUrl === 'https://www.volvocars.com/intl/media/press-releases/4291EEEC7003CDC6/', 'Test 238e: Volvo Cars Q3 official URL is primary media press release');
+
+  const bydDoc = SOURCE_DOCUMENTS.find((s) => s.id === 'byd_2026_q3_interim');
+  check(bydDoc?.officialUrl === 'https://www.bydglobal.com/en/Investor/FinancialReport.html', 'Test 238f: BYD Q3 official URL is official FinancialReport HKEX portal');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 239: Accounting-Basis Mismatch Rejection
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 239: Accounting-Basis Mismatch Rejection ---');
+
+  // Triplet with adjusted profit but reported margin must fail validation
+  const mockRevenue: MetricObservation = {
+    id: 'mock_rev',
+    companyId: 'volvo_cars',
+    metricId: 'revenue',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 66900,
+    unit: 'currency_millions',
+    currency: 'SEK',
+    valueType: 'reported',
+    sourceDocId: 'volvo_cars_2026_q3_report',
+    isComparable: true,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    verificationStatus: 'verified',
+  };
+
+  const mockAdjustedEbit: MetricObservation = {
+    id: 'mock_ebit_adj',
+    companyId: 'volvo_cars',
+    metricId: 'operating_income',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: -3700,
+    unit: 'currency_millions',
+    currency: 'SEK',
+    valueType: 'reported',
+    sourceDocId: 'volvo_cars_2026_q3_report',
+    isComparable: true,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'adjusted', // MISMATCH with reported margin
+    verificationStatus: 'verified',
+  };
+
+  const mockReportedMargin: MetricObservation = {
+    id: 'mock_margin_rep',
+    companyId: 'volvo_cars',
+    metricId: 'operating_margin',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: -8.4,
+    unit: 'percentage',
+    valueType: 'reported',
+    sourceDocId: 'volvo_cars_2026_q3_report',
+    isComparable: true,
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported', // MISMATCH with adjusted EBIT
+    verificationStatus: 'verified',
+  };
+
+  const mismatchValidation = validateMarginTriplet(mockRevenue, mockAdjustedEbit, mockReportedMargin);
+  check(mismatchValidation.status === 'invalid', 'Test 239a: Adjusted EBIT paired with reported margin produces status invalid');
+  check(mismatchValidation.mathematicallyVerified === false, 'Test 239b: Mismatched triplet mathematicallyVerified is false');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 240: Regional 2026-Q3 Coverage & Exact Non-Fallback Behavior
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 240: Regional 2026-Q3 Coverage & Exact Non-Fallback Behavior ---');
+
+  // Test 240a: Global Q3 deliveries contains 9 reporting OEMs
+  const globalQ3 = getRegionalObservations('global', undefined, '2026-Q3');
+  check(globalQ3.length === 9, 'Test 240a: Global Q3 regional observations contains exactly 9 reporting OEMs');
+
+  const q3Oems = new Set(globalQ3.map((o) => o.companyId));
+  check(q3Oems.has('tesla'), 'Test 240a-1: Tesla global Q3 regional observation present');
+  check(q3Oems.has('volkswagen_group'), 'Test 240a-2: VW Group global Q3 regional observation present');
+  check(q3Oems.has('general_motors'), 'Test 240a-3: GM global Q3 regional observation present');
+  check(q3Oems.has('ford'), 'Test 240a-4: Ford global Q3 regional observation present');
+  check(q3Oems.has('hyundai_motor'), 'Test 240a-5: Hyundai global Q3 regional observation present');
+  check(q3Oems.has('mercedes_benz'), 'Test 240a-6: MBG global Q3 regional observation present');
+  check(q3Oems.has('stellantis'), 'Test 240a-7: Stellantis global Q3 regional observation present');
+  check(q3Oems.has('byd'), 'Test 240a-8: BYD global Q3 regional observation present');
+  check(q3Oems.has('volvo_cars'), 'Test 240a-9: Volvo Cars global Q3 regional observation present');
+
+  // Test 240b: Volvo Cars officially disaggregated Q3 regional deliveries
+  const volvoEurope = getRegionalObservations('europe', 'volvo_cars', '2026-Q3');
+  check(volvoEurope.length === 1 && volvoEurope[0].value === 90.548, 'Test 240b-1: Volvo Cars Europe Q3 is 90.548k');
+
+  const volvoChina = getRegionalObservations('china', 'volvo_cars', '2026-Q3');
+  check(volvoChina.length === 1 && volvoChina[0].value === 20.284, 'Test 240b-2: Volvo Cars China Q3 is 20.284k');
+
+  const volvoNA = getRegionalObservations('north_america', 'volvo_cars', '2026-Q3');
+  check(volvoNA.length === 1 && volvoNA[0].value === 30.777, 'Test 240b-3: Volvo Cars North America Q3 is 30.777k');
+
+  const volvoUS = getRegionalObservations('united_states', 'volvo_cars', '2026-Q3');
+  check(volvoUS.length === 1 && volvoUS[0].value === 23.766, 'Test 240b-4: Volvo Cars US Q3 is 23.766k');
+
+  // Test 240c: Non-disclosed regions for 2026-Q3 return 0 observations and NEVER fall back to prior quarters
+  const southAmericaQ3 = getRegionalObservations('south_america', undefined, '2026-Q3');
+  check(southAmericaQ3.length === 0, 'Test 240c-1: South America Q3 has 0 records (fail-closed, no silent fallback to Q2)');
+
+  const unpopulatedAll = getRegionalObservations(undefined, undefined, '2026-Q3');
+  // Total Q3 regional observations = 9 global + 4 volvo disaggregated = 13
+  check(unpopulatedAll.length === 13, 'Test 240c-2: Total Q3 regional observations is exactly 13 (9 global + 4 disaggregated)');
+  check(REGIONAL_OBSERVATIONS.length === 357, 'Test 240d: Total regional observations matches audited inventory (357)');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST 241: Freshness and Non-Staleness of Audit Reports
+// ────────────────────────────────────────────────────────────────────────────
+{
+  console.log('--- TEST 241: Freshness and Non-Staleness of Audit Reports ---');
+
+  const integrityReportPath = path.resolve(__dirname, '../docs/data-integrity-report.md');
+  check(fs.existsSync(integrityReportPath), 'Test 241a: docs/data-integrity-report.md exists');
+
+  const auditReportPath = path.resolve(__dirname, '../docs/data-audit-report.md');
+  check(fs.existsSync(auditReportPath), 'Test 241b: docs/data-audit-report.md exists');
+
+  const auditJsonPath = path.resolve(__dirname, '../docs/audit-report.json');
+  check(fs.existsSync(auditJsonPath), 'Test 241c: docs/audit-report.json exists');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

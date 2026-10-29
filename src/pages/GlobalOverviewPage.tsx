@@ -723,8 +723,8 @@ export const GlobalOverviewPage: React.FC = () => {
             </div>
             <p className="text-slate-600 dark:text-slate-300">
               {language === 'ko'
-                ? '테슬라, 폭스바겐, GM, 포드, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 볼보 9개사 공식 공시 완료. 기아(10/30), BMW(11/5), 토요타(11/5), 리비안(11/5), 닛산(11/7), 혼다(11/8), 지리(11월 중순) 공시 예정.'
-                : 'Tesla, VW, GM, Ford, Hyundai, Mercedes-Benz, Stellantis, BYD, and Volvo have officially reported. Kia (Oct 30), BMW (Nov 5), Toyota (Nov 5), Rivian (Nov 5), Nissan (Nov 7), Honda (Nov 8), and Geely (Mid-Nov) are scheduled.'}
+                ? '테슬라, 폭스바겐, GM, 포드, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 볼보 9개사 공식 공시 완료. 기아(10/30), BMW(11/4), 토요타(11/5), 리비안(11/5), 닛산(11/7), 혼다(11/8), 지리(11월 중순) 공시 예정.'
+                : 'Tesla, VW, GM, Ford, Hyundai, Mercedes-Benz, Stellantis, BYD, and Volvo have officially reported. Kia (Oct 30), BMW (Nov 4), Toyota (Nov 5), Rivian (Nov 5), Nissan (Nov 7), Honda (Nov 8), and Geely (Mid-Nov) are scheduled.'}
             </p>
           </div>
         </div>

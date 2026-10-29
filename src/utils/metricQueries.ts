@@ -65,10 +65,11 @@ export function getAllGuidance(): GuidanceObservation[] {
   return GUIDANCE_OBSERVATIONS;
 }
 
-export function getRegionalObservations(regionId?: RegionId, companyId?: string): RegionalObservation[] {
+export function getRegionalObservations(regionId?: RegionId, companyId?: string, period?: string): RegionalObservation[] {
   return REGIONAL_OBSERVATIONS.filter((reg) => {
     if (regionId && reg.regionId !== regionId) return false;
     if (companyId && reg.companyId !== companyId) return false;
+    if (period && reg.period !== period) return false;
     return true;
   });
 }

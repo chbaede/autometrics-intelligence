@@ -20,7 +20,7 @@ export const RegionalAnalysisPage: React.FC = () => {
   const { language } = useLanguage();
   const regionsList = Object.values(REGIONS_REGISTRY);
   const [selectedRegionId, setSelectedRegionId] = useState<RegionId>('global');
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('2026-Q2');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('2026-Q3');
 
   const selectedRegion = REGIONS_REGISTRY[selectedRegionId];
   const allRegionObservations = getRegionalObservations(selectedRegionId);
@@ -299,10 +299,17 @@ export const RegionalAnalysisPage: React.FC = () => {
             </table>
           </div>
         ) : (
-          <div className="p-8 text-center bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 text-xs">
-            {language === 'ko'
-              ? `선택한 ${selectedRegion.nameKo} 권역에 대해 ${selectedPeriod} 공시 데이터가 없습니다.`
-              : `No specific OEM regional dispatches recorded for ${selectedRegion.name} in this reporting series.`}
+          <div className="p-8 text-center bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 text-xs space-y-2">
+            <div className="font-semibold text-slate-700 dark:text-slate-300">
+              {language === 'ko'
+                ? `선택한 ${selectedRegion.nameKo} 권역에 대해 ${selectedPeriod} 공식 공시 데이터가 없습니다.`
+                : `No specific OEM regional dispatches recorded for ${selectedRegion.name} in period ${selectedPeriod}.`}
+            </div>
+            <p className="text-[11px] text-slate-400 max-w-lg mx-auto">
+              {language === 'ko'
+                ? '공식 1차 공시가 아직 발표되지 않았거나 IR에서 별도 분리 공시되지 않은 권역은 이전 분기로 대체(silent fallback)하거나 임의 추정하지 않고 엄격히 공백 처리합니다.'
+                : 'Regions without official primary disclosures are strictly left unpopulated rather than silently falling back to prior periods or using estimated aggregates.'}
+            </p>
           </div>
         )}
       </div>
