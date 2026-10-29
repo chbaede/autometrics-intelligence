@@ -61,6 +61,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
   const maxVal = validValues.length > 0 ? Math.max(...validValues, 0) : 100;
   const minVal = validValues.length > 0 ? Math.min(...validValues, 0) : 0;
   const hasNegative = minVal < 0;
+  const hasPositive = validValues.some((v) => v > 0);
 
   return (
     <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col">
@@ -130,8 +131,9 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                     ? Math.max(6, (valNum / (maxVal || 1)) * 95)
                     : 0;
 
+                  const maxNegBarPx = hasPositive ? 55 : 105;
                   const negBarHeight = isNegative
-                    ? Math.max(10, (Math.abs(valNum) / (Math.abs(minVal) || 1)) * 55)
+                    ? Math.max(10, (Math.abs(valNum) / (Math.abs(minVal) || 1)) * maxNegBarPx)
                     : 0;
 
                   const tooltipPositionClass =
@@ -173,8 +175,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                         </div>
                       )}
 
-                      {/* Positive Zone: 125px tall, bars grow UPWARDS towards top */}
-                      <div className="w-full h-[125px] flex flex-col justify-end items-center pb-0.5">
+                      {/* Positive Zone: 125px tall (or 24px when all bars are negative), bars grow UPWARDS towards top */}
+                      <div className={`w-full ${hasPositive ? 'h-[125px]' : 'h-[24px]'} flex flex-col justify-end items-center pb-0.5`}>
                         {/* Rank indicator for top 3 positive OEMs */}
                         {idx < 3 && isPositive && (
                           <span
@@ -229,8 +231,8 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                         />
                       </div>
 
-                      {/* Negative Zone: 75px tall, bars grow DOWNWARDS from zero line */}
-                      <div className="w-full h-[75px] flex flex-col justify-start items-center pt-0.5">
+                      {/* Negative Zone: 75px tall (or 135px when all bars are negative), bars grow DOWNWARDS from zero line */}
+                      <div className={`w-full ${hasPositive ? 'h-[75px]' : 'h-[135px]'} flex flex-col justify-start items-center pt-0.5`}>
                         {/* Negative Bar */}
                         {isNegative && (
                           <div className="w-full max-w-[32px] flex justify-center">

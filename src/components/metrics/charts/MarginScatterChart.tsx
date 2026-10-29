@@ -5,6 +5,7 @@ import { TermBadge } from '../TermBadge';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { Layers, DollarSign, ExternalLink, X } from 'lucide-react';
 import { formatLocalizedProfit, FX_BENCHMARK_METADATA } from '../../../utils/currencyUtils';
+import { ProfitFilterMode } from '../../../utils/scatterDataUtils';
 
 export interface ScatterPoint {
   company: Company;
@@ -20,6 +21,10 @@ interface MarginScatterChartProps {
   subtitle?: string;
   points: ScatterPoint[];
   periodType?: PeriodType;
+  profitFilterMode?: ProfitFilterMode;
+  onProfitFilterModeChange?: (mode: ProfitFilterMode) => void;
+  lossCompanyCount?: number;
+  filterBadgeLabel?: string;
   onSelectCompany?: (company: Company) => void;
 }
 
@@ -28,6 +33,10 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   subtitle,
   points,
   periodType,
+  profitFilterMode,
+  onProfitFilterModeChange,
+  lossCompanyCount,
+  filterBadgeLabel,
   onSelectCompany,
 }) => {
   const { language } = useLanguage();
@@ -36,8 +45,51 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
   const activePoint = selectedPoint || hovered;
 
-  // Fail closed if periodType is undefined or if no points exist
-  if (!periodType || !points || points.length === 0) return null;
+  // Fail closed if periodType is undefined
+  if (!periodType) return null;
+
+  if (!points || points.length === 0) {
+    if (profitFilterMode === 'loss_only' && onProfitFilterModeChange) {
+      return (
+        <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Layers className="w-5 h-5 text-brand-600 dark:text-brand-400 shrink-0" />
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                {title}
+              </h3>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <button
+                onClick={() => onProfitFilterModeChange('exclude_loss')}
+                className="px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition"
+              >
+                {language === 'ko' ? '영업손실 제외' : 'Exclude Loss'}
+              </button>
+              <button
+                onClick={() => onProfitFilterModeChange('loss_only')}
+                className="px-2.5 py-1 rounded-lg font-bold bg-rose-600 text-white shadow-xs transition"
+              >
+                {language === 'ko' ? '영업손실만 포함' : 'Loss Only'}
+              </button>
+              <button
+                onClick={() => onProfitFilterModeChange('all')}
+                className="px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition"
+              >
+                {language === 'ko' ? '전체 포함' : 'All'}
+              </button>
+            </div>
+          </div>
+          <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
+            {language === 'ko'
+              ? '선택한 기업 및 공시 주기 조건에서 영업손실을 기록한 완성차 데이터가 없습니다.'
+              : 'No OEMs with an operating loss match the currently selected company and period filters.'}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   // Chart dimensions with generous padding for explicit axis titles and Y-axis tick clearance
   const width = 1060;
@@ -58,14 +110,47 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
     : Math.max(3000, Math.ceil((rawMaxVol * 1.1) / 500) * 500);
   const volStep = isAnnual ? 2000 : 500;
 
-  const rawMaxMargin = Math.max(...points.map((p) => p.marginPercent), 8);
-  const maxMargin = rawMaxMargin > 12 ? 14 : 12;
-  const minMargin = 0;
-  const marginStep = 2;
+  const observedMinMargin = Math.min(...points.map((p) => p.marginPercent));
+  const observedMaxMargin = Math.max(...points.map((p) => p.marginPercent));
+
+  let minMargin: number;
+  let maxMargin: number;
+  let marginStep: number;
+
+  if (observedMaxMargin <= 0) {
+    // Loss-only view: all displayed points have negative or zero margin
+    if (observedMinMargin < -25) {
+      minMargin = Math.floor(observedMinMargin / 10) * 10;
+      maxMargin = 5;
+      marginStep = (maxMargin - minMargin) > 50 ? 10 : 5;
+    } else {
+      minMargin = Math.min(-10, Math.floor(observedMinMargin / 2) * 2 - 2);
+      maxMargin = 2;
+      marginStep = 2;
+    }
+  } else if (observedMinMargin < 0) {
+    // Mixed positive & negative margins ('all' mode)
+    if (observedMinMargin < -25) {
+      minMargin = Math.floor(observedMinMargin / 10) * 10;
+      maxMargin = Math.max(14, Math.ceil(observedMaxMargin / 5) * 5);
+      marginStep = (maxMargin - minMargin) > 50 ? 10 : 5;
+    } else {
+      minMargin = Math.floor(observedMinMargin / 5) * 5;
+      maxMargin = Math.max(12, Math.ceil(observedMaxMargin / 2) * 2);
+      marginStep = 2;
+    }
+  } else {
+    minMargin = 0;
+    maxMargin = observedMaxMargin > 12 ? 14 : 12;
+    marginStep = 2;
+  }
 
   // Midpoints for 4 Quadrants
   const midVol = isAnnual ? 6000 : 1500;
-  const midMargin = 7.0; // Industry weighted RoS benchmark
+  const midMargin =
+    observedMaxMargin <= 0
+      ? Math.round(((minMargin + maxMargin) / 2) * 10) / 10
+      : 7.0; // Industry weighted RoS benchmark
 
   const getX = (vol: number) => padLeft + (Math.min(maxVolume, Math.max(0, vol)) / maxVolume) * chartW;
   const getY = (margin: number) =>
@@ -79,7 +164,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
   // Generate Y axis ticks
   const yTicks: number[] = [];
-  for (let m = minMargin; m <= maxMargin; m += marginStep) {
+  const startYTick = Math.ceil(minMargin / marginStep) * marginStep;
+  for (let m = startYTick; m <= maxMargin; m += marginStep) {
     yTicks.push(m);
   }
 
@@ -96,6 +182,12 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
     if (n.includes('gm') || n.includes('general')) return '#4f46e5';
     if (n.includes('stellantis')) return '#7c3aed';
     if (n.includes('ford')) return '#1d4ed8';
+    if (n.includes('kia')) return '#b91c1c';
+    if (n.includes('honda')) return '#c2410c';
+    if (n.includes('nissan')) return '#9333ea';
+    if (n.includes('geely')) return '#0284c7';
+    if (n.includes('rivian')) return '#d97706';
+    if (n.includes('volvo')) return '#0f766e';
     return '#64748b';
   };
 
@@ -270,10 +362,78 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold border border-brand-500/20 whitespace-nowrap">
               {language === 'ko' ? '4분면 전략 매트릭스' : '4-Quadrant Strategic Matrix'}
             </span>
+            {profitFilterMode === 'exclude_loss' && (
+              <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 whitespace-nowrap">
+                {filterBadgeLabel ||
+                  (language === 'ko'
+                    ? '스케일 최적화: 영업손실 제외됨'
+                    : 'Scale optimized: Operating loss excluded')}
+              </span>
+            )}
+            {profitFilterMode === 'loss_only' && (
+              <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25 whitespace-nowrap">
+                {filterBadgeLabel ||
+                  (language === 'ko'
+                    ? '집중 분석: 영업손실 기업만 포함'
+                    : 'Focused view: Operating loss OEMs only')}
+              </span>
+            )}
+            {profitFilterMode === 'all' && (
+              <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                {filterBadgeLabel ||
+                  (language === 'ko'
+                    ? '전체 포함 (영업이익·영업손실 통합)'
+                    : 'All OEMs included (Profit & Loss)')}
+              </span>
+            )}
           </div>
 
           {/* Axis & Card Value Indicators */}
           <div className="flex items-center gap-2 flex-wrap text-xs">
+            {onProfitFilterModeChange && (
+              <div
+                className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/90 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px]"
+                role="group"
+                aria-label={language === 'ko' ? '영업손익 필터' : 'Operating Profit/Loss Filter'}
+              >
+                <button
+                  type="button"
+                  onClick={() => onProfitFilterModeChange('exclude_loss')}
+                  className={`px-2 py-1 rounded-md transition whitespace-nowrap ${
+                    profitFilterMode === 'exclude_loss'
+                      ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-bold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                  }`}
+                >
+                  {language === 'ko' ? '영업손실 제외' : 'Exclude Loss'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onProfitFilterModeChange('loss_only')}
+                  className={`px-2 py-1 rounded-md transition whitespace-nowrap flex items-center gap-1 ${
+                    profitFilterMode === 'loss_only'
+                      ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-bold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                  }`}
+                >
+                  <span>{language === 'ko' ? '영업손실만 포함' : 'Loss Only'}</span>
+                  {typeof lossCompanyCount === 'number' && (
+                    <span className="font-mono text-[10px] opacity-80">({lossCompanyCount})</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onProfitFilterModeChange('all')}
+                  className={`px-2 py-1 rounded-md transition whitespace-nowrap ${
+                    profitFilterMode === 'all'
+                      ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30 font-bold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                  }`}
+                >
+                  {language === 'ko' ? '전체 포함' : 'All'}
+                </button>
+              </div>
+            )}
             <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5 shadow-xs whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" />
               <span className="font-semibold">X: {language === 'ko' ? '판매량 (천 대)' : 'Deliveries (k)'}</span>
@@ -374,6 +534,20 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             className="fill-slate-500/5 dark:fill-slate-500/10"
             rx="8"
           />
+
+          {/* Zero Axis Guideline for Margin (if negative margin exists) */}
+          {minMargin < 0 && maxMargin > 0 && (
+            <line
+              x1={padLeft}
+              y1={getY(0)}
+              x2={width - padRight}
+              y2={getY(0)}
+              stroke="#64748b"
+              strokeDasharray="4 4"
+              strokeWidth="1.2"
+              className="opacity-70"
+            />
+          )}
 
           {/* Quadrant Dividing Crosshairs */}
           <line
@@ -548,7 +722,11 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   x={padLeft - 12}
                   y={y + 4}
                   textAnchor="end"
-                  className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
+                  className={`text-[11px] font-mono font-bold ${
+                    m < 0
+                      ? 'fill-rose-600 dark:fill-rose-400'
+                      : 'fill-slate-600 dark:fill-slate-400'
+                  }`}
                 >
                   {m}%
                 </text>
@@ -668,6 +846,11 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             .filter((lbl) => lbl.point.company.id !== activePoint?.company.id)
             .map((lbl) => {
               const pt = lbl.point;
+              const isLoss =
+                pt.marginPercent < 0 ||
+                (pt.operatingIncome !== undefined &&
+                  pt.operatingIncome !== null &&
+                  pt.operatingIncome < 0);
               return (
                 <g
                   key={`card-${pt.company.id}`}
@@ -721,7 +904,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     height="16"
                     rx="4"
                     className={`scatter-card-badge ${
-                      pt.marginPercent >= 7.0
+                      pt.marginPercent < 0
+                        ? 'fill-rose-500/15 dark:fill-rose-400/20'
+                        : pt.marginPercent >= 7.0
                         ? 'fill-emerald-500/15 dark:fill-emerald-400/20'
                         : 'fill-slate-100 dark:fill-slate-800'
                     }`}
@@ -731,7 +916,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     y="16.5"
                     textAnchor="middle"
                     className={`scatter-card-margin font-mono font-bold text-[10px] ${
-                      pt.marginPercent >= 7.0
+                      pt.marginPercent < 0
+                        ? 'fill-rose-600 dark:fill-rose-400'
+                        : pt.marginPercent >= 7.0
                         ? 'fill-emerald-700 dark:fill-emerald-400'
                         : 'fill-brand-700 dark:fill-brand-400'
                     }`}
@@ -744,7 +931,11 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     <text
                       x="12"
                       y="35"
-                      className="font-mono text-[9.5px] font-bold fill-emerald-700 dark:fill-emerald-400"
+                      className={`font-mono text-[9.5px] font-bold ${
+                        isLoss
+                          ? 'fill-rose-600 dark:fill-rose-400'
+                          : 'fill-emerald-700 dark:fill-emerald-400'
+                      }`}
                     >
                       {lbl.profitStr}
                     </text>
@@ -769,6 +960,11 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             );
             if (!activeLbl) return null;
             const pt = activeLbl.point;
+            const isLoss =
+              pt.marginPercent < 0 ||
+              (pt.operatingIncome !== undefined &&
+                pt.operatingIncome !== null &&
+                pt.operatingIncome < 0);
             const targetX = activeLbl.boxX + activeLbl.boxW / 2;
             const targetY = activeLbl.boxY + activeLbl.boxH / 2;
 
@@ -883,7 +1079,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     height="16"
                     rx="4"
                     className={`scatter-card-badge ${
-                      pt.marginPercent >= 7.0
+                      pt.marginPercent < 0
+                        ? 'fill-rose-100 dark:fill-rose-950/70 stroke-rose-400 dark:stroke-rose-600 stroke-1'
+                        : pt.marginPercent >= 7.0
                         ? 'fill-emerald-100 dark:fill-emerald-950/70 stroke-emerald-400 dark:stroke-emerald-600 stroke-1'
                         : 'fill-brand-100 dark:fill-brand-950/70 stroke-brand-400 dark:stroke-brand-600 stroke-1'
                     }`}
@@ -893,7 +1091,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     y="16.5"
                     textAnchor="middle"
                     className={`scatter-card-margin font-mono font-bold text-[10px] ${
-                      pt.marginPercent >= 7.0
+                      pt.marginPercent < 0
+                        ? 'fill-rose-600 dark:fill-rose-400'
+                        : pt.marginPercent >= 7.0
                         ? 'fill-emerald-700 dark:fill-emerald-400'
                         : 'fill-brand-700 dark:fill-brand-400'
                     }`}
@@ -906,7 +1106,11 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     <text
                       x="12"
                       y="35"
-                      className="font-mono text-[9.5px] font-bold fill-emerald-600 dark:fill-emerald-400"
+                      className={`font-mono text-[9.5px] font-bold ${
+                        isLoss
+                          ? 'fill-rose-600 dark:fill-rose-400'
+                          : 'fill-emerald-600 dark:fill-emerald-400'
+                      }`}
                     >
                       {activeLbl.profitStr}
                     </text>
@@ -971,7 +1175,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                 <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '영업이익 (KRW 환산)' : 'Operating Profit (EBIT)'}
                 </span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-xs sm:text-base">
+                <span
+                  className={`font-bold font-mono text-xs sm:text-base ${
+                    (activePoint.operatingIncome ?? 0) < 0 || activePoint.marginPercent < 0
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
                   {formatLocalizedProfit(activePoint.operatingIncome, activePoint.currency || activePoint.company.reportingCurrency, language, { showOriginal: true })}
                 </span>
               </div>
@@ -981,7 +1191,13 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                 <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-[10.5px] block font-sans font-medium">
                   {language === 'ko' ? '영업이익률 (RoS)' : 'EBIT Margin (RoS)'}
                 </span>
-                <span className="text-brand-600 dark:text-brand-400 font-bold font-mono text-xs sm:text-base">
+                <span
+                  className={`font-bold font-mono text-xs sm:text-base ${
+                    activePoint.marginPercent < 0
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-brand-600 dark:text-brand-400'
+                  }`}
+                >
                   {activePoint.marginPercent.toFixed(1)}%
                 </span>
               </div>

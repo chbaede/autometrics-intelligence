@@ -87,3 +87,4 @@ export const SCHEDULED_DISCLOSURES: ScheduledDisclosure[] = [
 export function getScheduledDisclosure(companyId: string, period: string): ScheduledDisclosure | undefined {
   return SCHEDULED_DISCLOSURES.find((s) => s.companyId === companyId && s.period === period);
 }
+

@@ -38,6 +38,61 @@ export interface CompatibilityValidationResult {
   reason?: string;
 }
 
+export type ProfitFilterMode = 'all' | 'exclude_loss' | 'loss_only';
+
+/**
+ * Determines whether a company's observations for a period represent an operating loss.
+ * Operating loss is defined strictly from canonical observations:
+ * - operating_income value < 0, OR
+ * - operating_margin value < 0
+ */
+export function isOperatingLossObservation(
+  ebitObs?: { value: number | null } | null,
+  marginObs?: { value: number | null } | null
+): boolean {
+  const ebitVal = ebitObs?.value;
+  const marginVal = marginObs?.value;
+  const hasNegativeEbit =
+    ebitVal !== null && ebitVal !== undefined && Number.isFinite(ebitVal) && ebitVal < 0;
+  const hasNegativeMargin =
+    marginVal !== null && marginVal !== undefined && Number.isFinite(marginVal) && marginVal < 0;
+  return hasNegativeEbit || hasNegativeMargin;
+}
+
+/**
+ * Evaluates whether a company's period observations match the selected ProfitFilterMode:
+ * - 'all': Includes all companies (profitable, loss-making, or pending).
+ * - 'exclude_loss': Excludes companies with an operating loss (ebit < 0 or margin < 0).
+ * - 'loss_only': Includes ONLY companies with an operating loss (ebit < 0 or margin < 0).
+ */
+export function matchesProfitFilterMode(
+  mode: ProfitFilterMode,
+  ebitObs?: { value: number | null } | null,
+  marginObs?: { value: number | null } | null
+): boolean {
+  if (mode === 'all') {
+    return true;
+  }
+
+  const hasValidEbit =
+    ebitObs?.value !== null && ebitObs?.value !== undefined && Number.isFinite(ebitObs.value);
+  const hasValidMargin =
+    marginObs?.value !== null && marginObs?.value !== undefined && Number.isFinite(marginObs.value);
+
+  if (!hasValidEbit && !hasValidMargin) {
+    return false;
+  }
+
+  const isLoss = isOperatingLossObservation(ebitObs, marginObs);
+  if (mode === 'exclude_loss') {
+    return !isLoss;
+  }
+  if (mode === 'loss_only') {
+    return isLoss;
+  }
+  return true;
+}
+
 /**
  * Resolves the canonical PeriodType for a given period from a set of observations.
  * Strict fail-closed requirements:

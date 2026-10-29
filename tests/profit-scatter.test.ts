@@ -1,4 +1,9 @@
-import { validateScatterObservationCompatibility, resolveCanonicalPeriodType } from '../src/utils/scatterDataUtils';
+import {
+  validateScatterObservationCompatibility,
+  resolveCanonicalPeriodType,
+  isOperatingLossObservation,
+  matchesProfitFilterMode,
+} from '../src/utils/scatterDataUtils';
 import { convertMillionsToKRW, convertMillionsToUSD, formatLocalizedProfit } from '../src/utils/currencyUtils';
 import { Company, MetricObservation, PeriodType } from '../src/types/metrics';
 
@@ -606,6 +611,38 @@ const gapMissingObs = [
   { periodType: 'annual' as PeriodType },
 ];
 assert(resolveCanonicalPeriodType(gapMissingObs) === undefined, 'Missing metadata entry cannot be hidden by surrounding identical entries');
+
+// ─── 7. Profitability Filter Mode ('all' | 'exclude_loss' | 'loss_only') ────
+console.log('\n--- Suite 7: Profitability Filter Mode (Exclude Loss / Loss Only / All) ---');
+
+const profitableEbit = { value: 4120 };
+const profitableMargin = { value: 8.8 };
+const lossEbit = { value: -5860 };
+const lossMargin = { value: -7.8 };
+const breakEvenEbit = { value: 0 };
+const breakEvenMargin = { value: 0 };
+const missingObs = undefined;
+
+assert(isOperatingLossObservation(profitableEbit, profitableMargin) === false, 'Profitable OEM is not classified as operating loss');
+assert(isOperatingLossObservation(lossEbit, lossMargin) === true, 'Negative EBIT & margin OEM is classified as operating loss');
+assert(isOperatingLossObservation(breakEvenEbit, breakEvenMargin) === false, 'Zero break-even OEM is not classified as operating loss');
+assert(isOperatingLossObservation(missingObs, missingObs) === false, 'Missing observation is not classified as operating loss');
+
+// Mode: 'exclude_loss' (영업손실 제외)
+assert(matchesProfitFilterMode('exclude_loss', profitableEbit, profitableMargin) === true, 'exclude_loss includes profitable OEM');
+assert(matchesProfitFilterMode('exclude_loss', breakEvenEbit, breakEvenMargin) === true, 'exclude_loss includes break-even OEM');
+assert(matchesProfitFilterMode('exclude_loss', lossEbit, lossMargin) === false, 'exclude_loss excludes operating-loss OEM');
+assert(matchesProfitFilterMode('exclude_loss', missingObs, missingObs) === false, 'exclude_loss fails closed on missing observations');
+
+// Mode: 'loss_only' (영업손실만 포함)
+assert(matchesProfitFilterMode('loss_only', lossEbit, lossMargin) === true, 'loss_only includes operating-loss OEM');
+assert(matchesProfitFilterMode('loss_only', profitableEbit, profitableMargin) === false, 'loss_only excludes profitable OEM');
+assert(matchesProfitFilterMode('loss_only', breakEvenEbit, breakEvenMargin) === false, 'loss_only excludes break-even OEM');
+assert(matchesProfitFilterMode('loss_only', missingObs, missingObs) === false, 'loss_only fails closed on missing observations');
+
+// Mode: 'all' (전체 포함)
+assert(matchesProfitFilterMode('all', profitableEbit, profitableMargin) === true, 'all mode includes profitable OEM');
+assert(matchesProfitFilterMode('all', lossEbit, lossMargin) === true, 'all mode includes operating-loss OEM');
 
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {

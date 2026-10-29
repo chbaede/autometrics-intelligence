@@ -11,6 +11,7 @@ import {
   FX_BENCHMARK_METADATA,
 } from '../../../utils/currencyUtils';
 import { ScatterPoint } from './MarginScatterChart';
+import { ProfitFilterMode } from '../../../utils/scatterDataUtils';
 
 interface ProfitScatterChartProps {
   title: string;
@@ -19,6 +20,10 @@ interface ProfitScatterChartProps {
   period?: string;
   periodType?: PeriodType;
   outlierExcluded?: boolean;
+  profitFilterMode?: ProfitFilterMode;
+  onProfitFilterModeChange?: (mode: ProfitFilterMode) => void;
+  lossCompanyCount?: number;
+  filterBadgeLabel?: string;
   onSelectCompany?: (company: Company) => void;
 }
 
@@ -33,6 +38,10 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   period,
   periodType,
   outlierExcluded,
+  profitFilterMode,
+  onProfitFilterModeChange,
+  lossCompanyCount,
+  filterBadgeLabel,
   onSelectCompany,
 }) => {
   const { language } = useLanguage();
@@ -105,7 +114,53 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
 
   const activePoint = resolvedSelectedPoint || resolvedHovered;
 
-  if (!periodType || processedPoints.length === 0) return null;
+  const effectiveFilterMode: ProfitFilterMode =
+    profitFilterMode ?? (outlierExcluded ? 'exclude_loss' : 'all');
+
+  if (!periodType) return null;
+
+  if (processedPoints.length === 0) {
+    if (effectiveFilterMode === 'loss_only' && onProfitFilterModeChange) {
+      return (
+        <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                {title}
+              </h3>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <button
+                onClick={() => onProfitFilterModeChange('exclude_loss')}
+                className="px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition"
+              >
+                {language === 'ko' ? '영업손실 제외' : 'Exclude Loss'}
+              </button>
+              <button
+                onClick={() => onProfitFilterModeChange('loss_only')}
+                className="px-2.5 py-1 rounded-lg font-bold bg-rose-600 text-white shadow-xs transition"
+              >
+                {language === 'ko' ? '영업손실만 포함' : 'Loss Only'}
+              </button>
+              <button
+                onClick={() => onProfitFilterModeChange('all')}
+                className="px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition"
+              >
+                {language === 'ko' ? '전체 포함' : 'All'}
+              </button>
+            </div>
+          </div>
+          <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
+            {language === 'ko'
+              ? '선택한 기업 및 공시 주기 조건에서 영업손실을 기록한 완성차 데이터가 없습니다.'
+              : 'No OEMs with an operating loss match the currently selected company and period filters.'}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   // Chart layout dimensions
   const width = 1060;
@@ -126,7 +181,22 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   let maxProfit: number;
   let profitStep: number;
 
-  if (language === 'ko') {
+  if (observedMaxProfit <= 0) {
+    // Loss-only view: all displayed points have negative or zero profit
+    if (language === 'ko') {
+      minProfit = isAnnual
+        ? Math.min(-10, Math.floor((observedMinProfit * 1.15) / 2) * 2)
+        : Math.min(-3, Math.floor(observedMinProfit * 1.15) - 1);
+      maxProfit = isAnnual ? 2 : 1;
+      profitStep = (maxProfit - minProfit) > 16 ? 2 : 1;
+    } else {
+      minProfit = isAnnual
+        ? Math.min(-8, Math.floor((observedMinProfit * 1.15) / 2) * 2)
+        : Math.min(-2, Math.floor(observedMinProfit * 1.15) - 1);
+      maxProfit = isAnnual ? 2 : 1;
+      profitStep = (maxProfit - minProfit) > 12 ? 2 : 1;
+    }
+  } else if (language === 'ko') {
     if (isAnnual) {
       minProfit = observedMinProfit < 0 ? Math.floor(observedMinProfit / 5) * 5 : 0;
       maxProfit = Math.max(minProfit + 30, Math.ceil((Math.max(observedMaxProfit, 10) * 1.1) / 10) * 10);
@@ -156,7 +226,18 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   let maxMargin: number;
   let marginStep: number;
 
-  if (observedMinMargin < 0) {
+  if (observedMaxMargin <= 0) {
+    // Loss-only view: all displayed points have negative or zero margin
+    if (observedMinMargin < -25) {
+      minMargin = Math.floor(observedMinMargin / 10) * 10;
+      maxMargin = 5;
+      marginStep = (maxMargin - minMargin) > 50 ? 10 : 5;
+    } else {
+      minMargin = Math.min(-10, Math.floor(observedMinMargin / 2) * 2 - 2);
+      maxMargin = 2;
+      marginStep = 2;
+    }
+  } else if (observedMinMargin < 0) {
     if (observedMinMargin < -25) {
       minMargin = Math.floor(observedMinMargin / 10) * 10;
       maxMargin = Math.max(14, Math.ceil(observedMaxMargin / 5) * 5);
@@ -173,10 +254,15 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
   }
 
   // 7. Semantically aligned analytical reference thresholds
-  const midMargin = 7.0; // Analytical Reference: 7.0% Return on Sales
+  const isLossOnlyView = observedMaxProfit <= 0 && observedMaxMargin <= 0;
+  const midMargin = isLossOnlyView
+    ? Math.round(((minMargin + maxMargin) / 2) * 10) / 10
+    : 7.0; // Analytical Reference: 7.0% Return on Sales
   const midProfitKRW = isAnnual ? 12.0 : 3.5;
   const midProfitUSD = (midProfitKRW * 1_000_000_000_000) / (1380.0 * 1_000_000_000); // ~8.70 $B annual, ~2.54 $B quarterly
-  const midProfit = language === 'ko' ? midProfitKRW : midProfitUSD;
+  const midProfit = isLossOnlyView
+    ? Math.round(((minProfit + maxProfit) / 2) * 10) / 10
+    : (language === 'ko' ? midProfitKRW : midProfitUSD);
 
   // Coordinate projections
   const getX = (profitVal: number) =>
@@ -424,14 +510,77 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
                 : '4-Quadrant Operating Profit Matrix'}
               {period ? ` (${period})` : ''}
             </span>
-            {outlierExcluded && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 whitespace-nowrap">
-                {language === 'ko' ? '스케일 최적화: 리비안 제외됨' : 'Scale optimized: Rivian excluded'}
+            {effectiveFilterMode === 'exclude_loss' && (
+              <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 whitespace-nowrap">
+                {filterBadgeLabel ||
+                  (language === 'ko'
+                    ? '스케일 최적화: 영업손실 제외됨'
+                    : 'Scale optimized: Operating loss excluded')}
+              </span>
+            )}
+            {effectiveFilterMode === 'loss_only' && (
+              <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25 whitespace-nowrap">
+                {filterBadgeLabel ||
+                  (language === 'ko'
+                    ? '집중 분석: 영업손실 기업만 포함'
+                    : 'Focused view: Operating loss OEMs only')}
+              </span>
+            )}
+            {effectiveFilterMode === 'all' && profitFilterMode !== undefined && (
+              <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                {filterBadgeLabel ||
+                  (language === 'ko'
+                    ? '전체 포함 (영업이익·영업손실 통합)'
+                    : 'All OEMs included (Profit & Loss)')}
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap text-xs">
+            {onProfitFilterModeChange && (
+              <div
+                className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/90 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px]"
+                role="group"
+                aria-label={language === 'ko' ? '영업손익 필터' : 'Operating Profit/Loss Filter'}
+              >
+                <button
+                  type="button"
+                  onClick={() => onProfitFilterModeChange('exclude_loss')}
+                  className={`px-2 py-1 rounded-md transition whitespace-nowrap ${
+                    effectiveFilterMode === 'exclude_loss'
+                      ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-bold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                  }`}
+                >
+                  {language === 'ko' ? '영업손실 제외' : 'Exclude Loss'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onProfitFilterModeChange('loss_only')}
+                  className={`px-2 py-1 rounded-md transition whitespace-nowrap flex items-center gap-1 ${
+                    effectiveFilterMode === 'loss_only'
+                      ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-bold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                  }`}
+                >
+                  <span>{language === 'ko' ? '영업손실만 포함' : 'Loss Only'}</span>
+                  {typeof lossCompanyCount === 'number' && (
+                    <span className="font-mono text-[10px] opacity-80">({lossCompanyCount})</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onProfitFilterModeChange('all')}
+                  className={`px-2 py-1 rounded-md transition whitespace-nowrap ${
+                    effectiveFilterMode === 'all'
+                      ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30 font-bold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                  }`}
+                >
+                  {language === 'ko' ? '전체 포함' : 'All'}
+                </button>
+              </div>
+            )}
             <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5 shadow-xs whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
               <span className="font-semibold">
@@ -612,7 +761,11 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
               textAnchor="middle"
               className="fill-emerald-700 dark:fill-emerald-300 font-bold text-[10.5px] font-sans"
             >
-              {language === 'ko'
+              {isLossOnlyView
+                ? language === 'ko'
+                  ? '손익분기 근접 / 경미한 적자 (Near Break-Even)'
+                  : 'Near Break-Even / Mild Loss'
+                : language === 'ko'
                 ? '★ 절대이익 & 고수익 리더 (Leaders)'
                 : '★ Profit & Margin Powerhouses'}
             </text>
@@ -632,7 +785,11 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
               textAnchor="middle"
               className="fill-brand-700 dark:fill-brand-300 font-bold text-[10.5px] font-sans"
             >
-              {language === 'ko'
+              {isLossOnlyView
+                ? language === 'ko'
+                  ? '대규모 구조조정 비용 반영 (Scale Restructuring)'
+                  : 'Scale Restructuring Cost'
+                : language === 'ko'
                 ? '고마진 실속형 / 틈새 고수익 (Specialists)'
                 : 'High Margin Specialists'}
             </text>
@@ -652,7 +809,11 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
               textAnchor="middle"
               className="fill-slate-700 dark:fill-slate-300 font-bold text-[10.5px] font-sans"
             >
-              {language === 'ko'
+              {isLossOnlyView
+                ? language === 'ko'
+                  ? '대규모 적자 & 고강도 체질 전환 (Deep Turnaround)'
+                  : 'Deep Loss & Turnaround'
+                : language === 'ko'
                 ? '수익성 개선 & 사업 체질 전환 (Turnaround)'
                 : 'Restructuring & Turnaround'}
             </text>
@@ -674,7 +835,11 @@ export const ProfitScatterChart: React.FC<ProfitScatterChartProps> = ({
               textAnchor="middle"
               className="fill-amber-700 dark:fill-amber-300 font-bold text-[10.5px] font-sans"
             >
-              {language === 'ko'
+              {isLossOnlyView
+                ? language === 'ko'
+                  ? '초기 양산 투자 / 고율 마진 적자 (Early-Stage Ramp)'
+                  : 'Early-Stage Ramp / High Margin Loss'
+                : language === 'ko'
                 ? '대규모 이익 / 마진 개선 필요 (Scale)'
                 : 'High Scale, Lower Margin'}
             </text>

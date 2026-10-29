@@ -13,6 +13,9 @@ import { formatPeriodLabel } from '../utils/metricCalculations';
 import {
   validateScatterObservationCompatibility,
   resolveCanonicalPeriodType,
+  ProfitFilterMode,
+  isOperatingLossObservation,
+  matchesProfitFilterMode,
 } from '../utils/scatterDataUtils';
 import { MetricBarChart } from '../components/metrics/charts/MetricBarChart';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
@@ -54,7 +57,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const [profitMetricType, setProfitMetricType] = useState<'operating_income' | 'revenue'>('operating_income');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
   const [showInlineTable, setShowInlineTable] = useState<boolean>(false);
-  const [excludeMarginOutliers, setExcludeMarginOutliers] = useState<boolean>(true);
+  const [profitFilterMode, setProfitFilterMode] = useState<ProfitFilterMode>('exclude_loss');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Toggle company filter
@@ -76,7 +79,67 @@ export const GlobalOverviewPage: React.FC = () => {
     setSelectedCompanies(['toyota_motor', 'volkswagen_group', 'hyundai_motor', 'general_motors', 'stellantis']);
   };
 
-  // Observations for Sales Bar Chart (ranked descending) - keeps all OEMs including Rivian
+  // Canonical operating-loss evaluation for a given company and period
+  const isCompanyLossInPeriod = (cid: string, period: string): boolean => {
+    const ebitObs = getObservations([cid], ['operating_income'], period)[0];
+    const marginObsItem = getObservations([cid], ['operating_margin'], period)[0];
+    return isOperatingLossObservation(ebitObs, marginObsItem);
+  };
+
+  const matchesPeriodProfitFilter = (cid: string, period: string, mode: ProfitFilterMode): boolean => {
+    const ebitObs = getObservations([cid], ['operating_income'], period)[0];
+    const marginObsItem = getObservations([cid], ['operating_margin'], period)[0];
+    return matchesProfitFilterMode(mode, ebitObs, marginObsItem);
+  };
+
+  // Companies among selectedCompanies that recorded an operating loss in selectedPeriod
+  const lossCompaniesInPeriod = selectedCompanies
+    .filter((cid) => isCompanyLossInPeriod(cid, selectedPeriod))
+    .map((cid) => getCompanyById(cid))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c));
+
+  const lossCompanyNames = lossCompaniesInPeriod.map((c) => c.shortName).join(', ');
+
+  const profitFilteredCompanyIds = selectedCompanies.filter((cid) =>
+    matchesPeriodProfitFilter(cid, selectedPeriod, profitFilterMode)
+  );
+
+  const profitFilterBadgeLabel =
+    profitFilterMode === 'exclude_loss'
+      ? lossCompaniesInPeriod.length > 0
+        ? language === 'ko'
+          ? `영업손실 제외 (${lossCompanyNames})`
+          : `Operating Loss Excluded (${lossCompanyNames})`
+        : language === 'ko'
+        ? '영업손실 제외'
+        : 'Operating Loss Excluded'
+      : profitFilterMode === 'loss_only'
+      ? lossCompaniesInPeriod.length > 0
+        ? language === 'ko'
+          ? `영업손실만 포함: ${lossCompanyNames} (${lossCompaniesInPeriod.length}개사)`
+          : `Operating Loss Only: ${lossCompanyNames} (${lossCompaniesInPeriod.length})`
+        : language === 'ko'
+        ? '영업손실만 포함'
+        : 'Operating Loss Only'
+      : language === 'ko'
+      ? '전체 포함 (영업이익·영업손실 통합)'
+      : 'All Included (Profit & Loss)';
+
+  const appendFilterSubtitle = (baseSubtitle: string): string => {
+    if (profitFilterMode === 'exclude_loss') {
+      return lossCompaniesInPeriod.length > 0
+        ? `${baseSubtitle} (${language === 'ko' ? `영업손실 제외: ${lossCompanyNames}` : `Operating loss excluded: ${lossCompanyNames}`})`
+        : `${baseSubtitle} (${language === 'ko' ? '영업손실 제외' : 'Operating loss excluded'})`;
+    }
+    if (profitFilterMode === 'loss_only') {
+      return lossCompaniesInPeriod.length > 0
+        ? `${baseSubtitle} (${language === 'ko' ? `영업손실만 포함: ${lossCompanyNames}` : `Operating loss only: ${lossCompanyNames}`})`
+        : `${baseSubtitle} (${language === 'ko' ? '영업손실만 포함' : 'Operating loss only'})`;
+    }
+    return baseSubtitle;
+  };
+
+  // Observations for Sales Bar Chart (ranked descending) - keeps all OEMs
   const salesObs = getObservations(selectedCompanies, ['deliveries_global'], selectedPeriod)
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
@@ -88,7 +151,7 @@ export const GlobalOverviewPage: React.FC = () => {
   // Observations for Actual Earnings Bar Chart (Operating Income or Revenue, ranked descending)
   // Normalized to KRW Trillions (ko) or USD Billions (en) for cross-OEM comparability
   const earningsObs = getObservations(
-    selectedCompanies.filter((cid) => !excludeMarginOutliers || cid !== 'rivian'),
+    profitFilteredCompanyIds,
     [profitMetricType],
     selectedPeriod
   )
@@ -139,9 +202,8 @@ export const GlobalOverviewPage: React.FC = () => {
     .sort((a, b) => (b.normalizedValue ?? (b.observation.value ?? -Infinity)) - (a.normalizedValue ?? (a.observation.value ?? -Infinity)));
 
   // Observations for Operating Margin Bar Chart (ranked descending)
-  // When excludeMarginOutliers is true, filters out extreme outliers (e.g. Rivian -118.7%) for scale readability
   const marginObs = getObservations(
-    selectedCompanies.filter((cid) => !excludeMarginOutliers || cid !== 'rivian'),
+    profitFilteredCompanyIds,
     ['operating_margin'],
     selectedPeriod
   )
@@ -150,6 +212,19 @@ export const GlobalOverviewPage: React.FC = () => {
       observation: obs,
     }))
     .filter((o) => o.company)
+    .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
+
+  // Unfiltered margin observations for headline KPI card
+  const allMarginObsForKpi = getObservations(
+    selectedCompanies,
+    ['operating_margin'],
+    selectedPeriod
+  )
+    .map((obs) => ({
+      company: getCompanyById(obs.companyId)!,
+      observation: obs,
+    }))
+    .filter((o) => o.company && o.observation.value !== null && Number.isFinite(o.observation.value))
     .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
 
   // Observations for BEV Share Leader Card (ranked descending)
@@ -172,8 +247,8 @@ export const GlobalOverviewPage: React.FC = () => {
       ? (bevObs.find((o) => (o.observation.value ?? 0) < 100) || bevObs[1])
       : bevObs[1];
 
-  const marginLeader1 = marginObs[0];
-  const marginLeader2 = marginObs[1];
+  const marginLeader1 = allMarginObsForKpi[0];
+  const marginLeader2 = allMarginObsForKpi[1];
 
   // OEM distinct brand colors helper for line chart
   const getOemColor = (compName: string, idx: number) => {
@@ -198,9 +273,23 @@ export const GlobalOverviewPage: React.FC = () => {
     return palette[idx % palette.length];
   };
 
-  // Historical line series for selected OEMs (excluding margin outliers if enabled)
+  // Historical line series for selected OEMs (respecting profitFilterMode)
   const trendSeries = selectedCompanies
-    .filter((cid) => !excludeMarginOutliers || cid !== 'rivian')
+    .filter((cid) => {
+      if (profitFilterMode === 'all') return true;
+      const ebitInPeriod = getObservations([cid], ['operating_income'], selectedPeriod)[0];
+      const marginInPeriod = getObservations([cid], ['operating_margin'], selectedPeriod)[0];
+      if (ebitInPeriod || marginInPeriod) {
+        return matchesProfitFilterMode(profitFilterMode, ebitInPeriod, marginInPeriod);
+      }
+      // If company has not yet reported selectedPeriod (e.g. scheduled in 2026-Q3):
+      // In 'loss_only' mode for selectedPeriod, only show companies with confirmed loss in selectedPeriod.
+      if (profitFilterMode === 'loss_only') return false;
+      // In 'exclude_loss' mode, check latest reported period so historical loss outliers don't distort Y-axis
+      const latestEbit = getObservations([cid], ['operating_income'])[0];
+      const latestMargin = getObservations([cid], ['operating_margin'])[0];
+      return matchesProfitFilterMode('exclude_loss', latestEbit, latestMargin);
+    })
     .map((cid, idx) => {
       const comp = getCompanyById(cid)!;
       const companyObs = getObservations([cid], ['operating_margin']);
@@ -235,22 +324,34 @@ export const GlobalOverviewPage: React.FC = () => {
     };
   }).filter((d) => d.totalDeliveries > 0);
 
-  // Scatter matrix points (Volume vs Margin vs Profit)
-  const scatterPoints = selectedCompanies.map((cid) => {
-    const comp = getCompanyById(cid)!;
-    const vol = getObservations([cid], ['deliveries_global'], selectedPeriod)[0]?.value || 0;
-    const margin = getObservations([cid], ['operating_margin'], selectedPeriod)[0]?.value || 0;
-    const ebit = getObservations([cid], ['operating_income'], selectedPeriod)[0]?.value;
-    const rev = getObservations([cid], ['revenue'], selectedPeriod)[0]?.value;
-    return {
-      company: comp,
-      volumeThousand: vol,
-      marginPercent: margin,
-      operatingIncome: ebit,
-      revenue: rev,
-      currency: comp.reportingCurrency,
-    };
-  }).filter((pt) => pt.volumeThousand > 0 && pt.marginPercent > 0);
+  // Scatter matrix points (Volume vs Margin vs Profit) - respects profitFilterMode and preserves negative margins when included
+  const scatterPoints = profitFilteredCompanyIds
+    .map((cid) => {
+      const comp = getCompanyById(cid);
+      const volObs = getObservations([cid], ['deliveries_global'], selectedPeriod)[0];
+      const marginObsItem = getObservations([cid], ['operating_margin'], selectedPeriod)[0];
+      const ebit = getObservations([cid], ['operating_income'], selectedPeriod)[0]?.value;
+      const rev = getObservations([cid], ['revenue'], selectedPeriod)[0]?.value;
+      if (
+        !comp ||
+        volObs?.value === null ||
+        volObs?.value === undefined ||
+        volObs.value <= 0 ||
+        marginObsItem?.value === null ||
+        marginObsItem?.value === undefined
+      ) {
+        return null;
+      }
+      return {
+        company: comp,
+        volumeThousand: volObs.value,
+        marginPercent: marginObsItem.value,
+        operatingIncome: ebit,
+        revenue: rev,
+        currency: comp.reportingCurrency,
+      };
+    })
+    .filter((pt): pt is NonNullable<typeof pt> => pt !== null);
 
   // Resolve canonical periodType strictly from canonical observations for selectedPeriod
   // Fail closed: do not infer or guess from string pattern matching
@@ -260,11 +361,10 @@ export const GlobalOverviewPage: React.FC = () => {
 
   // Profit Scatter matrix points (Absolute Operating Profit vs Margin)
   // Preserves loss-making companies and strictly validates observation compatibility
-  // When excludeMarginOutliers is true, filters out extreme scale distortion outliers (e.g. Rivian -118.7% margin)
+  // Dynamically filters according to profitFilterMode ('all' | 'exclude_loss' | 'loss_only')
   // Fails closed if currentPeriodType is unrecognized or undefined
   const profitScatterPoints = currentPeriodType
-    ? selectedCompanies
-        .filter((cid) => !excludeMarginOutliers || cid !== 'rivian')
+    ? profitFilteredCompanyIds
         .map((cid) => {
           const comp = getCompanyById(cid);
           if (!comp) return null;
@@ -456,28 +556,73 @@ export const GlobalOverviewPage: React.FC = () => {
             </span>
           </div>
 
-          {/* Quick Actions: Outlier Toggle & Mobile OEM Drawer Trigger */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-            <button
-              onClick={() => setExcludeMarginOutliers(!excludeMarginOutliers)}
-              className={`min-h-[36px] sm:min-h-[32px] text-[11px] font-semibold px-2 sm:px-2.5 py-1 rounded-xl transition flex items-center gap-1 border ${
-                excludeMarginOutliers
-                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-bold'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-              }`}
-              title={
-                language === 'ko'
-                  ? '마진 차트에서 극단적 이상치(리비안 -118.7%)를 제외하여 15개 완성차의 가독성을 최적화합니다'
-                  : 'Exclude extreme outlier (Rivian -118.7%) from margin charts to optimize scale'
-              }
+          {/* Quick Actions: Profitability Filter Mode (Exclude Loss / Loss Only / All) & Mobile OEM Drawer Trigger */}
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap">
+            <div
+              className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800"
+              role="group"
+              aria-label={language === 'ko' ? '영업손익 필터' : 'Operating Profit/Loss Filter'}
             >
-              <EyeOff className="w-3 h-3" />
-              <span>
-                {language === 'ko'
-                  ? (excludeMarginOutliers ? '리비안 제외' : '리비안 포함')
-                  : (excludeMarginOutliers ? 'Rivian Excluded' : 'Rivian Included')}
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setProfitFilterMode('exclude_loss')}
+                className={`min-h-[34px] sm:min-h-[30px] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
+                  profitFilterMode === 'exclude_loss'
+                    ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-bold shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                }`}
+                title={
+                  language === 'ko'
+                    ? `선택된 공시 주기(${selectedPeriod})에서 영업손실(적자)을 기록한 기업(${lossCompanyNames || '없음'})을 제외하여 차트 스케일을 최적화합니다`
+                    : `Exclude OEMs with an operating loss in ${selectedPeriod} (${lossCompanyNames || 'none'}) to optimize chart scale`
+                }
+              >
+                <EyeOff className="w-3 h-3 shrink-0" />
+                <span>{language === 'ko' ? '영업손실 제외' : 'Exclude Loss'}</span>
+                {lossCompaniesInPeriod.length > 0 && (
+                  <span className="font-mono text-[10px] opacity-80">
+                    (-{lossCompaniesInPeriod.length})
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProfitFilterMode('loss_only')}
+                className={`min-h-[34px] sm:min-h-[30px] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
+                  profitFilterMode === 'loss_only'
+                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-bold shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                }`}
+                title={
+                  language === 'ko'
+                    ? `선택된 공시 주기(${selectedPeriod})에서 영업손실(적자)을 기록한 기업(${lossCompanyNames || '없음'})만 집중 비교합니다`
+                    : `Show only OEMs that recorded an operating loss in ${selectedPeriod} (${lossCompanyNames || 'none'})`
+                }
+              >
+                <span>{language === 'ko' ? '영업손실만 포함' : 'Loss Only'}</span>
+                <span className="font-mono text-[10px] opacity-80">
+                  ({lossCompaniesInPeriod.length})
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProfitFilterMode('all')}
+                className={`min-h-[34px] sm:min-h-[30px] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
+                  profitFilterMode === 'all'
+                    ? 'bg-brand-600 text-white font-bold shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                }`}
+                title={
+                  language === 'ko'
+                    ? '영업이익 흑자 기업과 영업손실 적자 기업을 모두 포함하여 전체 표시합니다'
+                    : 'Include all OEMs (both profitable and operating-loss companies)'
+                }
+              >
+                <span>{language === 'ko' ? '전체 포함' : 'All'}</span>
+              </button>
+            </div>
 
             {/* Mobile OEM Filter Toggle */}
             <button
@@ -572,11 +717,11 @@ export const GlobalOverviewPage: React.FC = () => {
               ? t.charts.earningsProfit
               : t.charts.earningsRevenue
           }
-          subtitle={
-            excludeMarginOutliers
-              ? `${profitMetricType === 'operating_income' ? t.charts.earningsProfitSubtitle : t.charts.earningsRevenueSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 제외됨' : 'Scale optimized: Rivian excluded'})`
-              : (profitMetricType === 'operating_income' ? t.charts.earningsProfitSubtitle : t.charts.earningsRevenueSubtitle)
-          }
+          subtitle={appendFilterSubtitle(
+            profitMetricType === 'operating_income'
+              ? t.charts.earningsProfitSubtitle
+              : t.charts.earningsRevenueSubtitle
+          )}
           observations={earningsObs}
           unit={language === 'ko' ? '조원 (KRW)' : 'USD ($B)'}
           periodBadge={selectedPeriod}
@@ -608,11 +753,7 @@ export const GlobalOverviewPage: React.FC = () => {
         />
         <MetricBarChart
           title={t.charts.operatingMargin}
-          subtitle={
-            excludeMarginOutliers
-              ? `${t.charts.marginSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 -118.7% 제외됨' : 'Scale optimized: Rivian excluded'})`
-              : t.charts.marginSubtitle
-          }
+          subtitle={appendFilterSubtitle(t.charts.marginSubtitle)}
           observations={marginObs}
           unit="percentage"
           periodBadge={selectedPeriod}
@@ -624,9 +765,13 @@ export const GlobalOverviewPage: React.FC = () => {
       <div className="w-full">
         <MarginScatterChart
           title={t.charts.revenueVsMargin}
-          subtitle={t.charts.revenueVsMarginSubtitle}
+          subtitle={appendFilterSubtitle(t.charts.revenueVsMarginSubtitle)}
           points={scatterPoints}
           periodType={currentPeriodType}
+          profitFilterMode={profitFilterMode}
+          onProfitFilterModeChange={setProfitFilterMode}
+          lossCompanyCount={lossCompaniesInPeriod.length}
+          filterBadgeLabel={profitFilterBadgeLabel}
         />
       </div>
 
@@ -634,15 +779,15 @@ export const GlobalOverviewPage: React.FC = () => {
       <div className="w-full">
         <ProfitScatterChart
           title={t.charts.profitVsMargin}
-          subtitle={
-            excludeMarginOutliers
-              ? `${t.charts.profitVsMarginSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 제외됨' : 'Scale optimized: Rivian excluded'})`
-              : t.charts.profitVsMarginSubtitle
-          }
+          subtitle={appendFilterSubtitle(t.charts.profitVsMarginSubtitle)}
           points={profitScatterPoints}
           period={selectedPeriod}
           periodType={currentPeriodType}
-          outlierExcluded={excludeMarginOutliers}
+          outlierExcluded={profitFilterMode === 'exclude_loss'}
+          profitFilterMode={profitFilterMode}
+          onProfitFilterModeChange={setProfitFilterMode}
+          lossCompanyCount={lossCompaniesInPeriod.length}
+          filterBadgeLabel={profitFilterBadgeLabel}
         />
       </div>
 
@@ -650,11 +795,7 @@ export const GlobalOverviewPage: React.FC = () => {
       <div className="w-full">
         <MetricLineChart
           title={t.charts.historicalTrend}
-          subtitle={
-            excludeMarginOutliers
-              ? `${t.charts.historicalSubtitle} (${language === 'ko' ? '스케일 최적화: 리비안 -118.7% 제외됨' : 'Scale optimized: Rivian excluded'})`
-              : t.charts.historicalSubtitle
-          }
+          subtitle={appendFilterSubtitle(t.charts.historicalSubtitle)}
           series={trendSeries}
           unit="percentage"
           activePeriod={selectedPeriod}
