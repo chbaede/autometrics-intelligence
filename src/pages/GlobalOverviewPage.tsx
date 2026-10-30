@@ -298,25 +298,9 @@ export const GlobalOverviewPage: React.FC = () => {
     .filter((o) => o.company && o.observation.value !== null && Number.isFinite(o.observation.value))
     .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
 
-  // Observations for BEV Share Leader Card (ranked descending)
-  const bevObs = getObservations(
-    selectedCompanies,
-    ['bev_share'],
-    selectedPeriod
-  )
-    .map((obs) => ({
-      company: getCompanyById(obs.companyId)!,
-      observation: obs,
-    }))
-    .filter((o) => o.company && o.observation.value !== null && Number.isFinite(o.observation.value))
-    .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
-
-  const bevLeader1 = bevObs[0];
-  // If #1 is a pure EV player (100%), show the top high-volume/transitioning OEM (<100%) as the companion reference; otherwise the 2nd ranked OEM
-  const bevLeader2 =
-    bevLeader1?.observation.value === 100
-      ? (bevObs.find((o) => (o.observation.value ?? 0) < 100) || bevObs[1])
-      : bevObs[1];
+  // Top 1 & 2 Sales Volume Leaders for Headline KPI card
+  const salesLeader1 = salesObs[0];
+  const salesLeader2 = salesObs[1];
 
   const marginLeader1 = allMarginObsForKpi[0];
   const marginLeader2 = allMarginObsForKpi[1];
@@ -500,17 +484,23 @@ export const GlobalOverviewPage: React.FC = () => {
           </div>
           <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-              {t.global.bevLeader}
+              {t.global.salesLeader}
             </span>
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              {bevLeader1 ? (
+              {salesLeader1 ? (
                 <>
                   <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                    {bevLeader1.company.shortName} {bevLeader1.observation.value}%
+                    {salesLeader1.company.shortName}{' '}
+                    {(salesLeader1.observation.value ?? 0) >= 1000
+                      ? `${((salesLeader1.observation.value ?? 0) / 1000).toFixed(2)}M`
+                      : `${Math.round(salesLeader1.observation.value ?? 0).toLocaleString()}k`}
                   </span>
-                  {bevLeader2 && (
+                  {salesLeader2 && (
                     <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                      • {bevLeader2.company.shortName} {bevLeader2.observation.value}%
+                      • {salesLeader2.company.shortName}{' '}
+                      {(salesLeader2.observation.value ?? 0) >= 1000
+                        ? `${((salesLeader2.observation.value ?? 0) / 1000).toFixed(2)}M`
+                        : `${Math.round(salesLeader2.observation.value ?? 0).toLocaleString()}k`}
                     </span>
                   )}
                 </>

@@ -89,31 +89,38 @@ export const GuidanceOutlookPage: React.FC = () => {
                 </div>
 
                 {/* Quoted Statement */}
-                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 italic font-mono">
-                  "{g.originalText}"
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 italic font-mono space-y-1">
+                  <div>"{language === 'ko' && g.translationKo ? g.translationKo : g.originalText}"</div>
+                  {language === 'ko' && g.translationKo && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 not-italic font-sans">
+                      원문(EN): "{g.originalText}"
+                    </div>
+                  )}
                 </div>
 
                 {/* Assumptions and Risks */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
-                  {g.assumptions && g.assumptions.length > 0 && (
+                  {((language === 'ko' && g.assumptionsKo) ? g.assumptionsKo : g.assumptions) && (
                     <div className="space-y-1">
                       <span className="font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                         {language === 'ko' ? '경영진 핵심 전제조건' : 'Management Assumptions'}
                       </span>
                       <ul className="list-disc list-inside space-y-0.5 text-slate-700 dark:text-slate-300">
-                        {g.assumptions.map((ass, i) => (
+                        {((language === 'ko' && g.assumptionsKo) ? g.assumptionsKo : g.assumptions)!.map((ass, i) => (
                           <li key={i}>{ass}</li>
                         ))}
                       </ul>
                     </div>
                   )}
 
-                  {g.riskNotes && (
+                  {((language === 'ko' && g.riskNotesKo) ? g.riskNotesKo : g.riskNotes) && (
                     <div className="space-y-1">
                       <span className="font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                         {language === 'ko' ? '주요 위험 요인' : 'Key Risk Factors'}
                       </span>
-                      <p className="text-slate-700 dark:text-slate-300">{g.riskNotes}</p>
+                      <p className="text-slate-700 dark:text-slate-300">
+                        {(language === 'ko' && g.riskNotesKo) ? g.riskNotesKo : g.riskNotes}
+                      </p>
                     </div>
                   )}
                 </div>

@@ -8,6 +8,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Volkswagen Group targets an operating return on sales in the range of 6.0% to 7.0% for fiscal year 2026.',
+    translationKo: '폭스바겐 그룹은 2026 회계연도 연간 영업이익률(Return on Sales) 목표 범위를 6.0% ~ 7.0%로 전망합니다.',
     min: 6.0,
     max: 7.0,
     midpoint: 6.5,
@@ -21,7 +22,13 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Continued positive momentum in South America and commercial vehicle divisions.',
       'Progress in European factory fixed-cost reduction roadmaps.',
     ],
+    assumptionsKo: [
+      'SSP 및 MEB+ 차세대 아키텍처 도입에 따른 규모의 경제 효과.',
+      '남미 시장 및 상용차 사업 부문의 지속적인 성장 모멘텀.',
+      '유럽 생산 공장 고정비 절감 로드맵 달성 진행.',
+    ],
     riskNotes: 'Price competition in the entry-level BEV segment in China; EU CO2 fleet compliance costs.',
+    riskNotesKo: '중국 보급형 전기차(BEV) 시장 가격 경쟁 심화 및 EU CO2 배출 규제 준수 비용.',
   },
   {
     id: 'vw_2026_sales_guidance',
@@ -29,6 +36,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Group deliveries to customers are expected to grow to between 9.2 million and 9.5 million vehicles in 2026.',
+    translationKo: '2026년 그룹 총 고객 인도량은 920만 대 ~ 950만 대 수준으로 성장할 것으로 예상됩니다.',
     min: 9200,
     max: 9500,
     midpoint: 9350,
@@ -46,6 +54,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'EBIT margin in the Automotive Segment is forecast within the target corridor of 7.0% to 8.5% for 2026.',
+    translationKo: '2026년 자동차 부문(Automotive Segment) EBIT 마진은 목표 밴드인 7.0% ~ 8.5% 범위 내로 전망됩니다.',
     min: 7.0,
     max: 8.5,
     midpoint: 7.75,
@@ -57,7 +66,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Preparation for Neue Klasse production ramp-up at Plant Debrecen and Munich.',
       'Double-digit growth in premium BEV deliveries across Europe and North America.',
     ],
+    assumptionsKo: [
+      '데브레첸 및 뮌헨 공장의 노이에 클라세(Neue Klasse) 양산 준비.',
+      '유럽 및 북미 프리미엄 전기차(BEV) 인도량 두 자릿수 성장.',
+    ],
     riskNotes: 'Supply chain friction, geopolitical tariffs, raw material price shifts.',
+    riskNotesKo: '공급망 마찰, 지정학적 관세 리스크, 원자재 가격 변동성.',
   },
 
   // --- MERCEDES-BENZ GROUP ---
@@ -67,6 +81,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Mercedes-Benz Cars expects an adjusted Return on Sales (RoS) between 8.0% and 10.0% for the full year 2026.',
+    translationKo: '메르세데스-벤츠 승용 부문은 2026년 연간 조정 매출액이익률(Adjusted RoS) 8.0% ~ 10.0%를 목표로 합니다.',
     min: 8.0,
     max: 10.0,
     midpoint: 9.0,
@@ -78,7 +93,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Global rollout of MMA architecture vehicles (new CLA & variants).',
       'Defending pricing power in Top-End Luxury (Maybach, AMG, G-Class).',
     ],
+    assumptionsKo: [
+      'MMA 아키텍처 차량(신형 CLA 및 파생 모델) 글로벌 출시.',
+      '최고급 럭셔리 라인업(마이바흐, AMG, G-클래스)의 가격 방어력 유지.',
+    ],
     riskNotes: 'Intense price competition in the executive BEV class; macroeconomic interest rate trends.',
+    riskNotesKo: '준대형 전기차 부문의 치열한 가격 할인 경쟁 및 거시 경제 금리 환경.',
   },
 
   // --- STELLANTIS ---
@@ -88,6 +108,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Stellantis forecasts Adjusted Operating Income (AOI) margin of 7.0% to 8.5% and robust positive industrial FCF in 2026.',
+    translationKo: '스텔란티스는 2026년 조정 영업이익률(AOI Margin) 7.0% ~ 8.5% 및 견고한 잉여현금흐름(FCF) 창출을 전망합니다.',
     min: 7.0,
     max: 8.5,
     midpoint: 7.75,
@@ -99,7 +120,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Normalized North American dealer inventory levels and improved mix.',
       'Multi-energy flexibility on STLA Medium and STLA Large platform rollouts.',
     ],
+    assumptionsKo: [
+      '북미 딜러 재고 정상화 및 고수익 차종 믹스 개선.',
+      'STLA Medium/Large 플랫폼 기반의 멀티 에너지 파워트레인 유연 생산.',
+    ],
     riskNotes: 'North American market share defense, supplier price renegotiations.',
+    riskNotesKo: '북미 시장 점유율 방어 과제 및 부품 공급사 단가 협상.',
   },
 
   // --- GENERAL MOTORS ---
@@ -109,6 +135,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'GM expects 2026 Adjusted EBIT of $14.0B to $16.0B, representing an operating margin of 7.5% to 8.5%.',
+    translationKo: 'GM은 2026년 조정 EBIT 140억 ~ 160억 달러(영업이익률 7.5% ~ 8.5% 상당)를 전망합니다.',
     min: 7.5,
     max: 8.5,
     midpoint: 8.0,
@@ -120,7 +147,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'High profitability in full-size ICE pickup trucks and full-size SUVs.',
       'Continued variable margin expansion on Ultium EV platform models.',
     ],
+    assumptionsKo: [
+      '대형 내연기관 픽업트럭 및 풀사이즈 SUV의 견고한 수익성 유지.',
+      '얼티엄(Ultium) 전기차 플랫폼 모델들의 변동 마진 개선 지속.',
+    ],
     riskNotes: 'Pace of commercial autonomous driving expansion, US EV regulatory policy adjustments.',
+    riskNotesKo: '자율주행 상용화 속도 및 미국 전기차 규제·보조금 정책 변화.',
   },
 
   // --- HYUNDAI MOTOR ---
@@ -130,6 +162,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Hyundai Motor targets consolidated operating profit margin of 8.0% to 9.0% and annual wholesale volume of 4.3 million units in 2026.',
+    translationKo: '현대자동차는 2026년 연결 기준 영업이익률 8.0% ~ 9.0% 및 연간 도매 판매 430만 대 달성을 목표로 제시했습니다.',
     min: 8.0,
     max: 9.0,
     midpoint: 8.5,
@@ -142,7 +175,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Expanded next-generation hybrid (TMED-II) rollout across global lineups.',
       'Ramped-up output at Hyundai Motor Group Metaplant America (HMGMA).',
     ],
+    assumptionsKo: [
+      '차세대 하이브리드(TMED-II) 시스템의 글로벌 주요 라인업 확대 적용.',
+      '미국 조지아주 메타플랜트 아메리카(HMGMA) 가동 본격화 및 증산.',
+    ],
     riskNotes: 'Foreign exchange volatility (USD/KRW, EUR/KRW) and global interest rates.',
+    riskNotesKo: '환율 변동성(원/달러, 원/유로) 및 글로벌 고금리 환경 지속 리스크.',
   },
 
   // --- HONDA MOTOR ---
@@ -152,6 +190,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Honda Motor forecasts consolidated operating profit margin between 7.0% and 8.0% for fiscal year 2026.',
+    translationKo: '혼다 자동차는 2026 회계연도 연결 영업이익률 7.0% ~ 8.0%를 목표로 전망합니다.',
     min: 7.0,
     max: 8.0,
     midpoint: 7.5,
@@ -163,7 +202,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Strong motorcycle division operating margins in Asian emerging markets.',
       'Expanded hybrid (e:HEV) sales penetration in North America and Japan.',
     ],
+    assumptionsKo: [
+      '아시아 신흥 시장 내 모터사이클(이륜차) 사업부의 높은 수익성 견인.',
+      '북미 및 일본 시장 내 e:HEV 하이브리드 판매 비중 확대.',
+    ],
     riskNotes: 'Raw material cost inflation and currency volatility (USD/JPY).',
+    riskNotesKo: '원자재 원가 상승 및 엔/달러 환율 변동성.',
   },
 
   // --- NISSAN MOTOR ---
@@ -173,6 +217,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Nissan Motor targets consolidated operating margin within the 4.0% to 5.2% corridor under its The Arc business plan.',
+    translationKo: '닛산 자동차는 중기 경영계획 The Arc에 따라 연결 영업이익률 4.0% ~ 5.2% 달성을 목표로 합니다.',
     min: 4.0,
     max: 5.2,
     midpoint: 4.6,
@@ -184,7 +229,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Structural cost reductions under The Arc business transformation.',
       'Launch of next-generation e-POWER hybrid and electrified crossovers.',
     ],
+    assumptionsKo: [
+      'The Arc 사업 혁신 프로그램에 따른 구조적 고정비 절감.',
+      '차세대 e-POWER 하이브리드 및 전동화 크로스오버 신차 출시.',
+    ],
     riskNotes: 'Fierce EV price discounting in China and North American market incentives.',
+    riskNotesKo: '중국 내 극심한 전기차 할인 경쟁 및 북미 시장 딜러 인센티브 증가.',
   },
 
   // --- GEELY AUTOMOBILE ---
@@ -194,6 +244,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Geely Automobile Holdings targets a full-year operating margin corridor of 5.5% to 6.8% alongside a 2.0+ million delivery objective.',
+    translationKo: '지리 자동차는 200만 대 이상 인도 목표와 함께 연간 영업이익률 5.5% ~ 6.8%를 목표로 제시했습니다.',
     min: 5.5,
     max: 6.8,
     midpoint: 6.15,
@@ -205,7 +256,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Rapid scale growth in premium Zeekr BEV deliveries and international exports.',
       'Cost synergies across shared SEA and CMA vehicle architecture platforms.',
     ],
+    assumptionsKo: [
+      '지커(Zeekr) 프리미엄 전기차 인도량 고성장 및 글로벌 수출 확대.',
+      'SEA 및 CMA 공용 플랫폼 통합에 따른 부품 원가 절감 시너지.',
+    ],
     riskNotes: 'Intense domestic Chinese EV price competition and EU tariff adjustments.',
+    riskNotesKo: '중국 내수 전기차 출혈 경쟁 및 EU 추가 관세 부과 리스크.',
   },
   {
     id: 'geely_2026_sales_guidance',
@@ -213,6 +269,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Geely Automobile Holdings targets full-year 2026 delivery volume of 2.00 million units (including Zeekr and Lynk & Co).',
+    translationKo: '지리 자동차는 지커 및 링크앤코를 포함하여 2026년 연간 200만 대 인도를 목표로 합니다.',
     min: 1950,
     max: 2050,
     midpoint: 2000,
@@ -229,6 +286,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Honda Motor forecasts full-year FY2026 global automobile unit sales of 4.10 million units.',
+    translationKo: '혼다는 2026 회계연도 글로벌 4륜차 판매량을 410만 대로 전망하고 있습니다.',
     min: 4000,
     max: 4200,
     midpoint: 4100,
@@ -245,6 +303,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Nissan Motor targets worldwide retail sales volume of 3.50 million units for FY2026 under The Arc plan.',
+    translationKo: '닛산은 The Arc 계획에 따라 2026 회계연도 글로벌 판매량 350만 대를 목표로 합니다.',
     min: 3400,
     max: 3600,
     midpoint: 3500,
@@ -261,6 +320,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Kia Corporation targets consolidated operating profit margin between 11.5% and 12.5% for fiscal year 2026.',
+    translationKo: '기아는 2026 회계연도 연결 기준 영업이익률 목표를 11.5% ~ 12.5%로 설정했습니다.',
     min: 11.5,
     max: 12.5,
     midpoint: 12.0,
@@ -272,7 +332,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'High-margin recreational vehicle (RV / SUV) mix exceeding 70% in global sales.',
       'Strong launch momentum of dedicated mass-market EV line (EV3, EV4, EV5).',
     ],
+    assumptionsKo: [
+      '글로벌 판매 중 고수익 레저용 차량(RV/SUV) 비중 70% 초과 달성.',
+      '대중화 전용 전기차 라인업(EV3, EV4, EV5)의 강력한 신차 출시 효과.',
+    ],
     riskNotes: 'Global auto demand softening, geopolitical tariffs, raw material pricing.',
+    riskNotesKo: '글로벌 자동차 수요 둔화, 주요국 관세 인상, 원자재 가격 변동.',
   },
   {
     id: 'kia_2026_sales_guidance',
@@ -280,6 +345,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Kia targets 2026 worldwide wholesale delivery volume of 3.20 million vehicles.',
+    translationKo: '기아는 2026년 글로벌 도매 기준 320만 대 인도를 목표로 하고 있습니다.',
     min: 3150,
     max: 3250,
     midpoint: 3200,
@@ -296,6 +362,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Toyota Motor Corporation forecasts consolidated operating profit margin corridor of 9.0% to 10.5% for fiscal year 2026.',
+    translationKo: '토요타 자동차는 2026 회계연도 연결 영업이익률 목표 밴드를 9.0% ~ 10.5%로 전망합니다.',
     min: 9.0,
     max: 10.5,
     midpoint: 9.75,
@@ -307,7 +374,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'High-margin hybrid electric vehicle (HEV) global market share expansion.',
       'Stable North American and Asian retail pricing discipline.',
     ],
+    assumptionsKo: [
+      '고수익 하이브리드(HEV) 차량의 글로벌 점유율 확대.',
+      '북미 및 아시아 주요 시장에서의 안정적인 권장소비자가격 유지.',
+    ],
     riskNotes: 'Exchange rate fluctuations (JPY/USD), potential supply bottlenecks.',
+    riskNotesKo: '엔/달러 환율 변동성 및 잠재적 부품 공급 병목 현상.',
   },
   {
     id: 'toyota_2026_sales_guidance',
@@ -315,6 +387,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Toyota forecasts consolidated vehicle sales of 10.4 million to 10.95 million units for fiscal year 2026.',
+    translationKo: '토요타는 2026 회계연도 연결 자동차 판매량을 1,040만 대 ~ 1,095만 대로 전망합니다.',
     min: 10400,
     max: 10950,
     midpoint: 10675,
@@ -331,6 +404,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Rivian reaffirms full-year 2026 delivery guidance of 57,000 vehicles, supported by initial R2 line retooling efficiencies.',
+    translationKo: '리비안은 R2 라인 설비 개조 효율화에 힘입어 2026년 연간 57,000대 인도 가이던스를 재확인했습니다.',
     min: 55,
     max: 59,
     midpoint: 57,
@@ -342,7 +416,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Normal production ramp at Normal, Illinois facility following Gen 2 upgrade.',
       'Stable commercial delivery van (EDV) fleet procurement by key partners.',
     ],
+    assumptionsKo: [
+      'Gen 2 업그레이드 이후 일리노이주 노멀 공장의 정상 양산 램프업.',
+      '주요 파트너사의 상용 전기 밴(EDV) 플릿 구매 수요 안정 유지.',
+    ],
     riskNotes: 'EV adoption slowdown, high interest rate environment, supply chain component constraints.',
+    riskNotesKo: '전기차 수요 둔화, 고금리 지속 환경, 핵심 부품 공급 제약.',
   },
 
   // --- VOLVO CARS ---
@@ -352,6 +431,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_operating_margin',
     reportingYear: 2026,
     originalText: 'Volvo Car AB targets an EBIT margin (excluding JVs and associates) in the range of 7.0% to 8.5% for the full year 2026.',
+    translationKo: '볼보자동차는 2026년 연간 EBIT 마진(합작사 제외) 목표를 7.0% ~ 8.5%로 제시했습니다.',
     min: 7.0,
     max: 8.5,
     midpoint: 7.75,
@@ -363,7 +443,12 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
       'Increasing volume scale and gross margin ramp of EX30 and EX90 electric SUVs.',
       'Disciplined fixed cost control and lower battery raw material spot prices.',
     ],
+    assumptionsKo: [
+      'EX30 및 EX90 전기 SUV의 판매 볼륨 확대 및 매출총이익률 개선.',
+      '엄격한 고정비 통제 및 배터리 원자재 현물 가격 안정화 효과.',
+    ],
     riskNotes: 'Trade tariffs on Chinese-built EVs imported into North America and Europe, raw material price volatility.',
+    riskNotesKo: '북미 및 유럽의 중국산 수입 전기차 관세 부과 및 원자재 가격 변동성.',
   },
   {
     id: 'volvo_cars_2026_sales_guidance',
@@ -371,6 +456,7 @@ export const GUIDANCE_OBSERVATIONS: GuidanceObservation[] = [
     metricId: 'guidance_deliveries',
     reportingYear: 2026,
     originalText: 'Volvo Cars forecasts full-year retail volume growth of 7% to 9% over 2025 (target corridor ~800,000 units).',
+    translationKo: '볼보자동차는 2025년 대비 연간 7% ~ 9% 소매 판매 성장을 전망합니다(목표 밴드 약 80만 대).',
     min: 780,
     max: 820,
     midpoint: 800,

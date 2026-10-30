@@ -22,7 +22,7 @@ export interface Translations {
     subtitle: string;
     coveredOems: string;
     reportingPeriod: string;
-    bevLeader: string;
+    salesLeader: string;
     marginLeader: string;
     periodFilter: string;
     oemFilter: string;
@@ -91,7 +91,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       subtitle: 'Consolidated vehicle volume, electrification adoption, operating profit margins, and forward-looking guidance synthesized strictly from official quarterly filings and investor presentations.',
       coveredOems: 'OEMs Covered',
       reportingPeriod: 'Reporting Period',
-      bevLeader: 'BEV Share Leader',
+      salesLeader: 'Top Volume Leader',
       marginLeader: 'Top Operating Margin',
       periodFilter: 'Period:',
       oemFilter: 'OEMs:',
@@ -158,7 +158,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       subtitle: '공식 분기 재무제표, 연간 사업보고서, 실적 발표회(Earnings Call) 자료를 엄격하게 수집하여 분석한 완성차 판매량, 전동화 점유율, 영업이익률 및 연간 가이던스 대시보드.',
       coveredOems: '분석 대상 OEM',
       reportingPeriod: '기준 공시 기간',
-      bevLeader: '전기차(BEV) 비중 1위',
+      salesLeader: '글로벌 판매량 1위',
       marginLeader: '최고 영업이익률',
       periodFilter: '공시 주기:',
       oemFilter: '완성차 제조사:',

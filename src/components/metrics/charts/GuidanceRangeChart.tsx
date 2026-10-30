@@ -267,7 +267,7 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
         {hoveredGuidance && (
           <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs animate-in fade-in duration-150">
             <p className="text-slate-600 dark:text-slate-300 italic text-[11.5px] line-clamp-1 pr-3">
-              "{hoveredGuidance.originalText}"
+              "{language === 'ko' && hoveredGuidance.translationKo ? hoveredGuidance.translationKo : hoveredGuidance.originalText}"
             </p>
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 dark:text-brand-400 hover:underline shrink-0">
               <span>{language === 'ko' ? '공식 IR 원문 확인' : 'Audit Link'}</span>

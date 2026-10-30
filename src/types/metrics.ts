@@ -1366,7 +1366,10 @@ export interface GuidanceObservation {
   tableReference?: string;
   revisionHistory?: GuidanceRevision[];
   assumptions?: string[];
+  assumptionsKo?: string[];
   riskNotes?: string;
+  riskNotesKo?: string;
+  translationKo?: string;
 }
 
 export interface RegionalObservation {
