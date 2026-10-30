@@ -14,7 +14,12 @@ import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
-import { formatMetricValue, formatPeriodLabel } from '../utils/metricCalculations';
+import {
+  formatMetricValue,
+  formatPeriodLabel,
+  matchesVolumeFilter,
+} from '../utils/metricCalculations';
+import { VolumeDefinition } from '../types/metrics';
 import {
   BarChart2,
   AlertTriangle,
@@ -40,7 +45,7 @@ export const CompanyComparisonPage: React.FC = () => {
     'tesla',
   ]);
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
-  const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | 'retail_deliveries' | 'wholesale_shipments'>('all');
+  const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | VolumeDefinition>('all');
   const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
@@ -61,6 +66,25 @@ export const CompanyComparisonPage: React.FC = () => {
   };
 
   const selectTopSix = () => {
+    if (selectedMetricId === 'deliveries_global') {
+      const topIds = getObservations(undefined, ['deliveries_global'], selectedPeriod)
+        .filter((o) => {
+          if (o.value === null || o.value === undefined || !Number.isFinite(o.value)) return false;
+          return matchesVolumeFilter(o, 'deliveries_global', volumeDefinitionFilter);
+        })
+        .map((o) => ({
+          id: o.companyId,
+          vol: o.unit === 'units' ? (o.value as number) / 1000 : (o.value as number),
+        }))
+        .sort((a, b) => b.vol - a.vol)
+        .slice(0, 6)
+        .map((o) => o.id);
+
+      if (topIds.length >= 2) {
+        setSelectedCompanies(topIds);
+        return;
+      }
+    }
     setSelectedCompanies(['toyota_motor', 'volkswagen_group', 'hyundai_motor', 'general_motors', 'stellantis', 'ford']);
   };
 
@@ -71,17 +95,7 @@ export const CompanyComparisonPage: React.FC = () => {
   const totalMatchingCount = allPeriodObservations.length;
 
   const observations = allPeriodObservations
-    .filter((obs) => {
-      if (selectedMetricId === 'deliveries_global') {
-        if (volumeDefinitionFilter === 'retail_deliveries') {
-          return obs.volumeDefinition === 'retail_deliveries';
-        }
-        if (volumeDefinitionFilter === 'wholesale_shipments') {
-          return obs.volumeDefinition === 'wholesale_shipments';
-        }
-      }
-      return true;
-    })
+    .filter((obs) => matchesVolumeFilter(obs, selectedMetricId, volumeDefinitionFilter))
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
       observation: obs,
@@ -91,15 +105,12 @@ export const CompanyComparisonPage: React.FC = () => {
   // Excluded count calculations for volume definition filtering
   const excludedDifferingCount =
     selectedMetricId === 'deliveries_global' && volumeDefinitionFilter !== 'all'
-      ? allPeriodObservations.filter((o) => {
-          if (volumeDefinitionFilter === 'retail_deliveries') {
-            return o.volumeDefinition === 'wholesale_shipments';
-          }
-          if (volumeDefinitionFilter === 'wholesale_shipments') {
-            return o.volumeDefinition === 'retail_deliveries';
-          }
-          return false;
-        }).length
+      ? allPeriodObservations.filter(
+          (o) =>
+            o.volumeDefinition &&
+            o.volumeDefinition !== 'unknown' &&
+            o.volumeDefinition !== volumeDefinitionFilter
+        ).length
       : 0;
 
   const excludedUnclassifiedCount =
@@ -111,6 +122,7 @@ export const CompanyComparisonPage: React.FC = () => {
   const nonComparableItems = observations.filter((item) => !item.observation.isComparable);
 
   // Multi-Company Line Series (distinct colors for all 16 OEMs)
+  // When deliveries_global is filtered, historical periods strictly enforce the same volume definition
   const lineChartColors = [
     '#dc2626', '#0284c7', '#0369a1', '#4f46e5', '#7c3aed', '#1d4ed8',
     '#e11d48', '#2563eb', '#0891b2', '#0d9488', '#c8102e', '#0ea5e9',
@@ -121,7 +133,9 @@ export const CompanyComparisonPage: React.FC = () => {
   const lineSeries = selectedCompanies.map((cid, idx) => {
     const comp = getCompanyById(cid)!;
     const data = trendPeriods.map((p) => {
-      const obs = getObservations([cid], [selectedMetricId], p)[0];
+      const candidateObs = getObservations([cid], [selectedMetricId], p)[0];
+      const matches = matchesVolumeFilter(candidateObs, selectedMetricId, volumeDefinitionFilter);
+      const obs = matches ? candidateObs : undefined;
       return {
         period: p,
         value: obs ? obs.value : null,
@@ -390,7 +404,9 @@ export const CompanyComparisonPage: React.FC = () => {
                       </span>
                     </td>
                     {selectedCompanies.map((cid) => {
-                      const obs = getObservations([cid], [mId], selectedPeriod)[0];
+                      const candidateObs = getObservations([cid], [mId], selectedPeriod)[0];
+                      const matches = matchesVolumeFilter(candidateObs, mId, volumeDefinitionFilter);
+                      const obs = matches ? candidateObs : undefined;
                       const comp = getCompanyById(cid);
                       return (
                         <td
@@ -403,6 +419,20 @@ export const CompanyComparisonPage: React.FC = () => {
                               {formatMetricValue(obs.value, obs.unit, obs.currency || comp?.reportingCurrency)}
                             </span>
                           ) : (() => {
+                            if (mId === 'deliveries_global' && volumeDefinitionFilter !== 'all' && candidateObs) {
+                              return (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 font-semibold text-[10px]"
+                                  title={
+                                    language === 'ko'
+                                      ? '선택된 공시 기준(소매/도매) 필터 조건과 일치하지 않아 제외됨'
+                                      : 'Excluded by selected volume perimeter filter'
+                                  }
+                                >
+                                  {language === 'ko' ? '기준제외' : 'Filtered'}
+                                </span>
+                              );
+                            }
                             const scheduled = getScheduledDisclosure(cid, selectedPeriod);
                             if (scheduled) {
                               return (

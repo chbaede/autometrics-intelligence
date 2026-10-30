@@ -81,6 +81,8 @@ import {
   validateSourceClaims,
   validateMetricLabelSemantics,
   analyzeVolumeComparability,
+  matchesVolumeFilter,
+  getVolumeDefinitionLabel,
   hasLocatorNumericContradiction,
   validateSourceContentFixtures,
   hashFixtureContent,
@@ -93,7 +95,7 @@ import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { SCHEDULED_DISCLOSURES } from '../src/data/scheduledDisclosures';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
-import { getRegionalObservations } from '../src/utils/metricQueries';
+import { getRegionalObservations, getObservations } from '../src/utils/metricQueries';
 import {
   MetricObservation,
   AuditFinding,
@@ -8706,6 +8708,104 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(emptyRes.warningType === 'none', 'Test 246l-1: Empty input returns warningType none');
   check(emptyRes.totalCount === 0, 'Test 246l-2: Empty input totalCount is 0');
   check(emptyRes.isFullyComparable === true, 'Test 246l-3: Empty input isFullyComparable is true');
+
+  // 5h. Production and Registrations explicit handling
+  const prodRegItems = [
+    { company: { shortName: 'Factory OEM' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'production' as const, value: 350 } as any },
+    { company: { shortName: 'Agency OEM' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'registrations' as const, value: 340 } as any },
+  ];
+  const prodRegRes = analyzeVolumeComparability(prodRegItems);
+  check(prodRegRes.productionCount === 1, 'Test 246m-1: Production count is 1');
+  check(prodRegRes.registrationsCount === 1, 'Test 246m-2: Registrations count is 1');
+  check(prodRegRes.warningType === 'mixed_known', 'Test 246m-3: Production + Registrations triggers mixed_known');
+  check(prodRegRes.isFullyComparable === false, 'Test 246m-4: Production + Registrations is not fully comparable');
+
+  // Single production definition only
+  const prodOnlyRes = analyzeVolumeComparability([
+    { company: { shortName: 'Factory A' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'production' as const, value: 500 } as any },
+  ]);
+  check(prodOnlyRes.warningType === 'none', 'Test 246n-1: Production-only produces warningType === none');
+  check(prodOnlyRes.isFullyComparable === true, 'Test 246n-2: Production-only is fully comparable');
+
+  // 5i. Filter behavior & empty results when filter matches no items
+  const mockObservations = [
+    { metricId: 'deliveries_global', volumeDefinition: 'retail_deliveries' as const, value: 100 },
+    { metricId: 'deliveries_global', volumeDefinition: 'wholesale_shipments' as const, value: 200 },
+    { metricId: 'deliveries_global', volumeDefinition: 'production' as const, value: 300 },
+    { metricId: 'deliveries_global', volumeDefinition: 'unknown' as const, value: 400 },
+    { metricId: 'deliveries_global', volumeDefinition: undefined, value: 500 },
+    { metricId: 'revenue', volumeDefinition: undefined, value: 50000 },
+    { metricId: 'operating_margin', volumeDefinition: undefined, value: 7.5 },
+  ] as any[];
+
+  // Filter with no matching data produces empty array among deliveries_global observations
+  const noMatchRes = mockObservations
+    .filter((o) => o.metricId === 'deliveries_global')
+    .filter((o) => matchesVolumeFilter(o, o.metricId, 'registrations'));
+  check(noMatchRes.length === 0, 'Test 246o-1: Filter with no matching observations produces empty result');
+
+  // Volume filter does NOT filter out revenue or operating_margin
+  const revMatchesRetail = matchesVolumeFilter(mockObservations[5], 'revenue', 'retail_deliveries');
+  const marginMatchesWholesale = matchesVolumeFilter(mockObservations[6], 'operating_margin', 'wholesale_shipments');
+  check(revMatchesRetail === true, 'Test 246o-2: matchesVolumeFilter does not filter out revenue');
+  check(marginMatchesWholesale === true, 'Test 246o-3: matchesVolumeFilter does not filter out operating_margin');
+
+  // Volume filter strictly rejects missing/unknown when filtering retail or wholesale
+  const unknownMatchesRetail = matchesVolumeFilter(mockObservations[3], 'deliveries_global', 'retail_deliveries');
+  const undefinedMatchesWholesale = matchesVolumeFilter(mockObservations[4], 'deliveries_global', 'wholesale_shipments');
+  check(unknownMatchesRetail === false, 'Test 246o-4: unknown definition is rejected by retail filter');
+  check(undefinedMatchesWholesale === false, 'Test 246o-5: undefined definition is rejected by wholesale filter');
+
+  // In 'all' mode, all items pass
+  const allPass = mockObservations.every((o) => matchesVolumeFilter(o, o.metricId, 'all'));
+  check(allPass === true, 'Test 246o-6: In all mode, every observation passes matchesVolumeFilter');
+
+  // 5j. Consistency across bar-chart, line trends, and matrix table delivery values
+  const testCompanyId = 'volkswagen_group';
+  const testPeriod = '2026-Q3';
+  const rawQ3Obs = getObservations([testCompanyId], ['deliveries_global'], testPeriod)[0];
+  check(rawQ3Obs?.volumeDefinition === 'retail_deliveries', 'Test 246p-1: VW Q3 is retail_deliveries');
+
+  // Under retail filter: bar, line, table all match
+  const barMatchesRetail = matchesVolumeFilter(rawQ3Obs, 'deliveries_global', 'retail_deliveries');
+  const lineMatchesRetail = matchesVolumeFilter(rawQ3Obs, 'deliveries_global', 'retail_deliveries');
+  const tableMatchesRetail = matchesVolumeFilter(rawQ3Obs, 'deliveries_global', 'retail_deliveries');
+  check(barMatchesRetail && lineMatchesRetail && tableMatchesRetail, 'Test 246p-2: Bar, trend line, and table delivery values consistently match retail filter');
+
+  // Under wholesale filter: bar, line, table all safely reject retail record
+  const barMatchesWholesale = matchesVolumeFilter(rawQ3Obs, 'deliveries_global', 'wholesale_shipments');
+  const lineMatchesWholesale = matchesVolumeFilter(rawQ3Obs, 'deliveries_global', 'wholesale_shipments');
+  const tableMatchesWholesale = matchesVolumeFilter(rawQ3Obs, 'deliveries_global', 'wholesale_shipments');
+  check(!barMatchesWholesale && !lineMatchesWholesale && !tableMatchesWholesale, 'Test 246p-3: Bar, trend line, and table delivery values consistently reject differing perimeter');
+
+  // 5k. Korean and English labels for each supported volume definition
+  const retailLabelKo = getVolumeDefinitionLabel('retail_deliveries', 'ko');
+  const retailLabelEn = getVolumeDefinitionLabel('retail_deliveries', 'en');
+  check(retailLabelKo.short === '인도' && retailLabelKo.full === '소매 인도', 'Test 246q-1: Retail KO label correct');
+  check(retailLabelEn.short === 'Retail' && retailLabelEn.full === 'Retail Deliveries', 'Test 246q-2: Retail EN label correct');
+
+  const wholesaleLabelKo = getVolumeDefinitionLabel('wholesale_shipments', 'ko');
+  const wholesaleLabelEn = getVolumeDefinitionLabel('wholesale_shipments', 'en');
+  check(wholesaleLabelKo.short === '출하' && wholesaleLabelKo.full === '도매 출하', 'Test 246q-3: Wholesale KO label correct');
+  check(wholesaleLabelEn.short === 'Wholesale' && wholesaleLabelEn.full === 'Wholesale Shipments', 'Test 246q-4: Wholesale EN label correct');
+
+  const prodLabelKo = getVolumeDefinitionLabel('production', 'ko');
+  const prodLabelEn = getVolumeDefinitionLabel('production', 'en');
+  check(prodLabelKo.short === '생산' && prodLabelKo.full === '생산량', 'Test 246q-5: Production KO label correct');
+  check(prodLabelEn.short === 'Production' && prodLabelEn.full === 'Production', 'Test 246q-6: Production EN label correct');
+
+  const regLabelKo = getVolumeDefinitionLabel('registrations', 'ko');
+  const regLabelEn = getVolumeDefinitionLabel('registrations', 'en');
+  check(regLabelKo.short === '등록' && regLabelKo.full === '신규 등록', 'Test 246q-7: Registrations KO label correct');
+  check(regLabelEn.short === 'Registrations' && regLabelEn.full === 'Registrations', 'Test 246q-8: Registrations EN label correct');
+
+  const unclassifiedLabelKo = getVolumeDefinitionLabel(undefined, 'ko');
+  const unclassifiedLabelEn = getVolumeDefinitionLabel(undefined, 'en');
+  check(unclassifiedLabelKo.short === '미분류' && unclassifiedLabelKo.full === '미분류·미확인', 'Test 246q-9: Unclassified KO label correct');
+  check(unclassifiedLabelEn.short === 'Unclassified' && unclassifiedLabelEn.full === 'Unclassified', 'Test 246q-10: Unclassified EN label correct');
+
+  const unknownLabelKo = getVolumeDefinitionLabel('unknown', 'ko');
+  check(unknownLabelKo.short === '미분류' && unknownLabelKo.full === '미분류·미확인', 'Test 246q-11: Unknown KO label maps to Unclassified, never Wholesale');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

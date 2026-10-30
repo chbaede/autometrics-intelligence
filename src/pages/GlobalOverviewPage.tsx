@@ -9,7 +9,11 @@ import {
 } from '../utils/metricQueries';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
 import { MetricObservation, PeriodType, VolumeDefinition } from '../types/metrics';
-import { formatPeriodLabel } from '../utils/metricCalculations';
+import {
+  formatPeriodLabel,
+  matchesVolumeFilter,
+  getVolumeDefinitionLabel,
+} from '../utils/metricCalculations';
 import {
   validateScatterObservationCompatibility,
   resolveCanonicalPeriodType,
@@ -71,13 +75,7 @@ export const GlobalOverviewPage: React.FC = () => {
     getObservations(undefined, ['deliveries_global'], period)
       .filter((o) => {
         if (o.value === null || o.value === undefined || !Number.isFinite(o.value)) return false;
-        if (vDef === 'retail_deliveries') {
-          return o.volumeDefinition === 'retail_deliveries';
-        }
-        if (vDef === 'wholesale_shipments') {
-          return o.volumeDefinition === 'wholesale_shipments';
-        }
-        return true;
+        return matchesVolumeFilter(o, 'deliveries_global', vDef);
       })
       .map((o) => ({
         id: o.companyId,
@@ -184,15 +182,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const totalPeriodSalesCount = allPeriodSalesObs.length;
 
   const salesObs = allPeriodSalesObs
-    .filter((obs) => {
-      if (volumeDefinitionFilter === 'retail_deliveries') {
-        return obs.volumeDefinition === 'retail_deliveries';
-      }
-      if (volumeDefinitionFilter === 'wholesale_shipments') {
-        return obs.volumeDefinition === 'wholesale_shipments';
-      }
-      return true;
-    })
+    .filter((obs) => matchesVolumeFilter(obs, 'deliveries_global', volumeDefinitionFilter))
     .map((obs) => ({
       company: getCompanyById(obs.companyId)!,
       observation: obs,
@@ -204,15 +194,12 @@ export const GlobalOverviewPage: React.FC = () => {
   const excludedByPerimeterCount =
     volumeDefinitionFilter === 'all'
       ? 0
-      : allPeriodSalesObs.filter((o) => {
-          if (volumeDefinitionFilter === 'retail_deliveries') {
-            return o.volumeDefinition === 'wholesale_shipments';
-          }
-          if (volumeDefinitionFilter === 'wholesale_shipments') {
-            return o.volumeDefinition === 'retail_deliveries';
-          }
-          return false;
-        }).length;
+      : allPeriodSalesObs.filter(
+          (o) =>
+            o.volumeDefinition &&
+            o.volumeDefinition !== 'unknown' &&
+            o.volumeDefinition !== volumeDefinitionFilter
+        ).length;
 
   const excludedByUnclassifiedCount =
     volumeDefinitionFilter === 'all'
@@ -772,8 +759,8 @@ export const GlobalOverviewPage: React.FC = () => {
               <Filter className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
               <span>
                 {language === 'ko'
-                  ? `[${volumeDefinitionFilter === 'retail_deliveries' ? '소매 인도' : '도매 출하'}] 공시 기준 필터 적용: 선택 기업 ${totalPeriodSalesCount}개 중 ${salesObs.length}개 표시`
-                  : `Filtered by ${volumeDefinitionFilter === 'retail_deliveries' ? 'Retail Deliveries' : 'Wholesale Shipments'}: ${salesObs.length} of ${totalPeriodSalesCount} selected OEMs shown`}
+                  ? `[${getVolumeDefinitionLabel(volumeDefinitionFilter, language).full}] 공시 기준 필터 적용: 선택 기업 ${totalPeriodSalesCount}개 중 ${salesObs.length}개 표시`
+                  : `Filtered by ${getVolumeDefinitionLabel(volumeDefinitionFilter, language).full}: ${salesObs.length} of ${totalPeriodSalesCount} selected OEMs shown`}
               </span>
             </div>
             <div className="flex items-center gap-2 text-[11px] font-mono">
@@ -796,6 +783,10 @@ export const GlobalOverviewPage: React.FC = () => {
               ? (language === 'ko' ? '글로벌 소매 판매량 (Retail Deliveries)' : 'Global Retail Deliveries')
               : volumeDefinitionFilter === 'wholesale_shipments'
               ? (language === 'ko' ? '글로벌 도매 출하량 (Wholesale Shipments)' : 'Global Wholesale Shipments')
+              : volumeDefinitionFilter === 'production'
+              ? (language === 'ko' ? '글로벌 생산량 (Production)' : 'Global Production Volume')
+              : volumeDefinitionFilter === 'registrations'
+              ? (language === 'ko' ? '글로벌 신규 등록 (Registrations)' : 'Global Vehicle Registrations')
               : t.charts.salesVolume
           }
           subtitle={
@@ -803,6 +794,10 @@ export const GlobalOverviewPage: React.FC = () => {
               ? (language === 'ko' ? '소매 인도(Retail Deliveries) 공시 기업 단일 기준 비교' : 'Same-definition comparison: Customer handovers (Retail Deliveries)')
               : volumeDefinitionFilter === 'wholesale_shipments'
               ? (language === 'ko' ? '도매 출하(Wholesale Shipments) 공시 기업 단일 기준 비교' : 'Same-definition comparison: Dealer dispatches (Wholesale Shipments)')
+              : volumeDefinitionFilter === 'production'
+              ? (language === 'ko' ? '생산량(Production) 공시 기업 단일 기준 비교' : 'Same-definition comparison: Factory production output')
+              : volumeDefinitionFilter === 'registrations'
+              ? (language === 'ko' ? '신규 등록(Registrations) 공시 기업 단일 기준 비교' : 'Same-definition comparison: Official vehicle registrations')
               : (language === 'ko' ? '소매 인도 및 도매 출하 공시 혼합 랭킹 (상단에서 동일 기준 필터 선택 가능)' : 'Mixed Retail & Wholesale ranking (same-definition filters available above)')
           }
           observations={salesObs}

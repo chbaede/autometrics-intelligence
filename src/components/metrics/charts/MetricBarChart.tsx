@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { MetricObservation, Company } from '../../../types/metrics';
-import { formatMetricValue, analyzeVolumeComparability } from '../../../utils/metricCalculations';
+import {
+  formatMetricValue,
+  analyzeVolumeComparability,
+  getVolumeDefinitionLabel,
+} from '../../../utils/metricCalculations';
 import { HelpCircle, AlertTriangle, Filter } from 'lucide-react';
 import { useLanguage } from '../../../i18n/LanguageContext';
 
@@ -227,17 +231,21 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                           <span className={`font-extrabold ${isNegative ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
                             {item.tooltipValue ?? item.displayValue ?? formatMetricValue(rawObsVal, unit, item.observation.currency)}
                           </span>
-                          {item.observation.volumeDefinition ? (
-                            <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                              {item.observation.volumeDefinition === 'retail_deliveries'
-                                ? language === 'ko' ? '소매 인도' : 'Retail'
-                                : language === 'ko' ? '도매 출하' : 'Wholesale'}
-                            </span>
-                          ) : volumeAnalysis.isVolumeMetric ? (
-                            <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                              {language === 'ko' ? '공시 기준 미분류' : 'Unclassified'}
-                            </span>
-                          ) : null}
+                          {(item.observation.volumeDefinition || volumeAnalysis.isVolumeMetric) && (() => {
+                            const lbl = getVolumeDefinitionLabel(item.observation.volumeDefinition, language);
+                            const isKnown = item.observation.volumeDefinition && item.observation.volumeDefinition !== 'unknown';
+                            return (
+                              <span
+                                className={`text-[10px] px-1 py-0.5 rounded font-mono font-bold border ${
+                                  isKnown
+                                    ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+                                    : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                                }`}
+                              >
+                                {lbl.full}
+                              </span>
+                            );
+                          })()}
                           {isNegative && (
                             <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">
                               ({language === 'ko' ? '영업손실' : 'Loss'})
@@ -348,17 +356,21 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                         >
                           {item.company.shortName}
                         </span>
-                        {item.observation.volumeDefinition ? (
-                          <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800">
-                            {item.observation.volumeDefinition === 'retail_deliveries'
-                              ? language === 'ko' ? '인도' : 'Retail'
-                              : language === 'ko' ? '출하' : 'Wholesale'}
-                          </span>
-                        ) : volumeAnalysis.isVolumeMetric ? (
-                          <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20">
-                            {language === 'ko' ? '미분류' : 'Unclassified'}
-                          </span>
-                        ) : null}
+                        {(item.observation.volumeDefinition || volumeAnalysis.isVolumeMetric) && (() => {
+                          const lbl = getVolumeDefinitionLabel(item.observation.volumeDefinition, language);
+                          const isKnown = item.observation.volumeDefinition && item.observation.volumeDefinition !== 'unknown';
+                          return (
+                            <span
+                              className={`text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 border ${
+                                isKnown
+                                  ? 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-transparent'
+                                  : 'text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'
+                              }`}
+                            >
+                              {lbl.short}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -402,17 +414,21 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                         <span className="font-extrabold text-slate-900 dark:text-white">
                           {item.tooltipValue ?? item.displayValue ?? formatMetricValue(rawObsVal, unit, item.observation.currency)}
                         </span>
-                        {item.observation.volumeDefinition ? (
-                          <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                            {item.observation.volumeDefinition === 'retail_deliveries'
-                              ? language === 'ko' ? '소매 인도' : 'Retail'
-                              : language === 'ko' ? '도매 출하' : 'Wholesale'}
-                          </span>
-                        ) : volumeAnalysis.isVolumeMetric ? (
-                          <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                            {language === 'ko' ? '공시 기준 미분류' : 'Unclassified'}
-                          </span>
-                        ) : null}
+                        {(item.observation.volumeDefinition || volumeAnalysis.isVolumeMetric) && (() => {
+                          const lbl = getVolumeDefinitionLabel(item.observation.volumeDefinition, language);
+                          const isKnown = item.observation.volumeDefinition && item.observation.volumeDefinition !== 'unknown';
+                          return (
+                            <span
+                              className={`text-[10px] px-1 py-0.5 rounded font-mono font-bold border ${
+                                isKnown
+                                  ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                              }`}
+                            >
+                              {lbl.full}
+                            </span>
+                          );
+                        })()}
                         {!item.observation.isComparable && (
                           <span className="text-amber-600 dark:text-amber-400 text-[10px] font-medium">
                             ({language === 'ko' ? '비교주의' : 'Scope'})
@@ -480,17 +496,21 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                       >
                         {item.company.shortName}
                       </span>
-                      {item.observation.volumeDefinition ? (
-                        <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800">
-                          {item.observation.volumeDefinition === 'retail_deliveries'
-                            ? language === 'ko' ? '인도' : 'Retail'
-                            : language === 'ko' ? '출하' : 'Wholesale'}
-                        </span>
-                      ) : volumeAnalysis.isVolumeMetric ? (
-                        <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20">
-                          {language === 'ko' ? '미분류' : 'Unclassified'}
-                        </span>
-                      ) : null}
+                      {(item.observation.volumeDefinition || volumeAnalysis.isVolumeMetric) && (() => {
+                        const lbl = getVolumeDefinitionLabel(item.observation.volumeDefinition, language);
+                        const isKnown = item.observation.volumeDefinition && item.observation.volumeDefinition !== 'unknown';
+                        return (
+                          <span
+                            className={`text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 border ${
+                              isKnown
+                                ? 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-transparent'
+                                : 'text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'
+                            }`}
+                          >
+                            {lbl.short}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
@@ -512,23 +532,39 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
           {volumeAnalysis.retailCount > 0 && (
             <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
               <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold">
-                {language === 'ko' ? '인도' : 'Retail'}
+                {getVolumeDefinitionLabel('retail_deliveries', language).short}
               </span>
-              <span>{language === 'ko' ? '소매 인도' : 'Retail Deliveries'}</span>
+              <span>{getVolumeDefinitionLabel('retail_deliveries', language).full}</span>
             </span>
           )}
           {volumeAnalysis.wholesaleCount > 0 && (
             <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
               <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold">
-                {language === 'ko' ? '출하' : 'Wholesale'}
+                {getVolumeDefinitionLabel('wholesale_shipments', language).short}
               </span>
-              <span>{language === 'ko' ? '도매 출하' : 'Wholesale Shipments'}</span>
+              <span>{getVolumeDefinitionLabel('wholesale_shipments', language).full}</span>
+            </span>
+          )}
+          {volumeAnalysis.productionCount > 0 && (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
+              <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold">
+                {getVolumeDefinitionLabel('production', language).short}
+              </span>
+              <span>{getVolumeDefinitionLabel('production', language).full}</span>
+            </span>
+          )}
+          {volumeAnalysis.registrationsCount > 0 && (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
+              <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold">
+                {getVolumeDefinitionLabel('registrations', language).short}
+              </span>
+              <span>{getVolumeDefinitionLabel('registrations', language).full}</span>
             </span>
           )}
           {volumeAnalysis.unclassifiedCount > 0 && (
             <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
               <span className="px-1 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold">
-                {language === 'ko' ? '미분류' : 'Unclassified'}
+                {getVolumeDefinitionLabel(undefined, language).short}
               </span>
               <span>{language === 'ko' ? '공시 기준 미분류' : 'Unclassified Perimeter'}</span>
             </span>

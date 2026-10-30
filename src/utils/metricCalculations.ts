@@ -38,6 +38,7 @@ import {
   SourceContentFixtureValidationError,
   SourceContentFixtureValidationResult,
   AuditReportData,
+  VolumeDefinition,
 } from '../types/metrics';
 import type { SourceClaim } from '../types/metrics';
 export type {
@@ -2638,10 +2639,14 @@ export interface VolumeComparabilityAnalysis {
   totalCount: number;
   retailCount: number;
   wholesaleCount: number;
+  productionCount: number;
+  registrationsCount: number;
   unclassifiedCount: number;
   otherCount: number;
   retailOems: string[];
   wholesaleOems: string[];
+  productionOems: string[];
+  registrationsOems: string[];
   unclassifiedOems: string[];
   otherOems: string[];
   isFullyComparable: boolean;
@@ -2667,10 +2672,14 @@ export function analyzeVolumeComparability(
       totalCount: 0,
       retailCount: 0,
       wholesaleCount: 0,
+      productionCount: 0,
+      registrationsCount: 0,
       unclassifiedCount: 0,
       otherCount: 0,
       retailOems: [],
       wholesaleOems: [],
+      productionOems: [],
+      registrationsOems: [],
       unclassifiedOems: [],
       otherOems: [],
       isFullyComparable: true,
@@ -2702,10 +2711,14 @@ export function analyzeVolumeComparability(
       totalCount: items.length,
       retailCount: 0,
       wholesaleCount: 0,
+      productionCount: 0,
+      registrationsCount: 0,
       unclassifiedCount: 0,
       otherCount: 0,
       retailOems: [],
       wholesaleOems: [],
+      productionOems: [],
+      registrationsOems: [],
       unclassifiedOems: [],
       otherOems: [],
       isFullyComparable: true,
@@ -2717,11 +2730,15 @@ export function analyzeVolumeComparability(
 
   const retailOemSet = new Set<string>();
   const wholesaleOemSet = new Set<string>();
+  const productionOemSet = new Set<string>();
+  const registrationsOemSet = new Set<string>();
   const unclassifiedOemSet = new Set<string>();
   const otherOemSet = new Set<string>();
 
   let retailCount = 0;
   let wholesaleCount = 0;
+  let productionCount = 0;
+  let registrationsCount = 0;
   let unclassifiedCount = 0;
   let otherCount = 0;
 
@@ -2738,6 +2755,12 @@ export function analyzeVolumeComparability(
     } else if (def === 'wholesale_shipments') {
       wholesaleCount++;
       wholesaleOemSet.add(name);
+    } else if (def === 'production') {
+      productionCount++;
+      productionOemSet.add(name);
+    } else if (def === 'registrations') {
+      registrationsCount++;
+      registrationsOemSet.add(name);
     } else if (!def || def === 'unknown') {
       unclassifiedCount++;
       unclassifiedOemSet.add(name);
@@ -2749,14 +2772,25 @@ export function analyzeVolumeComparability(
 
   const retailOems = Array.from(retailOemSet);
   const wholesaleOems = Array.from(wholesaleOemSet);
+  const productionOems = Array.from(productionOemSet);
+  const registrationsOems = Array.from(registrationsOemSet);
   const unclassifiedOems = Array.from(unclassifiedOemSet);
   const otherOems = Array.from(otherOemSet);
 
   const hasRetail = retailCount > 0;
   const hasWholesale = wholesaleCount > 0;
-  const hasMixedKnown = hasRetail && hasWholesale;
+  const hasProduction = productionCount > 0;
+  const hasRegistrations = registrationsCount > 0;
+  const distinctKnownCategories =
+    (hasRetail ? 1 : 0) +
+    (hasWholesale ? 1 : 0) +
+    (hasProduction ? 1 : 0) +
+    (hasRegistrations ? 1 : 0) +
+    (otherCount > 0 ? 1 : 0);
+
+  const hasMixedKnown = distinctKnownCategories > 1;
   const hasUnclassified = unclassifiedCount > 0;
-  const knownTypesCount = (hasRetail ? 1 : 0) + (hasWholesale ? 1 : 0) + (otherCount > 0 ? 1 : 0);
+  const knownTypesCount = distinctKnownCategories;
 
   let warningType: VolumeComparabilityWarningType = 'none';
   let isFullyComparable = true;
@@ -2798,10 +2832,14 @@ export function analyzeVolumeComparability(
     totalCount: items.length,
     retailCount,
     wholesaleCount,
+    productionCount,
+    registrationsCount,
     unclassifiedCount,
     otherCount,
     retailOems,
     wholesaleOems,
+    productionOems,
+    registrationsOems,
     unclassifiedOems,
     otherOems,
     isFullyComparable,
@@ -2811,6 +2849,69 @@ export function analyzeVolumeComparability(
     warningMessageKo,
     warningMessageEn,
   };
+}
+
+export interface VolumeDefinitionLabel {
+  short: string;
+  full: string;
+}
+
+/**
+ * Returns consistent, unambiguous localized short and full labels for all supported VolumeDefinitions.
+ * Explicitly distinguishes retail, wholesale, production, registrations, and unclassified.
+ * Never defaults or falls back unclassified/production/registrations to wholesale.
+ */
+export function getVolumeDefinitionLabel(
+  def: VolumeDefinition | undefined,
+  lang: 'ko' | 'en' = 'en'
+): VolumeDefinitionLabel {
+  if (def === 'retail_deliveries') {
+    return {
+      short: lang === 'ko' ? '인도' : 'Retail',
+      full: lang === 'ko' ? '소매 인도' : 'Retail Deliveries',
+    };
+  }
+  if (def === 'wholesale_shipments') {
+    return {
+      short: lang === 'ko' ? '출하' : 'Wholesale',
+      full: lang === 'ko' ? '도매 출하' : 'Wholesale Shipments',
+    };
+  }
+  if (def === 'production') {
+    return {
+      short: lang === 'ko' ? '생산' : 'Production',
+      full: lang === 'ko' ? '생산량' : 'Production',
+    };
+  }
+  if (def === 'registrations') {
+    return {
+      short: lang === 'ko' ? '등록' : 'Registrations',
+      full: lang === 'ko' ? '신규 등록' : 'Registrations',
+    };
+  }
+  return {
+    short: lang === 'ko' ? '미분류' : 'Unclassified',
+    full: lang === 'ko' ? '미분류·미확인' : 'Unclassified',
+  };
+}
+
+/**
+ * Shared filter predicate for metric observations respecting volume definition filtering.
+ * Applies volume filtering ONLY to 'deliveries_global' observations.
+ * Non-volume metrics (e.g. revenue, operating_margin, bev_share) always pass through.
+ * In 'all' mode, all observations pass.
+ * When a specific definition is filtered (e.g. 'retail_deliveries' or 'wholesale_shipments'),
+ * observations with undefined or 'unknown' are NOT matched.
+ */
+export function matchesVolumeFilter(
+  obs: MetricObservation | undefined | null,
+  metricId: string,
+  filter: 'all' | VolumeDefinition
+): boolean {
+  if (!obs) return false;
+  if (metricId !== 'deliveries_global') return true;
+  if (filter === 'all') return true;
+  return obs.volumeDefinition === filter;
 }
 
 /**
