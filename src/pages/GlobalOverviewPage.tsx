@@ -436,7 +436,7 @@ export const GlobalOverviewPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-12">
       {/* Top Banner & KPI Headline */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden transition-colors">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-8 shadow-xl relative overflow-hidden transition-colors">
         <div className="relative z-10 max-w-4xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
             <ShieldCheck className="w-4 h-4" /> {t.global.badge}
@@ -450,40 +450,40 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
 
         {/* Global Summary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
-            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between min-w-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1 truncate">
               {t.global.coveredOems}
             </span>
-            <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
+            <span className="text-lg sm:text-xl font-bold font-mono text-slate-900 dark:text-slate-100 truncate">
               {selectedCompanies.length === companies.length
                 ? `${companies.length} ${language === 'ko' ? '개 완성차' : 'Global OEMs'}`
                 : `${selectedCompanies.length}/${companies.length} ${language === 'ko' ? '개 완성차' : 'OEMs'}`}
             </span>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
-            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between min-w-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1 truncate">
               {t.global.reportingPeriod}
             </span>
-            <span className="text-xl font-bold font-mono text-brand-600 dark:text-brand-400 truncate">
+            <span className="text-lg sm:text-xl font-bold font-mono text-brand-600 dark:text-brand-400 truncate">
               {formatPeriodLabel(selectedPeriod, language)}
             </span>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
-            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between min-w-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1 truncate">
               {t.global.salesLeader}
             </span>
-            <div className="flex items-baseline gap-1.5 flex-wrap">
+            <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">
               {salesLeader1 ? (
                 <>
-                  <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-lg sm:text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 truncate">
                     {salesLeader1.company.shortName}{' '}
                     {(salesLeader1.observation.value ?? 0) >= 1000
                       ? `${((salesLeader1.observation.value ?? 0) / 1000).toFixed(2)}M`
                       : `${Math.round(salesLeader1.observation.value ?? 0).toLocaleString()}k`}
                   </span>
                   {salesLeader2 && (
-                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate">
                       • {salesLeader2.company.shortName}{' '}
                       {(salesLeader2.observation.value ?? 0) >= 1000
                         ? `${((salesLeader2.observation.value ?? 0) / 1000).toFixed(2)}M`
@@ -496,18 +496,18 @@ export const GlobalOverviewPage: React.FC = () => {
               )}
             </div>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
-            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between min-w-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1 truncate">
               {t.global.marginLeader}
             </span>
-            <div className="flex items-baseline gap-1.5 flex-wrap">
+            <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">
               {marginLeader1 ? (
                 <>
-                  <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                  <span className="text-lg sm:text-xl font-bold font-mono text-amber-600 dark:text-amber-400 truncate">
                     {marginLeader1.company.shortName} {marginLeader1.observation.value}%
                   </span>
                   {marginLeader2 && (
-                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate">
                       • {marginLeader2.company.shortName} {marginLeader2.observation.value}%
                     </span>
                   )}
@@ -952,7 +952,7 @@ export const GlobalOverviewPage: React.FC = () => {
       </div>
 
       {/* SECTION 5: Dedicated Data Table Hub Card & Collapsible Terminal */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-brand-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 text-slate-900 dark:text-white rounded-2xl p-6 sm:p-7 shadow-md dark:shadow-xl border border-slate-200/90 dark:border-slate-700/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 transition-colors">
+      <div className="bg-gradient-to-r from-slate-50 via-white to-brand-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 text-slate-900 dark:text-white rounded-2xl p-4 sm:p-7 shadow-md dark:shadow-xl border border-slate-200/90 dark:border-slate-700/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 transition-colors">
         <div className="space-y-1.5 max-w-2xl">
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-brand-500/10 dark:bg-brand-500/20 text-brand-700 dark:text-brand-400 border border-brand-500/20 dark:border-brand-500/30">

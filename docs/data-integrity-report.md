@@ -2,8 +2,8 @@
 
 ## Audit Status
 
-**Commit:** f41662e5c9199bfa92feb330521d33a34aa222f7  
-**Generated:** 2026-10-30T08:21:22.850Z  
+**Commit:** 00efe3c9d36eb294c27833969e7f2e329fb33e26  
+**Generated:** 2026-10-30T09:42:07.072Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -54,6 +54,12 @@
 ### BYD Metric Semantics (2026-Q3)
 - Net profit attributable to shareholders (RMB 10,020M) is recorded as `net_income`.
 - Standalone Q3 operating profit is not separately reported under CASBE; operating income and derived operating margin are omitted to prevent invalid metric constructs.
+
+### Performance Driver Claim Validation Engine
+- Fail-Closed YoY Growth Recalculation: All 13 YoY growth claims strictly verified against resolved prior observations using `((current - prior) / |prior|) * 100` with 0.25% tolerance; missing comparison data fails closed with blocking error.
+- Mathematical Percentage-Point Validation: Percentage-point changes verified via `currentPercentage - priorPercentage` with 0.05%p tolerance.
+- Locator & Fixture Verification: Validates PDF page numbers and section references against available content fixtures and source metadata.
+- Bilingual Narrative Consistency: Resolves Korean and English references and verifies absence of numeric/directional discrepancies.
 
 ### Finding Dispositions
 

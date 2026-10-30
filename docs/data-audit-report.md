@@ -1,8 +1,8 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-10-30T08:21:22.850Z  
-**Audited Source Commit SHA**: f41662e5c9199bfa92feb330521d33a34aa222f7  
+**Generated At**: 2026-10-30T09:42:07.072Z  
+**Audited Source Commit SHA**: 00efe3c9d36eb294c27833969e7f2e329fb33e26  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -38,12 +38,17 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | **Documented Exceptions** | **0** | Strict evidence requirement enforced |
 | **Informational Corroborations** | **0** | No unverified cross-source duplicates |
 
-### 1.1 Four-Pillar Verification Architecture & Audit Classification
-The AutoMetrics audit engine strictly segregates validation results into four autonomous verification pillars:
-1. **Observation & Source-Claim Validation**: Validates all primary numeric observations (`MetricObservation`) against officially filed source claims (`SourceClaim`) across metric ID, calendar period, cadence, value tolerance, and accounting perimeter. (Status: 100% matched, 0 mismatches).
-2. **Source-Document & Provenance Validation**: Validates all primary source documents (`SourceDocument`) for valid company foreign keys, reporting period alignment, verified HTTPS URLs, page locators, and deterministic cryptographic fixtures (`SHA-256`). (Status: 0 blocking errors).
-3. **Narrative-Claim Validation (Performance Drivers)**: Audits qualitative and quantitative management commentary in `PERFORMANCE_DRIVERS` against structured primary claims (`StructuredPerformanceClaim`), rejecting unverified causal statements, preventing silent period fallback, and verifying exact locators. (Status: 0 narrative contradictions).
-4. **Findings Requiring Human Review (Scope Proxies)**: Explicitly enumerates legitimate reporting perimeter divergences where headline margin KPIs are reported at segment level while the accessible operating profit numerator is at consolidated group level (8 proxy items across BMW Group and Mercedes-Benz Group, strictly quarantined as `proxy_only` with `disposition: review`).
+### 1.1 Multi-Layer Verification Architecture & Audit Capabilities
+The AutoMetrics audit engine strictly distinguishes 9 distinct verification and validation capabilities:
+1. **Schema & Metadata Validation**: All entity identifiers, metric definitions, and source document relations are validated for foreign-key integrity, period alignment, and non-empty metadata.
+2. **Observation-to-Claim Numerical Validation**: Structured claims in performance drivers are matched to registered primary observations across metric ID, value tolerance (<0.01), unit, currency, and reporting scope.
+3. **Fail-Closed YoY Growth Recalculation**: Every YoY growth rate claim requires a valid comparison period and strictly resolves both current and prior-period observations. The growth rate is recalculated using `((current - prior) / |prior|) * 100` with a 0.25% tolerance. Missing, null, zero, or ambiguous comparison observations fail closed with blocking errors.
+4. **Percentage-Point Mathematical Difference Validation**: Percentage-point change claims (`changeYoYPercentagePoints`) are strictly verified via arithmetic difference `currentPercentage - comparisonPercentage` against 0.05%p tolerance, preventing semantic confusion with percentage growth rates.
+5. **Locator Validation Against Available Evidence**: PDF page numbers and web section references are validated against source metadata and available content fixtures. Claims referencing non-existent sections or fabricated locators are rejected.
+6. **Numeric Source-Evidence Validation**: Claims bound to cryptographic SHA-256 content fixtures require finite numeric values matching the verified fixture payload within unit-aware tolerances.
+7. **Semantic Source-Evidence Review**: Distinguishes verified quantitative disclosures from causal management explanations. Causal assertions not backed by authoritative sources require human review.
+8. **Bilingual Narrative Consistency Validation**: Korean and English performance-driver texts are checked for exact reference resolution, directional alignment, and numeric rate consistency, rejecting cross-language discrepancies.
+9. **Offline Fixture vs. Live Retrieval Separation**: Separates offline repository test fixtures (`fixture_verified`) from live HTTP retrieval (`live_source_verified`), preventing offline fixtures from being mischaracterized as live online network requests.
 
 ---
 
@@ -137,8 +142,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `f41662e5c9199bfa92feb330521d33a34aa222f7`
-- **Generated at**: `2026-10-30T08:21:22.850Z`
+- **Audited Source Commit SHA**: `00efe3c9d36eb294c27833969e7f2e329fb33e26`
+- **Generated at**: `2026-10-30T09:42:07.072Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

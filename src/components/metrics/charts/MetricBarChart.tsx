@@ -47,7 +47,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
         <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 whitespace-nowrap">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 break-words sm:whitespace-nowrap">
                 {title}
               </h3>
               <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">
@@ -113,7 +113,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
       <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 whitespace-nowrap">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 break-words sm:whitespace-nowrap">
               {title}
             </h3>
             <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">

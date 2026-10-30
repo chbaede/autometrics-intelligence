@@ -23,6 +23,7 @@ import {
   getPeriodSortWeight,
   formatMetricValue,
   formatPeriodLabel,
+  validatePerformanceClaim,
 } from '../src/utils/metricCalculations';
 import { formatLocalizedProfit } from '../src/utils/currencyUtils';
 
@@ -399,50 +400,147 @@ function validateHyundaiClaims(revGrowth: number, volGrowth: number, hevGrowth: 
 assert(validateHyundaiClaims(-3.4, -11.3, 3.8) === true, 'Negative Guard: Official Hyundai figures pass');
 assert(validateHyundaiClaims(4.7, -11.3, 40.0) === false, 'Negative Guard: Fabricated +4.7% rev / +40% HEV growth is correctly REJECTED');
 
-// Negative Guard: Check that invalid claim configurations fail structured claim audit rules
-function auditSingleClaimFixture(fixture: any, driverFixture: any): string[] {
-  const issues: string[] = [];
-  if (!fixture.claimId) issues.push('missing claimId');
-  if (fixture.companyId !== driverFixture.companyId) issues.push('companyId mismatch');
-  if (fixture.period !== driverFixture.period) issues.push('period mismatch');
-  if (!fixture.sourceLocator || fixture.sourceLocator.trim() === '') issues.push('missing sourceLocator');
-  if (!fixture.verifiedEvidence || fixture.verifiedEvidence.trim() === '') issues.push('missing verifiedEvidence');
-  if (fixture.narrativeRefKo && !driverFixture.summaryKo.includes(fixture.narrativeRefKo)) issues.push('unresolving narrativeRefKo');
-  if (fixture.growthRateYoY !== undefined && fixture.changeYoYPercentagePoints !== undefined) issues.push('percentage point semantic conflict');
-  return issues;
-}
+// Suite 9b.2: Direct Production Validation Engine Testing (Negative & Fail-Closed Guards)
+// All tests call the real production `validatePerformanceClaim` implementation directly.
+const prodHyundaiDriver = getPerformanceDriver('hyundai_motor', '2026-Q3')!;
+const validSampleClaim = prodHyundaiDriver.structuredClaims![0]; // hmc_2026_q3_claim_wholesale
+const validHevShareClaim = prodHyundaiDriver.structuredClaims!.find(
+  (c) => c.claimId === 'hmc_2026_q3_claim_hev_share'
+)!;
 
-const validSampleClaim = {
-  claimId: 'test_claim_valid',
-  companyId: 'hyundai_motor',
-  period: '2026-Q3',
-  sourceLocator: '보도자료 요약',
-  verifiedEvidence: 'HMC Q3 2026 Release',
-  narrativeRefKo: '글로벌 도매 920,710대(-11.3% YoY)',
-};
-const dummyDriver = {
-  companyId: 'hyundai_motor',
-  period: '2026-Q3',
+// Positive Guard: Real production claims pass with 0 findings
+const validClaimFindings = validatePerformanceClaim(validSampleClaim, prodHyundaiDriver);
+assert(
+  validClaimFindings.length === 0,
+  'Production Validation: Real production claim fixture passes with 0 issues',
+  validClaimFindings.map((f) => f.detail).join('; ')
+);
+
+const validHevShareFindings = validatePerformanceClaim(validHevShareClaim, prodHyundaiDriver);
+assert(
+  validHevShareFindings.length === 0,
+  'Production Validation: Real HEV share percentage-point claim passes with 0 issues',
+  validHevShareFindings.map((f) => f.detail).join('; ')
+);
+
+// 1. Mandatory Negative Test: YoY growth claim with no comparison period
+const claimNoCompPeriod = { ...validSampleClaim, comparisonPeriod: undefined };
+const fNoCompPeriod = validatePerformanceClaim(claimNoCompPeriod, prodHyundaiDriver);
+assert(
+  fNoCompPeriod.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('lacks comparisonPeriod')),
+  'Mandatory Negative Guard 1: YoY growth claim lacking comparisonPeriod is rejected (fail-closed)'
+);
+
+// 2. Mandatory Negative Test: YoY growth claim with no prior-period observation
+const claimNoPriorObs = { ...validSampleClaim, comparisonPeriod: '2021-Q3' };
+const fNoPriorObs = validatePerformanceClaim(claimNoPriorObs, prodHyundaiDriver);
+assert(
+  fNoPriorObs.some((f) => f.category === 'CALCULATION_DISCREPANCY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('comparison observation missing')),
+  'Mandatory Negative Guard 2: Missing prior-period observation is rejected (fail-closed)'
+);
+
+// 3. Mandatory Negative Test: YoY growth claim with an incorrect numerical rate
+const claimBadRate = { ...validSampleClaim, growthRateYoY: 25.0 };
+const fBadRate = validatePerformanceClaim(claimBadRate, prodHyundaiDriver);
+assert(
+  fBadRate.some((f) => f.category === 'CALCULATION_DISCREPANCY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('diverges from calculated growth rate')),
+  'Mandatory Negative Guard 3: Incorrect YoY growth rate is rejected with CALCULATION_DISCREPANCY'
+);
+
+// 4. Mandatory Negative Test: YoY growth claim with an incompatible unit or reporting scope
+const claimBadUnit = { ...validSampleClaim, unit: 'percentage' as any };
+const fBadUnit = validatePerformanceClaim(claimBadUnit, prodHyundaiDriver);
+assert(
+  fBadUnit.some((f) => f.category === 'SCOPE_MISMATCH' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('contradicts observation unit')),
+  'Mandatory Negative Guard 4: Incompatible observation unit is rejected with SCOPE_MISMATCH'
+);
+
+// 5. Mandatory Negative Test: Percentage-point claim with an incorrect numerical difference
+const claimBadPpDiff = { ...validHevShareClaim, changeYoYPercentagePoints: 9.9 };
+const fBadPpDiff = validatePerformanceClaim(claimBadPpDiff, prodHyundaiDriver);
+assert(
+  fBadPpDiff.some((f) => f.category === 'CALCULATION_DISCREPANCY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('diverges from calculated change')),
+  'Mandatory Negative Guard 5: Incorrect percentage-point change is rejected with CALCULATION_DISCREPANCY'
+);
+
+// 6. Mandatory Negative Test: Claim referencing a nonexistent source document
+const claimNonexistentDoc = { ...validSampleClaim, sourceDocId: 'nonexistent_annual_report_doc' };
+const fNonexistentDoc = validatePerformanceClaim(claimNonexistentDoc, prodHyundaiDriver);
+assert(
+  fNonexistentDoc.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('does not exist in SOURCES_MAP')),
+  'Mandatory Negative Guard 6: Nonexistent source document ID is rejected with SOURCE_CLAIM_INTEGRITY'
+);
+
+// 7. Mandatory Negative Test: Claim referencing a nonexistent locator when source content is available
+const fixtureForLocator = [{ sourceDocId: validSampleClaim.sourceDocId, sectionLocator: '보도자료 요약' }];
+const claimBadLocator = { ...validSampleClaim, sourceLocator: 'NONEXISTENT_FINANCIAL_TABLE_REF' };
+const fBadLocator = validatePerformanceClaim(claimBadLocator, prodHyundaiDriver, { contentFixtures: fixtureForLocator });
+assert(
+  fBadLocator.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('does not resolve against available source content fixtures')),
+  'Mandatory Negative Guard 7: Nonexistent locator against available content is rejected'
+);
+
+// 8. Mandatory Negative Test: Claim with contradictory numeric evidence
+const fixtureContradictory = [
+  { sourceDocId: validSampleClaim.sourceDocId, verifiedMetricId: validSampleClaim.metricId, verifiedNumericValue: 999999 },
+];
+const fContradictory = validatePerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: fixtureContradictory });
+assert(
+  fContradictory.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('contradicts source content fixture verified value')),
+  'Mandatory Negative Guard 8: Contradictory numeric evidence fixture is rejected'
+);
+
+// 9. Mandatory Negative Test: Primary-observation claim with no corresponding observation
+const claimMissingObs = { ...validSampleClaim, metricId: 'completely_unrecorded_metric_id' };
+const fMissingObs = validatePerformanceClaim(claimMissingObs, prodHyundaiDriver);
+assert(
+  fMissingObs.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes("Claim categorized as 'primary_observation' but no matching observation was found")),
+  'Mandatory Negative Guard 9: Primary observation claim without matching observation fails closed'
+);
+
+// 10. Mandatory Negative Test: Ambiguous matching observations
+const mockAmbiguousObs: any[] = [
+  { id: 'mock_1', companyId: 'hyundai_motor', period: '2026-Q3', periodType: 'quarterly', calendarYear: 2026, valueType: 'reported', metricId: 'deliveries_global', value: 920.71, unit: 'thousand_units', isComparable: true },
+  { id: 'mock_2', companyId: 'hyundai_motor', period: '2026-Q3', periodType: 'quarterly', calendarYear: 2026, valueType: 'reported', metricId: 'deliveries_global', value: 920.71, unit: 'thousand_units', isComparable: true },
+];
+const fAmbiguous = validatePerformanceClaim(validSampleClaim, prodHyundaiDriver, { observations: mockAmbiguousObs });
+assert(
+  fAmbiguous.some((f) => f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('Ambiguous matching observations')),
+  'Mandatory Negative Guard 10: Multiple ambiguous candidate observations are rejected (fail-closed)'
+);
+
+// 11. Mandatory Negative Test: Narrative reference that no longer resolves
+const claimStaleNarrative = { ...validSampleClaim, narrativeRefKo: '이 문구는 본문 어디에도 없는 가짜 서술문입니다' };
+const fStaleNarrative = validatePerformanceClaim(claimStaleNarrative, prodHyundaiDriver);
+assert(
+  fStaleNarrative.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('cannot be found in the Korean headline')),
+  'Mandatory Negative Guard 11: Stale unresolving narrative reference is rejected'
+);
+
+// 12. Mandatory Negative Test: Material Korean/English numeric discrepancy
+const dummyDriverBilingual = {
+  ...prodHyundaiDriver,
   summaryKo: '글로벌 도매 920,710대(-11.3% YoY)를 기록했습니다.',
+  summaryEn: 'Recorded 920,710 global wholesale units (+25.0% YoY).',
 };
+const claimDiscrepancy = {
+  ...validSampleClaim,
+  narrativeRefKo: '글로벌 도매 920,710대(-11.3% YoY)',
+  narrativeRefEn: '920,710 global wholesale units (+25.0% YoY)',
+};
+const fDiscrepancy = validatePerformanceClaim(claimDiscrepancy, dummyDriverBilingual);
+assert(
+  fDiscrepancy.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('Material discrepancy between Korean narrative')),
+  'Mandatory Negative Guard 12: Material bilingual numeric/directional discrepancy is caught and rejected'
+);
 
-assert(auditSingleClaimFixture(validSampleClaim, dummyDriver).length === 0, 'Negative Guard: Valid claim fixture passes with 0 issues');
-
-// Period mismatch negative test
-const periodMismatchClaim = { ...validSampleClaim, period: '2026-Q2' };
-assert(auditSingleClaimFixture(periodMismatchClaim, dummyDriver).includes('period mismatch'), 'Negative Guard: Period mismatch is caught');
-
-// Missing locator negative test
-const missingLocatorClaim = { ...validSampleClaim, sourceLocator: '' };
-assert(auditSingleClaimFixture(missingLocatorClaim, dummyDriver).includes('missing sourceLocator'), 'Negative Guard: Missing locator is caught');
-
-// Unresolving narrative reference negative test
-const unresolvingRefClaim = { ...validSampleClaim, narrativeRefKo: '존재하지 않는 가짜 문장' };
-assert(auditSingleClaimFixture(unresolvingRefClaim, dummyDriver).includes('unresolving narrativeRefKo'), 'Negative Guard: Unresolving narrativeRef is caught');
-
-// Percentage points conflict negative test
-const ppConflictClaim = { ...validSampleClaim, growthRateYoY: 2.7, changeYoYPercentagePoints: 2.7 };
-assert(auditSingleClaimFixture(ppConflictClaim, dummyDriver).includes('percentage point semantic conflict'), 'Negative Guard: Percentage point conflict is caught');
+// Additional Negative Test: Percentage-point semantic conflict (specifying both rate and pp)
+const claimSemanticConflict = { ...validSampleClaim, growthRateYoY: 2.7, changeYoYPercentagePoints: 2.7 };
+const fSemanticConflict = validatePerformanceClaim(claimSemanticConflict, prodHyundaiDriver);
+assert(
+  fSemanticConflict.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('Percentage metrics must use percentage points only')),
+  'Negative Guard: Percentage point semantic conflict (growthRateYoY + changeYoYPercentagePoints) is rejected'
+);
 
 function validateVwQ3Disaggregation(narrative: string): boolean {
   const containsFabricatedQ3Porsche = narrative.includes('€4.9B') && narrative.includes('Porsche');

@@ -161,7 +161,7 @@ export const CompanyDashboardPage: React.FC = () => {
       </div>
 
       {/* OEM Header Dossier Banner */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-8 shadow-xl space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
@@ -218,36 +218,36 @@ export const CompanyDashboardPage: React.FC = () => {
         </div>
 
         {/* Corporate Metadata Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs font-mono">
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs font-mono">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 min-w-0">
+            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold truncate">
               {language === 'ko' ? '본사 소재지' : 'Headquarters'}
             </span>
-            <span className="text-slate-900 dark:text-slate-200 font-bold">
+            <span className="text-slate-900 dark:text-slate-200 font-bold block truncate">
               {currentCompany.hqCity}, {currentCompany.hqCountry}
             </span>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 min-w-0">
+            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold truncate">
               {language === 'ko' ? '공시 통화' : 'Reporting Currency'}
             </span>
-            <span className="text-slate-900 dark:text-slate-200 font-bold">
+            <span className="text-slate-900 dark:text-slate-200 font-bold block truncate">
               {currentCompany.reportingCurrency} ({getCurrencySymbol(currentCompany.reportingCurrency)})
             </span>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 min-w-0">
+            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold truncate">
               {language === 'ko' ? '상장 거래소' : 'Stock Exchange'}
             </span>
-            <span className="text-slate-900 dark:text-slate-200 font-bold">
+            <span className="text-slate-900 dark:text-slate-200 font-bold block truncate">
               {currentCompany.stockExchange || 'Public OEM'}
             </span>
           </div>
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold">
+          <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 min-w-0">
+            <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold truncate">
               {language === 'ko' ? '결산월' : 'Fiscal Year End'}
             </span>
-            <span className="text-slate-900 dark:text-slate-200 font-bold">
+            <span className="text-slate-900 dark:text-slate-200 font-bold block truncate">
               {currentCompany.fiscalYearEnd}
             </span>
           </div>
@@ -337,14 +337,14 @@ export const CompanyDashboardPage: React.FC = () => {
 
       {/* Headline KPI Cards for Active Period */}
       <div>
-        <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider font-mono">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 px-1 gap-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider font-mono truncate">
               {formatPeriodLabel(activePeriod, language)} {language === 'ko' ? '공시 실적 헤드라인' : 'Reported Headline KPIs'}
             </h3>
           </div>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
             {language === 'ko' ? '카드를 클릭하면 공식 출처와 감사 근거가 열립니다' : 'Click any card to inspect official provenance'}
           </span>
         </div>
@@ -353,24 +353,24 @@ export const CompanyDashboardPage: React.FC = () => {
           {/* Sales Deliveries */}
           <div
             onClick={() => periodDel && setActiveProvenanceObs(periodDel)}
-            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between min-w-0"
           >
             <div>
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
                 <span className="text-xs font-semibold">
                   {language === 'ko' ? '글로벌 판매량 / 인도량' : 'Global Deliveries'}
                 </span>
-                <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
               </div>
               <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">
                 {periodDel?.value ? formatMetricValue(periodDel.value, 'thousand_units') : '-'}
               </div>
             </div>
-            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <span className="truncate max-w-[140px]">
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1 min-w-0">
+              <span className="truncate min-w-0 flex-1 mr-1">
                 {periodDel?.originalLabel || (language === 'ko' ? '완성차 인도량' : 'Vehicle Deliveries')}
               </span>
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold">
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold shrink-0">
                 {getVolumeDefinitionLabel(periodDel?.volumeDefinition, language).full}
               </span>
             </div>
@@ -379,14 +379,14 @@ export const CompanyDashboardPage: React.FC = () => {
           {/* Revenue */}
           <div
             onClick={() => periodRev && setActiveProvenanceObs(periodRev)}
-            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between min-w-0"
           >
             <div>
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
                 <span className="text-xs font-semibold">
                   {language === 'ko' ? '연결 매출액' : 'Consolidated Revenue'}
                 </span>
-                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               </div>
               <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
                 {periodRev?.value
@@ -394,9 +394,9 @@ export const CompanyDashboardPage: React.FC = () => {
                   : '-'}
               </div>
             </div>
-            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <span>{currentCompany.reportingCurrency}</span>
-              <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1 min-w-0">
+              <span className="shrink-0">{currentCompany.reportingCurrency}</span>
+              <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold truncate text-right">
                 {formatLocalizedProfit(periodRev?.value, currentCompany.reportingCurrency, language)}
               </span>
             </div>
@@ -408,7 +408,7 @@ export const CompanyDashboardPage: React.FC = () => {
               if (periodIncome) setActiveProvenanceObs(periodIncome);
               else if (periodNetIncome) setActiveProvenanceObs(periodNetIncome);
             }}
-            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between min-w-0"
           >
             <div>
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
@@ -417,7 +417,7 @@ export const CompanyDashboardPage: React.FC = () => {
                     ? language === 'ko' ? '당기순이익 (CASBE)' : 'Net Profit (CASBE)'
                     : language === 'ko' ? '영업이익 (EBIT)' : 'Operating Profit (EBIT)'}
                 </span>
-                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               </div>
               <div
                 className={`text-2xl font-bold font-mono transition ${
@@ -433,11 +433,11 @@ export const CompanyDashboardPage: React.FC = () => {
                   : '-'}
               </div>
             </div>
-            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <span className="truncate max-w-[140px]">
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1 min-w-0">
+              <span className="truncate min-w-0 flex-1 mr-1">
                 {periodIncome?.originalLabel || periodNetIncome?.originalLabel || (isBydQ3 ? 'Net profit attributable' : 'Operating profit')}
               </span>
-              <span className="font-mono text-[10px] font-semibold text-brand-600 dark:text-brand-400">
+              <span className="font-mono text-[10px] font-semibold text-brand-600 dark:text-brand-400 shrink-0">
                 {isBydQ3 ? 'PRC GAAP' : periodIncome?.accountingBasis === 'adjusted' ? 'Non-GAAP' : 'IFRS'}
               </span>
             </div>
@@ -446,7 +446,7 @@ export const CompanyDashboardPage: React.FC = () => {
           {/* Operating Margin / Net Margin */}
           <div
             onClick={() => periodMargin && setActiveProvenanceObs(periodMargin)}
-            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between min-w-0"
           >
             <div>
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
@@ -455,7 +455,7 @@ export const CompanyDashboardPage: React.FC = () => {
                     ? language === 'ko' ? '순이익률 (Net Margin)' : 'Net Profit Margin'
                     : language === 'ko' ? '영업이익률 (RoS)' : 'Operating Margin (RoS)'}
                 </span>
-                <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               </div>
               <div
                 className={`text-2xl font-bold font-mono transition ${
@@ -471,9 +471,9 @@ export const CompanyDashboardPage: React.FC = () => {
                   : '-'}
               </div>
             </div>
-            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <span>{isBydQ3 ? 'Net Profit / Revenue' : 'Operating EBIT / Revenue'}</span>
-              <span className="font-mono text-[10px] font-semibold">
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1 min-w-0">
+              <span className="truncate min-w-0 flex-1 mr-1">{isBydQ3 ? 'Net Profit / Revenue' : 'Operating EBIT / Revenue'}</span>
+              <span className="font-mono text-[10px] font-semibold shrink-0">
                 {(periodMargin?.value ?? bydNetMargin ?? 0) >= 8.0
                   ? '🌟 Top Tier'
                   : (periodMargin?.value ?? bydNetMargin ?? 0) < 0
@@ -486,24 +486,24 @@ export const CompanyDashboardPage: React.FC = () => {
           {/* BEV Share */}
           <div
             onClick={() => periodBev && setActiveProvenanceObs(periodBev)}
-            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between min-w-0"
           >
             <div>
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
                 <span className="text-xs font-semibold">
                   {language === 'ko' ? '전기차(BEV) 점유율' : 'BEV Share'}
                 </span>
-                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               </div>
               <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
                 {periodBev?.value ? formatMetricValue(periodBev.value, 'percentage') : '-'}
               </div>
             </div>
-            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <span className="truncate max-w-[140px]">
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1 min-w-0">
+              <span className="truncate min-w-0 flex-1 mr-1">
                 {periodBev?.originalLabel || (language === 'ko' ? '순수 전기차 비중' : 'All-Electric Share')}
               </span>
-              <span className="font-mono text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="font-mono text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
                 {periodBev?.value ? `${periodBev.value.toFixed(1)}%` : '-'}
               </span>
             </div>
@@ -523,7 +523,7 @@ export const CompanyDashboardPage: React.FC = () => {
 
       {/* OFFICIAL PERFORMANCE DRIVERS & MANAGEMENT COMMENTARY */}
       {performanceDriver ? (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-7 shadow-md space-y-5">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-7 shadow-md space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <div className="flex items-center gap-2">
@@ -548,7 +548,7 @@ export const CompanyDashboardPage: React.FC = () => {
 
           {/* Headline & Executive Summary Box */}
           <div className="p-4 sm:p-5 rounded-xl bg-gradient-to-r from-brand-50/50 via-slate-50 to-white dark:from-brand-950/20 dark:via-slate-950/40 dark:to-slate-900 border border-brand-200/60 dark:border-brand-900/40 space-y-2">
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 break-words">
               <Sparkles className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
               <span>{language === 'ko' ? performanceDriver.headlineKo : performanceDriver.headlineEn}</span>
             </h3>
@@ -569,11 +569,11 @@ export const CompanyDashboardPage: React.FC = () => {
                   {language === 'ko' ? '1차 공시 문서 대조 완료' : 'Reconciled with IR filings'}
                 </span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {performanceDriver.structuredClaims.map((claim, idx) => (
                   <div
                     key={idx}
-                    className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between"
+                    className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between min-w-0"
                   >
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                       {language === 'ko' ? claim.metricLabelKo : claim.metricLabelEn}
@@ -623,7 +623,7 @@ export const CompanyDashboardPage: React.FC = () => {
             {performanceDriver.drivers.map((driver, idx) => (
               <div
                 key={idx}
-                className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between"
+                className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between min-w-0 break-words"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -813,7 +813,7 @@ export const CompanyDashboardPage: React.FC = () => {
       </div>
 
       {/* Dynamic Metric Explorer */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-md space-y-6">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-md space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -933,7 +933,7 @@ export const CompanyDashboardPage: React.FC = () => {
       </div>
 
       {/* Official IR Source Documents Section */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-md space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-md space-y-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <FileText className="w-5 h-5 text-brand-600 dark:text-brand-400" />

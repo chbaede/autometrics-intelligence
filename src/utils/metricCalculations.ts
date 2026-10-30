@@ -3754,3 +3754,13 @@ export function validateSourceContentFixtures(
   };
 }
 
+// Re-export performance claim audit functions and types
+export {
+  validatePerformanceClaim,
+  auditPerformanceDrivers,
+  getDefaultAuditObservations,
+  type PerformanceClaimAuditFinding,
+  type ValidatePerformanceClaimOptions,
+} from './performanceClaimAudit';
+
+

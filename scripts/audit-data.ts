@@ -33,6 +33,7 @@ import {
   detectHistoricalValueReuse,
   validateSourceClaims,
   validateSourceContentFixtures,
+  validatePerformanceClaim,
   MarginValidationOptions,
 } from '../src/utils/metricCalculations';
 import { AuditFinding, PeriodType, AuditReportData } from '../src/types/metrics';
@@ -117,6 +118,12 @@ export function generateDataIntegrityReport(data: AuditReportData): string {
 - Net profit attributable to shareholders (RMB 10,020M) is recorded as \`net_income\`.
 - Standalone Q3 operating profit is not separately reported under CASBE; operating income and derived operating margin are omitted to prevent invalid metric constructs.
 
+### Performance Driver Claim Validation Engine
+- Fail-Closed YoY Growth Recalculation: All 13 YoY growth claims strictly verified against resolved prior observations using \`((current - prior) / |prior|) * 100\` with 0.25% tolerance; missing comparison data fails closed with blocking error.
+- Mathematical Percentage-Point Validation: Percentage-point changes verified via \`currentPercentage - priorPercentage\` with 0.05%p tolerance.
+- Locator & Fixture Verification: Validates PDF page numbers and section references against available content fixtures and source metadata.
+- Bilingual Narrative Consistency: Resolves Korean and English references and verifies absence of numeric/directional discrepancies.
+
 ### Finding Dispositions
 
 | Category | Count | Strict Fails? |
@@ -186,12 +193,17 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | **Documented Exceptions** | **${data.findings.documented}** | Strict evidence requirement enforced |
 | **Informational Corroborations** | **${data.findings.informational}** | No unverified cross-source duplicates |
 
-### 1.1 Four-Pillar Verification Architecture & Audit Classification
-The AutoMetrics audit engine strictly segregates validation results into four autonomous verification pillars:
-1. **Observation & Source-Claim Validation**: Validates all primary numeric observations (\`MetricObservation\`) against officially filed source claims (\`SourceClaim\`) across metric ID, calendar period, cadence, value tolerance, and accounting perimeter. (Status: 100% matched, 0 mismatches).
-2. **Source-Document & Provenance Validation**: Validates all primary source documents (\`SourceDocument\`) for valid company foreign keys, reporting period alignment, verified HTTPS URLs, page locators, and deterministic cryptographic fixtures (\`SHA-256\`). (Status: 0 blocking errors).
-3. **Narrative-Claim Validation (Performance Drivers)**: Audits qualitative and quantitative management commentary in \`PERFORMANCE_DRIVERS\` against structured primary claims (\`StructuredPerformanceClaim\`), rejecting unverified causal statements, preventing silent period fallback, and verifying exact locators. (Status: 0 narrative contradictions).
-4. **Findings Requiring Human Review (Scope Proxies)**: Explicitly enumerates legitimate reporting perimeter divergences where headline margin KPIs are reported at segment level while the accessible operating profit numerator is at consolidated group level (8 proxy items across BMW Group and Mercedes-Benz Group, strictly quarantined as \`proxy_only\` with \`disposition: review\`).
+### 1.1 Multi-Layer Verification Architecture & Audit Capabilities
+The AutoMetrics audit engine strictly distinguishes 9 distinct verification and validation capabilities:
+1. **Schema & Metadata Validation**: All entity identifiers, metric definitions, and source document relations are validated for foreign-key integrity, period alignment, and non-empty metadata.
+2. **Observation-to-Claim Numerical Validation**: Structured claims in performance drivers are matched to registered primary observations across metric ID, value tolerance (<0.01), unit, currency, and reporting scope.
+3. **Fail-Closed YoY Growth Recalculation**: Every YoY growth rate claim requires a valid comparison period and strictly resolves both current and prior-period observations. The growth rate is recalculated using \`((current - prior) / |prior|) * 100\` with a 0.25% tolerance. Missing, null, zero, or ambiguous comparison observations fail closed with blocking errors.
+4. **Percentage-Point Mathematical Difference Validation**: Percentage-point change claims (\`changeYoYPercentagePoints\`) are strictly verified via arithmetic difference \`currentPercentage - comparisonPercentage\` against 0.05%p tolerance, preventing semantic confusion with percentage growth rates.
+5. **Locator Validation Against Available Evidence**: PDF page numbers and web section references are validated against source metadata and available content fixtures. Claims referencing non-existent sections or fabricated locators are rejected.
+6. **Numeric Source-Evidence Validation**: Claims bound to cryptographic SHA-256 content fixtures require finite numeric values matching the verified fixture payload within unit-aware tolerances.
+7. **Semantic Source-Evidence Review**: Distinguishes verified quantitative disclosures from causal management explanations. Causal assertions not backed by authoritative sources require human review.
+8. **Bilingual Narrative Consistency Validation**: Korean and English performance-driver texts are checked for exact reference resolution, directional alignment, and numeric rate consistency, rejecting cross-language discrepancies.
+9. **Offline Fixture vs. Live Retrieval Separation**: Separates offline repository test fixtures (\`fixture_verified\`) from live HTTP retrieval (\`live_source_verified\`), preventing offline fixtures from being mischaracterized as live online network requests.
 
 ---
 
@@ -977,206 +989,18 @@ export function collectAuditFindings(): CollectedAuditResults {
       }
     }
 
-    // Audit each structured claim against registered observations and evidence locators
+    // Audit each structured claim against registered observations and evidence locators via production validator
     if (driver.structuredClaims) {
       for (const claim of driver.structuredClaims) {
-        if (!claim.claimId) {
+        const claimFindings = validatePerformanceClaim(claim, driver);
+        for (const cf of claimFindings) {
           findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'SOURCE_CLAIM_INTEGRITY',
-            item: `PerformanceClaim: ${driver.companyId} (${driver.period}) - ${claim.metricId}`,
-            detail: `Structured claim missing required claimId.`,
+            severity: cf.severity,
+            disposition: cf.disposition,
+            category: cf.category,
+            item: cf.item,
+            detail: cf.detail,
           });
-        }
-        if (claim.companyId && claim.companyId !== driver.companyId) {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'SCOPE_MISMATCH',
-            item: `PerformanceClaim: ${claim.claimId}`,
-            detail: `Claim companyId '${claim.companyId}' does not match driver companyId '${driver.companyId}'.`,
-          });
-        }
-        if (claim.period && claim.period !== driver.period) {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'SOURCE_CLAIM_INTEGRITY',
-            item: `PerformanceClaim: ${claim.claimId}`,
-            detail: `Claim period '${claim.period}' does not match driver period '${driver.period}'.`,
-          });
-        }
-
-        // 1. Source Document Existence and Period Consistency
-        if (claim.sourceDocId) {
-          const claimDoc = SOURCES_MAP[claim.sourceDocId];
-          if (!claimDoc) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${claim.claimId}`,
-              detail: `SourceDocId '${claim.sourceDocId}' does not exist in SOURCES_MAP.`,
-            });
-          } else {
-            if (claimDoc.companyId !== driver.companyId) {
-              findings.push({
-                severity: 'ERROR',
-                disposition: 'blocking',
-                category: 'SCOPE_MISMATCH',
-                item: `PerformanceClaim: ${claim.claimId}`,
-                detail: `SourceDoc companyId '${claimDoc.companyId}' does not match claim companyId '${driver.companyId}'.`,
-              });
-            }
-            if (claimDoc.period !== driver.period) {
-              findings.push({
-                severity: 'ERROR',
-                disposition: 'blocking',
-                category: 'SOURCE_CLAIM_INTEGRITY',
-                item: `PerformanceClaim: ${claim.claimId}`,
-                detail: `SourceDoc period '${claimDoc.period}' does not match claim period '${driver.period}'.`,
-              });
-            }
-          }
-        }
-
-        // 2. Verified Evidence and Non-Invented Locator Validation
-        if (!claim.sourceLocator || claim.sourceLocator.trim() === '') {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'SOURCE_CLAIM_INTEGRITY',
-            item: `PerformanceClaim: ${claim.claimId}`,
-            detail: `Structured claim lacks required sourceLocator.`,
-          });
-        }
-        if (!claim.verifiedEvidence || claim.verifiedEvidence.trim() === '') {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'SOURCE_CLAIM_INTEGRITY',
-            item: `PerformanceClaim: ${claim.claimId}`,
-            detail: `Structured claim lacks required verifiedEvidence.`,
-          });
-        }
-
-        // 3. Primary Observation Matching vs Narrative Disclosures
-        const matchingObs = METRIC_OBSERVATIONS.find(
-          (o) => o.companyId === driver.companyId && o.period === driver.period && o.metricId === claim.metricId
-        );
-
-        if (!matchingObs) {
-          if (claim.claimCategory === 'primary_observation') {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${claim.claimId}`,
-              detail: `Claim categorized as 'primary_observation' but no matching observation was found for metric '${claim.metricId}' in ${driver.period}.`,
-            });
-          } else if (claim.claimCategory !== 'narrative_disclosure') {
-            // Uncategorized claim without observation
-            findings.push({
-              severity: 'WARNING',
-              disposition: 'review',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${driver.companyId} (${driver.period}) - ${claim.metricId}`,
-              detail: `Structured claim lacks primary observation and is not explicitly designated as 'narrative_disclosure'.`,
-            });
-          }
-        } else {
-          // Verify value, unit, and currency
-          const valueMatches =
-            matchingObs.value != null && Math.abs(matchingObs.value - claim.value) < 0.01;
-          const unitMatches = matchingObs.unit === claim.unit;
-          if (!valueMatches || !unitMatches) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${driver.companyId} (${driver.period}) - ${claim.metricId}`,
-              detail: `Structured claim value ${claim.value} (${claim.unit}) contradicts observation value ${matchingObs.value} (${matchingObs.unit}).`,
-            });
-          }
-          if (claim.currency && matchingObs.currency && claim.currency !== matchingObs.currency) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${claim.claimId}`,
-              detail: `Structured claim currency '${claim.currency}' contradicts observation currency '${matchingObs.currency}'.`,
-            });
-          }
-        }
-
-        // 4. Mathematical YoY Growth Rate Recalculation Check
-        if (claim.growthRateYoY !== undefined && claim.comparisonPeriod) {
-          const priorObs = METRIC_OBSERVATIONS.find(
-            (o) => o.companyId === driver.companyId && o.period === claim.comparisonPeriod && o.metricId === claim.metricId
-          );
-          if (priorObs && priorObs.value != null && priorObs.value !== 0 && matchingObs && matchingObs.value != null) {
-            const calculatedGrowth = ((matchingObs.value - priorObs.value) / Math.abs(priorObs.value)) * 100;
-            const diff = Math.abs(calculatedGrowth - claim.growthRateYoY);
-            // Allow 0.2% tolerance for rounding in corporate press releases (e.g. 11.83% vs 11.8%)
-            if (diff > 0.25) {
-              findings.push({
-                severity: 'ERROR',
-                disposition: 'blocking',
-                category: 'SOURCE_CLAIM_INTEGRITY',
-                item: `PerformanceClaim: ${claim.claimId}`,
-                detail: `Claimed YoY growth rate (${claim.growthRateYoY}%) diverges from calculated growth rate (${calculatedGrowth.toFixed(2)}%) between ${claim.comparisonPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
-              });
-            }
-          }
-        }
-
-        // 5. Percentage Point Change Validation for Share Metrics
-        if (claim.changeYoYPercentagePoints !== undefined && claim.comparisonPeriod) {
-          if (claim.growthRateYoY !== undefined) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${claim.claimId}`,
-              detail: `Claim specifies both changeYoYPercentagePoints and growthRateYoY. Percentage metrics must use percentage points only to prevent semantic confusion.`,
-            });
-          }
-        }
-
-        // 6. Narrative Reference Resolution and Integrity Check
-        const allNarrativeTextKo = [
-          driver.headlineKo,
-          driver.summaryKo,
-          ...driver.drivers.map((d) => `${d.titleKo} ${d.descriptionKo}`),
-        ].join(' ');
-        const allNarrativeTextEn = [
-          driver.headlineEn,
-          driver.summaryEn,
-          ...driver.drivers.map((d) => `${d.titleEn} ${d.descriptionEn}`),
-        ].join(' ');
-
-        if (claim.narrativeRefKo) {
-          if (!allNarrativeTextKo.includes(claim.narrativeRefKo)) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${claim.claimId}`,
-              detail: `narrativeRefKo "${claim.narrativeRefKo}" cannot be found in the Korean headline, summary, or driver text.`,
-            });
-          }
-        }
-        if (claim.narrativeRefEn) {
-          if (!allNarrativeTextEn.includes(claim.narrativeRefEn)) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: `PerformanceClaim: ${claim.claimId}`,
-              detail: `narrativeRefEn "${claim.narrativeRefEn}" cannot be found in the English headline, summary, or driver text.`,
-            });
-          }
         }
       }
     }

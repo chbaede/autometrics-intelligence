@@ -28,7 +28,7 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
   if (!data || data.length === 0) return null;
 
   return (
-    <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
+    <div className="p-3.5 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
         {/* Top: Icon + Title + Badge */}

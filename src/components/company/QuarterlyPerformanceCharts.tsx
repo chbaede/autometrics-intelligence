@@ -72,7 +72,7 @@ export const QuarterlyPerformanceCharts: React.FC<QuarterlyPerformanceChartsProp
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-md space-y-6">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 sm:p-6 shadow-md space-y-6">
       {/* Header with Title and Mode Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
         <div>
@@ -383,11 +383,11 @@ export const QuarterlyPerformanceCharts: React.FC<QuarterlyPerformanceChartsProp
 
                       {/* Status / Label note */}
                       {obs && (
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
-                          <span className="truncate max-w-[200px]">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 gap-1 min-w-0">
+                          <span className="truncate min-w-0 flex-1 mr-1">
                             {obs.originalLabel || (isNetProfit ? 'Net profit attributable' : 'Operating profit')}
                           </span>
-                          <span className="font-mono font-semibold">
+                          <span className="font-mono font-semibold shrink-0">
                             {isLoss ? (language === 'ko' ? '⚠️ 영업적자' : '⚠️ Operating Deficit') : (language === 'ko' ? '✅ 영업흑자' : '✅ Profitable')}
                           </span>
                         </div>

@@ -51,7 +51,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   if (!points || points.length === 0) {
     if (profitFilterMode === 'loss_only' && onProfitFilterModeChange) {
       return (
-        <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
+        <div className="p-3.5 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2.5 flex-wrap">
               <Layers className="w-5 h-5 text-brand-600 dark:text-brand-400 shrink-0" />
@@ -349,14 +349,14 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   });
 
   return (
-    <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-5">
+    <div className="p-3.5 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
         {/* Row 1: Title & Main Category on Left, Core Axis Indicators on Right */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 flex-wrap">
             <Layers className="w-5 h-5 text-brand-600 dark:text-brand-400 shrink-0" />
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap break-keep">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 break-words sm:whitespace-nowrap">
               {title}
             </h3>
             <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold border border-brand-500/20 whitespace-nowrap">
@@ -456,7 +456,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
               {subtitle}
             </p>
           )}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-mono whitespace-nowrap sm:ml-auto">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-mono break-words sm:ml-auto max-w-full">
             <span>
               {language === 'ko'
                 ? FX_BENCHMARK_METADATA.descriptionKo

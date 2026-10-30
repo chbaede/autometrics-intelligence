@@ -927,7 +927,7 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
         metricLabelEn: 'Passenger NEV Sales Volume',
         value: 1323.07,
         unit: 'thousand_units',
-        reportingScope: 'passenger_nev',
+        reportingScope: 'consolidated_group',
         comparisonPeriod: '2025-Q3',
         growthRateYoY: 17.2,
         sourceDocId: 'byd_2026_q3_interim',

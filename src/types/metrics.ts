@@ -183,6 +183,8 @@ export interface AuditFinding {
     | 'FIXTURE_INTEGRITY'
     | 'AMBIGUOUS_SELECTION'
     | 'PROVENANCE_INFO'
+    | 'CALCULATION_DISCREPANCY'
+    | 'PERIOD_ALIGNMENT'
     | 'UNCATEGORIZED';
 
   // ── Core identification (preferred for new findings) ──────────────────────
