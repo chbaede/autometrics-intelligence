@@ -27,6 +27,8 @@ import {
   auditStructuredPerformanceClaim,
 } from '../src/utils/metricCalculations';
 import { formatLocalizedProfit } from '../src/utils/currencyUtils';
+import { VerificationCommandResult } from '../src/types/metrics';
+import { renderIntegrityCommandResults, renderMarkdownCommandResults } from '../scripts/audit-data';
 
 let passed = 0;
 let failed = 0;
@@ -414,28 +416,94 @@ const validTeslaClaim = prodTeslaDriver.structuredClaims!.find(
   (c) => c.claimId === 'tsla_2026_q3_claim_deliveries'
 )!;
 
-// Positive Guard 1: Real production YoY growth claim passes with numeric_claim_verified
+// Positive Guard 1a: Real production YoY growth claim without fixture passes with observation_consistent
 const auditResultYoY = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver);
 assert(
-  auditResultYoY.isValid === true && auditResultYoY.verificationLevel === 'numeric_claim_verified',
-  'Positive Guard 1: Real production YoY claim passes with numeric_claim_verified',
+  auditResultYoY.isValid === true && auditResultYoY.verificationLevel === 'observation_consistent',
+  'Positive Guard 1a: Real production YoY claim passes with observation_consistent when matching observation without fixture',
   `level=${auditResultYoY.verificationLevel}, findings=${auditResultYoY.findings.map((f) => f.detail).join('; ')}`
 );
 
-// Positive Guard 2: Real production QoQ growth claim passes with numeric_claim_verified
+// Positive Guard 1b: Real production YoY growth claim with matching fixture passes with numeric_claim_verified
+const validYoYFixture = {
+  sourceDocId: validSampleClaim.sourceDocId,
+  sourceDocName: 'Hyundai Q3 2026 Earnings',
+  sectionLocator: validSampleClaim.sourceLocator,
+  extractedText: validSampleClaim.verifiedEvidence,
+  verifiedValue: String(validSampleClaim.value),
+  verifiedNumericValue: validSampleClaim.value,
+  verifiedMetricId: validSampleClaim.metricId,
+  verifiedUnit: validSampleClaim.unit as any,
+  supportType: 'reported_kpi' as const,
+  contentHash: 'mock_hash_for_test_yoy',
+};
+const auditResultYoYWithFixture = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+  contentFixtures: [validYoYFixture],
+});
+assert(
+  auditResultYoYWithFixture.isValid === true && auditResultYoYWithFixture.verificationLevel === 'numeric_claim_verified',
+  'Positive Guard 1b: Real production YoY claim with matching fixture passes with numeric_claim_verified',
+  `level=${auditResultYoYWithFixture.verificationLevel}, findings=${auditResultYoYWithFixture.findings.map((f) => f.detail).join('; ')}`
+);
+
+// Positive Guard 2a: Real production QoQ growth claim without fixture passes with observation_consistent
 const auditResultQoQ = auditStructuredPerformanceClaim(validTeslaClaim, prodTeslaDriver);
 assert(
-  auditResultQoQ.isValid === true && auditResultQoQ.verificationLevel === 'numeric_claim_verified',
-  'Positive Guard 2: Real production QoQ claim passes with numeric_claim_verified',
+  auditResultQoQ.isValid === true && auditResultQoQ.verificationLevel === 'observation_consistent',
+  'Positive Guard 2a: Real production QoQ claim passes with observation_consistent when matching observation without fixture',
   `level=${auditResultQoQ.verificationLevel}, findings=${auditResultQoQ.findings.map((f) => f.detail).join('; ')}`
 );
 
-// Positive Guard 3: Real production percentage-point claim passes with numeric_claim_verified
+// Positive Guard 2b: Real production QoQ growth claim with matching fixture passes with numeric_claim_verified
+const validQoQFixture = {
+  sourceDocId: validTeslaClaim.sourceDocId,
+  sourceDocName: 'Tesla Q3 2026 Update',
+  sectionLocator: validTeslaClaim.sourceLocator,
+  extractedText: validTeslaClaim.verifiedEvidence,
+  verifiedValue: String(validTeslaClaim.value),
+  verifiedNumericValue: validTeslaClaim.value,
+  verifiedMetricId: validTeslaClaim.metricId,
+  verifiedUnit: validTeslaClaim.unit as any,
+  supportType: 'reported_kpi' as const,
+  contentHash: 'mock_hash_for_test_qoq',
+};
+const auditResultQoQWithFixture = auditStructuredPerformanceClaim(validTeslaClaim, prodTeslaDriver, {
+  contentFixtures: [validQoQFixture],
+});
+assert(
+  auditResultQoQWithFixture.isValid === true && auditResultQoQWithFixture.verificationLevel === 'numeric_claim_verified',
+  'Positive Guard 2b: Real production QoQ claim with matching fixture passes with numeric_claim_verified',
+  `level=${auditResultQoQWithFixture.verificationLevel}, findings=${auditResultQoQWithFixture.findings.map((f) => f.detail).join('; ')}`
+);
+
+// Positive Guard 3a: Real production percentage-point claim without fixture passes with observation_consistent
 const auditResultPp = auditStructuredPerformanceClaim(validHevShareClaim, prodHyundaiDriver);
 assert(
-  auditResultPp.isValid === true && auditResultPp.verificationLevel === 'numeric_claim_verified',
-  'Positive Guard 3: Real production %p claim passes with numeric_claim_verified',
+  auditResultPp.isValid === true && auditResultPp.verificationLevel === 'observation_consistent',
+  'Positive Guard 3a: Real production %p claim passes with observation_consistent when matching observation without fixture',
   `level=${auditResultPp.verificationLevel}, findings=${auditResultPp.findings.map((f) => f.detail).join('; ')}`
+);
+
+// Positive Guard 3b: Real production percentage-point claim with matching fixture passes with numeric_claim_verified
+const validPpFixture = {
+  sourceDocId: validHevShareClaim.sourceDocId,
+  sourceDocName: 'Hyundai Q3 2026 Earnings',
+  sectionLocator: validHevShareClaim.sourceLocator,
+  extractedText: validHevShareClaim.verifiedEvidence,
+  verifiedValue: String(validHevShareClaim.value),
+  verifiedNumericValue: validHevShareClaim.value,
+  verifiedMetricId: validHevShareClaim.metricId,
+  verifiedUnit: validHevShareClaim.unit as any,
+  supportType: 'reported_kpi' as const,
+  contentHash: 'mock_hash_for_test_pp',
+};
+const auditResultPpWithFixture = auditStructuredPerformanceClaim(validHevShareClaim, prodHyundaiDriver, {
+  contentFixtures: [validPpFixture],
+});
+assert(
+  auditResultPpWithFixture.isValid === true && auditResultPpWithFixture.verificationLevel === 'numeric_claim_verified',
+  'Positive Guard 3b: Real production %p claim with matching fixture passes with numeric_claim_verified',
+  `level=${auditResultPpWithFixture.verificationLevel}, findings=${auditResultPpWithFixture.findings.map((f) => f.detail).join('; ')}`
 );
 
 // Negative Guard 1: YoY growth claim with no comparison period (fail-closed)
@@ -614,6 +682,371 @@ function validateVwQ3Disaggregation(narrative: string): boolean {
 }
 assert(validateVwQ3Disaggregation(vwDriver!.summaryEn) === true, 'Negative Guard: Disaggregated VW standalone figures pass');
 assert(validateVwQ3Disaggregation('Q3 operating loss caused by €4.9B Porsche impairment and €1.2B restructuring') === false, 'Negative Guard: Blended Q3 / 9M breakdown is correctly REJECTED');
+
+// --- Suite 9c: Live Source Verification Pipeline Guards (P1-1) ---
+console.log('\n--- Suite 9c: Live Source Verification Pipeline Guards ---');
+
+// Live Guard 1: isLiveSource: true alone without passing livePipelineResult emits review warning and does not produce live_source_verified
+const liveBoolAloneResult = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+  isLiveSource: true,
+});
+assert(
+  liveBoolAloneResult.verificationLevel !== 'live_source_verified' &&
+  liveBoolAloneResult.findings.some(
+    (f) => f.severity === 'WARNING' && f.detail.includes('isLiveSource boolean flag alone cannot establish live verification')
+  ),
+  'Live Guard 1: isLiveSource: true alone emits warning and cannot produce live_source_verified'
+);
+
+// Construct a valid baseline live pipeline result
+const mockLiveHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+const validLivePipelineResult: any = {
+  success: true,
+  verificationState: 'claim_verified',
+  officialSource: {
+    id: validSampleClaim.sourceDocId,
+    companyId: 'hyundai_motor',
+    url: 'https://www.hyundaimotorgroup.com/ko/news/hyundai-motor-company-2026-q3-earnings',
+    documentType: 'press_release',
+    reportingPeriod: '2026-Q3',
+    periodType: 'quarterly',
+    expectedContentType: 'text/html',
+    officialDomain: 'hyundaimotorgroup.com',
+    title: 'Hyundai Q3 2026 Results',
+  },
+  liveDocument: {
+    url: 'https://www.hyundaimotorgroup.com/ko/news/hyundai-motor-company-2026-q3-earnings',
+    finalUrl: 'https://www.hyundaimotorgroup.com/ko/news/hyundai-motor-company-2026-q3-earnings',
+    httpStatus: 200,
+    contentType: 'text/html; charset=utf-8',
+    contentHash: mockLiveHash,
+    fetchedAt: '2026-10-30T12:00:00Z',
+    byteLength: 45000,
+  },
+  extractedDocument: {
+    extractionVersion: '1.0.0',
+    extractedAt: '2026-10-30T12:00:05Z',
+    sourceDocument: {
+      sourceDocId: validSampleClaim.sourceDocId,
+      contentHash: mockLiveHash,
+    },
+    blocks: [
+      {
+        id: 'block_live_wholesale_1',
+        blockType: 'text',
+        text: 'Consolidated group reported global deliveries reached 920.71 thousand units in Q3 2026',
+        sectionHeading: 'Consolidated Group Deliveries (Reported)',
+      },
+    ],
+  },
+  evidenceCandidate: {
+    blockId: 'block_live_wholesale_1',
+    metricId: validSampleClaim.metricId,
+    numericValue: validSampleClaim.value,
+    unit: validSampleClaim.unit,
+    scope: validSampleClaim.reportingScope,
+    accountingBasis: validSampleClaim.accountingBasis,
+  },
+  claimVerificationResult: {
+    state: 'claim_verified',
+    verificationOrigin: 'live_source',
+    verificationMethod: 'rule_engine',
+    engineId: 'engine_live_v1',
+    engineVersion: '1.0.0',
+    sourceDocId: validSampleClaim.sourceDocId,
+    claimSupportType: 'reported_kpi',
+    verifiedValue: String(validSampleClaim.value),
+    verifiedNumericValue: validSampleClaim.value,
+    verifiedMetricId: validSampleClaim.metricId,
+    verifiedUnit: validSampleClaim.unit,
+    verifiedScope: validSampleClaim.reportingScope,
+    verifiedAccountingBasis: validSampleClaim.accountingBasis,
+    verifiedPeriod: '2026-Q3',
+    verifiedPeriodType: 'quarterly',
+    verifiedAt: '2026-10-30T12:00:10Z',
+    sourceContentHash: mockLiveHash,
+    blockId: 'block_live_wholesale_1',
+  },
+};
+
+// Live Positive Guard: Genuine valid live pipeline result passes with live_source_verified
+const validLiveResult = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+  livePipelineResult: validLivePipelineResult,
+});
+assert(
+  validLiveResult.isValid === true && validLiveResult.verificationLevel === 'live_source_verified',
+  'Live Positive Guard: Valid live pipeline result yields live_source_verified'
+);
+
+// Live Negative Guard 2: Missing liveDocument in pipeline result rejects live_source_verified
+const liveNoDoc = { ...validLivePipelineResult, liveDocument: undefined };
+const resNoDoc = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { livePipelineResult: liveNoDoc });
+assert(
+  resNoDoc.isValid === false &&
+  resNoDoc.verificationLevel === 'unverified' &&
+  resNoDoc.findings.some((f) => f.detail.includes('Live source document record missing')),
+  'Live Guard 2: Missing liveDocument in pipeline result rejects live_source_verified'
+);
+
+// Live Negative Guard 3: Missing or unresolved evidence block rejects live_source_verified
+const liveBadBlock = {
+  ...validLivePipelineResult,
+  extractedDocument: {
+    extractionVersion: '1.0.0',
+    extractedAt: '2026-10-30T12:00:05Z',
+    blocks: [{ id: 'other_block', text: 'other', kind: 'text' }],
+  },
+};
+const resBadBlock = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { livePipelineResult: liveBadBlock });
+assert(
+  resBadBlock.isValid === false &&
+  resBadBlock.findings.some((f) => f.detail.includes('could not be resolved in extracted document blocks')),
+  'Live Guard 3: Unresolved evidence block rejects live_source_verified'
+);
+
+// Live Negative Guard 4: Forged content hash rejects live_source_verified
+const liveForgedHash = {
+  ...validLivePipelineResult,
+  claimVerificationResult: {
+    ...validLivePipelineResult.claimVerificationResult,
+    sourceContentHash: '0000000000000000000000000000000000000000000000000000000000000000',
+  },
+};
+const resForgedHash = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { livePipelineResult: liveForgedHash });
+assert(
+  resForgedHash.isValid === false &&
+  resForgedHash.findings.some((f) => f.detail.includes('Cryptographic content hash mismatch')),
+  'Live Guard 4: Forged content hash rejects live_source_verified'
+);
+
+// Live Negative Guard 5: Metric mismatch in live pipeline rejects live_source_verified
+const liveWrongMetric = {
+  ...validLivePipelineResult,
+  claimVerificationResult: {
+    ...validLivePipelineResult.claimVerificationResult,
+    verifiedMetricId: 'revenue',
+  },
+  evidenceCandidate: {
+    ...validLivePipelineResult.evidenceCandidate,
+    metricId: 'revenue',
+  },
+};
+const resWrongMetric = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { livePipelineResult: liveWrongMetric });
+assert(
+  resWrongMetric.isValid === false &&
+  resWrongMetric.findings.some((f) => f.detail.includes('does not match claim metric')),
+  'Live Guard 5: Metric mismatch in live pipeline rejects live_source_verified'
+);
+
+// Live Negative Guard 6: Value mismatch in live pipeline rejects live_source_verified
+const liveWrongValue = {
+  ...validLivePipelineResult,
+  claimVerificationResult: {
+    ...validLivePipelineResult.claimVerificationResult,
+    verifiedNumericValue: 12345.67,
+    verifiedValue: '12345.67',
+  },
+  evidenceCandidate: {
+    ...validLivePipelineResult.evidenceCandidate,
+    numericValue: 12345.67,
+  },
+};
+const resWrongValue = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { livePipelineResult: liveWrongValue });
+assert(
+  resWrongValue.isValid === false &&
+  resWrongValue.findings.some((f) => f.detail.includes('contradicts claimed value')),
+  'Live Guard 6: Value mismatch in live pipeline rejects live_source_verified'
+);
+
+// Live Negative Guard 7: Disallowed URL domain rejects live_source_verified
+const liveDisallowedUrl = {
+  ...validLivePipelineResult,
+  liveDocument: {
+    ...validLivePipelineResult.liveDocument,
+    finalUrl: 'https://attacker.evil.com/fake-press-release',
+  },
+};
+const resDisallowedUrl = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { livePipelineResult: liveDisallowedUrl });
+assert(
+  resDisallowedUrl.isValid === false &&
+  resDisallowedUrl.findings.some((f) => f.detail.includes('outside official domain perimeter')),
+  'Live Guard 7: Disallowed URL domain rejects live_source_verified'
+);
+
+// Live Negative Guard 8: Failed pipeline execution status rejects live_source_verified
+const liveFailedPipeline = {
+  ...validLivePipelineResult,
+  success: false,
+  verificationState: 'unverified',
+  errorMessage: 'Upstream HTTP 500 server error',
+};
+const resFailedPipeline = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { livePipelineResult: liveFailedPipeline });
+assert(
+  resFailedPipeline.isValid === false &&
+  resFailedPipeline.findings.some((f) => f.detail.includes('Live pipeline execution failed')),
+  'Live Guard 8: Failed pipeline execution status rejects live_source_verified'
+);
+
+// --- Suite 9d: Internal Consistency vs Source Evidence Separation Guards (P1-2) ---
+console.log('\n--- Suite 9d: Internal Consistency vs Source Evidence Separation Guards ---');
+
+// Guard 1: Claim and observation contain same number without fixture -> observation_consistent, NOT numeric_claim_verified
+const resObsConsistent = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver);
+assert(
+  resObsConsistent.isValid === true &&
+  resObsConsistent.verificationLevel === 'observation_consistent' &&
+  (resObsConsistent.verificationLevel as string) !== 'numeric_claim_verified',
+  'Internal vs Source Guard 1: Internal observation match without source fixture yields observation_consistent'
+);
+
+// Guard 2: Claim has only nonempty verifiedEvidence / sourceLocator without fixture -> metadata_validated
+const claimCalculatedNoObs = {
+  ...validSampleClaim,
+  claimId: 'test_calc_claim_no_obs',
+  metricId: 'unrecorded_synthetic_metric',
+  claimCategory: 'narrative_disclosure' as const,
+  growthRateYoY: undefined,
+  comparisonPeriod: undefined,
+  value: 920.71,
+  unit: 'thousand_units',
+  sourceLocator: 'Page 10, Note 3',
+  verifiedEvidence: 'Synthetic test evidence text exceeding minimum length threshold',
+};
+const resMetaOnly = auditStructuredPerformanceClaim(claimCalculatedNoObs, prodHyundaiDriver);
+assert(
+  resMetaOnly.isValid === true &&
+  resMetaOnly.verificationLevel === 'metadata_validated' &&
+  (resMetaOnly.verificationLevel as string) !== 'evidence_validated' &&
+  (resMetaOnly.verificationLevel as string) !== 'locator_validated',
+  'Internal vs Source Guard 2: Non-matching observation claim with metadata strings retains metadata_validated'
+);
+
+// --- Suite 9e: Unified Dimensional Compatibility Guards (P2-1) ---
+console.log('\n--- Suite 9e: Unified Dimensional Compatibility Guards ---');
+
+// Guard 1: Incompatible accounting basis (reported vs adjusted) between current and prior observation
+const mockIncompatibleBasisObs: any[] = [
+  { id: 'curr_obs_b', companyId: 'hyundai_motor', period: '2026-Q3', periodType: 'quarterly', calendarYear: 2026, valueType: 'reported', accountingBasis: 'reported', metricId: 'deliveries_global', value: 920.71, unit: 'thousand_units', reportingScope: 'consolidated_group', isComparable: true },
+  { id: 'prior_basis_obs', companyId: 'hyundai_motor', period: '2025-Q3', periodType: 'quarterly', calendarYear: 2025, valueType: 'reported', accountingBasis: 'adjusted', metricId: 'deliveries_global', value: 1037.7, unit: 'thousand_units', reportingScope: 'consolidated_group', isComparable: true },
+];
+const claimWithBasis = { ...validSampleClaim, accountingBasis: 'reported' as const };
+const fBasisMismatch = validatePerformanceClaim(claimWithBasis, prodHyundaiDriver, { observations: mockIncompatibleBasisObs });
+assert(
+  fBasisMismatch.some((f) => f.category === 'SCOPE_MISMATCH' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('accountingBasis mismatch')),
+  'Dimensional Guard 1: Accounting basis mismatch (reported vs adjusted) between periods is rejected'
+);
+
+// Guard 2: Non-finite numeric inputs (NaN) in growth rate
+const claimNaNRate = { ...validSampleClaim, growthRateYoY: NaN };
+const fNaNRate = validatePerformanceClaim(claimNaNRate, prodHyundaiDriver);
+assert(
+  fNaNRate.some((f) => f.category === 'CALCULATION_DISCREPANCY' && f.severity === 'ERROR' && f.disposition === 'blocking' && f.detail.includes('must be a finite number')),
+  'Dimensional Guard 2: Non-finite NaN growth rate is rejected'
+);
+
+// Guard 3: Incompatible period type (quarterly vs annual) between periods
+const mockIncompatiblePeriodTypeObs: any[] = [
+  { id: 'curr_pt_obs', companyId: 'hyundai_motor', period: '2026-Q3', periodType: 'quarterly', calendarYear: 2026, valueType: 'reported', metricId: 'deliveries_global', value: 920.71, unit: 'thousand_units', isComparable: true },
+  { id: 'prior_pt_obs', companyId: 'hyundai_motor', period: '2025-FY', periodType: 'annual', calendarYear: 2025, valueType: 'reported', metricId: 'deliveries_global', value: 4200.0, unit: 'thousand_units', isComparable: true },
+];
+const claimCompAnnual = { ...validSampleClaim, comparisonPeriod: '2025-FY' };
+const fPeriodTypeMismatch = validatePerformanceClaim(claimCompAnnual, prodHyundaiDriver, { observations: mockIncompatiblePeriodTypeObs });
+assert(
+  fPeriodTypeMismatch.some((f) => f.category === 'PERIOD_ALIGNMENT' && f.severity === 'ERROR' && f.detail.includes('incompatible periodType')),
+  'Dimensional Guard 3: Period type mismatch (quarterly vs annual) is rejected'
+);
+
+// --- Suite 9f: Bilingual Narrative Semantic Alignment Guards (P2-2) ---
+console.log('\n--- Suite 9f: Bilingual Narrative Semantic Alignment Guards ---');
+
+// Guard 1: Conflicting reporting quarter reference in Korean narrative
+const dummyDriverWrongPeriod = {
+  ...prodHyundaiDriver,
+  summaryKo: '2분기 글로벌 도매 920,710대(-11.3% YoY)를 기록했습니다.',
+};
+const claimWrongPeriodNarrative = {
+  ...validSampleClaim,
+  narrativeRefKo: '2분기 글로벌 도매 920,710대(-11.3% YoY)',
+};
+const fWrongPeriod = validatePerformanceClaim(claimWrongPeriodNarrative, dummyDriverWrongPeriod);
+assert(
+  fWrongPeriod.some((f) => f.category === 'PERIOD_ALIGNMENT' && f.severity === 'ERROR' && f.detail.includes("conflicting reporting quarter ('Q2')")),
+  'Bilingual Guard 1: Conflicting reporting quarter in Korean narrative is rejected'
+);
+
+// Guard 2: Conflicting metric in narrative (revenue claim referencing wholesale volume narrative)
+const revClaim = prodHyundaiDriver.structuredClaims!.find((c) => c.metricId === 'revenue')!;
+const dummyDriverMetricConflict = {
+  ...prodHyundaiDriver,
+  summaryKo: '글로벌 도매 920,710대 판매 기록을 달성했습니다.',
+  summaryEn: 'Global wholesale deliveries reached 920,710 units in the quarter.',
+};
+const claimWrongMetricNarrative = {
+  ...revClaim,
+  narrativeRefKo: '글로벌 도매 920,710대 판매 기록',
+  narrativeRefEn: 'Global wholesale deliveries reached 920,710 units',
+};
+const fWrongMetricNarrative = validatePerformanceClaim(claimWrongMetricNarrative, dummyDriverMetricConflict);
+assert(
+  fWrongMetricNarrative.some((f) => f.category === 'SCOPE_MISMATCH' && f.severity === 'ERROR' && f.detail.includes('vehicle volume metrics rather than claimed financial metric')),
+  'Bilingual Guard 2: Metric conflict (financial metric citing delivery volume narrative) is rejected'
+);
+
+// Guard 3: Percentage-point change confused with percentage growth rate in narrative
+const dummyDriverPpAsPercent = {
+  ...prodHyundaiDriver,
+  summaryKo: '하이브리드 비중은 18.2%로 전년 동기 대비 2.7% 성장했습니다.',
+  summaryEn: 'HEV share reached 18.2%, growing 2.7% YoY.',
+};
+const claimPpAsPercent = {
+  ...validHevShareClaim,
+  narrativeRefKo: '전년 동기 대비 2.7% 성장',
+  narrativeRefEn: 'growing 2.7% YoY',
+};
+const fPpAsPercent = validatePerformanceClaim(claimPpAsPercent, dummyDriverPpAsPercent);
+assert(
+  fPpAsPercent.some((f) => f.category === 'SOURCE_CLAIM_INTEGRITY' && f.severity === 'ERROR' && f.detail.includes('confused with percentage growth')),
+  'Bilingual Guard 3: Percentage-point change confused with percentage growth rate in narrative is rejected'
+);
+
+// --- Suite 9g: Real Command Execution & Audit Report Provenance (P2-3) ---
+console.log('\n--- Suite 9g: Real Command Execution & Audit Report Provenance ---');
+
+// Guard 1: Empty command list displays NOT RUN in integrity report
+const integrityEmpty = renderIntegrityCommandResults([]);
+assert(
+  integrityEmpty.includes('NOT RUN'),
+  'Audit Report Guard 1: Empty command list displays NOT RUN in integrity report'
+);
+
+// Guard 2: Empty command list displays NOT RUN in markdown report
+const mdEmpty = renderMarkdownCommandResults([]);
+assert(
+  mdEmpty.includes('NOT RUN'),
+  'Audit Report Guard 2: Empty command list displays NOT RUN in markdown report'
+);
+
+// Guard 3: Real command statuses (PASS, EXPECTED_POLICY_FAILURE, NOT_RUN) render faithfully without hardcoding
+const mockCommandResults: VerificationCommandResult[] = [
+  { command: 'npm run typecheck', executed: true, exitCode: 0, status: 'PASS', summary: 'TypeScript clean', commitSha: 'bb7784e' },
+  { command: 'npm run audit-data -- --strict', executed: true, exitCode: 1, status: 'EXPECTED_POLICY_FAILURE', summary: 'Strict enforcement verified', commitSha: 'bb7784e' },
+  { command: 'npm run build', executed: false, exitCode: null, status: 'NOT_RUN', summary: 'Skipped', commitSha: 'bb7784e' },
+];
+const integrityRendered = renderIntegrityCommandResults(mockCommandResults);
+assert(
+  integrityRendered.includes('EXPECTED POLICY FAILURE') &&
+  integrityRendered.includes('PASS') &&
+  integrityRendered.includes('NOT RUN'),
+  'Audit Report Guard 3: renderIntegrityCommandResults accurately renders real command execution statuses'
+);
+
+const mdRendered = renderMarkdownCommandResults(mockCommandResults);
+assert(
+  mdRendered.includes('EXPECTED POLICY FAILURE') &&
+  mdRendered.includes('PASS') &&
+  mdRendered.includes('NOT RUN'),
+  'Audit Report Guard 4: renderMarkdownCommandResults accurately renders real command execution statuses'
+);
 
 // Suite 10: Official IR Disclosures Badge & Data Freshness Cycle Period Alignment
 console.log('\n--- Suite 10: Global Badge & Reporting Period Alignment (Q3 Freshness) ---');

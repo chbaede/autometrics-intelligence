@@ -36,7 +36,7 @@ import {
   validatePerformanceClaim,
   MarginValidationOptions,
 } from '../src/utils/metricCalculations';
-import { AuditFinding, PeriodType, AuditReportData } from '../src/types/metrics';
+import { AuditFinding, PeriodType, AuditReportData, VerificationCommandResult } from '../src/types/metrics';
 import {
   findDocumentedScopeException,
   findDocumentedReportedKpis,
@@ -80,14 +80,213 @@ export function getAuditCommitSha(): string {
   return 'unknown';
 }
 
+export function runVerificationCommand(commandStr: string, commitSha: string): VerificationCommandResult {
+  const executedAt = new Date().toISOString();
+  try {
+    const output = execSync(commandStr, {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 180000,
+    }).trim();
+    const lines = output.split('\n').map((l) => l.trim()).filter(Boolean);
+    const summary = lines.slice(-2).join(' ') || 'Command completed successfully with 0 errors';
+    return {
+      command: commandStr,
+      executed: true,
+      exitCode: 0,
+      status: 'PASS',
+      summary: summary.slice(0, 160),
+      commitSha,
+      executedAt,
+    };
+  } catch (err: any) {
+    const exitCode = typeof err.status === 'number' ? err.status : 1;
+    const output = ((err.stdout ? err.stdout.toString() : '') + ' ' + (err.stderr ? err.stderr.toString() : '')).trim();
+    const lines = output.split('\n').map((l: string) => l.trim()).filter(Boolean);
+    const isStrictAudit = commandStr.includes('--strict');
+    const isExpectedStrict = isStrictAudit && exitCode === 1;
+    const summary = lines.slice(-2).join(' ') || err.message || 'Command exited with failure';
+
+    return {
+      command: commandStr,
+      executed: true,
+      exitCode,
+      status: isExpectedStrict ? 'EXPECTED_POLICY_FAILURE' : 'FAIL',
+      summary: summary.slice(0, 160),
+      commitSha,
+      executedAt,
+    };
+  }
+}
+
+export function captureVerificationSuiteResults(
+  commitSha: string,
+  options?: {
+    executeAll?: boolean;
+    currentFindings?: { blocking: number; review: number; documented: number; informational: number };
+  }
+): VerificationCommandResult[] {
+  const executedAt = new Date().toISOString();
+  const isExecuteAll =
+    options?.executeAll ??
+    (process.argv.includes('--execute-all') || process.argv.includes('--capture-commands'));
+
+  if (isExecuteAll) {
+    console.log('⚡ Executing full verification command suite for report provenance...');
+    const commands = [
+      'npm run typecheck',
+      'npm run validate-data',
+      'npm run validate-source-claims',
+      'npm test',
+      'npm run audit-data',
+      'npm run audit-data -- --strict',
+      'npm run lint',
+      'npm run build',
+    ];
+    return commands.map((cmd) => {
+      console.log(`  ▶ Running: ${cmd}`);
+      const res = runVerificationCommand(cmd, commitSha);
+      console.log(`    ↳ [${res.status}] (exit ${res.exitCode}): ${res.summary}`);
+      return res;
+    });
+  }
+
+  const blocking = options?.currentFindings?.blocking ?? 0;
+  const review = options?.currentFindings?.review ?? 0;
+  const isStrictRun = process.argv.includes('--strict');
+
+  const currentAuditResult: VerificationCommandResult = {
+    command: isStrictRun ? 'npm run audit-data -- --strict' : 'npm run audit-data',
+    executed: true,
+    exitCode: isStrictRun && review > 0 ? 1 : blocking > 0 ? 1 : 0,
+    status: isStrictRun && review > 0 ? 'EXPECTED_POLICY_FAILURE' : blocking > 0 ? 'FAIL' : 'PASS',
+    summary: `${blocking} blocking findings, ${review} review findings`,
+    commitSha,
+    executedAt,
+  };
+
+  return [
+    {
+      command: 'npm run typecheck',
+      executed: false,
+      exitCode: null,
+      status: 'NOT_RUN',
+      summary: 'Not executed in current audit-data pass (use --execute-all to execute and capture all)',
+      commitSha,
+      executedAt,
+    },
+    {
+      command: 'npm test',
+      executed: false,
+      exitCode: null,
+      status: 'NOT_RUN',
+      summary: 'Not executed in current audit-data pass (use --execute-all to execute and capture all)',
+      commitSha,
+      executedAt,
+    },
+    {
+      command: 'npm run validate-data',
+      executed: false,
+      exitCode: null,
+      status: 'NOT_RUN',
+      summary: 'Not executed in current audit-data pass (use --execute-all to execute and capture all)',
+      commitSha,
+      executedAt,
+    },
+    {
+      command: 'npm run validate-source-claims',
+      executed: false,
+      exitCode: null,
+      status: 'NOT_RUN',
+      summary: 'Not executed in current audit-data pass (use --execute-all to execute and capture all)',
+      commitSha,
+      executedAt,
+    },
+    currentAuditResult,
+    {
+      command: isStrictRun ? 'npm run audit-data' : 'npm run audit-data -- --strict',
+      executed: false,
+      exitCode: null,
+      status: 'NOT_RUN',
+      summary: 'Alternative audit mode not executed in current pass',
+      commitSha,
+      executedAt,
+    },
+    {
+      command: 'npm run lint',
+      executed: false,
+      exitCode: null,
+      status: 'NOT_RUN',
+      summary: 'Not executed in current audit-data pass (use --execute-all to execute and capture all)',
+      commitSha,
+      executedAt,
+    },
+    {
+      command: 'npm run build',
+      executed: false,
+      exitCode: null,
+      status: 'NOT_RUN',
+      summary: 'Not executed in current audit-data pass (use --execute-all to execute and capture all)',
+      commitSha,
+      executedAt,
+    },
+  ];
+}
+
+export function renderIntegrityCommandResults(commandResults?: VerificationCommandResult[]): string {
+  if (!commandResults || commandResults.length === 0) {
+    return `*No command execution records captured. Commands marked as NOT RUN.*\n\n| Command | Result |\n|---------|--------|\n| \`npm run typecheck\` | ⚪ NOT RUN |\n| \`npm test\` | ⚪ NOT RUN |\n| \`npm run validate-data\` | ⚪ NOT RUN |\n| \`npm run validate-source-claims\` | ⚪ NOT RUN |\n| \`npm run audit-data\` | ⚪ NOT RUN |\n| \`npm run audit-data -- --strict\` | ⚪ NOT RUN |\n| \`npm run lint\` | ⚪ NOT RUN |\n| \`npm run build\` | ⚪ NOT RUN |`;
+  }
+
+  const rows = commandResults.map((r) => {
+    const badge =
+      r.status === 'PASS'
+        ? '✅ PASS'
+        : r.status === 'EXPECTED_POLICY_FAILURE'
+        ? '⚠️ EXPECTED POLICY FAILURE'
+        : r.status === 'NOT_RUN'
+        ? '⚪ NOT RUN'
+        : '❌ FAIL';
+    const exitStr = r.exitCode !== null ? `(exit ${r.exitCode})` : '(exit -)';
+    return `| \`${r.command}\` | ${badge} ${exitStr}: ${r.summary} |`;
+  });
+
+  return `| Command | Result |\n|---------|--------|\n` + rows.join('\n');
+}
+
+export function renderMarkdownCommandResults(commandResults?: VerificationCommandResult[]): string {
+  if (!commandResults || commandResults.length === 0) {
+    return `*No command execution records captured. Commands marked as NOT RUN.*\n\n| Command | Exit Code | Result | Key Summary Output |\n| :--- | :---: | :---: | :--- |\n| \`npm run typecheck\` | - | **NOT RUN** | Not executed in this session |\n| \`npm test\` | - | **NOT RUN** | Not executed in this session |\n| \`npm run validate-source-claims\` | - | **NOT RUN** | Not executed in this session |\n| \`npm run validate-data\` | - | **NOT RUN** | Not executed in this session |\n| \`npm run audit-data\` | - | **NOT RUN** | Not executed in this session |\n| \`npm run audit-data -- --strict\` | - | **NOT RUN** | Not executed in this session |\n| \`npm run lint\` | - | **NOT RUN** | Not executed in this session |\n| \`npm run build\` | - | **NOT RUN** | Not executed in this session |`;
+  }
+
+  const rows = commandResults.map((r) => {
+    const resultBadge =
+      r.status === 'PASS'
+        ? '**PASS**'
+        : r.status === 'EXPECTED_POLICY_FAILURE'
+        ? '**EXPECTED POLICY FAILURE**'
+        : r.status === 'NOT_RUN'
+        ? '**NOT RUN**'
+        : '**FAIL**';
+    const exitStr = r.exitCode !== null ? String(r.exitCode) : '-';
+    return `| \`${r.command}\` | ${exitStr} | ${resultBadge} | ${r.summary} |`;
+  });
+
+  return (
+    `| Command | Exit Code | Result | Key Summary Output |\n| :--- | :---: | :---: | :--- |\n` +
+    rows.join('\n')
+  );
+}
+
 export function generateDataIntegrityReport(data: AuditReportData): string {
   return `# AutoMetrics Intelligence — Data Integrity Report
 
 ## Audit Status
 
-**Commit:** ${data.sourceCommitSha}  
-**Working Tree:** ${data.workingTreeStatus || 'clean'}  
-**Audit Engine:** ${data.auditEngineVersion || '3.1.0'}  
+**Audited Source Commit:** ${data.sourceCommitSha}  
+**Report Generation Commit:** ${data.reportGenerationCommitSha || data.sourceCommitSha}  
+**Working Tree:** ${data.workingTreeStatus || 'unknown'}  
+**Audit Engine:** ${data.auditEngineVersion || '3.2.0'}  
 **Data Registry:** ${data.dataRegistryVersion || '1.0.0'}  
 **Generated:** ${data.generatedAt}  
 **Node.js:** ${process.version}  
@@ -97,15 +296,7 @@ export function generateDataIntegrityReport(data: AuditReportData): string {
 
 ## Verification Command Results
 
-| Command | Result |
-|---------|--------|
-| \`npm run typecheck\` | ✅ 0 errors |
-| \`npm run test\` | ✅ All test suites passed |
-| \`npm run validate-data\` | ✅ 0 errors |
-| \`npm run validate-source-claims\` | ✅ 0 errors (${data.counts.sourceClaims} audited, 0 mismatches) |
-| \`npm run audit-data\` | ✅ ${data.findings.blocking} blocking, ${data.findings.review} review, ${data.findings.documented} documented exceptions, ${data.findings.informational} corroborations (exit code 0) |
-| \`npm run audit-data -- --strict\` | ⚠️ ${data.findings.blocking} blocking, ${data.findings.review} review (exit code 1 as expected by strict policy) |
-| \`npm run build\` | ✅ Production bundle built successfully |
+${renderIntegrityCommandResults(data.commandResults)}
 
 ---
 
@@ -181,8 +372,9 @@ export function generateMarkdownAuditReport(data: AuditReportData): string {
 **Status**: Current (Generated)  
 **Generated At**: ${data.generatedAt}  
 **Audited Source Commit SHA**: ${data.sourceCommitSha}  
-**Working Tree State**: ${data.workingTreeStatus || 'clean'}  
-**Audit Engine Version**: ${data.auditEngineVersion || '3.1.0'}  
+**Report Generation Commit SHA**: ${data.reportGenerationCommitSha || data.sourceCommitSha}  
+**Working Tree State**: ${data.workingTreeStatus || 'unknown'}  
+**Audit Engine Version**: ${data.auditEngineVersion || '3.2.0'}  
 **Data Registry Version**: ${data.dataRegistryVersion || '1.0.0'}  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
@@ -272,15 +464,7 @@ The AutoMetrics audit engine strictly distinguishes 9 distinct verification and 
 
 ## 3. Command Execution & Verification Results
 
-| Command | Exit Code | Result | Key Summary Output |
-| :--- | :---: | :---: | :--- |
-| \`npm run typecheck\` | 0 | **PASS** | 0 TypeScript errors across the entire codebase |
-| \`npm test\` | 0 | **PASS** | Complete unit and integration regression test suite passed |
-| \`npm run validate-source-claims\` | 0 | **PASS** | All ${data.counts.sourceClaims} source claims across ${data.counts.documentsWithSourceClaims} documents validated with 0 errors |
-| \`npm run validate-data\` | 0 | **PASS** | Strict schema, HTTPS, metadata, fixtures & source claims integrity passed with 0 errors |
-| \`npm run audit-data\` | ${data.findings.blocking === 0 ? 0 : 1} | **${data.findings.blocking === 0 ? 'PASS' : 'FAIL'}** | Scope-safe semantic audit passed with ${data.findings.blocking} blocking errors (${data.findings.review} proxy review findings) |
-| \`npm run lint\` | 0 | **PASS** | ESLint verified clean codebase with zero errors |
-| \`npm run build\` | 0 | **PASS** | Vite production build generated clean distribution artifacts |
+${renderMarkdownCommandResults(data.commandResults)}
 
 ---
 
@@ -1095,13 +1279,16 @@ export function collectAuditFindings(): CollectedAuditResults {
 
 export function buildAuditReportData(options?: {
   sourceCommitSha?: string;
+  reportGenerationCommitSha?: string;
   generatedAt?: string;
+  commandResults?: VerificationCommandResult[];
   blockingFindingsCount?: number;
   reviewFindingsCount?: number;
   documentedFindingsCount?: number;
   informationalFindingsCount?: number;
 }): AuditReportData {
   const sourceCommitSha = options?.sourceCommitSha ?? getAuditCommitSha();
+  const reportGenerationCommitSha = options?.reportGenerationCommitSha ?? getAuditCommitSha();
   const generatedAt = options?.generatedAt ?? new Date().toISOString();
   const scVal = validateSourceClaims(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS);
   const fixVal = validateSourceContentFixtures(DETERMINISTIC_SOURCE_CONTENT_FIXTURES, SOURCE_DOCUMENTS, METRIC_DEFINITIONS);
@@ -1124,12 +1311,20 @@ export function buildAuditReportData(options?: {
     informational = informational ?? auditRes.informationalFindings.length;
   }
 
+  const commandResults =
+    options?.commandResults ??
+    captureVerificationSuiteResults(sourceCommitSha, {
+      currentFindings: { blocking, review, documented, informational },
+    });
+
   return {
     generatedAt,
     sourceCommitSha,
+    reportGenerationCommitSha,
     dataRegistryVersion: '1.0.0',
-    auditEngineVersion: '3.1.0',
+    auditEngineVersion: '3.2.0',
     workingTreeStatus: getWorkingTreeStatus(),
+    commandResults,
     counts: {
       companies: COMPANIES_REGISTRY.length,
       observations: METRIC_OBSERVATIONS.length,
@@ -1157,7 +1352,7 @@ export function buildAuditReportData(options?: {
   };
 }
 
-export function runAudit(options?: { isStrict?: boolean }) {
+export function runAudit(options?: { isStrict?: boolean; commandResults?: VerificationCommandResult[] }) {
   const isStrict = options?.isStrict ?? process.argv.includes('--strict');
 
   console.log('═════════════════════════════════════════════════════════════════════════════');
@@ -1274,6 +1469,7 @@ for (const company of COMPANIES_REGISTRY) {
     reviewFindingsCount: reviewFindings.length,
     documentedFindingsCount: documentedFindings.length - documentedWithoutEvidence.length,
     informationalFindingsCount: informationalFindings.length,
+    commandResults: options?.commandResults,
   });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1365,6 +1561,9 @@ if (findings.length > 0) {
 const isDirectRun = Boolean(process.argv[1] && process.argv[1].includes('audit-data'));
 if (isDirectRun) {
   const isStrictArg = process.argv.includes('--strict');
-  const result = runAudit({ isStrict: isStrictArg });
+  const executeAll = process.argv.includes('--execute-all');
+  const commitSha = getAuditCommitSha();
+  const commandResults = executeAll ? captureVerificationSuiteResults(commitSha, { executeAll: true }) : undefined;
+  const result = runAudit({ isStrict: isStrictArg, commandResults });
   process.exit(result.exitCode);
 }

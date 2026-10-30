@@ -891,6 +891,19 @@ export interface OfficialSourcePipelineResult {
 }
 
 /**
+ * Detailed verification command execution record for audit report provenance (P2).
+ */
+export interface VerificationCommandResult {
+  command: string;
+  executed: boolean;
+  exitCode: number | null;
+  status: 'PASS' | 'FAIL' | 'EXPECTED_POLICY_FAILURE' | 'NOT_RUN';
+  summary: string;
+  commitSha?: string;
+  executedAt?: string;
+}
+
+/**
  * Single structured result object for entire audit suite (STEP 4-22, P1; STEP 4-23, P1).
  * Distinguishes the audited source commit tree (sourceCommitSha) from the commit containing the report.
  */
@@ -898,9 +911,13 @@ export interface AuditReportData {
   generatedAt: string;
   /** The repository source commit that was audited when this report was generated (STEP 4-24, P1) */
   sourceCommitSha: string;
+  /** The repository HEAD commit when this report was generated (if different or distinct from audited commit) */
+  reportGenerationCommitSha?: string;
   dataRegistryVersion?: string;
   auditEngineVersion?: string;
   workingTreeStatus?: 'clean' | 'dirty' | 'unknown';
+  /** Real captured execution results for verification commands (P2) */
+  commandResults?: VerificationCommandResult[];
   counts: {
     companies: number;
     observations: number;

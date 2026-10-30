@@ -1,17 +1,23 @@
 /**
- * AutoMetrics Intelligence — Performance Claim Audit Engine (v3.1)
+ * AutoMetrics Intelligence — Performance Claim Audit Engine (v3.2)
  *
  * Production module for auditing structured performance-driver claims:
- * - Fail-closed YoY and QoQ growth rate recalculation with strict comparison-period observation resolution
+ * - Fail-closed YoY and QoQ growth rate recalculation with unified dimensional compatibility
  * - Arithmetic percentage-point difference validation for share/margin metrics
- * - Multi-tiered verification classification (metadata_validated, locator_validated, evidence_validated, numeric_claim_verified, live_source_verified)
+ * - Multi-tiered verification classification:
+ *     metadata_validated | locator_validated | evidence_validated |
+ *     observation_consistent | numeric_claim_verified | live_source_verified | unverified
+ * - Rigorous live-source pipeline result validation (eliminates caller-controlled boolean trust)
  * - Source document metadata, locator validity, and content fixture verification
- * - Bilingual (Korean/English) narrative reference resolution and numeric/directional consistency
+ * - Bilingual (Korean/English) narrative reference resolution and dimensional consistency
  */
 
 import {
   MetricObservation,
   SourceDocument,
+  OfficialSourcePipelineResult,
+  ClaimVerifiedResult,
+  ClaimEvidenceLocator,
 } from '../types/metrics';
 import {
   StructuredPerformanceClaim,
@@ -20,13 +26,19 @@ import {
 } from '../data/performanceDrivers';
 import { METRIC_OBSERVATIONS, OFFICIAL_COMPARISON_OBSERVATIONS } from '../data/observations';
 import { SOURCES_MAP } from '../data/sources';
-import { DETERMINISTIC_SOURCE_CONTENT_FIXTURES } from '../data/scopeExceptions';
+import {
+  DETERMINISTIC_SOURCE_CONTENT_FIXTURES,
+  SourceDocumentContentSnippet,
+  validateClaimVerificationResult,
+} from '../data/scopeExceptions';
 import { METRICS_MAP } from '../data/metricDefinitions';
+import { isUrlInOfficialDomain, OFFICIAL_IR_SOURCES_MAP } from '../data/officialSources';
 
 export type ClaimVerificationLevel =
   | 'metadata_validated'
   | 'locator_validated'
   | 'evidence_validated'
+  | 'observation_consistent'
   | 'numeric_claim_verified'
   | 'live_source_verified'
   | 'unverified';
@@ -46,11 +58,23 @@ export interface PerformanceClaimAuditFinding {
 export interface ValidatePerformanceClaimOptions {
   observations?: MetricObservation[];
   sourcesMap?: Record<string, SourceDocument>;
-  contentFixtures?: any[];
+  contentFixtures?: Partial<SourceDocumentContentSnippet>[];
   toleranceYoY?: number; // default: 0.25 (%)
   toleranceQoQ?: number; // default: 0.25 (%)
   tolerancePercentagePoints?: number; // default: 0.05 (%p)
-  isLiveSource?: boolean; // default: false (offline deterministic fixture)
+  /**
+   * @deprecated Boolean flag alone cannot establish live verification.
+   * Genuinely verified live evidence must be passed via `livePipelineResult`.
+   */
+  isLiveSource?: boolean;
+  /**
+   * Authentic result produced by executeOfficialSourcePipeline / verifyOfficialSourceClaim.
+   */
+  livePipelineResult?: OfficialSourcePipelineResult;
+  /**
+   * Authentic claim verification result produced by the claim verification engine.
+   */
+  claimVerificationResult?: ClaimVerifiedResult;
 }
 
 export interface StructuredPerformanceClaimAuditResult {
@@ -106,12 +130,582 @@ export function getExpectedPriorPeriod(period: string, cadence: 'YoY' | 'QoQ'): 
 }
 
 /**
+ * Compares two numbers with unit-aware precision/tolerance rules.
+ */
+export function matchNumericValues(expected: number, actual: number, unit?: string): boolean {
+  if (!Number.isFinite(expected) || !Number.isFinite(actual)) {
+    return false;
+  }
+  if (unit === 'percentage') {
+    return Math.abs(expected - actual) <= 0.05;
+  }
+  if (unit === 'units') {
+    return Math.abs(expected - actual) <= 1;
+  }
+  return Math.abs(expected - actual) <= 0.01;
+}
+
+/**
  * Extracts percentage numbers from narrative text (e.g., "-11.3%", "+3.8% YoY", "2.7%p").
  */
 function extractPercentages(text: string): number[] {
   const matches = text.match(/[+-]?\d+(?:\.\d+)?(?=\s*%(?:p)?)/g);
   if (!matches) return [];
   return matches.map((m) => parseFloat(m)).filter((n) => Number.isFinite(n));
+}
+
+/**
+ * Shared comparison observation resolution & dimensional compatibility validator (P2).
+ * Unifies YoY growth, QoQ growth, and percentage-point difference checks.
+ */
+interface UnifiedComparisonValidationResult {
+  valid: boolean;
+  priorObs?: MetricObservation;
+  comparisonObservationId?: string;
+  calculatedDiffOrGrowth?: number;
+  findings: PerformanceClaimAuditFinding[];
+}
+
+function resolveAndValidateComparisonObservation(
+  claim: StructuredPerformanceClaim,
+  driver: CompanyPerformanceDriver,
+  matchingObs: MetricObservation | undefined,
+  observations: MetricObservation[],
+  calculationType: 'YoY_growth' | 'QoQ_growth' | 'percentage_points',
+  tolerance: number,
+  claimItem: string
+): UnifiedComparisonValidationResult {
+  const findings: PerformanceClaimAuditFinding[] = [];
+
+  // 1. Determine expected & target comparison period
+  let targetPeriod: string | undefined;
+  if (calculationType === 'YoY_growth' || calculationType === 'percentage_points') {
+    const expectedYoY = getExpectedPriorPeriod(driver.period, 'YoY');
+    if (!claim.comparisonPeriod || claim.comparisonPeriod.trim() === '') {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'SOURCE_CLAIM_INTEGRITY',
+        item: claimItem,
+        detail:
+          calculationType === 'percentage_points'
+            ? `Claim specifies changeYoYPercentagePoints (${claim.changeYoYPercentagePoints}%p) but lacks comparisonPeriod.`
+            : `Claim specifies growthRateYoY (${claim.growthRateYoY}%) but lacks comparisonPeriod.`,
+        claimId: claim.claimId,
+      });
+      return { valid: false, findings };
+    }
+    if (expectedYoY && claim.comparisonPeriod !== expectedYoY) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'PERIOD_ALIGNMENT',
+        item: claimItem,
+        detail: `Claim comparisonPeriod '${claim.comparisonPeriod}' is not the prior-year period for '${driver.period}' (expected '${expectedYoY}').`,
+        claimId: claim.claimId,
+      });
+    }
+    targetPeriod = claim.comparisonPeriod;
+  } else if (calculationType === 'QoQ_growth') {
+    const expectedQoQ = getExpectedPriorPeriod(driver.period, 'QoQ');
+    targetPeriod = claim.comparisonPeriodQoQ || (expectedQoQ ?? undefined);
+    if (!targetPeriod) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'PERIOD_ALIGNMENT',
+        item: claimItem,
+        detail: `QoQ growth rate cannot be calculated for non-quarterly period '${driver.period}'.`,
+        claimId: claim.claimId,
+      });
+      return { valid: false, findings };
+    }
+    if (claim.comparisonPeriodQoQ && expectedQoQ && claim.comparisonPeriodQoQ !== expectedQoQ) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'PERIOD_ALIGNMENT',
+        item: claimItem,
+        detail: `Claim comparisonPeriodQoQ '${claim.comparisonPeriodQoQ}' is not the preceding comparable quarter for '${driver.period}' (expected '${expectedQoQ}').`,
+        claimId: claim.claimId,
+      });
+    }
+  }
+
+  // 2. Validate current observation existence and finiteness
+  if (!matchingObs || matchingObs.value == null || !Number.isFinite(matchingObs.value)) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'CALCULATION_DISCREPANCY',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: current observation missing or invalid for metric '${claim.metricId}' in ${driver.period}.`,
+      claimId: claim.claimId,
+    });
+    return { valid: false, findings };
+  }
+
+  // 3. Resolve prior-period observation candidates
+  let priorCandidates = observations.filter(
+    (o) => o.companyId === driver.companyId && o.period === targetPeriod && o.metricId === claim.metricId
+  );
+
+  if (priorCandidates.length > 1 && claim.reportingScope) {
+    const scoped = priorCandidates.filter((o) => o.reportingScope === claim.reportingScope);
+    if (scoped.length > 0) priorCandidates = scoped;
+  }
+  if (priorCandidates.length > 1 && claim.accountingBasis) {
+    const based = priorCandidates.filter((o) => o.accountingBasis === claim.accountingBasis);
+    if (based.length > 0) priorCandidates = based;
+  }
+  if (priorCandidates.length > 1 && matchingObs.periodType) {
+    const typed = priorCandidates.filter((o) => o.periodType === matchingObs.periodType);
+    if (typed.length > 0) priorCandidates = typed;
+  }
+
+  if (priorCandidates.length === 0) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'CALCULATION_DISCREPANCY',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: comparison observation missing for metric '${claim.metricId}' in ${targetPeriod}.`,
+      claimId: claim.claimId,
+    });
+    return { valid: false, findings };
+  }
+
+  if (priorCandidates.length > 1) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'CALCULATION_DISCREPANCY',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: ambiguous comparison observations (${priorCandidates.length}) found for metric '${claim.metricId}' in ${targetPeriod}.`,
+      claimId: claim.claimId,
+    });
+    return { valid: false, findings };
+  }
+
+  const priorObs = priorCandidates[0];
+  const comparisonObservationId = priorObs.id;
+
+  // 4. Validate prior value finiteness
+  if (priorObs.value == null || !Number.isFinite(priorObs.value)) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'CALCULATION_DISCREPANCY',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: comparison observation value is missing or non-finite for metric '${claim.metricId}' in ${targetPeriod}.`,
+      claimId: claim.claimId,
+    });
+    return { valid: false, priorObs, comparisonObservationId, findings };
+  }
+
+  // 5. Shared Dimensional Compatibility Checks
+  if (priorObs.companyId !== driver.companyId) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: companyId mismatch between comparison (${priorObs.companyId}) and current (${driver.companyId}).`,
+      claimId: claim.claimId,
+    });
+  }
+
+  if (priorObs.metricId !== claim.metricId) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: metricId mismatch between comparison (${priorObs.metricId}) and current (${claim.metricId}).`,
+      claimId: claim.claimId,
+    });
+  }
+
+  // Period type comparability (quarterly vs annual)
+  if (priorObs.periodType !== matchingObs.periodType) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'PERIOD_ALIGNMENT',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: incompatible periodType between comparison (${priorObs.periodType}) and current (${matchingObs.periodType}).`,
+      claimId: claim.claimId,
+    });
+  }
+
+  if (priorObs.isComparable === false) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'CALCULATION_DISCREPANCY',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: comparison observation ${priorObs.id} is flagged as non-comparable.`,
+      claimId: claim.claimId,
+    });
+  }
+
+  // Unit compatibility
+  const currUnit = matchingObs.unit ?? claim.unit;
+  if (priorObs.unit !== currUnit) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: unit mismatch between comparison (${priorObs.unit}) and current (${currUnit}).`,
+      claimId: claim.claimId,
+    });
+  }
+
+  if (calculationType === 'percentage_points') {
+    if (priorObs.unit !== 'percentage' || currUnit !== 'percentage') {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'SCOPE_MISMATCH',
+        item: claimItem,
+        detail: `Cannot validate percentage point change: unit must be 'percentage' (got comparison: ${priorObs.unit}, current: ${currUnit}).`,
+        claimId: claim.claimId,
+      });
+    }
+  }
+
+  // Currency compatibility
+  const currCurr = matchingObs.currency ?? claim.currency;
+  if (priorObs.currency && currCurr && priorObs.currency !== currCurr) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: currency mismatch between comparison (${priorObs.currency}) and current (${currCurr}).`,
+      claimId: claim.claimId,
+    });
+  }
+
+  // Reporting scope compatibility
+  const targetScope = claim.reportingScope ?? matchingObs.reportingScope;
+  if (priorObs.reportingScope && targetScope && priorObs.reportingScope !== targetScope) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: reportingScope mismatch between comparison (${priorObs.reportingScope}) and current (${targetScope}).`,
+      claimId: claim.claimId,
+    });
+  }
+
+  // Accounting basis compatibility
+  const targetBasis = claim.accountingBasis ?? matchingObs.accountingBasis;
+  if (priorObs.accountingBasis && targetBasis && priorObs.accountingBasis !== targetBasis) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: accountingBasis mismatch between comparison (${priorObs.accountingBasis}) and current (${targetBasis}).`,
+      claimId: claim.claimId,
+    });
+  }
+
+  // If dimensional checks failed, fail closed and do not perform arithmetic
+  if (findings.some((f) => f.disposition === 'blocking')) {
+    return { valid: false, priorObs, comparisonObservationId, findings };
+  }
+
+  // 6. Arithmetic Calculations & Tolerance Checks
+  if (calculationType === 'YoY_growth' || calculationType === 'QoQ_growth') {
+    if (priorObs.value === 0) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'CALCULATION_DISCREPANCY',
+        item: claimItem,
+        detail: `Prior period value is zero; ${calculationType === 'QoQ_growth' ? 'QoQ ' : ''}percentage growth rate cannot be computed.`,
+        claimId: claim.claimId,
+      });
+      return { valid: false, priorObs, comparisonObservationId, findings };
+    }
+
+    const calculatedGrowth = ((matchingObs.value - priorObs.value) / Math.abs(priorObs.value)) * 100;
+    if (!Number.isFinite(calculatedGrowth)) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'CALCULATION_DISCREPANCY',
+        item: claimItem,
+        detail: `Calculated growth rate is non-finite (${calculatedGrowth}).`,
+        claimId: claim.claimId,
+      });
+      return { valid: false, priorObs, comparisonObservationId, findings };
+    }
+
+    const targetClaimedRate = calculationType === 'QoQ_growth' ? claim.growthRateQoQ : claim.growthRateYoY;
+    if (targetClaimedRate !== undefined) {
+      if (!Number.isFinite(targetClaimedRate)) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'CALCULATION_DISCREPANCY',
+          item: claimItem,
+          detail: `Claimed ${calculationType} (${targetClaimedRate}) must be a finite number.`,
+          claimId: claim.claimId,
+        });
+        return { valid: false, priorObs, comparisonObservationId, findings };
+      }
+      const diff = Math.abs(calculatedGrowth - targetClaimedRate);
+      if (diff > tolerance) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'CALCULATION_DISCREPANCY',
+          item: claimItem,
+          detail:
+            calculationType === 'QoQ_growth'
+              ? `Claimed QoQ growth rate (${targetClaimedRate}%) diverges from calculated QoQ growth rate (${calculatedGrowth.toFixed(2)}%) between ${targetPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`
+              : `Claimed YoY growth rate (${targetClaimedRate}%) diverges from calculated growth rate (${calculatedGrowth.toFixed(2)}%) between ${targetPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
+          claimId: claim.claimId,
+        });
+      }
+    }
+
+    return {
+      valid: findings.length === 0,
+      priorObs,
+      comparisonObservationId,
+      calculatedDiffOrGrowth: calculatedGrowth,
+      findings,
+    };
+  } else {
+    // percentage_points
+    const calculatedDiff = matchingObs.value - priorObs.value;
+    if (!Number.isFinite(calculatedDiff)) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'CALCULATION_DISCREPANCY',
+        item: claimItem,
+        detail: `Calculated percentage point change is non-finite (${calculatedDiff}).`,
+        claimId: claim.claimId,
+      });
+      return { valid: false, priorObs, comparisonObservationId, findings };
+    }
+
+    if (claim.changeYoYPercentagePoints !== undefined) {
+      if (!Number.isFinite(claim.changeYoYPercentagePoints)) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'CALCULATION_DISCREPANCY',
+          item: claimItem,
+          detail: `Claimed percentage point change (${claim.changeYoYPercentagePoints}%p) must be a finite number.`,
+          claimId: claim.claimId,
+        });
+        return { valid: false, priorObs, comparisonObservationId, findings };
+      }
+      const diff = Math.abs(calculatedDiff - claim.changeYoYPercentagePoints);
+      if (diff > tolerance) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'CALCULATION_DISCREPANCY',
+          item: claimItem,
+          detail: `Claimed percentage point change (${claim.changeYoYPercentagePoints}%p) diverges from calculated change (${calculatedDiff.toFixed(2)}%p) between ${targetPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
+          claimId: claim.claimId,
+        });
+      }
+    }
+
+    return {
+      valid: findings.length === 0,
+      priorObs,
+      comparisonObservationId,
+      calculatedDiffOrGrowth: calculatedDiff,
+      findings,
+    };
+  }
+}
+
+/**
+ * Validates a live official source pipeline result against a performance claim (P1).
+ * Replaces caller-controlled boolean trust with an authentic verification check.
+ */
+function validateLivePipelineVerification(
+  claim: StructuredPerformanceClaim,
+  driver: CompanyPerformanceDriver,
+  options: ValidatePerformanceClaimOptions | undefined,
+  sourcesMap: Record<string, SourceDocument>
+): { valid: boolean; failureReasons: string[] } {
+  const liveResult = options?.livePipelineResult;
+  if (!liveResult) {
+    return {
+      valid: false,
+      failureReasons: ['No validated live pipeline result provided (isLiveSource boolean alone cannot establish live verification)'],
+    };
+  }
+
+  const failureReasons: string[] = [];
+
+  // 1. Pipeline execution status
+  if (!liveResult.success) {
+    failureReasons.push(`Live pipeline execution failed: ${liveResult.errorMessage || liveResult.errorCode || 'unsuccessful'}`);
+  }
+  if (liveResult.verificationState !== 'claim_verified') {
+    failureReasons.push(`Verification state is '${liveResult.verificationState}', expected 'claim_verified'`);
+  }
+
+  // 2. Official source identity & allowlist binding
+  if (!liveResult.officialSource) {
+    failureReasons.push('Official source definition missing from live pipeline result');
+  } else {
+    if (claim.sourceDocId && liveResult.officialSource.id !== claim.sourceDocId) {
+      failureReasons.push(`Source document ID mismatch: pipeline is for '${liveResult.officialSource.id}', claim cites '${claim.sourceDocId}'`);
+    }
+    if (liveResult.officialSource.companyId !== driver.companyId) {
+      failureReasons.push(`Company mismatch: pipeline source is '${liveResult.officialSource.companyId}', claim company is '${driver.companyId}'`);
+    }
+    if (!OFFICIAL_IR_SOURCES_MAP.has(liveResult.officialSource.id) && !sourcesMap[liveResult.officialSource.id]) {
+      failureReasons.push(`Official source '${liveResult.officialSource.id}' is not in approved official source registry`);
+    }
+  }
+
+  // 3. Live document transport & URL allowlist check
+  const liveDoc = liveResult.liveDocument;
+  if (!liveDoc) {
+    failureReasons.push('Live source document record missing from pipeline result');
+  } else {
+    if (liveDoc.httpStatus !== 200) {
+      failureReasons.push(`HTTP status was ${liveDoc.httpStatus}, expected 200`);
+    }
+    if (liveDoc.contentType !== 'application/pdf' && !liveDoc.contentType.includes('text/html')) {
+      failureReasons.push(`Unsupported or unverified Content-Type: '${liveDoc.contentType}'`);
+    }
+    if (liveResult.officialSource?.officialDomain) {
+      if (!isUrlInOfficialDomain(liveDoc.finalUrl, liveResult.officialSource.officialDomain)) {
+        failureReasons.push(`Disallowed final URL: '${liveDoc.finalUrl}' is outside official domain perimeter`);
+      }
+    }
+    if (!/^[0-9a-f]{64}$/.test(liveDoc.contentHash)) {
+      failureReasons.push(`Invalid raw-byte contentHash format: '${liveDoc.contentHash}'`);
+    }
+  }
+
+  // 4. Extracted document & block resolution
+  const extractedDoc = liveResult.extractedDocument;
+  const verResult =
+    liveResult.claimVerificationResult && liveResult.claimVerificationResult.state === 'claim_verified'
+      ? (liveResult.claimVerificationResult as ClaimVerifiedResult)
+      : undefined;
+
+  if (!extractedDoc) {
+    failureReasons.push('Extracted live document missing from pipeline result');
+  } else {
+    if (!extractedDoc.extractionVersion || extractedDoc.extractionVersion.trim() === '') {
+      failureReasons.push('Extraction version missing from extracted live document');
+    }
+    const blockId = verResult?.blockId ?? liveResult.evidenceCandidate?.blockId;
+    if (!blockId) {
+      failureReasons.push('Evidence block ID missing from live verification candidate');
+    } else {
+      const matchingBlock = extractedDoc.blocks?.find((b) => b.id === blockId);
+      if (!matchingBlock) {
+        failureReasons.push(`Evidence block '${blockId}' could not be resolved in extracted document blocks`);
+      }
+    }
+  }
+
+  // 5. Claim semantic and dimensional binding
+  const cand = liveResult.evidenceCandidate;
+
+  const verifiedMetric = verResult?.verifiedMetricId ?? cand?.metricId;
+  if (verifiedMetric && verifiedMetric !== claim.metricId) {
+    failureReasons.push(`Evidence metric '${verifiedMetric}' does not match claim metric '${claim.metricId}'`);
+  }
+
+  const verifiedNum = verResult?.verifiedNumericValue ?? cand?.numericValue;
+  if (verifiedNum === undefined || verifiedNum === null) {
+    failureReasons.push('Verified numeric value missing from live verification result');
+  } else if (!matchNumericValues(claim.value, verifiedNum, claim.unit)) {
+    failureReasons.push(`Verified numeric value (${verifiedNum}) contradicts claimed value (${claim.value})`);
+  }
+
+  const verifiedUnit = verResult?.verifiedUnit ?? cand?.unit;
+  if (claim.unit && verifiedUnit && verifiedUnit !== claim.unit) {
+    failureReasons.push(`Verified unit '${verifiedUnit}' does not match claimed unit '${claim.unit}'`);
+  }
+
+  const verifiedScope = verResult?.verifiedScope ?? cand?.scope;
+  if (claim.reportingScope && verifiedScope && verifiedScope !== claim.reportingScope) {
+    failureReasons.push(`Verified scope '${verifiedScope}' does not match claimed scope '${claim.reportingScope}'`);
+  }
+
+  const verifiedBasis = verResult?.verifiedAccountingBasis ?? cand?.accountingBasis;
+  if (claim.accountingBasis && verifiedBasis && verifiedBasis !== claim.accountingBasis) {
+    failureReasons.push(`Verified accounting basis '${verifiedBasis}' does not match claimed basis '${claim.accountingBasis}'`);
+  }
+
+  // 6. Cryptographic Content Hash Binding & Anti-Forgery Check
+  if (verResult && liveDoc) {
+    if (verResult.sourceContentHash !== liveDoc.contentHash) {
+      failureReasons.push(`Cryptographic content hash mismatch: result hash '${verResult.sourceContentHash}' does not match wire hash '${liveDoc.contentHash}'`);
+    }
+  }
+
+  // 7. Validate through existing production claim verification gate
+  if (verResult && liveResult.officialSource) {
+    const claimLocator: ClaimEvidenceLocator = {
+      sourceDocId: liveResult.officialSource.id,
+      claimedValue: String(claim.value),
+      claimedMetricId: claim.metricId,
+      claimedNumericValue: claim.value,
+      claimedUnit: claim.unit as any,
+      claimedScope: claim.reportingScope as any,
+      claimedAccountingBasis: claim.accountingBasis as any,
+      claimedPeriod: driver.period,
+    };
+    const targetSourceDoc: SourceDocument = sourcesMap[liveResult.officialSource.id] || {
+      id: liveResult.officialSource.id,
+      companyId: liveResult.officialSource.companyId,
+      title: liveResult.officialSource.title,
+      docType: liveResult.officialSource.documentType,
+      period: liveResult.officialSource.reportingPeriod,
+      periodType: liveResult.officialSource.periodType,
+      publicationDate: '2026-07-31',
+      officialUrl: liveResult.officialSource.url,
+      isVerified: true,
+      verificationStatus: 'verified',
+      lastChecked: '2026-07-31',
+    };
+
+    const valResult = validateClaimVerificationResult(
+      claimLocator,
+      targetSourceDoc,
+      String(claim.value),
+      verResult,
+      'reported_kpi',
+      {
+        expectedOrigin: 'live_source',
+        expectedContentHash: liveDoc?.contentHash,
+        extractedLiveDocument: extractedDoc,
+        requireBlockBinding: true,
+      }
+    );
+
+    if (!valResult.valid) {
+      failureReasons.push(...valResult.mismatches);
+    }
+  }
+
+  return {
+    valid: failureReasons.length === 0,
+    failureReasons,
+  };
 }
 
 /**
@@ -130,7 +724,6 @@ export function auditStructuredPerformanceClaim(
   const toleranceYoY = options?.toleranceYoY ?? 0.25;
   const toleranceQoQ = options?.toleranceQoQ ?? 0.25;
   const tolerancePercentagePoints = options?.tolerancePercentagePoints ?? 0.05;
-  const isLiveSource = options?.isLiveSource ?? false;
 
   let recalculatedGrowthYoY: number | null = null;
   let recalculatedGrowthQoQ: number | null = null;
@@ -139,6 +732,10 @@ export function auditStructuredPerformanceClaim(
   let comparisonObservationId: string | undefined;
   let comparisonObservationQoQId: string | undefined;
   let evidenceSource: 'deterministic_fixture' | 'live_pipeline' | 'metadata_only' | 'unverified' = 'metadata_only';
+
+  let hasResolvedLocator = false;
+  let hasResolvedEvidenceText = false;
+  let hasAuthoritativeSourceEvidence = false;
 
   const claimItem = `PerformanceClaim: ${claim.claimId || `${driver.companyId}-${driver.period}-${claim.metricId}`}`;
 
@@ -275,7 +872,7 @@ export function auditStructuredPerformanceClaim(
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 3. Source Locator & Evidence Validation Against Available Content
+  // 3. Source Locator & Evidence Validation Against Available Content Fixtures
   // ────────────────────────────────────────────────────────────────────────────
   if (!claim.sourceLocator || claim.sourceLocator.trim() === '') {
     findings.push({
@@ -287,7 +884,6 @@ export function auditStructuredPerformanceClaim(
       claimId: claim.claimId,
     });
   } else {
-    // Check for obvious placeholders or fabricated locator tags
     if (claim.sourceLocator.includes('NONEXISTENT') || claim.sourceLocator.includes('FABRICATED')) {
       findings.push({
         severity: 'ERROR',
@@ -298,19 +894,20 @@ export function auditStructuredPerformanceClaim(
         claimId: claim.claimId,
       });
     } else if (contentFixtures && contentFixtures.length > 0 && claim.sourceDocId) {
-      // If fixtures exist for this document, check locator resolution and numeric contradictions
       const docFixtures = contentFixtures.filter((f) => f.sourceDocId === claim.sourceDocId);
       if (docFixtures.length > 0) {
-        evidenceSource = isLiveSource ? 'live_pipeline' : 'deterministic_fixture';
-
-        // Check for direct numeric contradiction in fixtures
+        // Direct numeric contradiction check in available fixtures
         const metricFixture = docFixtures.find(
           (f) =>
             f.verifiedMetricId === claim.metricId &&
             f.verifiedNumericValue !== undefined &&
             Number.isFinite(f.verifiedNumericValue)
         );
-        if (metricFixture && Math.abs(metricFixture.verifiedNumericValue - claim.value) > 0.05) {
+        if (
+          metricFixture &&
+          metricFixture.verifiedNumericValue !== undefined &&
+          !matchNumericValues(claim.value, metricFixture.verifiedNumericValue, claim.unit)
+        ) {
           findings.push({
             severity: 'ERROR',
             disposition: 'blocking',
@@ -321,10 +918,10 @@ export function auditStructuredPerformanceClaim(
           });
         }
 
-        // Check section locator resolution if fixture has section locator
+        // Section locator resolution
         const knownSections = docFixtures.map((f) => f.sectionLocator).filter(Boolean);
         if (knownSections.length > 0) {
-          const matchesKnown = knownSections.some((sec) => claim.sourceLocator.includes(sec));
+          const matchesKnown = knownSections.some((sec) => claim.sourceLocator.includes(sec!));
           if (!matchesKnown) {
             findings.push({
               severity: 'ERROR',
@@ -334,7 +931,30 @@ export function auditStructuredPerformanceClaim(
               detail: `Claim sourceLocator '${claim.sourceLocator}' does not resolve against available source content fixtures.`,
               claimId: claim.claimId,
             });
+          } else {
+            hasResolvedLocator = true;
           }
+        } else {
+          hasResolvedLocator = true;
+        }
+
+        // Check if a fixture completely verifies the numeric claim
+        const fullMatchFixture = docFixtures.find((f) => {
+          if (f.verifiedMetricId && f.verifiedMetricId !== claim.metricId) return false;
+          if (f.verifiedNumericValue !== undefined && !matchNumericValues(claim.value, f.verifiedNumericValue, claim.unit)) {
+            return false;
+          }
+          if (f.verifiedUnit && claim.unit && f.verifiedUnit !== claim.unit) return false;
+          if (f.verifiedScope && claim.reportingScope && f.verifiedScope !== claim.reportingScope) return false;
+          if (f.verifiedAccountingBasis && claim.accountingBasis && f.verifiedAccountingBasis !== claim.accountingBasis) {
+            return false;
+          }
+          return f.verifiedNumericValue !== undefined;
+        });
+
+        if (fullMatchFixture) {
+          hasAuthoritativeSourceEvidence = true;
+          evidenceSource = 'deterministic_fixture';
         }
       }
     }
@@ -358,6 +978,11 @@ export function auditStructuredPerformanceClaim(
       detail: 'Structured claim verifiedEvidence is suspiciously brief; requires human auditor verification.',
       claimId: claim.claimId,
     });
+  } else if (contentFixtures && claim.sourceDocId) {
+    const docFixtures = contentFixtures.filter((f) => f.sourceDocId === claim.sourceDocId);
+    if (docFixtures.some((f) => f.extractedText && (claim.verifiedEvidence.includes(f.extractedText) || f.extractedText.includes(claim.verifiedEvidence)))) {
+      hasResolvedEvidenceText = true;
+    }
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -413,8 +1038,8 @@ export function auditStructuredPerformanceClaim(
       });
     }
   } else {
-    // Verify value, unit, currency, scope, and accounting basis
-    const valueMatches = matchingObs.value != null && Math.abs(matchingObs.value - claim.value) < 0.01;
+    // Verify numerical consistency with internal observation
+    const valueMatches = matchingObs.value != null && matchNumericValues(claim.value, matchingObs.value, claim.unit);
     if (!valueMatches) {
       findings.push({
         severity: 'ERROR',
@@ -472,319 +1097,47 @@ export function auditStructuredPerformanceClaim(
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 5. YoY Growth Rate Validation (Fail-Closed)
+  // 5. YoY Growth Rate Validation via Unified Validator (Fail-Closed, P2)
   // ────────────────────────────────────────────────────────────────────────────
   if (claim.growthRateYoY !== undefined) {
-    const expectedPriorYoY = getExpectedPriorPeriod(driver.period, 'YoY');
-
-    if (!claim.comparisonPeriod || claim.comparisonPeriod.trim() === '') {
-      findings.push({
-        severity: 'ERROR',
-        disposition: 'blocking',
-        category: 'SOURCE_CLAIM_INTEGRITY',
-        item: claimItem,
-        detail: `Claim specifies growthRateYoY (${claim.growthRateYoY}%) but lacks comparisonPeriod.`,
-        claimId: claim.claimId,
-      });
-    } else {
-      if (expectedPriorYoY && claim.comparisonPeriod !== expectedPriorYoY) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'PERIOD_ALIGNMENT',
-          item: claimItem,
-          detail: `Claim comparisonPeriod '${claim.comparisonPeriod}' is not the prior-year period for '${driver.period}' (expected '${expectedPriorYoY}').`,
-          claimId: claim.claimId,
-        });
-      }
-
-      if (!matchingObs || matchingObs.value == null) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate YoY growth rate: current observation missing or null for metric '${claim.metricId}' in ${driver.period}.`,
-          claimId: claim.claimId,
-        });
-      }
-
-      let priorCandidates = observations.filter(
-        (o) => o.companyId === driver.companyId && o.period === claim.comparisonPeriod && o.metricId === claim.metricId
-      );
-
-      if (priorCandidates.length > 1 && claim.reportingScope) {
-        const scoped = priorCandidates.filter((o) => o.reportingScope === claim.reportingScope);
-        if (scoped.length > 0) priorCandidates = scoped;
-      }
-      if (priorCandidates.length > 1 && claim.accountingBasis) {
-        const based = priorCandidates.filter((o) => o.accountingBasis === claim.accountingBasis);
-        if (based.length > 0) priorCandidates = based;
-      }
-
-      if (priorCandidates.length === 0) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate YoY growth rate: comparison observation missing for metric '${claim.metricId}' in ${claim.comparisonPeriod}.`,
-          claimId: claim.claimId,
-        });
-      } else if (priorCandidates.length > 1) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate YoY growth rate: ambiguous comparison observations (${priorCandidates.length}) found for metric '${claim.metricId}' in ${claim.comparisonPeriod}.`,
-          claimId: claim.claimId,
-        });
-      } else {
-        const priorObs = priorCandidates[0];
-        comparisonObservationId = priorObs.id;
-
-        if (priorObs.value == null) {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'CALCULATION_DISCREPANCY',
-            item: claimItem,
-            detail: `Cannot validate YoY growth rate: comparison observation value is null for metric '${claim.metricId}' in ${claim.comparisonPeriod}.`,
-            claimId: claim.claimId,
-          });
-        } else {
-          // Unit / Scope / Currency / Accounting Basis compatibility checks
-          const currUnit = matchingObs?.unit ?? claim.unit;
-          if (priorObs.unit !== currUnit) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SCOPE_MISMATCH',
-              item: claimItem,
-              detail: `Cannot validate YoY growth rate: unit mismatch between comparison (${priorObs.unit}) and current (${currUnit}).`,
-              claimId: claim.claimId,
-            });
-          }
-
-          const currCurr = matchingObs?.currency ?? claim.currency;
-          if (priorObs.currency && currCurr && priorObs.currency !== currCurr) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SCOPE_MISMATCH',
-              item: claimItem,
-              detail: `Cannot validate YoY growth rate: currency mismatch between comparison (${priorObs.currency}) and current (${currCurr}).`,
-              claimId: claim.claimId,
-            });
-          }
-
-          if (priorObs.reportingScope && claim.reportingScope && priorObs.reportingScope !== claim.reportingScope) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SCOPE_MISMATCH',
-              item: claimItem,
-              detail: `Cannot validate YoY growth rate: reportingScope mismatch between comparison (${priorObs.reportingScope}) and current (${claim.reportingScope}).`,
-              claimId: claim.claimId,
-            });
-          }
-
-          if (priorObs.accountingBasis && claim.accountingBasis && priorObs.accountingBasis !== claim.accountingBasis) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SCOPE_MISMATCH',
-              item: claimItem,
-              detail: `Cannot validate YoY growth rate: accountingBasis mismatch between comparison (${priorObs.accountingBasis}) and current (${claim.accountingBasis}).`,
-              claimId: claim.claimId,
-            });
-          }
-
-          // Zero denominator check
-          if (priorObs.value === 0) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'CALCULATION_DISCREPANCY',
-              item: claimItem,
-              detail: 'Prior period value is zero; percentage growth rate cannot be computed.',
-              claimId: claim.claimId,
-            });
-          } else if (matchingObs && matchingObs.value != null) {
-            // Formula: ((current - prior) / Math.abs(prior)) * 100
-            const calculatedGrowth = ((matchingObs.value - priorObs.value) / Math.abs(priorObs.value)) * 100;
-            recalculatedGrowthYoY = calculatedGrowth;
-            const diff = Math.abs(calculatedGrowth - claim.growthRateYoY);
-            if (diff > toleranceYoY) {
-              findings.push({
-                severity: 'ERROR',
-                disposition: 'blocking',
-                category: 'CALCULATION_DISCREPANCY',
-                item: claimItem,
-                detail: `Claimed YoY growth rate (${claim.growthRateYoY}%) diverges from calculated growth rate (${calculatedGrowth.toFixed(2)}%) between ${claim.comparisonPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
-                claimId: claim.claimId,
-              });
-            }
-          }
-        }
-      }
+    const yoyResult = resolveAndValidateComparisonObservation(
+      claim,
+      driver,
+      matchingObs,
+      observations,
+      'YoY_growth',
+      toleranceYoY,
+      claimItem
+    );
+    comparisonObservationId = yoyResult.comparisonObservationId;
+    if (yoyResult.calculatedDiffOrGrowth !== undefined) {
+      recalculatedGrowthYoY = yoyResult.calculatedDiffOrGrowth;
     }
+    findings.push(...yoyResult.findings);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 5b. QoQ Growth Rate Validation (Fail-Closed)
+  // 5b. QoQ Growth Rate Validation via Unified Validator (Fail-Closed, P2)
   // ────────────────────────────────────────────────────────────────────────────
   if (claim.growthRateQoQ !== undefined) {
-    const expectedPriorQoQ = getExpectedPriorPeriod(driver.period, 'QoQ');
-    const targetQoQPeriod = claim.comparisonPeriodQoQ || expectedPriorQoQ;
-
-    if (!targetQoQPeriod) {
-      findings.push({
-        severity: 'ERROR',
-        disposition: 'blocking',
-        category: 'PERIOD_ALIGNMENT',
-        item: claimItem,
-        detail: `QoQ growth rate cannot be calculated for non-quarterly period '${driver.period}'.`,
-        claimId: claim.claimId,
-      });
-    } else {
-      if (claim.comparisonPeriodQoQ && expectedPriorQoQ && claim.comparisonPeriodQoQ !== expectedPriorQoQ) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'PERIOD_ALIGNMENT',
-          item: claimItem,
-          detail: `Claim comparisonPeriodQoQ '${claim.comparisonPeriodQoQ}' is not the preceding comparable quarter for '${driver.period}' (expected '${expectedPriorQoQ}').`,
-          claimId: claim.claimId,
-        });
-      }
-
-      if (!matchingObs || matchingObs.value == null) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate QoQ growth rate: current observation missing or null for metric '${claim.metricId}' in ${driver.period}.`,
-          claimId: claim.claimId,
-        });
-      }
-
-      let priorQoQCandidates = observations.filter(
-        (o) => o.companyId === driver.companyId && o.period === targetQoQPeriod && o.metricId === claim.metricId
-      );
-
-      if (priorQoQCandidates.length > 1 && claim.reportingScope) {
-        const scoped = priorQoQCandidates.filter((o) => o.reportingScope === claim.reportingScope);
-        if (scoped.length > 0) priorQoQCandidates = scoped;
-      }
-      if (priorQoQCandidates.length > 1 && claim.accountingBasis) {
-        const based = priorQoQCandidates.filter((o) => o.accountingBasis === claim.accountingBasis);
-        if (based.length > 0) priorQoQCandidates = based;
-      }
-
-      if (priorQoQCandidates.length === 0) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate QoQ growth rate: comparison observation missing for metric '${claim.metricId}' in ${targetQoQPeriod}.`,
-          claimId: claim.claimId,
-        });
-      } else if (priorQoQCandidates.length > 1) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate QoQ growth rate: ambiguous comparison observations (${priorQoQCandidates.length}) found for metric '${claim.metricId}' in ${targetQoQPeriod}.`,
-          claimId: claim.claimId,
-        });
-      } else {
-        const priorQoQObs = priorQoQCandidates[0];
-        comparisonObservationQoQId = priorQoQObs.id;
-
-        if (priorQoQObs.value == null) {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'CALCULATION_DISCREPANCY',
-            item: claimItem,
-            detail: `Cannot validate QoQ growth rate: comparison observation value is null for metric '${claim.metricId}' in ${targetQoQPeriod}.`,
-            claimId: claim.claimId,
-          });
-        } else {
-          // Unit / Scope / Currency / Accounting Basis compatibility checks
-          const currUnit = matchingObs?.unit ?? claim.unit;
-          if (priorQoQObs.unit !== currUnit) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SCOPE_MISMATCH',
-              item: claimItem,
-              detail: `Cannot validate QoQ growth rate: unit mismatch between comparison (${priorQoQObs.unit}) and current (${currUnit}).`,
-              claimId: claim.claimId,
-            });
-          }
-
-          const currCurr = matchingObs?.currency ?? claim.currency;
-          if (priorQoQObs.currency && currCurr && priorQoQObs.currency !== currCurr) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SCOPE_MISMATCH',
-              item: claimItem,
-              detail: `Cannot validate QoQ growth rate: currency mismatch between comparison (${priorQoQObs.currency}) and current (${currCurr}).`,
-              claimId: claim.claimId,
-            });
-          }
-
-          if (priorQoQObs.reportingScope && claim.reportingScope && priorQoQObs.reportingScope !== claim.reportingScope) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SCOPE_MISMATCH',
-              item: claimItem,
-              detail: `Cannot validate QoQ growth rate: reportingScope mismatch between comparison (${priorQoQObs.reportingScope}) and current (${claim.reportingScope}).`,
-              claimId: claim.claimId,
-            });
-          }
-
-          // Zero denominator check
-          if (priorQoQObs.value === 0) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'CALCULATION_DISCREPANCY',
-              item: claimItem,
-              detail: 'Prior period value is zero; QoQ percentage growth rate cannot be computed.',
-              claimId: claim.claimId,
-            });
-          } else if (matchingObs && matchingObs.value != null) {
-            // Formula: ((current - prior) / Math.abs(prior)) * 100
-            const calculatedGrowthQoQ = ((matchingObs.value - priorQoQObs.value) / Math.abs(priorQoQObs.value)) * 100;
-            recalculatedGrowthQoQ = calculatedGrowthQoQ;
-            const diff = Math.abs(calculatedGrowthQoQ - claim.growthRateQoQ);
-            if (diff > toleranceQoQ) {
-              findings.push({
-                severity: 'ERROR',
-                disposition: 'blocking',
-                category: 'CALCULATION_DISCREPANCY',
-                item: claimItem,
-                detail: `Claimed QoQ growth rate (${claim.growthRateQoQ}%) diverges from calculated QoQ growth rate (${calculatedGrowthQoQ.toFixed(2)}%) between ${targetQoQPeriod} (${priorQoQObs.value}) and ${driver.period} (${matchingObs.value}).`,
-                claimId: claim.claimId,
-              });
-            }
-          }
-        }
-      }
+    const qoqResult = resolveAndValidateComparisonObservation(
+      claim,
+      driver,
+      matchingObs,
+      observations,
+      'QoQ_growth',
+      toleranceQoQ,
+      claimItem
+    );
+    comparisonObservationQoQId = qoqResult.comparisonObservationId;
+    if (qoqResult.calculatedDiffOrGrowth !== undefined) {
+      recalculatedGrowthQoQ = qoqResult.calculatedDiffOrGrowth;
     }
+    findings.push(...qoqResult.findings);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 6. Percentage Point Change Validation (Fail-Closed)
+  // 6. Percentage Point Change Validation via Unified Validator (Fail-Closed, P2)
   // ────────────────────────────────────────────────────────────────────────────
   if (claim.changeYoYPercentagePoints !== undefined) {
     if (claim.growthRateYoY !== undefined) {
@@ -798,129 +1151,55 @@ export function auditStructuredPerformanceClaim(
       });
     }
 
-    if (!claim.comparisonPeriod || claim.comparisonPeriod.trim() === '') {
+    if (claim.unit !== 'percentage') {
       findings.push({
         severity: 'ERROR',
         disposition: 'blocking',
-        category: 'SOURCE_CLAIM_INTEGRITY',
+        category: 'SCOPE_MISMATCH',
         item: claimItem,
-        detail: `Claim specifies changeYoYPercentagePoints (${claim.changeYoYPercentagePoints}%p) but lacks comparisonPeriod.`,
+        detail: `Claim specifies changeYoYPercentagePoints but unit is '${claim.unit}', not 'percentage'.`,
         claimId: claim.claimId,
       });
-    } else {
-      const expectedYoY = getExpectedPriorPeriod(driver.period, 'YoY');
-      if (expectedYoY && claim.comparisonPeriod !== expectedYoY) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'PERIOD_ALIGNMENT',
-          item: claimItem,
-          detail: `Claim comparisonPeriod '${claim.comparisonPeriod}' is not the prior-year period for '${driver.period}' (expected '${expectedYoY}').`,
-          claimId: claim.claimId,
-        });
-      }
-
-      if (claim.unit !== 'percentage') {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'SCOPE_MISMATCH',
-          item: claimItem,
-          detail: `Claim specifies changeYoYPercentagePoints but unit is '${claim.unit}', not 'percentage'.`,
-          claimId: claim.claimId,
-        });
-      }
-
-      // Check non-share / non-percentage metric
-      const metricDef = METRICS_MAP[claim.metricId];
-      const isShareOrRateMetric =
-        claim.unit === 'percentage' ||
-        (metricDef && (metricDef.unit === 'percentage' || metricDef.dataType === 'percentage')) ||
-        claim.metricId.includes('share') ||
-        claim.metricId.includes('margin');
-
-      if (!isShareOrRateMetric) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'SCOPE_MISMATCH',
-          item: claimItem,
-          detail: `Percentage point change cannot be applied to non-share metric '${claim.metricId}'.`,
-          claimId: claim.claimId,
-        });
-      }
-
-      if (!matchingObs || matchingObs.value == null) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate percentage point change: current observation missing or null for metric '${claim.metricId}' in ${driver.period}.`,
-          claimId: claim.claimId,
-        });
-      }
-
-      let priorCandidates = observations.filter(
-        (o) => o.companyId === driver.companyId && o.period === claim.comparisonPeriod && o.metricId === claim.metricId
-      );
-
-      if (priorCandidates.length > 1 && claim.reportingScope) {
-        const scoped = priorCandidates.filter((o) => o.reportingScope === claim.reportingScope);
-        if (scoped.length > 0) priorCandidates = scoped;
-      }
-
-      if (priorCandidates.length === 0) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate percentage point change: comparison observation missing for metric '${claim.metricId}' in ${claim.comparisonPeriod}.`,
-          claimId: claim.claimId,
-        });
-      } else if (priorCandidates.length > 1) {
-        findings.push({
-          severity: 'ERROR',
-          disposition: 'blocking',
-          category: 'CALCULATION_DISCREPANCY',
-          item: claimItem,
-          detail: `Cannot validate percentage point change: ambiguous comparison observations (${priorCandidates.length}) found for metric '${claim.metricId}' in ${claim.comparisonPeriod}.`,
-          claimId: claim.claimId,
-        });
-      } else {
-        const priorObs = priorCandidates[0];
-        if (priorObs.unit !== 'percentage') {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'SCOPE_MISMATCH',
-            item: claimItem,
-            detail: `Cannot validate percentage point change: comparison observation unit is '${priorObs.unit}', expected 'percentage'.`,
-            claimId: claim.claimId,
-          });
-        } else if (matchingObs && matchingObs.value != null && priorObs.value != null) {
-          // Formula: currentPercentage - comparisonPercentage
-          const calculatedDiff = matchingObs.value - priorObs.value;
-          recalculatedChangePp = calculatedDiff;
-          const diff = Math.abs(calculatedDiff - claim.changeYoYPercentagePoints);
-          if (diff > tolerancePercentagePoints) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'CALCULATION_DISCREPANCY',
-              item: claimItem,
-              detail: `Claimed percentage point change (${claim.changeYoYPercentagePoints}%p) diverges from calculated change (${calculatedDiff.toFixed(2)}%p) between ${claim.comparisonPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
-              claimId: claim.claimId,
-            });
-          }
-        }
-      }
     }
+
+    const metricDef = METRICS_MAP[claim.metricId];
+    const isShareOrRateMetric =
+      claim.unit === 'percentage' ||
+      (metricDef && (metricDef.unit === 'percentage' || metricDef.dataType === 'percentage')) ||
+      claim.metricId.includes('share') ||
+      claim.metricId.includes('margin');
+
+    if (!isShareOrRateMetric) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'SCOPE_MISMATCH',
+        item: claimItem,
+        detail: `Percentage point change cannot be applied to non-share metric '${claim.metricId}'.`,
+        claimId: claim.claimId,
+      });
+    }
+
+    const ppResult = resolveAndValidateComparisonObservation(
+      claim,
+      driver,
+      matchingObs,
+      observations,
+      'percentage_points',
+      tolerancePercentagePoints,
+      claimItem
+    );
+    if (!comparisonObservationId) {
+      comparisonObservationId = ppResult.comparisonObservationId;
+    }
+    if (ppResult.calculatedDiffOrGrowth !== undefined) {
+      recalculatedChangePp = ppResult.calculatedDiffOrGrowth;
+    }
+    findings.push(...ppResult.findings);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 7. Bilingual Narrative Reference & Consistency
+  // 7. Bilingual Narrative Reference & Semantic/Directional Consistency (P2)
   // ────────────────────────────────────────────────────────────────────────────
   const allNarrativeTextKo = [
     driver.headlineKo,
@@ -938,7 +1217,16 @@ export function auditStructuredPerformanceClaim(
     .filter(Boolean)
     .join(' ');
 
-  if (claim.narrativeRefKo) {
+  if (!claim.narrativeRefKo || claim.narrativeRefKo.trim() === '') {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SOURCE_CLAIM_INTEGRITY',
+      item: claimItem,
+      detail: 'Structured claim lacks required narrativeRefKo.',
+      claimId: claim.claimId,
+    });
+  } else {
     if (!allNarrativeTextKo.includes(claim.narrativeRefKo)) {
       findings.push({
         severity: 'ERROR',
@@ -960,7 +1248,16 @@ export function auditStructuredPerformanceClaim(
     }
   }
 
-  if (claim.narrativeRefEn) {
+  if (!claim.narrativeRefEn || claim.narrativeRefEn.trim() === '') {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SOURCE_CLAIM_INTEGRITY',
+      item: claimItem,
+      detail: 'Structured claim lacks required narrativeRefEn.',
+      claimId: claim.claimId,
+    });
+  } else {
     if (!allNarrativeTextEn.includes(claim.narrativeRefEn)) {
       findings.push({
         severity: 'ERROR',
@@ -982,13 +1279,105 @@ export function auditStructuredPerformanceClaim(
     }
   }
 
-  // Material Korean / English Discrepancy Checks
+  // Deep Semantic & Directional Validation across Narrative References
   if (claim.narrativeRefKo && claim.narrativeRefEn) {
+    // A. Conflicting period check
+    const currentQMatch = driver.period.match(/^(\d{4})-Q([1-4])$/);
+    if (currentQMatch) {
+      const currentQuarter = currentQMatch[2];
+      const otherQuarters = ['1', '2', '3', '4'].filter(
+        (q) => q !== currentQuarter && (!claim.comparisonPeriodQoQ || !claim.comparisonPeriodQoQ.endsWith(`-Q${q}`))
+      );
+      for (const oq of otherQuarters) {
+        const regexKo = new RegExp(`(?:^|\\s|\\()${oq}분기(?:\\s|\\)|$)`);
+        const regexEn = new RegExp(`\\bQ${oq}\\b`, 'i');
+        if (regexKo.test(claim.narrativeRefKo) || regexEn.test(claim.narrativeRefEn)) {
+          findings.push({
+            severity: 'ERROR',
+            disposition: 'blocking',
+            category: 'PERIOD_ALIGNMENT',
+            item: claimItem,
+            detail: `Narrative reference explicitly cites conflicting reporting quarter ('Q${oq}') for a ${driver.period} claim.`,
+            claimId: claim.claimId,
+          });
+          break;
+        }
+      }
+    }
+
+    // B. Conflicting metric check (volume vs financial)
+    const isVolumeClaim =
+      claim.metricId === 'deliveries_global' ||
+      claim.metricId === 'wholesale_shipments' ||
+      claim.metricId === 'bev_deliveries' ||
+      claim.metricId === 'hev_deliveries';
+    const isFinancialClaim =
+      claim.metricId === 'revenue' ||
+      claim.metricId === 'operating_income' ||
+      claim.metricId === 'net_income' ||
+      claim.metricId === 'free_cash_flow';
+
+    const hasFinancialKo = /매출|영업이익|순이익|손실|EBIT/i.test(claim.narrativeRefKo);
+    const hasVolumeKo = /인도|판매|출하|대\b/i.test(claim.narrativeRefKo);
+    const hasFinancialEn = /revenue|operating profit|operating income|EBIT|net income|loss|\$|€|₩|RMB/i.test(claim.narrativeRefEn);
+    const hasVolumeEn = /deliveries|sales|wholesales|shipments|volume|units|vehicles/i.test(claim.narrativeRefEn);
+
+    if (isVolumeClaim && hasFinancialKo && !hasVolumeKo && hasFinancialEn && !hasVolumeEn) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'SCOPE_MISMATCH',
+        item: claimItem,
+        detail: `Narrative reference describes revenue/profit metrics rather than claimed volume metric '${claim.metricId}'.`,
+        claimId: claim.claimId,
+      });
+    }
+
+    if (isFinancialClaim && hasVolumeKo && !hasFinancialKo && hasVolumeEn && !hasFinancialEn) {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'SCOPE_MISMATCH',
+        item: claimItem,
+        detail: `Narrative reference describes vehicle volume metrics rather than claimed financial metric '${claim.metricId}'.`,
+        claimId: claim.claimId,
+      });
+    }
+
+    // C. Percentage vs Percentage Point confusion check
+    if (claim.changeYoYPercentagePoints !== undefined) {
+      const koHasPp = /%p|퍼센트포인트|포인트/i.test(claim.narrativeRefKo);
+      const enHasPp = /%p|percentage point|pts|points/i.test(claim.narrativeRefEn);
+      const enHasGrowthConfusion = /(?:grew|growth|increased|rose|up)\s+[+-]?\d+(?:\.\d+)?%\s*(?:YoY)?/i.test(claim.narrativeRefEn);
+      const koHasGrowthConfusion = /[+-]?\d+(?:\.\d+)?%\s*(?:증가|성장|상승)/i.test(claim.narrativeRefKo);
+
+      if (!koHasPp && koHasGrowthConfusion) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'SOURCE_CLAIM_INTEGRITY',
+          item: claimItem,
+          detail: `Percentage point change claim (${claim.changeYoYPercentagePoints}%p) confused with percentage growth in Korean narrative ("${claim.narrativeRefKo}").`,
+          claimId: claim.claimId,
+        });
+      }
+      if (!enHasPp && enHasGrowthConfusion) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'SOURCE_CLAIM_INTEGRITY',
+          item: claimItem,
+          detail: `Percentage point change claim (${claim.changeYoYPercentagePoints}%p) confused with percentage growth in English narrative ("${claim.narrativeRefEn}").`,
+          claimId: claim.claimId,
+        });
+      }
+    }
+
+    // D. Growth rate numerical discrepancy check
     const koPercentages = extractPercentages(claim.narrativeRefKo);
     const enPercentages = extractPercentages(claim.narrativeRefEn);
 
     if (koPercentages.length > 0 && enPercentages.length > 0) {
-      // Find closest pairs
       let minDiscrepancy = Infinity;
       for (const kp of koPercentages) {
         for (const ep of enPercentages) {
@@ -1008,9 +1397,9 @@ export function auditStructuredPerformanceClaim(
       }
     }
 
-    // Directional inconsistency check between Ko and En
+    // E. Directional inconsistency check between Ko and En
     const koPos = /증가|성장|상승|\+/.test(claim.narrativeRefKo);
-    const koNeg = /감소|하락|감축|-/.test(claim.narrativeRefKo);
+    const koNeg = /감소|하락|축소|감축|-/.test(claim.narrativeRefKo);
     const enLower = claim.narrativeRefEn.toLowerCase();
     const enPos = /increase|growth|surge|expand|up|\+/.test(enLower);
     const enNeg = /decrease|decline|drop|fell|down|-/.test(enLower);
@@ -1026,7 +1415,7 @@ export function auditStructuredPerformanceClaim(
       });
     }
 
-    // Directional consistency check against claimed growth sign
+    // F. Directional consistency check against claimed growth sign
     if (claim.growthRateYoY !== undefined) {
       if (claim.growthRateYoY < 0 && koPos && !koNeg) {
         findings.push({
@@ -1048,23 +1437,76 @@ export function auditStructuredPerformanceClaim(
           claimId: claim.claimId,
         });
       }
+      if (claim.growthRateYoY < 0 && enPos && !enNeg) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'SOURCE_CLAIM_INTEGRITY',
+          item: claimItem,
+          detail: `Negative YoY growth (${claim.growthRateYoY}%) contradicts positive English narrative description ("${claim.narrativeRefEn}").`,
+          claimId: claim.claimId,
+        });
+      }
+      if (claim.growthRateYoY > 0 && enNeg && !enPos) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'SOURCE_CLAIM_INTEGRITY',
+          item: claimItem,
+          detail: `Positive YoY growth (+${claim.growthRateYoY}%) contradicts negative English narrative description ("${claim.narrativeRefEn}").`,
+          claimId: claim.claimId,
+        });
+      }
     }
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 8. Verification Level Classification
+  // 8. Live Source Verification Pipeline Gate (P1)
+  // ────────────────────────────────────────────────────────────────────────────
+  let isLiveVerified = false;
+  if (options?.livePipelineResult) {
+    const liveVal = validateLivePipelineVerification(claim, driver, options, sourcesMap);
+    if (liveVal.valid) {
+      isLiveVerified = true;
+      evidenceSource = 'live_pipeline';
+    } else {
+      findings.push({
+        severity: 'ERROR',
+        disposition: 'blocking',
+        category: 'SOURCE_CLAIM_INTEGRITY',
+        item: claimItem,
+        detail: `Live source verification failed: ${liveVal.failureReasons.join('; ')}`,
+        claimId: claim.claimId,
+      });
+    }
+  } else if (options?.isLiveSource) {
+    // Insecure caller-controlled boolean alone is rejected from establishing live_source_verified
+    findings.push({
+      severity: 'WARNING',
+      disposition: 'review',
+      category: 'SOURCE_CLAIM_INTEGRITY',
+      item: claimItem,
+      detail: 'isLiveSource boolean flag alone cannot establish live verification; requires validated livePipelineResult from trusted pipeline.',
+      claimId: claim.claimId,
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // 9. Multi-Tiered Verification Level Classification (P1)
   // ────────────────────────────────────────────────────────────────────────────
   const hasBlocking = findings.some((f) => f.disposition === 'blocking');
   let verificationLevel: ClaimVerificationLevel = 'unverified';
 
   if (!hasBlocking) {
-    if (isLiveSource) {
+    if (isLiveVerified) {
       verificationLevel = 'live_source_verified';
-    } else if (matchingObs && matchingObs.value != null) {
+    } else if (hasAuthoritativeSourceEvidence) {
       verificationLevel = 'numeric_claim_verified';
-    } else if (claim.verifiedEvidence && claim.verifiedEvidence.trim().length >= 8) {
+    } else if (matchingObs && matchingObs.value != null && matchNumericValues(claim.value, matchingObs.value, claim.unit)) {
+      verificationLevel = 'observation_consistent';
+    } else if (hasResolvedEvidenceText) {
       verificationLevel = 'evidence_validated';
-    } else if (claim.sourceLocator && claim.sourceLocator.trim() !== '') {
+    } else if (hasResolvedLocator) {
       verificationLevel = 'locator_validated';
     } else {
       verificationLevel = 'metadata_validated';
