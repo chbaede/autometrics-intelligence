@@ -24,7 +24,7 @@ import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SOURCE_DOCUMENTS } from '../data/sources';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
-import { getPerformanceDriver } from '../data/performanceDrivers';
+import { getPerformanceDriver, getAvailablePerformanceDriverPeriods } from '../data/performanceDrivers';
 import {
   Globe,
   ExternalLink,
@@ -86,8 +86,9 @@ export const CompanyDashboardPage: React.FC = () => {
     ? Number(((periodNetIncome.value / periodRev.value) * 100).toFixed(1))
     : null;
 
-  // Official qualitative performance drivers for activePeriod (or fallback to latest)
+  // Official qualitative performance drivers for activePeriod (strictly exact match, no silent fallback)
   const performanceDriver = getPerformanceDriver(currentCompany.id, activePeriod);
+  const availableDriverPeriods = getAvailablePerformanceDriverPeriods(currentCompany.id);
 
   const availableMetrics = [
     { id: 'deliveries_global', label: language === 'ko' ? '차량 인도량' : 'Vehicle Deliveries', icon: TrendingUp },
@@ -98,8 +99,23 @@ export const CompanyDashboardPage: React.FC = () => {
     { id: 'bev_share', label: language === 'ko' ? '전기차 점유율' : 'BEV Share', icon: Zap },
   ];
 
-  // Filter observations by the selected metric for table explorer
-  const filteredObs = observations.filter((obs) => obs.metricId === selectedMetricId);
+  // Helper to ensure newest periods (e.g., 2026-Q3) sort to the very top
+  const getPeriodSortWeight = (period: string): number => {
+    const [yearStr, part] = period.split('-');
+    const year = parseInt(yearStr, 10) || 0;
+    let partWeight = 0;
+    if (part === 'Q4') partWeight = 4;
+    else if (part === 'Q3') partWeight = 3;
+    else if (part === 'Q2') partWeight = 2;
+    else if (part === 'Q1') partWeight = 1;
+    else if (part === 'FY') partWeight = 0.5;
+    return year * 10 + partWeight;
+  };
+
+  // Filter observations by the selected metric for table explorer and sort newest (2026-Q3) first
+  const filteredObs = [...observations]
+    .filter((obs) => obs.metricId === selectedMetricId)
+    .sort((a, b) => getPeriodSortWeight(b.period) - getPeriodSortWeight(a.period));
   const selectedMetricDef = getMetricById(selectedMetricId);
 
   // Cadence-separated Historical Trend Line Visualizer (Never mix Quarterly with Annual)
@@ -518,7 +534,7 @@ export const CompanyDashboardPage: React.FC = () => {
       />
 
       {/* OFFICIAL PERFORMANCE DRIVERS & MANAGEMENT COMMENTARY */}
-      {performanceDriver && (
+      {performanceDriver ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-7 shadow-md space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
@@ -573,7 +589,9 @@ export const CompanyDashboardPage: React.FC = () => {
                         ? language === 'ko' ? '⚡ 전동화' : '⚡ EV / Tech'
                         : driver.category === 'one_off'
                         ? language === 'ko' ? '⚠️ 일회성 비용' : '⚠️ One-off'
-                        : language === 'ko' ? '🌐 거시 환경' : '🌐 Macro'}
+                        : driver.category === 'macro'
+                        ? language === 'ko' ? '🌐 거시 환경' : '🌐 Macro'
+                        : language === 'ko' ? '🎯 사업 전략' : '🎯 Strategy'}
                     </span>
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
@@ -625,23 +643,57 @@ export const CompanyDashboardPage: React.FC = () => {
             )}
           </div>
         </div>
+      ) : (
+        /* Empty State: No commentary for this exact period — never silently fallback to a different period */
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-sm">
+            <FileText className="w-4 h-4 text-slate-400" />
+            <span>
+              {language === 'ko'
+                ? `${formatPeriodLabel(activePeriod, language)} 공식 IR 경영진 설명 자료 없음`
+                : `No official IR management commentary available for ${formatPeriodLabel(activePeriod, language)}`}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            {language === 'ko'
+              ? `선택하신 공시 주기(${activePeriod})에 대해 등록된 공식 IR 정성 분석 자료가 없습니다. AutoMetrics는 타 주기의 분석을 임의로 대체 표시하지 않습니다.`
+              : `No verified qualitative IR commentary is registered for ${activePeriod}. AutoMetrics never silently substitutes commentary from a different period.`}
+          </p>
+          {availableDriverPeriods.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                {language === 'ko' ? '공식 해설 등록 주기:' : 'Available commentary periods:'}
+              </span>
+              {availableDriverPeriods.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setActivePeriod(p)}
+                  className="px-3 py-1 text-xs font-semibold rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300 dark:hover:bg-brand-900/50 border border-brand-200 dark:border-brand-800 transition shadow-2xs"
+                >
+                  {formatPeriodLabel(p, language)} {language === 'ko' ? '공식 분석 보기' : 'Commentary'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Historical Trend Line Visualizer (Cadence Separated) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-              {language === 'ko' ? '지표별 연속 추이 탐색기' : 'Multi-Period Trend Visualizer'}
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+              <span>{language === 'ko' ? '지표별 연속 추이 탐색기' : 'Multi-Period Trend Visualizer'}</span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {language === 'ko'
-                ? '분기 실적과 연간 실적의 왜곡을 방지하기 위해 집계 주기를 엄격히 분리하여 렌더링합니다.'
+                ? `선택한 지표(${selectedMetricDef?.name})의 기간별 공식 실적 변화를 추적합니다. (비율 왜곡 방지를 위해 분기/연간 집계 주기 분리)`
                 : 'Quarterly and annual cadences are strictly separated to prevent distorted comparisons.'}
             </p>
           </div>
           {/* Cadence Switcher: Quarterly vs Annual */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl self-start sm:self-auto">
             <button
               onClick={() => setTrendCadence('quarterly')}
               className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
@@ -665,12 +717,40 @@ export const CompanyDashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Metric Selector Pills inside Trend Explorer */}
+        <div className="flex items-center gap-1.5 flex-wrap p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 shrink-0">
+            {language === 'ko' ? '추이 지표 선택:' : 'Select Metric:'}
+          </span>
+          {availableMetrics.map((m) => {
+            const isSelected = selectedMetricId === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => setSelectedMetricId(m.id)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-brand-600 text-white border-brand-500 shadow-xs'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <m.icon className="w-3.5 h-3.5" />
+                <span>{m.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <MetricLineChart
           title={`${currentCompany.name} — ${selectedMetricDef?.name || 'Historical Trend'} (${trendCadence === 'quarterly' ? 'Quarterly' : 'Annual'})`}
           subtitle={
             trendCadence === 'quarterly'
-              ? language === 'ko' ? '분기 실적 추이 시각화 (동일 분기 주기)' : 'Tracking quarterly trajectory'
-              : language === 'ko' ? '연간 종합 실적 마일스톤' : 'Tracking annual milestone progression'
+              ? language === 'ko'
+                ? `${selectedMetricDef?.name || '선택 지표'}의 분기별 실적 추이 시각화 (동일 분기 주기)`
+                : `Tracking quarterly trajectory of ${selectedMetricDef?.name || 'metric'}`
+              : language === 'ko'
+                ? `${selectedMetricDef?.name || '선택 지표'}의 연간 종합 실적 마일스톤`
+                : `Tracking annual milestone progression of ${selectedMetricDef?.name || 'metric'}`
           }
           series={singleSeries}
           unit={selectedMetricDef?.unit || 'units'}
@@ -743,7 +823,19 @@ export const CompanyDashboardPage: React.FC = () => {
                       className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer group"
                     >
                       <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-slate-200">
-                        {obs.period}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={obs.period === '2026-Q3' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : ''}>
+                            {obs.period}
+                          </span>
+                          {obs.period === '2026-Q3' && (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                              {language === 'ko' ? '최신 3Q' : 'Latest Q3'}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                            ({formatPeriodLabel(obs.period, language)})
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
                         {obs.originalLabel || selectedMetricDef?.name}

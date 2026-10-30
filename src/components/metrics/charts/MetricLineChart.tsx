@@ -20,6 +20,108 @@ interface MetricLineChartProps {
   unit: string;
   activePeriod?: string;
   onSelectObservation?: (obs: MetricObservation) => void;
+  yAxisLabel?: string;
+}
+
+function formatTickValue(val: number, unit: string): string {
+  if (unit === 'percentage') {
+    return `${val.toFixed(1)}%`;
+  }
+  if (unit === 'thousand_units') {
+    if (Math.abs(val) >= 1000) {
+      return `${(val / 1000).toFixed(1)}M`;
+    }
+    return `${Math.round(val).toLocaleString()}k`;
+  }
+  if (unit === 'currency_millions') {
+    if (Math.abs(val) >= 1000) {
+      return `${(val / 1000).toFixed(1)}B`;
+    }
+    return `${Math.round(val).toLocaleString()}M`;
+  }
+  if (unit === 'currency_billions') {
+    return `${val.toFixed(1)}B`;
+  }
+  if (unit === 'units') {
+    if (Math.abs(val) >= 1000000) {
+      return `${(val / 1000000).toFixed(1)}M`;
+    }
+    if (Math.abs(val) >= 1000) {
+      return `${(val / 1000).toFixed(0)}k`;
+    }
+    return `${Math.round(val).toLocaleString()}`;
+  }
+  return Number.isInteger(val) ? val.toLocaleString() : val.toFixed(1);
+}
+
+function formatLineChartValue(
+  val: number | null | undefined,
+  unit: string,
+  language: 'ko' | 'en'
+): string {
+  if (val === null || val === undefined || !Number.isFinite(val)) return '-';
+  if (unit === 'percentage') {
+    return `${val > 0 ? '+' : ''}${val.toFixed(1)}%`;
+  }
+  if (unit === 'thousand_units') {
+    if (Math.abs(val) >= 1000) {
+      return language === 'ko'
+        ? `${(val / 1000).toFixed(2)}M대 (${val.toLocaleString()}천대)`
+        : `${(val / 1000).toFixed(2)}M units (${val.toLocaleString()}k)`;
+    }
+    return language === 'ko'
+      ? `${Math.round(val).toLocaleString()}천대`
+      : `${Math.round(val).toLocaleString()}k units`;
+  }
+  if (unit === 'currency_millions') {
+    if (Math.abs(val) >= 1000) {
+      return `${(val / 1000).toFixed(2)}B (${Math.round(val).toLocaleString()}M)`;
+    }
+    return `${Math.round(val).toLocaleString()}M`;
+  }
+  if (unit === 'currency_billions') {
+    return `${val.toFixed(2)}B`;
+  }
+  if (unit === 'units') {
+    return language === 'ko'
+      ? `${Math.round(val).toLocaleString()}대`
+      : `${Math.round(val).toLocaleString()} units`;
+  }
+  return val.toLocaleString();
+}
+
+function getYAxisUnitLabel(unit: string, language: 'ko' | 'en'): string {
+  switch (unit) {
+    case 'percentage':
+      return language === 'ko' ? '↑ 세로축 단위: 비율 (%)' : '↑ Y-Axis: Ratio / Percentage (%)';
+    case 'thousand_units':
+      return language === 'ko' ? '↑ 세로축 단위: 판매·인도량 (천 대 / k units)' : '↑ Y-Axis: Volume (Thousand Units / k)';
+    case 'currency_millions':
+      return language === 'ko' ? '↑ 세로축 단위: 재무 금액 (백만 / Millions)' : '↑ Y-Axis: Currency in Millions (M)';
+    case 'currency_billions':
+      return language === 'ko' ? '↑ 세로축 단위: 재무 금액 (십억 / Billions)' : '↑ Y-Axis: Currency in Billions (B)';
+    case 'units':
+      return language === 'ko' ? '↑ 세로축 단위: 수량 (대 / Units)' : '↑ Y-Axis: Quantity (Units)';
+    default:
+      return language === 'ko' ? `↑ 세로축 단위: ${unit.replace('_', ' ')}` : `↑ Y-Axis: ${unit.replace('_', ' ')}`;
+  }
+}
+
+function getUnitBadgeLabel(unit: string, language: 'ko' | 'en'): string {
+  switch (unit) {
+    case 'percentage':
+      return language === 'ko' ? '비율 단위 (%)' : 'Percentage (%)';
+    case 'thousand_units':
+      return language === 'ko' ? '천 대 단위 (k units)' : 'Thousand Units (k)';
+    case 'currency_millions':
+      return language === 'ko' ? '백만 단위 (M)' : 'Millions (M)';
+    case 'currency_billions':
+      return language === 'ko' ? '십억 단위 (B)' : 'Billions (B)';
+    case 'units':
+      return language === 'ko' ? '수량 (대)' : 'Units';
+    default:
+      return unit.replace('_', ' ');
+  }
 }
 
 export const MetricLineChart: React.FC<MetricLineChartProps> = ({
@@ -29,6 +131,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   unit,
   activePeriod,
   onSelectObservation,
+  yAxisLabel,
 }) => {
   const { language } = useLanguage();
   const [viewMode, setViewMode] = useState<'overlay' | 'grid'>('overlay');
@@ -58,7 +161,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   // Chart dimensions with clear vertical axis padding
   const width = 1040;
   const height = 340;
-  const paddingLeft = 85; // Expanded from 70 to prevent clipping/overlapping of Y-axis numbers
+  const paddingLeft = 95; // Expanded to 95 to prevent clipping of large numbers or negative signs
   const paddingRight = 40;
   const paddingTop = 35;
   const paddingBottom = 45;
@@ -102,7 +205,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
               {title}
             </h3>
             <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold border border-brand-500/20">
-              {unit === 'percentage' ? (language === 'ko' ? '영업이익률 RoS (%)' : 'Operating Margin RoS (%)') : unit.replace('_', ' ')}
+              {getUnitBadgeLabel(unit, language)}
             </span>
           </div>
           {subtitle && (
@@ -139,44 +242,46 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
         </div>
       </div>
 
-      {/* OEM Quick Highlighter Buttons */}
-      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
-          <Eye className="w-3.5 h-3.5" /> {language === 'ko' ? 'OEM 강조:' : 'Highlight:'}
-        </span>
-        <button
-          onClick={() => setHighlightedCompanyId(null)}
-          className={`px-2.5 py-0.5 rounded-lg text-xs font-medium transition ${
-            highlightedCompanyId === null
-              ? 'bg-brand-600 text-white font-bold'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-          }`}
-        >
-          {language === 'ko' ? '전체 보기' : 'Show All'}
-        </button>
-        {series.map((s) => {
-          const isSelected = highlightedCompanyId === s.company.id;
-          return (
-            <button
-              key={s.company.id}
-              onClick={() =>
-                setHighlightedCompanyId(isSelected ? null : s.company.id)
-              }
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-medium transition border ${
-                isSelected
-                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 font-bold shadow-xs'
-                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: s.color }}
-              />
-              <span>{s.company.shortName}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* OEM Quick Highlighter Buttons (Only shown for multi-OEM comparison) */}
+      {series.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+            <Eye className="w-3.5 h-3.5" /> {language === 'ko' ? 'OEM 강조:' : 'Highlight:'}
+          </span>
+          <button
+            onClick={() => setHighlightedCompanyId(null)}
+            className={`px-2.5 py-0.5 rounded-lg text-xs font-medium transition ${
+              highlightedCompanyId === null
+                ? 'bg-brand-600 text-white font-bold'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+            }`}
+          >
+            {language === 'ko' ? '전체 보기' : 'Show All'}
+          </button>
+          {series.map((s) => {
+            const isSelected = highlightedCompanyId === s.company.id;
+            return (
+              <button
+                key={s.company.id}
+                onClick={() =>
+                  setHighlightedCompanyId(isSelected ? null : s.company.id)
+                }
+                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-medium transition border ${
+                  isSelected
+                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 font-bold shadow-xs'
+                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: s.color }}
+                />
+                <span>{s.company.shortName}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* MODE 1: Overlay Line Chart with Highlighting */}
       {viewMode === 'overlay' && (
@@ -204,6 +309,16 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                 stroke="#64748b"
                 strokeWidth="1.5"
               />
+
+              {/* Y Axis Meaning / Unit Title */}
+              <text
+                x={paddingLeft}
+                y={paddingTop - 14}
+                textAnchor="start"
+                className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
+              >
+                {yAxisLabel || getYAxisUnitLabel(unit, language)}
+              </text>
 
               {/* Y Axis Grid lines & Ticks */}
               {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
@@ -235,7 +350,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                       textAnchor="end"
                       className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
                     >
-                      {val.toFixed(1)}%
+                      {formatTickValue(val, unit)}
                     </text>
                   </g>
                 );
@@ -355,6 +470,28 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                             className="cursor-pointer transition-all duration-150"
                             onClick={() => pt.obs && onSelectObservation?.(pt.obs)}
                           />
+                          {isPointHovered && (
+                            <g className="pointer-events-none">
+                              <rect
+                                x={Math.max(10, Math.min(width - 130, pt.x - 60))}
+                                y={Math.max(10, pt.y - 32)}
+                                width="120"
+                                height="24"
+                                rx="6"
+                                fill="#0f172a"
+                                className="opacity-95 shadow-md"
+                              />
+                              <text
+                                x={Math.max(70, Math.min(width - 70, pt.x))}
+                                y={Math.max(26, pt.y - 16)}
+                                textAnchor="middle"
+                                fill="#ffffff"
+                                className="text-[11px] font-mono font-bold"
+                              >
+                                {formatLineChartValue(pt.value, unit, language)}
+                              </text>
+                            </g>
+                          )}
                         </g>
                       );
                     })}
@@ -370,7 +507,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-slate-200/80 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-500/10 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300 border border-brand-500/25 font-bold font-mono text-xs">
-                    📅 {effectivePeriod} {language === 'ko' ? '영업이익률 RoS 랭킹' : 'Operating Margin Leaderboard'}
+                    📅 {effectivePeriod} {series.length > 1 ? (language === 'ko' ? 'OEM 비교 순위' : 'OEM Rankings') : (language === 'ko' ? '공시 실적' : 'Reported Value')}
                   </span>
                   {hoveredPeriod && hoveredPeriod !== activePeriod && (
                     <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">
@@ -426,7 +563,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                             : 'text-rose-600 dark:text-rose-400'
                         }`}
                       >
-                        {item.value.toFixed(1)}%
+                        {formatLineChartValue(item.value, unit, language)}
                       </span>
                     </div>
                   );
@@ -478,7 +615,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                     </span>
                   </div>
                   <span className="font-mono font-bold text-xs text-brand-600 dark:text-brand-400">
-                    {latestVal !== null ? `${latestVal.toFixed(1)}%` : '-'}
+                    {latestVal !== null ? formatLineChartValue(latestVal, unit, language) : '-'}
                   </span>
                 </div>
 

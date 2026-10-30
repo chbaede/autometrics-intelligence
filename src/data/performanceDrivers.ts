@@ -37,8 +37,8 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
     period: '2026-Q3',
     headlineKo: '에너지 저장 사업 사상 최대 이익 달성 및 차량 인도량 반등, R&D 투자 확대',
     headlineEn: 'Record Energy Storage Gross Profit, Automotive Rebound, and Scaling AI/Compute Capex',
-    summaryKo: '테슬라는 2026년 3분기 총 486,532대를 인도하며 분기 매출 $280.5억(+8% YoY)을 기록했습니다. 에너지 저장장치(Megapack) 사업의 매출총이익이 분기 사상 최고치를 경신했으나, 글로벌 차량 평균판매단가(ASP) 하락과 FSD V13 AI 컴퓨팅 인프라 투자 확대로 영업이익률은 2.6%($7.18억)를 기록했습니다.',
-    summaryEn: 'Tesla delivered 486,532 vehicles in Q3 2026 with total revenues reaching $28.05B (+8% YoY). Energy Storage gross profit reached a record high driven by Megapack deployment scaling, while lower vehicle ASP from promotional financing and increased AI compute/FSD R&D expenses resulted in a GAAP operating margin of 2.6% ($718M).',
+    summaryKo: '테슬라는 2026년 3분기 총 486,532대를 인도하며 분기 매출 $280.46억(-0.2% YoY, 보합세)을 기록했습니다. 에너지 저장장치(Megapack) 사업의 매출총이익이 분기 사상 최고치를 경신했으나, 글로벌 차량 평균판매단가(ASP) 하락과 FSD V13 AI 컴퓨팅 인프라 투자 확대로 영업이익률은 2.6%($7.18억)를 기록했습니다.',
+    summaryEn: 'Tesla delivered 486,532 vehicles in Q3 2026 with total revenues reaching $28.046B (-0.2% YoY, roughly flat compared to $28.095B in Q3 2025). Energy Storage gross profit reached a record high driven by Megapack deployment scaling, while lower vehicle ASP from promotional financing and increased AI compute/FSD R&D expenses resulted in a GAAP operating margin of 2.6% ($718M).',
     sourceDocId: 'tsla_2026_q3_deck',
     sourceCitationKo: 'Tesla Q3 2026 Financial Results & Shareholder Deck (p. 4-9)',
     sourceCitationEn: 'Tesla Q3 2026 Financial Results & Shareholder Update (pp. 4-9)',
@@ -80,44 +80,44 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
   {
     companyId: 'volkswagen_group',
     period: '2026-Q3',
-    headlineKo: '포르쉐 AG 지분 비현금성 손상차손 €4.9B 및 유럽 공장 구조조정 충당금 반영',
-    headlineEn: 'Non-Cash Impairment on Porsche AG (€4.9B) and European Restructuring Provisions (€1.2B)',
-    summaryKo: '폭스바겐 그룹은 2026년 3분기 매출 €752.8억을 달성했으나, 포르쉐 AG 주가 하락에 따른 비현금성 영업권 손상차손(€49억)과 유럽 생산 공장 효율화 관련 구조조정 충당금(€12억)이 일시 반영되어 분기 영업손실 -€58.6억(영업이익률 -7.8%)을 기록했습니다.',
-    summaryEn: 'Volkswagen Group generated €75.28B in Q3 2026 sales revenue, but recorded a consolidated operating loss of -€5.86B (RoS -7.8%) due to a €4.9B non-cash impairment on Porsche AG goodwill and €1.2B in restructuring provisions for European manufacturing adjustments.',
+    headlineKo: '3분기 특별항목(Special Items) €78억 반영으로 분기 영업손실 -€58.6억 기록 (9개월 누적 특별항목 €87억)',
+    headlineEn: 'Q3 Operating Loss of -€5.86B Impacted by €7.8B in Q3 Special Items (€8.7B 9M Cumulative)',
+    summaryKo: '폭스바겐 그룹은 2026년 3분기 매출 €752.8억을 달성했으나, 3분기 중 계상된 €78억 규모의 일회성 특별항목(Special Items) 영향으로 분기 영업손실 -€58.6억(영업이익률 -7.8%)을 기록했습니다. 공식 9개월(1~9월) 누적 보고에 따르면 특별항목 총액은 €87억에 달하며, 여기에는 포르쉐 AG 비현금성 영업권 손상차손 €64억, 중국 연결 법인 손상조정 약 €10억, 폭스바겐 오스나브뤼크 공장 매각 관련 비용 등이 포함되어 있습니다.',
+    summaryEn: 'Volkswagen Group generated €75.28B in Q3 2026 sales revenue, but recorded a consolidated operating loss of -€5.86B (RoS -7.8%) impacted by €7.8B in standalone Q3 special items. Across the first nine months (9M cumulative), special items totaled €8.7B, which officially included a €6.4B non-cash impairment on Porsche goodwill, approximately €1B in impairment adjustments for fully consolidated companies in China, and costs related to the planned sale of Volkswagen Osnabrück.',
     sourceDocId: 'vw_2026_q3_report',
     sourceCitationKo: 'Volkswagen Group Interim Report January–September 2026 (p. 8-15, Note 4)',
     sourceCitationEn: 'Volkswagen Group Interim Report January to September 2026 (pp. 8-15, Note 4)',
     drivers: [
       {
         category: 'one_off',
-        titleKo: '포르쉐 AG 관련 비현금성 손상차손 €4.9B 반영',
-        titleEn: '€4.9B Non-Cash Impairment on Porsche AG Goodwill',
-        descriptionKo: '포르쉐 AG의 중국 럭셔리 수요 둔화 및 전기차 전환 속도 조절에 따른 평가가치 재산정으로 €49억 규모의 비현금성 장부 손상차손이 회계상 영업비용으로 계상되었습니다.',
-        descriptionEn: 'Reflected a €4.9B non-cash impairment against Porsche AG carrying values following updated market valuations and Chinese luxury segment headwinds.',
+        titleKo: '3분기 단일 분기 특별항목 €78억 계상',
+        titleEn: '€7.8B in Standalone Q3 Special Items Booked',
+        descriptionKo: '공식 실적 발표에 따라 3분기 단일 분기에만 €78억의 일회성 특별항목이 계상되어 3분기 영업손익이 -€58.6억 적자로 전환되었습니다.',
+        descriptionEn: 'According to the official earnings release, special items of €7.8B booked during the third quarter alone weighed heavily on quarterly results, turning operating profit to a -€5.86B loss.',
         impact: 'negative',
       },
       {
         category: 'one_off',
-        titleKo: '유럽 생산 네트워크 구조조정 충당부채 €1.2B 적립',
-        titleEn: '€1.2B Restructuring Provisions for European Capacity Realignment',
-        descriptionKo: '독일 및 브뤼셀 등 유럽 주요 생산 거점의 고정비 절감과 인력 조정, 공장 재편을 위한 일회성 충당금이 3분기 실적에 선반영되었습니다.',
-        descriptionEn: 'Booked restructuring provisions of €1.2B for structural fixed cost adjustments, capacity rationalization, and labor agreements across European facilities.',
+        titleKo: '9개월 누적 특별항목 €87억: 포르쉐 영업권 손상 €64억 및 중국 조정',
+        titleEn: '9M Cumulative Special Items of €8.7B: €6.4B Porsche Impairment and China Adjustments',
+        descriptionKo: '1~9월 9개월 누적 특별항목 €87억에는 포르쉐 비현금성 영업권 손상 €64억, 중국 법인 손상조정 약 €10억, 오스나브뤼크 사이트 매각 비용이 명시되었습니다.',
+        descriptionEn: 'First nine-month cumulative special items (€8.7B) officially comprised €6.4B in non-cash Porsche goodwill impairment, ~€1B in China consolidated adjustments, and Osnabrück site costs.',
         impact: 'negative',
       },
       {
         category: 'volume',
-        titleKo: '중국 내 로컬 NEV 브랜드 공세로 인도량 -7.1% 감소',
-        titleEn: 'Deliveries Down -7.1% YoY Amid Severe China Price Competition',
-        descriptionKo: '글로벌 고객 인도량은 188.5만 대로 전년 동기 대비 7.1% 감소했으며, 특히 중국 시장에서 로컬 브랜드와의 가격 경쟁 격화로 내연기관 점유율이 일부 잠식되었습니다.',
-        descriptionEn: 'Global deliveries softened 7.1% YoY to 1,885k units, heavily impacted by rapid local Chinese NEV substitution and widespread price discounting.',
+        titleKo: '글로벌 고객 인도량 188.5만 대 (-7.1% YoY)',
+        titleEn: 'Customer Deliveries Softened -7.1% YoY to 1,885k Units',
+        descriptionKo: '3분기 글로벌 고객 인도량은 188.5만 대로 전년 동기(217.6만 대) 대비 7.1% 감소하여 생산 고정비 부담을 가중시켰습니다.',
+        descriptionEn: 'Customer deliveries totaled 1,885k units, down 7.1% YoY from 2,176k in Q3 2025, contributing to fixed-cost deleveraging.',
         impact: 'negative',
       },
       {
         category: 'electrification',
-        titleKo: '전기차(BEV) 인도 비중 12.7% 유지',
-        titleEn: 'BEV Delivery Penetration Maintained at 12.7%',
-        descriptionKo: '유럽 내 ID.7 세단 및 투어러 본격 인도와 아우디 Q6 e-tron 출시로 BEV 인도량 24.0만 대를 기록하며 전동화 비중 12.7%를 유지했습니다.',
-        descriptionEn: 'Customer BEV handovers reached 240.2k units, driven by ramp-up of the ID.7 and Audi Q6 e-tron on the PPE platform.',
+        titleKo: '전기차(BEV) 인도량 24.0만 대 (비중 12.7%)',
+        titleEn: 'Customer BEV Handovers Reached 240.2k Units (12.7% Share)',
+        descriptionKo: '신형 ID.7 및 아우디 Q6 e-tron 인도 확대로 3분기 순수전기차 240.2천 대를 인도하며 12.7%의 전동화 비중을 유지했습니다.',
+        descriptionEn: 'Supported by ID.7 and Audi Q6 e-tron rollouts, BEV handovers reached 240.2k units, accounting for 12.7% of total deliveries.',
         impact: 'neutral',
       },
     ],
@@ -199,10 +199,10 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
   {
     companyId: 'hyundai_motor',
     period: '2026-Q3',
-    headlineKo: '하이브리드(HEV) 판매 급증(+40%) 및 제네시스·SUV 믹스 호조, 인센티브 상승 완충',
-    headlineEn: 'HEV Sales Surge (+40% YoY) and Genesis/SUV Mix Offset Rising North American Incentives',
-    summaryKo: '현대자동차는 2026년 3분기 글로벌 도매 920,710대, 매출 45조 1,100억 원(+4.7% YoY), 영업이익 2조 6,770억 원(영업이익률 5.9%)을 기록했습니다. 싼타페와 투싼 하이브리드 등 고수익 하이브리드 차종 판매가 전년 대비 40% 이상 급증하고 제네시스 비중(5.6%)이 확대되며 북미 딜러 인센티브 정상화에 따른 마진 압박을 방어했습니다.',
-    summaryEn: 'Hyundai Motor achieved 920.7k wholesale units, revenue of ₩45.11T (+4.7% YoY), and operating profit of ₩2.68T (5.9% margin) in Q3 2026. Hybrid vehicle wholesale volume surged over 40% YoY led by the Santa Fe and Tucson HEVs, while Genesis luxury mix (5.6%) mitigated rising US market dealer incentives.',
+    headlineKo: '하이브리드(HEV) 판매 급증 및 제네시스·SUV 믹스 호조, 북미 인센티브 상승 완충',
+    headlineEn: 'HEV Sales Growth and Genesis/SUV Mix Offset Rising North American Incentives',
+    summaryKo: '현대자동차는 2026년 3분기 글로벌 도매 920,710대, 연결 매출 45조 1,100억 원, 영업이익 2조 6,770억 원(영업이익률 5.9%)을 기록했습니다. 싼타페와 투싼 하이브리드 등 고수익 하이브리드 차종 판매가 호조를 보이고 제네시스 비중(5.6%)이 확대되며 북미 딜러 인센티브 정상화에 따른 마진 압박을 방어했습니다.',
+    summaryEn: 'Hyundai Motor achieved 920.7k wholesale units, consolidated revenue of ₩45.11T, and operating profit of ₩2.68T (5.9% margin) in Q3 2026. Hybrid vehicle wholesale volume expansion led by the Santa Fe and Tucson HEVs alongside Genesis luxury mix (5.6%) helped mitigate rising US market dealer incentives.',
     sourceDocId: 'hmc_2026_q3_presentation',
     sourceCitationKo: '현대자동차 2026년 3분기 경영실적 발표 자료 (p. 4-12)',
     sourceCitationEn: 'Hyundai Motor Company Q3 2026 Business Results Presentation (pp. 4-12)',
@@ -310,36 +310,36 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
   {
     companyId: 'byd',
     period: '2026-Q3',
-    headlineKo: '5세대 DM 슈퍼 하이브리드 기술 확산 및 해외 수출 급증(+120%), 당기순이익 100억 위안 돌파',
-    headlineEn: '5th-Gen DM Super Hybrid Expansion, Overseas Exports Surge (+120%), Net Profit Tops RMB 10B',
-    summaryKo: 'BYD는 2026년 3분기 승용 신에너지차(NEV) 1,323,070대(전년비 +37.8%)를 판매하며 분기 영업수익 2,214.9억 위안(+24.0% YoY), 모회사 귀속 당기순이익 100.2억 위안(+11.5% YoY)을 기록했습니다. 복합 항속거리 2,100km를 구현한 5세대 DM 하이브리드 기술의 대중화와 동남아·유럽·남미 수출 고성장이 국내 가격 경쟁을 극복하고 성장을 견인했습니다.',
-    summaryEn: 'BYD delivered 1,323,070 passenger NEVs in Q3 2026 (+37.8% YoY), generating RMB 221.49B in operating revenue (+24.0% YoY) and RMB 10.02B in net profit attributable to shareholders (+11.5% YoY). The nationwide rollout of 5th-Gen DM hybrid tech and explosive overseas export growth (+120% YoY) drove sustained profit expansion.',
+    headlineKo: '승용 신에너지차(NEV) 132.3만 대 판매 및 순이익 28.08% 증가, 분기 당기순이익 100억 위안 돌파',
+    headlineEn: 'Passenger NEV Scale Expansion (1,323k units) and +28.08% Net Profit Growth, Exceeding RMB 10B',
+    summaryKo: 'BYD는 2026년 3분기 승용 신에너지차(NEV) 1,323,070대(전년비 +17.2%)를 판매하며 분기 영업수익 2,214.9억 위안(+13.59% YoY), 모회사 귀속 당기순이익 100.2억 위안(+28.08% YoY)을 기록했습니다. 승용 전동화 라인업 확대와 수직계열화 기반의 원가 통제력이 국내 경쟁 속에서도 순이익 성장을 견인했습니다. (CASBE 기준 3분기 단독 영업이익은 별도 공시되지 않음)',
+    summaryEn: 'BYD reported passenger NEV sales volume of 1,323,070 units in Q3 2026 (+17.2% YoY), generating RMB 221.49B in operating revenue (+13.59% YoY) and RMB 10.02B in net profit attributable to shareholders of the listed company (+28.08% YoY). Scale efficiencies across its passenger NEV portfolio and vertical integration supported net earnings expansion. (Standalone quarterly operating income is not disclosed under CASBE).',
     sourceDocId: 'byd_2026_q3_interim',
     sourceCitationKo: 'BYD Company Limited 2026년 3분기 분기보고서 (HKEX 01211 / SZSE 002594)',
     sourceCitationEn: 'BYD Company Limited Third Quarterly Report 2026 (HKEX 01211 / SZSE 002594)',
     drivers: [
       {
         category: 'volume',
-        titleKo: '5세대 DM(Dual Mode) 하이브리드 세단·SUV 폭발적 수요',
-        titleEn: 'Surging Demand for 5th-Generation DM Super Hybrids',
-        descriptionKo: '열효율 46.06%의 차세대 플러그인 하이브리드(친 L, 친 PLUS, 송 L)가 중국 내연기관 교체 수요를 대거 흡수하며 판매량을 견인했습니다.',
-        descriptionEn: 'Qin L, Qin PLUS, and Song L equipped with 46.06% thermal efficiency DM 5.0 systems accelerated replacement of legacy gasoline vehicles.',
+        titleKo: '승용 신에너지차(NEV) 포트폴리오 수요 견인',
+        titleEn: 'Passenger NEV Portfolio Scale & Delivery Growth',
+        descriptionKo: '3분기 승용 신에너지차(NEV) 판매량이 1,323,070대(전년비 +17.2%)에 달하며 순수전기차(762.5천 대) 및 플러그인 라인업 전반에서 규모의 확장을 달성했습니다.',
+        descriptionEn: 'Passenger NEV sales volume reached 1,323,070 units in Q3 (+17.2% YoY), driven by balanced growth across pure electric (762.5k units) and plug-in hybrid models.',
         impact: 'positive',
       },
       {
         category: 'revenue',
-        titleKo: '글로벌 해외 수출 120% 이상 급성장',
-        titleEn: 'Overseas NEV Exports Surged Over 120% YoY',
-        descriptionKo: '태국 공장 가동과 유럽·브라질·동남아 수출 확대로 해외 판매 비중이 가파르게 상승하며 중국 본토 대비 높은 마진을 확보했습니다.',
-        descriptionEn: 'Operations at the Thailand plant and expanding sales across Europe, Latin America, and ASEAN yielded premium pricing over domestic retail sales.',
+        titleKo: '영업수익 +13.59% 및 순이익 +28.08% 견조한 재무 실적',
+        titleEn: 'Strong Revenue (+13.59%) and Net Profit (+28.08%) Expansion',
+        descriptionKo: '공식 3분기 보고서에 따르면 영업수익은 전년 동기 대비 13.59% 증가한 2,214.9억 위안, 당기순이익은 28.08% 증가한 100.2억 위안을 기록했습니다.',
+        descriptionEn: 'According to the official third quarterly report, operating revenue grew 13.59% YoY to RMB 221.49B, while net profit attributable to shareholders rose 28.08% YoY to RMB 10.02B.',
         impact: 'positive',
       },
       {
         category: 'profitability',
-        titleKo: '배터리·모터·전력반도체 수직계열화에 따른 원가 방어력',
-        titleEn: 'Scale Economies from Blade Battery & Silicon Carbide Vertical Integration',
-        descriptionKo: '자체 블레이드 배터리 및 SiC 반도체 생산에 따른 압도적 규모의 경제로 중국 내 가격 경쟁 속에서도 두 자릿수 순이익 성장을 달성했습니다.',
-        descriptionEn: 'In-house production of Blade batteries and powertrain electronics protected gross margins despite aggressive domestic retail price wars.',
+        titleKo: '배터리 및 전동화 수직계열화에 따른 원가 방어력',
+        titleEn: 'Vertical Integration and Scale Cost Efficiencies',
+        descriptionKo: '자체 배터리 및 파워트레인 부품 내재화를 통한 규모의 경제로 중국 내 치열한 가격 경쟁 환경 속에서도 순이익 성장을 유지했습니다.',
+        descriptionEn: 'Internal battery manufacturing and component vertical integration provided cost discipline, supporting net profit growth amid competitive retail pricing in China.',
         impact: 'positive',
       },
     ],
@@ -592,21 +592,17 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
 
 /**
  * Retrieves the performance drivers and management commentary for a specific company and period.
- * Automatically falls back to the latest confirmed period if the requested period is not yet reported.
+ * Strictly requires an exact match for the requested period.
+ * Never silently falls back to an unselected or different period.
  */
 export function getPerformanceDriver(companyId: string, period?: string): CompanyPerformanceDriver | undefined {
-  if (period) {
-    const directMatch = PERFORMANCE_DRIVERS.find((p) => p.companyId === companyId && p.period === period);
-    if (directMatch) return directMatch;
-  }
+  if (!period) return undefined;
+  return PERFORMANCE_DRIVERS.find((p) => p.companyId === companyId && p.period === period);
+}
 
-  // Fallback to latest available period for this company
-  const companyDrivers = PERFORMANCE_DRIVERS.filter((p) => p.companyId === companyId);
-  if (companyDrivers.length === 0) return undefined;
-
-  // Prefer 2026-Q3, then 2026-Q2
-  const q3Driver = companyDrivers.find((p) => p.period === '2026-Q3');
-  if (q3Driver) return q3Driver;
-
-  return companyDrivers[0];
+/**
+ * Returns all periods for which verified performance drivers exist for a company.
+ */
+export function getAvailablePerformanceDriverPeriods(companyId: string): string[] {
+  return PERFORMANCE_DRIVERS.filter((p) => p.companyId === companyId).map((p) => p.period);
 }
