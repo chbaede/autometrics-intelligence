@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   getCompanyById,
@@ -6,15 +6,25 @@ import {
   getObservationsByCompany,
   getMetricById,
   getSourceDocById,
-  getDistinctPeriods,
 } from '../utils/metricQueries';
 import { MetricObservation } from '../types/metrics';
-import { formatMetricValue, getCurrencySymbol, formatPeriodLabel } from '../utils/metricCalculations';
+import {
+  formatMetricValue,
+  getCurrencySymbol,
+  formatPeriodLabel,
+  getVolumeDefinitionLabel,
+} from '../utils/metricCalculations';
+import {
+  formatLocalizedProfit,
+} from '../utils/currencyUtils';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
+import { QuarterlyPerformanceCharts } from '../components/company/QuarterlyPerformanceCharts';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SOURCE_DOCUMENTS } from '../data/sources';
+import { getScheduledDisclosure } from '../data/scheduledDisclosures';
+import { getPerformanceDriver } from '../data/performanceDrivers';
 import {
   Globe,
   ExternalLink,
@@ -26,6 +36,10 @@ import {
   FileText,
   ChevronRight,
   ArrowLeft,
+  Calendar,
+  Clock,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 
 export const CompanyDashboardPage: React.FC = () => {
@@ -34,23 +48,46 @@ export const CompanyDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const allCompanies = getAllCompanies();
   const currentCompany = getCompanyById(companyId || 'mercedes_benz') || allCompanies[0];
-  const periods = getDistinctPeriods();
-
-  const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
-  const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
   const observations = getObservationsByCompany(currentCompany.id);
   const companySources = SOURCE_DOCUMENTS.filter((s) => s.companyId === currentCompany.id);
+  const scheduledQ3 = getScheduledDisclosure(currentCompany.id, '2026-Q3');
 
-  // Filter observations by the selected metric
-  const filteredObs = observations.filter((obs) => obs.metricId === selectedMetricId);
-  const selectedMetricDef = getMetricById(selectedMetricId);
+  // Check if this OEM has reported 2026-Q3 data
+  const hasQ3Observations = observations.some((o) => o.period === '2026-Q3');
+  const defaultPeriod = hasQ3Observations ? '2026-Q3' : '2026-Q2';
 
-  // Key KPI values from latest period or FY2025/FY2024
-  const latestDel = observations.find((o) => o.metricId === 'deliveries_global' && (o.period === '2026-Q2' || o.period === '2025-FY' || o.period === '2024-FY'));
-  const latestRev = observations.find((o) => o.metricId === 'revenue' && (o.period === '2026-Q2' || o.period === '2025-FY' || o.period === '2024-FY'));
-  const latestMargin = observations.find((o) => o.metricId === 'operating_margin' && (o.period === '2026-Q2' || o.period === '2025-FY' || o.period === '2024-FY'));
-  const latestBev = observations.find((o) => o.metricId === 'bev_share' && (o.period === '2026-Q2' || o.period === '2025-FY' || o.period === '2024-FY'));
+  // Active period state (user can toggle between 2026-Q3, 2026-Q2, 2026-Q1, 2025-FY, 2024-FY)
+  const [activePeriod, setActivePeriod] = useState<string>(defaultPeriod);
+  const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
+  const [trendCadence, setTrendCadence] = useState<'quarterly' | 'annual'>('quarterly');
+  const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
+
+  // Synchronize default period when switching OEM
+  useEffect(() => {
+    const hasQ3 = observations.some((o) => o.period === '2026-Q3');
+    setActivePeriod(hasQ3 ? '2026-Q3' : '2026-Q2');
+  }, [currentCompany.id]);
+
+  // Display periods list
+  const displayPeriodsList = Array.from(new Set(['2026-Q3', '2026-Q2', '2026-Q1', '2025-FY', '2024-FY']));
+
+  // Key KPI values from activePeriod
+  const periodDel = observations.find((o) => o.metricId === 'deliveries_global' && o.period === activePeriod);
+  const periodRev = observations.find((o) => o.metricId === 'revenue' && o.period === activePeriod);
+  const periodMargin = observations.find((o) => o.metricId === 'operating_margin' && o.period === activePeriod);
+  const periodIncome = observations.find((o) => o.metricId === 'operating_income' && o.period === activePeriod);
+  const periodBev = observations.find((o) => o.metricId === 'bev_share' && o.period === activePeriod);
+  const periodNetIncome = observations.find((o) => o.metricId === 'net_income' && o.period === activePeriod);
+
+  // Special BYD handling for 2026-Q3 (reports Net Profit under CASBE instead of Operating Income)
+  const isBydQ3 = currentCompany.id === 'byd' && activePeriod === '2026-Q3';
+  const bydNetMargin = isBydQ3 && periodRev?.value && periodNetIncome?.value
+    ? Number(((periodNetIncome.value / periodRev.value) * 100).toFixed(1))
+    : null;
+
+  // Official qualitative performance drivers for activePeriod (or fallback to latest)
+  const performanceDriver = getPerformanceDriver(currentCompany.id, activePeriod);
 
   const availableMetrics = [
     { id: 'deliveries_global', label: language === 'ko' ? '차량 인도량' : 'Vehicle Deliveries', icon: TrendingUp },
@@ -61,9 +98,16 @@ export const CompanyDashboardPage: React.FC = () => {
     { id: 'bev_share', label: language === 'ko' ? '전기차 점유율' : 'BEV Share', icon: Zap },
   ];
 
-  // Single OEM Historical Line Chart
-  const trendPeriods = periods.slice(0, 5).reverse();
-  const chartData = trendPeriods.map((p) => {
+  // Filter observations by the selected metric for table explorer
+  const filteredObs = observations.filter((obs) => obs.metricId === selectedMetricId);
+  const selectedMetricDef = getMetricById(selectedMetricId);
+
+  // Cadence-separated Historical Trend Line Visualizer (Never mix Quarterly with Annual)
+  const chartPeriods = trendCadence === 'quarterly'
+    ? ['2026-Q1', '2026-Q2', '2026-Q3']
+    : ['2024-FY', '2025-FY'];
+
+  const chartData = chartPeriods.map((p) => {
     const obs = observations.find((o) => o.metricId === selectedMetricId && o.period === p);
     return {
       period: p,
@@ -82,7 +126,7 @@ export const CompanyDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Back and Selector Bar */}
+      {/* Top Navigation & Company Quick Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Link
           to="/"
@@ -116,7 +160,7 @@ export const CompanyDashboardPage: React.FC = () => {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 {currentCompany.name}
               </h1>
@@ -125,6 +169,17 @@ export const CompanyDashboardPage: React.FC = () => {
                   {currentCompany.ticker}
                 </span>
               )}
+              {hasQ3Observations ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {language === 'ko' ? '2026-Q3 실적 공시 완료' : '2026-Q3 Reported'}
+                </span>
+              ) : scheduledQ3 ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                  <Clock className="w-3.5 h-3.5" />
+                  {language === 'ko' ? `2026-Q3 공시 예정: ${scheduledQ3.scheduledDate}` : `2026-Q3 Scheduled: ${scheduledQ3.scheduledDate}`}
+                </span>
+              ) : null}
             </div>
             {currentCompany.nativeName && (
               <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{currentCompany.nativeName}</p>
@@ -195,93 +250,433 @@ export const CompanyDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Key Annual Performance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Sales */}
-        <div
-          onClick={() => latestDel && setActiveProvenanceObs(latestDel)}
-          className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-semibold">
-              {formatPeriodLabel(latestDel?.period || '', language)} {language === 'ko' ? '인도 실적' : 'Deliveries'}
-            </span>
-            <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+      {/* Scheduled Disclosure Notification Banner (for OEMs without Q3 yet) */}
+      {scheduledQ3 && !hasQ3Observations && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/30 dark:border-amber-500/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                  {language === 'ko' ? '📢 2026-Q3 공식 경영실적 공시 예정' : '📢 2026-Q3 Earnings Release Scheduled'}
+                </span>
+                <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                  {language === 'ko' ? scheduledQ3.scheduledDateKo : scheduledQ3.scheduledDateEn}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                {language === 'ko' ? scheduledQ3.notesKo : scheduledQ3.notesEn}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {language === 'ko'
+                  ? '※ AutoMetrics는 미공시 기간에 대해 추정치를 임의 입력하지 않으며, 현재 가장 최근 공식 확정 실적인 2026-Q2 기준으로 표시됩니다.'
+                  : '※ AutoMetrics enforces fail-closed data integrity. Unreported quarters are never fabricated; currently displaying latest verified 2026-Q2 results.'}
+              </p>
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">
-            {formatMetricValue(latestDel?.value, 'thousand_units')}
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-            <span>{latestDel?.originalLabel || 'Deliveries to customers'}</span>
-          </div>
+          <button
+            onClick={() => setActivePeriod('2026-Q2')}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-xs whitespace-nowrap self-start sm:self-auto"
+          >
+            {language === 'ko' ? '2026-Q2 확정 실적 확인' : 'View Verified 2026-Q2'}
+          </button>
+        </div>
+      )}
+
+      {/* Period Selector Pills Bar */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            {language === 'ko' ? '공시 분기/연도 선택:' : 'Select Reporting Period:'}
+          </span>
         </div>
 
-        {/* Revenue */}
-        <div
-          onClick={() => latestRev && setActiveProvenanceObs(latestRev)}
-          className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-semibold">
-              {formatPeriodLabel(latestRev?.period || '', language)} {language === 'ko' ? '연결 매출액' : 'Revenue'}
-            </span>
-            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {displayPeriodsList.map((p) => {
+            const isSelected = activePeriod === p;
+            const hasData = observations.some((o) => o.period === p);
+            const isQ3Scheduled = p === '2026-Q3' && !hasData && scheduledQ3;
+
+            return (
+              <button
+                key={p}
+                onClick={() => setActivePeriod(p)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-brand-600 text-white border-brand-500 shadow-xs'
+                    : isQ3Scheduled
+                    ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100'
+                    : hasData
+                    ? 'bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    : 'bg-slate-50/50 dark:bg-slate-950/30 text-slate-400 border-slate-200/50 dark:border-slate-800/50 opacity-60'
+                }`}
+              >
+                <span>{formatPeriodLabel(p, language)}</span>
+                {p === '2026-Q3' && hasData && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500 text-white font-bold">
+                    {language === 'ko' ? '최신' : 'Latest'}
+                  </span>
+                )}
+                {isQ3Scheduled && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-bold">
+                    {language === 'ko' ? '예정' : 'Sched.'}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Headline KPI Cards for Active Period */}
+      <div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider font-mono">
+              {formatPeriodLabel(activePeriod, language)} {language === 'ko' ? '공시 실적 헤드라인' : 'Reported Headline KPIs'}
+            </h3>
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
-            {formatMetricValue(latestRev?.value, 'currency_millions', currentCompany.reportingCurrency)}
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            Functional: {currentCompany.reportingCurrency}
-          </div>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            {language === 'ko' ? '카드를 클릭하면 공식 출처와 감사 근거가 열립니다' : 'Click any card to inspect official provenance'}
+          </span>
         </div>
 
-        {/* Operating Margin */}
-        <div
-          onClick={() => latestMargin && setActiveProvenanceObs(latestMargin)}
-          className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-semibold">
-              {formatPeriodLabel(latestMargin?.period || '', language)} {language === 'ko' ? '영업이익률' : 'Operating Margin'}
-            </span>
-            <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Sales Deliveries */}
+          <div
+            onClick={() => periodDel && setActiveProvenanceObs(periodDel)}
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                <span className="text-xs font-semibold">
+                  {language === 'ko' ? '글로벌 판매량 / 인도량' : 'Global Deliveries'}
+                </span>
+                <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">
+                {periodDel?.value ? formatMetricValue(periodDel.value, 'thousand_units') : '-'}
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="truncate max-w-[140px]">
+                {periodDel?.originalLabel || (language === 'ko' ? '완성차 인도량' : 'Vehicle Deliveries')}
+              </span>
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold">
+                {getVolumeDefinitionLabel(periodDel?.volumeDefinition, language).full}
+              </span>
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
-            {formatMetricValue(latestMargin?.value, 'percentage')}
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            Operating EBIT / Revenue
-          </div>
-        </div>
 
-        {/* BEV Share */}
-        <div
-          onClick={() => latestBev && setActiveProvenanceObs(latestBev)}
-          className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-semibold">
-              {language === 'ko' ? '전기차(BEV) 점유율' : 'BEV Adoption Share'}
-            </span>
-            <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          {/* Revenue */}
+          <div
+            onClick={() => periodRev && setActiveProvenanceObs(periodRev)}
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                <span className="text-xs font-semibold">
+                  {language === 'ko' ? '연결 매출액' : 'Consolidated Revenue'}
+                </span>
+                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
+                {periodRev?.value
+                  ? formatMetricValue(periodRev.value, 'currency_millions', currentCompany.reportingCurrency)
+                  : '-'}
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span>{currentCompany.reportingCurrency}</span>
+              <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                {formatLocalizedProfit(periodRev?.value, currentCompany.reportingCurrency, language)}
+              </span>
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
-            {formatMetricValue(latestBev?.value, 'percentage')}
+
+          {/* Operating Profit / Net Profit */}
+          <div
+            onClick={() => {
+              if (periodIncome) setActiveProvenanceObs(periodIncome);
+              else if (periodNetIncome) setActiveProvenanceObs(periodNetIncome);
+            }}
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                <span className="text-xs font-semibold">
+                  {isBydQ3
+                    ? language === 'ko' ? '당기순이익 (CASBE)' : 'Net Profit (CASBE)'
+                    : language === 'ko' ? '영업이익 (EBIT)' : 'Operating Profit (EBIT)'}
+                </span>
+                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div
+                className={`text-2xl font-bold font-mono transition ${
+                  (periodIncome?.value ?? periodNetIncome?.value ?? 0) < 0
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : 'text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+                }`}
+              >
+                {periodIncome?.value !== null && periodIncome?.value !== undefined
+                  ? formatLocalizedProfit(periodIncome.value, periodIncome.currency || currentCompany.reportingCurrency, language, { showOriginal: true })
+                  : periodNetIncome?.value !== null && periodNetIncome?.value !== undefined
+                  ? formatLocalizedProfit(periodNetIncome.value, periodNetIncome.currency || currentCompany.reportingCurrency, language, { showOriginal: true })
+                  : '-'}
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="truncate max-w-[140px]">
+                {periodIncome?.originalLabel || periodNetIncome?.originalLabel || (isBydQ3 ? 'Net profit attributable' : 'Operating profit')}
+              </span>
+              <span className="font-mono text-[10px] font-semibold text-brand-600 dark:text-brand-400">
+                {isBydQ3 ? 'PRC GAAP' : periodIncome?.accountingBasis === 'adjusted' ? 'Non-GAAP' : 'IFRS'}
+              </span>
+            </div>
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            Pure All-Electric Penetration
+
+          {/* Operating Margin / Net Margin */}
+          <div
+            onClick={() => periodMargin && setActiveProvenanceObs(periodMargin)}
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                <span className="text-xs font-semibold">
+                  {isBydQ3
+                    ? language === 'ko' ? '순이익률 (Net Margin)' : 'Net Profit Margin'
+                    : language === 'ko' ? '영업이익률 (RoS)' : 'Operating Margin (RoS)'}
+                </span>
+                <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div
+                className={`text-2xl font-bold font-mono transition ${
+                  (periodMargin?.value ?? bydNetMargin ?? 0) < 0
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : 'text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400'
+                }`}
+              >
+                {periodMargin?.value !== null && periodMargin?.value !== undefined
+                  ? formatMetricValue(periodMargin.value, 'percentage')
+                  : bydNetMargin !== null
+                  ? `${bydNetMargin.toFixed(1)}%`
+                  : '-'}
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span>{isBydQ3 ? 'Net Profit / Revenue' : 'Operating EBIT / Revenue'}</span>
+              <span className="font-mono text-[10px] font-semibold">
+                {(periodMargin?.value ?? bydNetMargin ?? 0) >= 8.0
+                  ? '🌟 Top Tier'
+                  : (periodMargin?.value ?? bydNetMargin ?? 0) < 0
+                  ? '⚠️ Deficit'
+                  : '✅ Healthy'}
+              </span>
+            </div>
+          </div>
+
+          {/* BEV Share */}
+          <div
+            onClick={() => periodBev && setActiveProvenanceObs(periodBev)}
+            className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 transition cursor-pointer group shadow-sm flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                <span className="text-xs font-semibold">
+                  {language === 'ko' ? '전기차(BEV) 점유율' : 'BEV Share'}
+                </span>
+                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
+                {periodBev?.value ? formatMetricValue(periodBev.value, 'percentage') : '-'}
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="truncate max-w-[140px]">
+                {periodBev?.originalLabel || (language === 'ko' ? '순수 전기차 비중' : 'All-Electric Share')}
+              </span>
+              <span className="font-mono text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                {periodBev?.value ? `${periodBev.value.toFixed(1)}%` : '-'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Historical Trend Line Visualizer */}
-      <MetricLineChart
-        title={`${currentCompany.name} — ${selectedMetricDef?.name || 'Historical Trend'}`}
-        subtitle={language === 'ko' ? '분기 및 연간 실적 추이 시각화' : 'Tracking quarterly trajectory and annual milestones'}
-        series={singleSeries}
-        unit={selectedMetricDef?.unit || 'units'}
+      {/* DEDICATED QUARTERLY PERFORMANCE CHARTS (판매량, 영업이익, 영업이익률) */}
+      <QuarterlyPerformanceCharts
+        company={currentCompany}
+        observations={observations}
+        activePeriod={activePeriod}
+        onSelectPeriod={(p) => setActivePeriod(p)}
         onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
+        scheduledDisclosure={scheduledQ3}
       />
+
+      {/* OFFICIAL PERFORMANCE DRIVERS & MANAGEMENT COMMENTARY */}
+      {performanceDriver && (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-7 shadow-md space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {language === 'ko' ? '공식 실적 분석 및 경영진 설명 (IR 공시)' : 'Official IR Performance Drivers & Commentary'}
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {language === 'ko'
+                  ? `${currentCompany.name} 공식 IR 자료 및 분기보고서에 명시된 ${formatPeriodLabel(performanceDriver.period, language)} 실적 변동 원인 분석`
+                  : `Primary management explanations cited from ${currentCompany.name} official filings for ${formatPeriodLabel(performanceDriver.period, language)}`}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 font-bold text-brand-700 dark:text-brand-300 border border-slate-200 dark:border-slate-700">
+                {performanceDriver.period}
+              </span>
+            </div>
+          </div>
+
+          {/* Headline & Executive Summary Box */}
+          <div className="p-4 sm:p-5 rounded-xl bg-gradient-to-r from-brand-50/50 via-slate-50 to-white dark:from-brand-950/20 dark:via-slate-950/40 dark:to-slate-900 border border-brand-200/60 dark:border-brand-900/40 space-y-2">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+              <span>{language === 'ko' ? performanceDriver.headlineKo : performanceDriver.headlineEn}</span>
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              {language === 'ko' ? performanceDriver.summaryKo : performanceDriver.summaryEn}
+            </p>
+          </div>
+
+          {/* Categorized Key Driver Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {performanceDriver.drivers.map((driver, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      {driver.category === 'profitability'
+                        ? language === 'ko' ? '💰 수익성' : '💰 Profitability'
+                        : driver.category === 'volume'
+                        ? language === 'ko' ? '🚗 판매량/인도' : '🚗 Volume'
+                        : driver.category === 'margin'
+                        ? language === 'ko' ? '📈 마진/가격' : '📈 Margin'
+                        : driver.category === 'electrification'
+                        ? language === 'ko' ? '⚡ 전동화' : '⚡ EV / Tech'
+                        : driver.category === 'one_off'
+                        ? language === 'ko' ? '⚠️ 일회성 비용' : '⚠️ One-off'
+                        : language === 'ko' ? '🌐 거시 환경' : '🌐 Macro'}
+                    </span>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                        driver.impact === 'positive'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : driver.impact === 'negative'
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      {driver.impact === 'positive'
+                        ? language === 'ko' ? '호재 요인' : 'Positive Driver'
+                        : driver.impact === 'negative'
+                        ? language === 'ko' ? '부담 요인' : 'Headwind'
+                        : language === 'ko' ? '중립 / 과도기' : 'Neutral'}
+                    </span>
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {language === 'ko' ? driver.titleKo : driver.titleEn}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                    {language === 'ko' ? driver.descriptionKo : driver.descriptionEn}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Primary Source Citation Footer */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+              <ShieldCheck className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+              <span className="font-semibold">{language === 'ko' ? '공식 출처 근거:' : 'Official IR Citation:'}</span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">
+                {language === 'ko' ? performanceDriver.sourceCitationKo : performanceDriver.sourceCitationEn}
+              </span>
+            </div>
+            {performanceDriver.sourceDocId && (
+              <button
+                onClick={() => {
+                  const doc = getSourceDocById(performanceDriver.sourceDocId);
+                  if (doc?.officialUrl) window.open(doc.officialUrl, '_blank', 'noopener,noreferrer');
+                }}
+                className="flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline self-start sm:self-auto"
+              >
+                <span>{language === 'ko' ? '원본 IR 문서 열기' : 'Open Official Document'}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Historical Trend Line Visualizer (Cadence Separated) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              {language === 'ko' ? '지표별 연속 추이 탐색기' : 'Multi-Period Trend Visualizer'}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {language === 'ko'
+                ? '분기 실적과 연간 실적의 왜곡을 방지하기 위해 집계 주기를 엄격히 분리하여 렌더링합니다.'
+                : 'Quarterly and annual cadences are strictly separated to prevent distorted comparisons.'}
+            </p>
+          </div>
+          {/* Cadence Switcher: Quarterly vs Annual */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            <button
+              onClick={() => setTrendCadence('quarterly')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
+                trendCadence === 'quarterly'
+                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              {language === 'ko' ? '분기별 추이 (2026-Q1~Q3)' : 'Quarterly'}
+            </button>
+            <button
+              onClick={() => setTrendCadence('annual')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
+                trendCadence === 'annual'
+                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              {language === 'ko' ? '연간 마일스톤 (2024~2025 FY)' : 'Annual'}
+            </button>
+          </div>
+        </div>
+
+        <MetricLineChart
+          title={`${currentCompany.name} — ${selectedMetricDef?.name || 'Historical Trend'} (${trendCadence === 'quarterly' ? 'Quarterly' : 'Annual'})`}
+          subtitle={
+            trendCadence === 'quarterly'
+              ? language === 'ko' ? '분기 실적 추이 시각화 (동일 분기 주기)' : 'Tracking quarterly trajectory'
+              : language === 'ko' ? '연간 종합 실적 마일스톤' : 'Tracking annual milestone progression'
+          }
+          series={singleSeries}
+          unit={selectedMetricDef?.unit || 'units'}
+          onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
+        />
+      </div>
 
       {/* Google AdSense Sponsored Display Unit */}
       <div className="w-full">
