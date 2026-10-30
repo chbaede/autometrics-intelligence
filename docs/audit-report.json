@@ -1,6 +1,9 @@
 {
-  "generatedAt": "2026-10-30T09:42:07.072Z",
-  "sourceCommitSha": "00efe3c9d36eb294c27833969e7f2e329fb33e26",
+  "generatedAt": "2026-10-30T10:58:48.420Z",
+  "sourceCommitSha": "daa45ad79819afa35c5bf42957152dd4553b6666",
+  "dataRegistryVersion": "1.0.0",
+  "auditEngineVersion": "3.1.0",
+  "workingTreeStatus": "clean",
   "counts": {
     "companies": 16,
     "observations": 437,
