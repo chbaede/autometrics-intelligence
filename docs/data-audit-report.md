@@ -1,10 +1,11 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-10-30T10:58:48.420Z  
-**Audited Source Commit SHA**: daa45ad79819afa35c5bf42957152dd4553b6666  
+**Generated At**: 2026-10-30T13:33:30.810Z  
+**Audited Source Commit SHA**: a5f211b0fd60b4f45244401bea16f3c2b1bf28e8  
+**Report Generation Commit SHA**: a5f211b0fd60b4f45244401bea16f3c2b1bf28e8  
 **Working Tree State**: clean  
-**Audit Engine Version**: 3.1.0  
+**Audit Engine Version**: 3.2.0  
 **Data Registry Version**: 1.0.0  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
@@ -96,13 +97,14 @@ The AutoMetrics audit engine strictly distinguishes 9 distinct verification and 
 
 | Command | Exit Code | Result | Key Summary Output |
 | :--- | :---: | :---: | :--- |
-| `npm run typecheck` | 0 | **PASS** | 0 TypeScript errors across the entire codebase |
-| `npm test` | 0 | **PASS** | Complete unit and integration regression test suite passed |
-| `npm run validate-source-claims` | 0 | **PASS** | All 157 source claims across 31 documents validated with 0 errors |
-| `npm run validate-data` | 0 | **PASS** | Strict schema, HTTPS, metadata, fixtures & source claims integrity passed with 0 errors |
-| `npm run audit-data` | 0 | **PASS** | Scope-safe semantic audit passed with 0 blocking errors (8 proxy review findings) |
-| `npm run lint` | 0 | **PASS** | ESLint verified clean codebase with zero errors |
-| `npm run build` | 0 | **PASS** | Vite production build generated clean distribution artifacts |
+| `npm run typecheck` | 0 | **PASS** | > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
+| `npm run validate-data` | 0 | **PASS** | 🗺️  Total Regional Observations: 357 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
+| `npm run validate-source-claims` | 0 | **PASS** | ✨ Internal consistency validation passed: All 157 source claims across 31 documents match registered observations and document perimeters. ℹ️  Note: This confir |
+| `npm test` | 0 | **PASS** | Results: 1016 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
+| `npm run audit-data` | 0 | **PASS** | ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
+| `npm run audit-data -- --strict` | 1 | **EXPECTED POLICY FAILURE** | ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
+| `npm run lint` | 0 | **PASS** | > autometrics-intelligence@1.0.0 lint > eslint src/ |
+| `npm run build` | 0 | **PASS** | dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.61s |
 
 ---
 
@@ -145,8 +147,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `daa45ad79819afa35c5bf42957152dd4553b6666`
-- **Generated at**: `2026-10-30T10:58:48.420Z`
+- **Audited Source Commit SHA**: `a5f211b0fd60b4f45244401bea16f3c2b1bf28e8`
+- **Generated at**: `2026-10-30T13:33:30.810Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

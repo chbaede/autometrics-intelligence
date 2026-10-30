@@ -1,9 +1,84 @@
 {
-  "generatedAt": "2026-10-30T10:58:48.420Z",
-  "sourceCommitSha": "daa45ad79819afa35c5bf42957152dd4553b6666",
+  "generatedAt": "2026-10-30T13:33:30.810Z",
+  "sourceCommitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+  "reportGenerationCommitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
   "dataRegistryVersion": "1.0.0",
-  "auditEngineVersion": "3.1.0",
+  "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "clean",
+  "commandResults": [
+    {
+      "command": "npm run typecheck",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:13.646Z"
+    },
+    {
+      "command": "npm run validate-data",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "🗺️  Total Regional Observations: 357 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:16.329Z"
+    },
+    {
+      "command": "npm run validate-source-claims",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "✨ Internal consistency validation passed: All 157 source claims across 31 documents match registered observations and document perimeters. ℹ️  Note: This confir",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:16.785Z"
+    },
+    {
+      "command": "npm test",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "Results: 1016 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:17.162Z"
+    },
+    {
+      "command": "npm run audit-data",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:23.032Z"
+    },
+    {
+      "command": "npm run audit-data -- --strict",
+      "executed": true,
+      "exitCode": 1,
+      "status": "EXPECTED_POLICY_FAILURE",
+      "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:23.865Z"
+    },
+    {
+      "command": "npm run lint",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:24.636Z"
+    },
+    {
+      "command": "npm run build",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.61s",
+      "commitSha": "a5f211b0fd60b4f45244401bea16f3c2b1bf28e8",
+      "executedAt": "2026-10-30T13:33:26.155Z"
+    }
+  ],
   "counts": {
     "companies": 16,
     "observations": 437,

@@ -2,11 +2,12 @@
 
 ## Audit Status
 
-**Commit:** daa45ad79819afa35c5bf42957152dd4553b6666  
+**Audited Source Commit:** a5f211b0fd60b4f45244401bea16f3c2b1bf28e8  
+**Report Generation Commit:** a5f211b0fd60b4f45244401bea16f3c2b1bf28e8  
 **Working Tree:** clean  
-**Audit Engine:** 3.1.0  
+**Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-10-30T10:58:48.420Z  
+**Generated:** 2026-10-30T13:33:30.810Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -16,13 +17,14 @@
 
 | Command | Result |
 |---------|--------|
-| `npm run typecheck` | ✅ 0 errors |
-| `npm run test` | ✅ All test suites passed |
-| `npm run validate-data` | ✅ 0 errors |
-| `npm run validate-source-claims` | ✅ 0 errors (157 audited, 0 mismatches) |
-| `npm run audit-data` | ✅ 0 blocking, 8 review, 0 documented exceptions, 0 corroborations (exit code 0) |
-| `npm run audit-data -- --strict` | ⚠️ 0 blocking, 8 review (exit code 1 as expected by strict policy) |
-| `npm run build` | ✅ Production bundle built successfully |
+| `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
+| `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 357 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
+| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 157 source claims across 31 documents match registered observations and document perimeters. ℹ️  Note: This confir |
+| `npm test` | ✅ PASS (exit 0): Results: 1016 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
+| `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
+| `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
+| `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.61s |
 
 ---
 
