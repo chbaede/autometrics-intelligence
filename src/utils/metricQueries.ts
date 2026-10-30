@@ -93,7 +93,7 @@ export function getDataQualityReport(): DataQualityReport {
     verifiedSourcesRatio: Math.round((verifiedCount / (SOURCE_DOCUMENTS.length || 1)) * 100),
     missingSourcesCount: missingSources,
     nonComparableCount: nonComparable,
-    lastUpdated: '2026-09-24',
+    lastUpdated: '2026-10-30',
     companiesCovered: COMPANIES_REGISTRY.length,
     periodsCovered: periods,
   };

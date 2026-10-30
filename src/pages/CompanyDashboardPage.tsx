@@ -13,6 +13,7 @@ import {
   getCurrencySymbol,
   formatPeriodLabel,
   getVolumeDefinitionLabel,
+  comparePeriodsDescending,
 } from '../utils/metricCalculations';
 import {
   formatLocalizedProfit,
@@ -99,23 +100,10 @@ export const CompanyDashboardPage: React.FC = () => {
     { id: 'bev_share', label: language === 'ko' ? '전기차 점유율' : 'BEV Share', icon: Zap },
   ];
 
-  // Helper to ensure newest periods (e.g., 2026-Q3) sort to the very top
-  const getPeriodSortWeight = (period: string): number => {
-    const [yearStr, part] = period.split('-');
-    const year = parseInt(yearStr, 10) || 0;
-    let partWeight = 0;
-    if (part === 'Q4') partWeight = 4;
-    else if (part === 'Q3') partWeight = 3;
-    else if (part === 'Q2') partWeight = 2;
-    else if (part === 'Q1') partWeight = 1;
-    else if (part === 'FY') partWeight = 0.5;
-    return year * 10 + partWeight;
-  };
-
   // Filter observations by the selected metric for table explorer and sort newest (2026-Q3) first
   const filteredObs = [...observations]
     .filter((obs) => obs.metricId === selectedMetricId)
-    .sort((a, b) => getPeriodSortWeight(b.period) - getPeriodSortWeight(a.period));
+    .sort((a, b) => comparePeriodsDescending(a.period, b.period));
   const selectedMetricDef = getMetricById(selectedMetricId);
 
   // Cadence-separated Historical Trend Line Visualizer (Never mix Quarterly with Annual)
@@ -568,6 +556,54 @@ export const CompanyDashboardPage: React.FC = () => {
               {language === 'ko' ? performanceDriver.summaryKo : performanceDriver.summaryEn}
             </p>
           </div>
+
+          {/* Structured Quantitative Financial Claims (P0/P1 Verified Evidence) */}
+          {performanceDriver.structuredClaims && performanceDriver.structuredClaims.length > 0 && (
+            <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>{language === 'ko' ? '공식 검증 핵심 정량 지표 (Primary Source Claims)' : 'Verified Primary Quantitative Claims'}</span>
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  {language === 'ko' ? '1차 공시 문서 대조 완료' : 'Reconciled with IR filings'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {performanceDriver.structuredClaims.map((claim, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between"
+                  >
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {language === 'ko' ? claim.metricLabelKo : claim.metricLabelEn}
+                    </span>
+                    <div className="flex items-baseline justify-between gap-1 mt-1">
+                      <span className="text-xs sm:text-sm font-bold font-mono text-slate-900 dark:text-slate-100">
+                        {formatMetricValue(claim.value, claim.unit, claim.currency || currentCompany.reportingCurrency)}
+                      </span>
+                      {claim.growthRateYoY !== undefined && (
+                        <span
+                          className={`text-[10px] font-mono font-bold ${
+                            claim.growthRateYoY > 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : claim.growthRateYoY < 0
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {claim.growthRateYoY > 0 ? `+${claim.growthRateYoY}%` : `${claim.growthRateYoY}%`}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-400 truncate mt-1">
+                      {claim.sourceLocator}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Categorized Key Driver Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">

@@ -1465,7 +1465,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     period: '2026-Q3',
     periodType: 'quarterly',
     publicationDate: '2026-10-29',
-    officialUrl: 'https://www.hyundai.com/worldwide/en/company/ir/financial-information/business-results',
+    officialUrl: 'https://www.hyundaimotorgroup.com/ko/news/hyundai-motor-company-2026-q3-earnings',
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-10-29',

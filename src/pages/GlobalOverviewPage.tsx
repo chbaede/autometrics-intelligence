@@ -54,7 +54,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const { language, t } = useLanguage();
   const companies = getAllCompanies();
   const periods = getDistinctPeriods();
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q3');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>(() =>
     companies.map((c) => c.id)
   );

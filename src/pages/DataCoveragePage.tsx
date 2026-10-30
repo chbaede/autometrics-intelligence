@@ -28,7 +28,7 @@ export const DataCoveragePage: React.FC = () => {
   const qualityReport = getDataQualityReport();
   const { companies, periods, matrix } = getCoverageMatrix();
   const distinctPeriods = getDistinctPeriods();
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(distinctPeriods[0] || '2026-Q2');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(distinctPeriods[0] || '2026-Q3');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
   const tableObservations = getObservations(undefined, undefined, selectedPeriod);
@@ -95,7 +95,9 @@ export const DataCoveragePage: React.FC = () => {
           <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
             {qualityReport.lastUpdated}
           </span>
-          <span className="text-[11px] text-slate-500 block mt-1">Q2 2026 Cycle</span>
+          <span className="text-[11px] text-slate-500 block mt-1">
+            {language === 'ko' ? '2026년 3분기 공시 주기' : 'Q3 2026 Cycle'}
+          </span>
         </div>
       </div>
 

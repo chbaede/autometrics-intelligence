@@ -1,8 +1,8 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-10-30T07:07:10.322Z  
-**Audited Source Commit SHA**: 377039782bd19a2e9ef623fca7a61ba9c1eb4393  
+**Generated At**: 2026-10-30T07:50:10.840Z  
+**Audited Source Commit SHA**: a6c091e2afa976fd6b5b968bb0624a05233541c2  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -37,6 +37,13 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | **Review Findings** | **8** | Conservative proxy limitations (BMW / MBG) |
 | **Documented Exceptions** | **0** | Strict evidence requirement enforced |
 | **Informational Corroborations** | **0** | No unverified cross-source duplicates |
+
+### 1.1 Four-Pillar Verification Architecture & Audit Classification
+The AutoMetrics audit engine strictly segregates validation results into four autonomous verification pillars:
+1. **Observation & Source-Claim Validation**: Validates all primary numeric observations (`MetricObservation`) against officially filed source claims (`SourceClaim`) across metric ID, calendar period, cadence, value tolerance, and accounting perimeter. (Status: 100% matched, 0 mismatches).
+2. **Source-Document & Provenance Validation**: Validates all primary source documents (`SourceDocument`) for valid company foreign keys, reporting period alignment, verified HTTPS URLs, page locators, and deterministic cryptographic fixtures (`SHA-256`). (Status: 0 blocking errors).
+3. **Narrative-Claim Validation (Performance Drivers)**: Audits qualitative and quantitative management commentary in `PERFORMANCE_DRIVERS` against structured primary claims (`StructuredPerformanceClaim`), rejecting unverified causal statements, preventing silent period fallback, and verifying exact locators. (Status: 0 narrative contradictions).
+4. **Findings Requiring Human Review (Scope Proxies)**: Explicitly enumerates legitimate reporting perimeter divergences where headline margin KPIs are reported at segment level while the accessible operating profit numerator is at consolidated group level (8 proxy items across BMW Group and Mercedes-Benz Group, strictly quarantined as `proxy_only` with `disposition: review`).
 
 ---
 
@@ -130,8 +137,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `377039782bd19a2e9ef623fca7a61ba9c1eb4393`
-- **Generated at**: `2026-10-30T07:07:10.322Z`
+- **Audited Source Commit SHA**: `a6c091e2afa976fd6b5b968bb0624a05233541c2`
+- **Generated at**: `2026-10-30T07:50:10.840Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

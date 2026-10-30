@@ -46,7 +46,7 @@ export const CompanyComparisonPage: React.FC = () => {
   ]);
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
   const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | VolumeDefinition>('all');
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q2');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q3');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
   const toggleCompany = (companyId: string) => {

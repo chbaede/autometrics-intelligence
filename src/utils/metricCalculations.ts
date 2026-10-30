@@ -232,6 +232,30 @@ export function formatPeriodLabel(period: string, lang: 'ko' | 'en' = 'ko'): str
   return period;
 }
 
+/**
+ * Calculates a numerical sort weight for fiscal periods to guarantee strictly chronological
+ * sorting where newer periods sort higher (e.g., 2026-Q3 > 2026-Q2 > 2026-Q1 > 2025-FY > 2024-FY).
+ */
+export function getPeriodSortWeight(period: string): number {
+  if (!period) return 0;
+  const [yearStr, part] = period.split('-');
+  const year = parseInt(yearStr, 10) || 0;
+  let partWeight = 0;
+  if (part === 'Q4') partWeight = 4;
+  else if (part === 'Q3') partWeight = 3;
+  else if (part === 'Q2') partWeight = 2;
+  else if (part === 'Q1') partWeight = 1;
+  else if (part === 'FY') partWeight = 0.5;
+  return year * 10 + partWeight;
+}
+
+/**
+ * Standard comparator to sort fiscal period strings descending (newest first).
+ */
+export function comparePeriodsDescending(periodA: string, periodB: string): number {
+  return getPeriodSortWeight(periodB) - getPeriodSortWeight(periodA);
+}
+
 import { COMPANIES_MAP } from '../data/companies';
 
 /**
