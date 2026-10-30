@@ -78,12 +78,11 @@ export const REGIONAL_OBSERVATIONS: RegionalObservation[] = [
     value: 920.71,
     unit: 'thousand_units',
     sourceDocId: 'hmc_2026_q3_presentation',
-    pageNumber: 3,
     reportingScope: 'consolidated_group',
     volumeDefinition: 'wholesale_shipments',
     verificationStatus: 'verified',
     originalRegionLabel: 'Global Wholesale Volume',
-    regionalDefinitionNotes: 'Official Hyundai Motor Q3 2026 business results presentation (p. 3): 920,710 wholesale units globally.',
+    regionalDefinitionNotes: 'Official Hyundai Motor Q3 2026 business results press release: 920,710 wholesale units globally.',
   },
   {
     id: 'mbg_2026_q3_reg_global',

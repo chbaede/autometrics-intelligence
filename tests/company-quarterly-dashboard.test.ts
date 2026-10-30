@@ -16,7 +16,7 @@
 import { getAllCompanies, getObservationsByCompany, getDistinctPeriods } from '../src/utils/metricQueries';
 import { getPerformanceDriver, getAvailablePerformanceDriverPeriods } from '../src/data/performanceDrivers';
 import { getScheduledDisclosure } from '../src/data/scheduledDisclosures';
-import { SOURCE_DOCUMENTS } from '../src/data/sources';
+import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { TRANSLATIONS } from '../src/i18n/LanguageContext';
 import {
   comparePeriodsDescending,
@@ -286,11 +286,20 @@ assert(!hmcDriver!.summaryKo.includes('+4.7%'), 'Hyundai Korean summary does NOT
 assert(!hmcDriver!.summaryEn.includes('+4.7%'), 'Hyundai English summary does NOT claim unverified +4.7% revenue growth');
 assert(!hmcDriver!.headlineKo.includes('+40%'), 'Hyundai headline does NOT claim unverified +40% HEV growth');
 assert(!hmcDriver!.headlineEn.includes('+40%'), 'Hyundai English headline does NOT claim unverified +40% HEV growth');
+assert(!hmcDriver!.summaryKo.includes('5.6%') && !hmcDriver!.summaryEn.includes('5.6%'), 'Hyundai narrative does NOT claim unsupported Genesis 5.6%');
+assert(!hmcDriver!.summaryKo.includes('북미 인센티브') && !hmcDriver!.summaryEn.includes('North American incentives'), 'Hyundai narrative does NOT infer unsupported North American incentives');
+assert(!hmcDriver!.summaryKo.includes('재고 정상화') && !hmcDriver!.summaryEn.includes('inventory normalization'), 'Hyundai narrative does NOT claim inventory normalization');
 
 for (const d of hmcDriver!.drivers) {
   assert(!d.titleKo.includes('+40%') && !d.titleEn.includes('+40%'), `Hyundai driver title does NOT claim +40% (${d.titleKo})`);
   assert(!d.descriptionKo.includes('+40%') && !d.descriptionEn.includes('+40%'), `Hyundai driver description does NOT claim +40%`);
+  assert(!d.descriptionKo.includes('재고 정상화') && !d.descriptionEn.includes('inventory normalization'), 'Hyundai driver does NOT infer unsupported inventory normalization');
 }
+
+// Check presence of official release explanations
+assert(hmcDriver!.summaryKo.includes('조업일수 감소') || hmcDriver!.headlineKo.includes('조업일수'), 'Hyundai narrative includes official fewer working days explanation');
+assert(hmcDriver!.summaryKo.includes('환율') || hmcDriver!.headlineKo.includes('환율'), 'Hyundai narrative includes official foreign exchange effect explanation');
+assert(hmcDriver!.summaryKo.includes('원가 절감') || hmcDriver!.headlineKo.includes('원가 절감'), 'Hyundai narrative includes official cost optimization explanation');
 
 // 2. Verified official metrics alignment
 assert(hmcDriver!.summaryKo.includes('-3.4% YoY'), 'Hyundai Korean summary states -3.4% YoY revenue contraction');
@@ -306,10 +315,19 @@ assert(hmcDriver!.summaryEn.includes('920,710'), 'Hyundai English summary states
 const hevSalesClaim = hmcDriver!.structuredClaims?.find((c) => c.metricId === 'hev_deliveries');
 assert(hevSalesClaim?.value === 167.414, 'Hyundai structured claim HEV sales is 167,414 units (167.414k)');
 assert(hevSalesClaim?.growthRateYoY === 3.8, 'Hyundai structured claim HEV sales growth is +3.8% YoY');
+assert(hevSalesClaim?.claimCategory === 'narrative_disclosure', 'Hyundai HEV sales claim is categorized as narrative_disclosure');
 
 const hevShareClaim = hmcDriver!.structuredClaims?.find((c) => c.metricId === 'hev_share');
 assert(hevShareClaim?.value === 18.2, 'Hyundai structured claim HEV share is 18.2%');
-assert(hevShareClaim?.growthRateYoY === 2.7, 'Hyundai structured claim HEV share growth is +2.7%p YoY');
+assert(hevShareClaim?.changeYoYPercentagePoints === 2.7, 'Hyundai structured claim HEV share change is +2.7 percentage points');
+assert(hevShareClaim?.growthRateYoY === undefined, 'Hyundai structured claim HEV share does NOT confuse percentage points with growthRateYoY');
+assert(hevShareClaim?.claimCategory === 'narrative_disclosure', 'Hyundai HEV share claim is categorized as narrative_disclosure');
+
+// Source document validation
+const hmcSourceDoc = SOURCES_MAP[hmcDriver!.sourceDocId];
+assert(hmcSourceDoc !== undefined, 'Hyundai source document exists in SOURCES_MAP');
+assert(hmcSourceDoc.docType === 'press_release', 'Hyundai source document type is press_release');
+assert(hmcSourceDoc.title.includes('Press Release'), 'Hyundai source document title reflects press release');
 
 // 3. Observations reconciliation
 const hmcObs = getObservationsByCompany('hyundai_motor');
@@ -380,6 +398,51 @@ function validateHyundaiClaims(revGrowth: number, volGrowth: number, hevGrowth: 
 }
 assert(validateHyundaiClaims(-3.4, -11.3, 3.8) === true, 'Negative Guard: Official Hyundai figures pass');
 assert(validateHyundaiClaims(4.7, -11.3, 40.0) === false, 'Negative Guard: Fabricated +4.7% rev / +40% HEV growth is correctly REJECTED');
+
+// Negative Guard: Check that invalid claim configurations fail structured claim audit rules
+function auditSingleClaimFixture(fixture: any, driverFixture: any): string[] {
+  const issues: string[] = [];
+  if (!fixture.claimId) issues.push('missing claimId');
+  if (fixture.companyId !== driverFixture.companyId) issues.push('companyId mismatch');
+  if (fixture.period !== driverFixture.period) issues.push('period mismatch');
+  if (!fixture.sourceLocator || fixture.sourceLocator.trim() === '') issues.push('missing sourceLocator');
+  if (!fixture.verifiedEvidence || fixture.verifiedEvidence.trim() === '') issues.push('missing verifiedEvidence');
+  if (fixture.narrativeRefKo && !driverFixture.summaryKo.includes(fixture.narrativeRefKo)) issues.push('unresolving narrativeRefKo');
+  if (fixture.growthRateYoY !== undefined && fixture.changeYoYPercentagePoints !== undefined) issues.push('percentage point semantic conflict');
+  return issues;
+}
+
+const validSampleClaim = {
+  claimId: 'test_claim_valid',
+  companyId: 'hyundai_motor',
+  period: '2026-Q3',
+  sourceLocator: '보도자료 요약',
+  verifiedEvidence: 'HMC Q3 2026 Release',
+  narrativeRefKo: '글로벌 도매 920,710대(-11.3% YoY)',
+};
+const dummyDriver = {
+  companyId: 'hyundai_motor',
+  period: '2026-Q3',
+  summaryKo: '글로벌 도매 920,710대(-11.3% YoY)를 기록했습니다.',
+};
+
+assert(auditSingleClaimFixture(validSampleClaim, dummyDriver).length === 0, 'Negative Guard: Valid claim fixture passes with 0 issues');
+
+// Period mismatch negative test
+const periodMismatchClaim = { ...validSampleClaim, period: '2026-Q2' };
+assert(auditSingleClaimFixture(periodMismatchClaim, dummyDriver).includes('period mismatch'), 'Negative Guard: Period mismatch is caught');
+
+// Missing locator negative test
+const missingLocatorClaim = { ...validSampleClaim, sourceLocator: '' };
+assert(auditSingleClaimFixture(missingLocatorClaim, dummyDriver).includes('missing sourceLocator'), 'Negative Guard: Missing locator is caught');
+
+// Unresolving narrative reference negative test
+const unresolvingRefClaim = { ...validSampleClaim, narrativeRefKo: '존재하지 않는 가짜 문장' };
+assert(auditSingleClaimFixture(unresolvingRefClaim, dummyDriver).includes('unresolving narrativeRefKo'), 'Negative Guard: Unresolving narrativeRef is caught');
+
+// Percentage points conflict negative test
+const ppConflictClaim = { ...validSampleClaim, growthRateYoY: 2.7, changeYoYPercentagePoints: 2.7 };
+assert(auditSingleClaimFixture(ppConflictClaim, dummyDriver).includes('percentage point semantic conflict'), 'Negative Guard: Percentage point conflict is caught');
 
 function validateVwQ3Disaggregation(narrative: string): boolean {
   const containsFabricatedQ3Porsche = narrative.includes('€4.9B') && narrative.includes('Porsche');

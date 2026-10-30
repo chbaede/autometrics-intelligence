@@ -1156,7 +1156,8 @@ export type DocumentType =
   | 'sales_release'
   | 'guidance_update'
   | 'regulatory_filing'
-  | 'shareholder_letter';
+  | 'shareholder_letter'
+  | 'press_release';
 
 /**
  * Structured source claim representation (STEP 4-20, Task 5).

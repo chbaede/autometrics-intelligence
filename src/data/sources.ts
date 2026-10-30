@@ -1460,8 +1460,8 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
   {
     id: 'hmc_2026_q3_presentation',
     companyId: 'hyundai_motor',
-    title: 'Hyundai Motor Company Q3 2026 Business Results Presentation',
-    docType: 'earnings_presentation',
+    title: 'Hyundai Motor Company Q3 2026 Business Results Press Release',
+    docType: 'press_release',
     period: '2026-Q3',
     periodType: 'quarterly',
     publicationDate: '2026-10-29',
@@ -1469,7 +1469,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-10-29',
-    notes: 'Official Hyundai Motor Company Q3 2026 earnings presentation reporting wholesale volume, sales revenue, and operating profit.',
+    notes: 'Official Hyundai Motor Company Q3 2026 earnings press release reporting wholesale volume, sales revenue, operating profit, and eco-friendly vehicle sales (HEV/EV).',
     sourceClaims: [
       { metricId: 'deliveries_global', period: '2026-Q3', value: 920.71, unit: 'thousand_units', scope: 'consolidated_group' },
       { metricId: 'bev_deliveries', period: '2026-Q3', value: 69.12, unit: 'thousand_units', scope: 'consolidated_group' },

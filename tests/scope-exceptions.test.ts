@@ -8366,14 +8366,16 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const q3Obs = METRIC_OBSERVATIONS.filter((o) => o.period === '2026-Q3');
   check(q3Obs.length === 53, 'Test 243a: Exactly 53 observations in 2026-Q3 dataset');
 
-  // Verify that all 53 observations have valid page numbers and labels
-  let missingPage = 0;
+  // Verify that all 53 observations have valid locators (page number or web tableReference) and labels
+  let missingLocator = 0;
   let missingLabel = 0;
   let missingSource = 0;
 
   for (const obs of q3Obs) {
-    if (obs.pageNumber === undefined || typeof obs.pageNumber !== 'number' || obs.pageNumber < 1) {
-      missingPage++;
+    const hasNumericPage = obs.pageNumber !== undefined && typeof obs.pageNumber === 'number' && obs.pageNumber >= 1;
+    const hasWebTableRef = Boolean(obs.tableReference && obs.tableReference.trim() !== '');
+    if (!hasNumericPage && !hasWebTableRef) {
+      missingLocator++;
     }
     if (!obs.originalLabel || obs.originalLabel.trim() === '') {
       missingLabel++;
@@ -8383,7 +8385,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     }
   }
 
-  check(missingPage === 0, 'Test 243b: 100% of 2026-Q3 observations have verifiable numeric pageNumber locators');
+  check(missingLocator === 0, 'Test 243b: 100% of 2026-Q3 observations have verifiable locators (pageNumber or web tableReference)');
   check(missingLabel === 0, 'Test 243c: 100% of 2026-Q3 observations have verbatim originalLabel metadata');
   check(missingSource === 0, 'Test 243d: 100% of 2026-Q3 observations link to registered source documents');
 }
@@ -8536,7 +8538,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   // 1. All 13 entries must have complete provenance metadata
   for (const reg of q3Regional) {
     check(reg.sourceDocId !== undefined && reg.sourceDocId !== '', `Test 245b-1 [${reg.id}]: sourceDocId defined`);
-    check(typeof reg.pageNumber === 'number' && reg.pageNumber >= 1, `Test 245b-2 [${reg.id}]: numeric pageNumber defined`);
+    const hasNumericPage = typeof reg.pageNumber === 'number' && reg.pageNumber >= 1;
+    const isWebPressRelease = reg.sourceDocId ? SOURCES_MAP[reg.sourceDocId]?.docType === 'press_release' : false;
+    check(hasNumericPage || isWebPressRelease, `Test 245b-2 [${reg.id}]: valid locator (numeric pageNumber or web press release)`);
     check(reg.reportingScope === 'consolidated_group', `Test 245b-3 [${reg.id}]: reportingScope is consolidated_group`);
     check(reg.volumeDefinition === 'retail_deliveries' || reg.volumeDefinition === 'wholesale_shipments', `Test 245b-4 [${reg.id}]: explicit volumeDefinition`);
     check(reg.verificationStatus === 'verified', `Test 245b-5 [${reg.id}]: verificationStatus is verified`);

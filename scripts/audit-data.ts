@@ -1008,20 +1008,85 @@ export function collectAuditFindings(): CollectedAuditResults {
           });
         }
 
+        // 1. Source Document Existence and Period Consistency
+        if (claim.sourceDocId) {
+          const claimDoc = SOURCES_MAP[claim.sourceDocId];
+          if (!claimDoc) {
+            findings.push({
+              severity: 'ERROR',
+              disposition: 'blocking',
+              category: 'SOURCE_CLAIM_INTEGRITY',
+              item: `PerformanceClaim: ${claim.claimId}`,
+              detail: `SourceDocId '${claim.sourceDocId}' does not exist in SOURCES_MAP.`,
+            });
+          } else {
+            if (claimDoc.companyId !== driver.companyId) {
+              findings.push({
+                severity: 'ERROR',
+                disposition: 'blocking',
+                category: 'SCOPE_MISMATCH',
+                item: `PerformanceClaim: ${claim.claimId}`,
+                detail: `SourceDoc companyId '${claimDoc.companyId}' does not match claim companyId '${driver.companyId}'.`,
+              });
+            }
+            if (claimDoc.period !== driver.period) {
+              findings.push({
+                severity: 'ERROR',
+                disposition: 'blocking',
+                category: 'SOURCE_CLAIM_INTEGRITY',
+                item: `PerformanceClaim: ${claim.claimId}`,
+                detail: `SourceDoc period '${claimDoc.period}' does not match claim period '${driver.period}'.`,
+              });
+            }
+          }
+        }
+
+        // 2. Verified Evidence and Non-Invented Locator Validation
+        if (!claim.sourceLocator || claim.sourceLocator.trim() === '') {
+          findings.push({
+            severity: 'ERROR',
+            disposition: 'blocking',
+            category: 'SOURCE_CLAIM_INTEGRITY',
+            item: `PerformanceClaim: ${claim.claimId}`,
+            detail: `Structured claim lacks required sourceLocator.`,
+          });
+        }
+        if (!claim.verifiedEvidence || claim.verifiedEvidence.trim() === '') {
+          findings.push({
+            severity: 'ERROR',
+            disposition: 'blocking',
+            category: 'SOURCE_CLAIM_INTEGRITY',
+            item: `PerformanceClaim: ${claim.claimId}`,
+            detail: `Structured claim lacks required verifiedEvidence.`,
+          });
+        }
+
+        // 3. Primary Observation Matching vs Narrative Disclosures
         const matchingObs = METRIC_OBSERVATIONS.find(
           (o) => o.companyId === driver.companyId && o.period === driver.period && o.metricId === claim.metricId
         );
+
         if (!matchingObs) {
-          if (!claim.sourceLocator || !claim.verifiedEvidence) {
+          if (claim.claimCategory === 'primary_observation') {
+            findings.push({
+              severity: 'ERROR',
+              disposition: 'blocking',
+              category: 'SOURCE_CLAIM_INTEGRITY',
+              item: `PerformanceClaim: ${claim.claimId}`,
+              detail: `Claim categorized as 'primary_observation' but no matching observation was found for metric '${claim.metricId}' in ${driver.period}.`,
+            });
+          } else if (claim.claimCategory !== 'narrative_disclosure') {
+            // Uncategorized claim without observation
             findings.push({
               severity: 'WARNING',
               disposition: 'review',
               category: 'SOURCE_CLAIM_INTEGRITY',
               item: `PerformanceClaim: ${driver.companyId} (${driver.period}) - ${claim.metricId}`,
-              detail: `Structured claim lacks verified evidence locator or primary observation.`,
+              detail: `Structured claim lacks primary observation and is not explicitly designated as 'narrative_disclosure'.`,
             });
           }
         } else {
+          // Verify value, unit, and currency
           const valueMatches =
             matchingObs.value != null && Math.abs(matchingObs.value - claim.value) < 0.01;
           const unitMatches = matchingObs.unit === claim.unit;
@@ -1032,6 +1097,84 @@ export function collectAuditFindings(): CollectedAuditResults {
               category: 'SOURCE_CLAIM_INTEGRITY',
               item: `PerformanceClaim: ${driver.companyId} (${driver.period}) - ${claim.metricId}`,
               detail: `Structured claim value ${claim.value} (${claim.unit}) contradicts observation value ${matchingObs.value} (${matchingObs.unit}).`,
+            });
+          }
+          if (claim.currency && matchingObs.currency && claim.currency !== matchingObs.currency) {
+            findings.push({
+              severity: 'ERROR',
+              disposition: 'blocking',
+              category: 'SOURCE_CLAIM_INTEGRITY',
+              item: `PerformanceClaim: ${claim.claimId}`,
+              detail: `Structured claim currency '${claim.currency}' contradicts observation currency '${matchingObs.currency}'.`,
+            });
+          }
+        }
+
+        // 4. Mathematical YoY Growth Rate Recalculation Check
+        if (claim.growthRateYoY !== undefined && claim.comparisonPeriod) {
+          const priorObs = METRIC_OBSERVATIONS.find(
+            (o) => o.companyId === driver.companyId && o.period === claim.comparisonPeriod && o.metricId === claim.metricId
+          );
+          if (priorObs && priorObs.value != null && priorObs.value !== 0 && matchingObs && matchingObs.value != null) {
+            const calculatedGrowth = ((matchingObs.value - priorObs.value) / Math.abs(priorObs.value)) * 100;
+            const diff = Math.abs(calculatedGrowth - claim.growthRateYoY);
+            // Allow 0.2% tolerance for rounding in corporate press releases (e.g. 11.83% vs 11.8%)
+            if (diff > 0.25) {
+              findings.push({
+                severity: 'ERROR',
+                disposition: 'blocking',
+                category: 'SOURCE_CLAIM_INTEGRITY',
+                item: `PerformanceClaim: ${claim.claimId}`,
+                detail: `Claimed YoY growth rate (${claim.growthRateYoY}%) diverges from calculated growth rate (${calculatedGrowth.toFixed(2)}%) between ${claim.comparisonPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
+              });
+            }
+          }
+        }
+
+        // 5. Percentage Point Change Validation for Share Metrics
+        if (claim.changeYoYPercentagePoints !== undefined && claim.comparisonPeriod) {
+          if (claim.growthRateYoY !== undefined) {
+            findings.push({
+              severity: 'ERROR',
+              disposition: 'blocking',
+              category: 'SOURCE_CLAIM_INTEGRITY',
+              item: `PerformanceClaim: ${claim.claimId}`,
+              detail: `Claim specifies both changeYoYPercentagePoints and growthRateYoY. Percentage metrics must use percentage points only to prevent semantic confusion.`,
+            });
+          }
+        }
+
+        // 6. Narrative Reference Resolution and Integrity Check
+        const allNarrativeTextKo = [
+          driver.headlineKo,
+          driver.summaryKo,
+          ...driver.drivers.map((d) => `${d.titleKo} ${d.descriptionKo}`),
+        ].join(' ');
+        const allNarrativeTextEn = [
+          driver.headlineEn,
+          driver.summaryEn,
+          ...driver.drivers.map((d) => `${d.titleEn} ${d.descriptionEn}`),
+        ].join(' ');
+
+        if (claim.narrativeRefKo) {
+          if (!allNarrativeTextKo.includes(claim.narrativeRefKo)) {
+            findings.push({
+              severity: 'ERROR',
+              disposition: 'blocking',
+              category: 'SOURCE_CLAIM_INTEGRITY',
+              item: `PerformanceClaim: ${claim.claimId}`,
+              detail: `narrativeRefKo "${claim.narrativeRefKo}" cannot be found in the Korean headline, summary, or driver text.`,
+            });
+          }
+        }
+        if (claim.narrativeRefEn) {
+          if (!allNarrativeTextEn.includes(claim.narrativeRefEn)) {
+            findings.push({
+              severity: 'ERROR',
+              disposition: 'blocking',
+              category: 'SOURCE_CLAIM_INTEGRITY',
+              item: `PerformanceClaim: ${claim.claimId}`,
+              detail: `narrativeRefEn "${claim.narrativeRefEn}" cannot be found in the English headline, summary, or driver text.`,
             });
           }
         }

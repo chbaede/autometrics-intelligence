@@ -595,6 +595,19 @@ export const CompanyDashboardPage: React.FC = () => {
                           {claim.growthRateYoY > 0 ? `+${claim.growthRateYoY}%` : `${claim.growthRateYoY}%`}
                         </span>
                       )}
+                      {claim.changeYoYPercentagePoints !== undefined && (
+                        <span
+                          className={`text-[10px] font-mono font-bold ${
+                            claim.changeYoYPercentagePoints > 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : claim.changeYoYPercentagePoints < 0
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {claim.changeYoYPercentagePoints > 0 ? `+${claim.changeYoYPercentagePoints}%p` : `${claim.changeYoYPercentagePoints}%p`}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[9px] font-mono text-slate-400 truncate mt-1">
                       {claim.sourceLocator}
