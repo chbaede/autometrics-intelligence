@@ -180,7 +180,10 @@ export const GlobalOverviewPage: React.FC = () => {
   };
 
   // Observations for Sales Bar Chart (ranked descending) - filtered by volumeDefinitionFilter if active
-  const salesObs = getObservations(selectedCompanies, ['deliveries_global'], selectedPeriod)
+  const allPeriodSalesObs = getObservations(selectedCompanies, ['deliveries_global'], selectedPeriod);
+  const totalPeriodSalesCount = allPeriodSalesObs.length;
+
+  const salesObs = allPeriodSalesObs
     .filter((obs) => {
       if (volumeDefinitionFilter === 'retail_deliveries') {
         return obs.volumeDefinition === 'retail_deliveries';
@@ -196,6 +199,25 @@ export const GlobalOverviewPage: React.FC = () => {
     }))
     .filter((o) => o.company)
     .sort((a, b) => (b.observation.value ?? -Infinity) - (a.observation.value ?? -Infinity));
+
+  // Volume filter disclosure metrics
+  const excludedByPerimeterCount =
+    volumeDefinitionFilter === 'all'
+      ? 0
+      : allPeriodSalesObs.filter((o) => {
+          if (volumeDefinitionFilter === 'retail_deliveries') {
+            return o.volumeDefinition === 'wholesale_shipments';
+          }
+          if (volumeDefinitionFilter === 'wholesale_shipments') {
+            return o.volumeDefinition === 'retail_deliveries';
+          }
+          return false;
+        }).length;
+
+  const excludedByUnclassifiedCount =
+    volumeDefinitionFilter === 'all'
+      ? 0
+      : allPeriodSalesObs.filter((o) => !o.volumeDefinition || o.volumeDefinition === 'unknown').length;
 
   // Observations for Actual Earnings Bar Chart (Operating Income or Revenue, ranked descending)
   // Normalized to KRW Trillions (ko) or USD Billions (en) for cross-OEM comparability
@@ -576,9 +598,9 @@ export const GlobalOverviewPage: React.FC = () => {
       {/* Interactive Filter Toolbar (Sticky so period & filters are always visible when scrolling) */}
       <div className="sticky top-16 z-20 p-3 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-md space-y-3 transition-all">
         {/* Top Filter Row: Period Selector + Outlier / Collapse Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           {/* Period Selector */}
-          <div className="flex items-center gap-2 min-w-0 max-w-full overflow-x-auto py-0.5">
+          <div className="flex items-center gap-2 min-w-0 max-w-full overflow-x-auto py-0.5 scrollbar-thin">
             <div className="flex items-center gap-1.5 shrink-0">
               <Calendar className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap hidden xs:inline">
@@ -606,9 +628,9 @@ export const GlobalOverviewPage: React.FC = () => {
           </div>
 
           {/* Quick Actions: Profitability Filter Mode (Exclude Loss / Loss Only / All) & Mobile OEM Drawer Trigger */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-between sm:justify-end">
             <div
-              className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800"
+              className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto max-w-full"
               role="group"
               aria-label={language === 'ko' ? '영업손익 필터' : 'Operating Profit/Loss Filter'}
             >
@@ -754,6 +776,30 @@ export const GlobalOverviewPage: React.FC = () => {
 
       {/* SECTION 1: Core Volume & Profitability Benchmarks (Ranked Descending - One Chart Per Row) */}
       <div className="flex flex-col gap-6 w-full">
+        {volumeDefinitionFilter !== 'all' && (
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs">
+            <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+              <Filter className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+              <span>
+                {language === 'ko'
+                  ? `[${volumeDefinitionFilter === 'retail_deliveries' ? '소매 인도' : '도매 출하'}] 공시 기준 필터 적용: 선택 기업 ${totalPeriodSalesCount}개 중 ${salesObs.length}개 표시`
+                  : `Filtered by ${volumeDefinitionFilter === 'retail_deliveries' ? 'Retail Deliveries' : 'Wholesale Shipments'}: ${salesObs.length} of ${totalPeriodSalesCount} selected OEMs shown`}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-mono">
+              {excludedByPerimeterCount > 0 && (
+                <span className="px-2 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  {language === 'ko' ? `타 공시 기준 제외 ${excludedByPerimeterCount}개` : `${excludedByPerimeterCount} other perimeters excluded`}
+                </span>
+              )}
+              {excludedByUnclassifiedCount > 0 && (
+                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold">
+                  {language === 'ko' ? `공시 기준 미확인/미분류 제외 ${excludedByUnclassifiedCount}개` : `${excludedByUnclassifiedCount} unverified/unclassified excluded`}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
         <MetricBarChart
           title={
             volumeDefinitionFilter === 'retail_deliveries'

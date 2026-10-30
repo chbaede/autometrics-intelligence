@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { MetricObservation, Company, VolumeDefinition } from '../../../types/metrics';
-import { formatMetricValue } from '../../../utils/metricCalculations';
-import { HelpCircle, AlertTriangle } from 'lucide-react';
+import { MetricObservation, Company } from '../../../types/metrics';
+import { formatMetricValue, analyzeVolumeComparability } from '../../../utils/metricCalculations';
+import { HelpCircle, AlertTriangle, Filter } from 'lucide-react';
 import { useLanguage } from '../../../i18n/LanguageContext';
 
 export interface MetricBarChartItem {
@@ -38,8 +38,45 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
 
   if (!observations || observations.length === 0) {
     return (
-      <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-sm">
-        {language === 'ko' ? '선택한 필터 조건에 해당하는 데이터가 없습니다.' : 'No comparative observations available for the selected filters.'}
+      <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col">
+        {/* Chart Header */}
+        <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 whitespace-nowrap">
+                {title}
+              </h3>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">
+                {unit.replace('_', ' ')}
+              </span>
+              {periodBadge && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold border border-brand-500/20 whitespace-nowrap">
+                  📅 {periodBadge}
+                </span>
+              )}
+            </div>
+            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap ml-auto">
+            {headerAction}
+          </div>
+        </div>
+
+        {/* Informative Empty State */}
+        <div className="py-12 flex flex-col items-center justify-center text-center px-4">
+          <div className="p-3 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 mb-3">
+            <Filter className="w-6 h-6" />
+          </div>
+          <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+            {language === 'ko' ? '표시할 공시 데이터가 없습니다' : 'No Observations Available'}
+          </h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+            {language === 'ko'
+              ? '선택된 필터 조건(기업 목록, 공시 기준, 기간)에 부합하는 공식 공시 관측치가 존재하지 않습니다.'
+              : 'No reported observations match the selected filters (OEM selection, volume perimeter, or reporting period).'}
+          </p>
+        </div>
       </div>
     );
   }
@@ -63,20 +100,15 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
   const hasNegative = minVal < 0;
   const hasPositive = validValues.some((v) => v > 0);
 
-  // Volume Definition Comparability Detection
-  const volumeDefs = new Set(
-    sortedObservations
-      .map((o) => o.observation.volumeDefinition)
-      .filter((v): v is VolumeDefinition => v !== undefined)
-  );
-  const isMixedVolumeChart = volumeDefs.size > 1;
+  // Volume Definition Comparability Analysis
+  const volumeAnalysis = analyzeVolumeComparability(sortedObservations);
 
   return (
-    <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col">
+    <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col">
       {/* Chart Header */}
       <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 whitespace-nowrap">
               {title}
             </h3>
@@ -92,14 +124,14 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
               {language === 'ko' ? '높은순 정렬' : 'Ranked'}
             </span>
           </div>
-          {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{subtitle}</p>}
         </div>
 
         {/* Dynamic Header Action & Hover/Active Status */}
-        <div className="flex items-center gap-2 flex-wrap ml-auto">
+        <div className="flex items-center gap-2 flex-wrap ml-auto shrink-0">
           {headerAction}
           {hoveredIndex !== null && sortedObservations[hoveredIndex] && (
-            <div className="flex items-center gap-2 px-2.5 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-mono animate-fadeIn">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg text-xs font-mono animate-fadeIn">
               <span className="font-bold text-brand-700 dark:text-brand-300">
                 {sortedObservations[hoveredIndex].company.shortName}:
               </span>
@@ -115,24 +147,34 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
         </div>
       </div>
 
-      {/* Mixed Volume Definitions Comparability Notice */}
-      {isMixedVolumeChart && (
+      {/* Volume Definition Comparability Warning Banner */}
+      {!volumeAnalysis.isFullyComparable && volumeAnalysis.warningType !== 'none' && (
         <div className="mt-2 mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-200">
           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="leading-relaxed text-[11px] space-y-0.5">
             <span className="font-bold">
-              {language === 'ko' ? '판매량 공시 기준 혼합 안내:' : 'Mixed Volume Definitions Notice:'}
+              {language === 'ko'
+                ? volumeAnalysis.warningType === 'all_unclassified'
+                  ? '공시 기준 미분류/미확인 안내:'
+                  : volumeAnalysis.warningType === 'unclassified_with_known'
+                  ? '공시 기준 불완전 비교 주의:'
+                  : '판매량 공시 기준 혼합 안내:'
+                : volumeAnalysis.warningType === 'all_unclassified'
+                ? 'Unclassified Volume Definitions Notice:'
+                : volumeAnalysis.warningType === 'unclassified_with_known'
+                ? 'Incomplete Volume Perimeter Warning:'
+                : 'Mixed Volume Definitions Notice:'}
             </span>{' '}
             {language === 'ko'
-              ? '본 랭킹 차트에는 고객 인도 기준(소매 인도, Retail Deliveries: Tesla, VW, MBG, BYD, Volvo)과 딜러 공급 기준(도매 출하, Wholesale Shipments: GM, Ford, Hyundai, Stellantis)이 함께 포함되어 있습니다. 유통 채널 시점과 재고 변동 차이를 감안하여 비교하시기 바라며, 각 기업명 하단에 공시 기준 표기[인도/출하]를 제공합니다.'
-              : 'This chart compares both Retail Deliveries (customer handovers: Tesla, VW, MBG, BYD, Volvo) and Wholesale Shipments (factory dispatches to dealers: GM, Ford, Hyundai, Stellantis). Reporting perimeters differ in inventory build and distribution timing; each OEM is labelled below.'}
+              ? volumeAnalysis.warningMessageKo
+              : volumeAnalysis.warningMessageEn}
           </div>
         </div>
       )}
 
       {/* SVG/HTML Bar Chart Container */}
-      <div className="relative w-full overflow-x-auto pt-6 pb-2">
-        <div className="min-w-[680px] w-full flex flex-col justify-start relative">
+      <div className="relative w-full overflow-x-auto pt-6 pb-2 scrollbar-thin">
+        <div className="min-w-[580px] sm:min-w-[680px] w-full flex flex-col justify-start relative">
           {/* Main Bar Plot Area */}
           {hasNegative ? (
             /* DUAL-ZONE PLOT: Positive zone above baseline, Negative zone below baseline */
@@ -185,13 +227,17 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                           <span className={`font-extrabold ${isNegative ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
                             {item.tooltipValue ?? item.displayValue ?? formatMetricValue(rawObsVal, unit, item.observation.currency)}
                           </span>
-                          {item.observation.volumeDefinition && (
+                          {item.observation.volumeDefinition ? (
                             <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                               {item.observation.volumeDefinition === 'retail_deliveries'
                                 ? language === 'ko' ? '소매 인도' : 'Retail'
                                 : language === 'ko' ? '도매 출하' : 'Wholesale'}
                             </span>
-                          )}
+                          ) : volumeAnalysis.isVolumeMetric ? (
+                            <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                              {language === 'ko' ? '공시 기준 미분류' : 'Unclassified'}
+                            </span>
+                          ) : null}
                           {isNegative && (
                             <span className="text-rose-600 dark:text-rose-400 text-[10px] font-bold">
                               ({language === 'ko' ? '영업손실' : 'Loss'})
@@ -302,13 +348,17 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                         >
                           {item.company.shortName}
                         </span>
-                        {item.observation.volumeDefinition && (
+                        {item.observation.volumeDefinition ? (
                           <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800">
                             {item.observation.volumeDefinition === 'retail_deliveries'
                               ? language === 'ko' ? '인도' : 'Retail'
                               : language === 'ko' ? '출하' : 'Wholesale'}
                           </span>
-                        )}
+                        ) : volumeAnalysis.isVolumeMetric ? (
+                          <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                            {language === 'ko' ? '미분류' : 'Unclassified'}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -352,13 +402,17 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                         <span className="font-extrabold text-slate-900 dark:text-white">
                           {item.tooltipValue ?? item.displayValue ?? formatMetricValue(rawObsVal, unit, item.observation.currency)}
                         </span>
-                        {item.observation.volumeDefinition && (
+                        {item.observation.volumeDefinition ? (
                           <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                             {item.observation.volumeDefinition === 'retail_deliveries'
                               ? language === 'ko' ? '소매 인도' : 'Retail'
                               : language === 'ko' ? '도매 출하' : 'Wholesale'}
                           </span>
-                        )}
+                        ) : volumeAnalysis.isVolumeMetric ? (
+                          <span className="text-[10px] px-1 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            {language === 'ko' ? '공시 기준 미분류' : 'Unclassified'}
+                          </span>
+                        ) : null}
                         {!item.observation.isComparable && (
                           <span className="text-amber-600 dark:text-amber-400 text-[10px] font-medium">
                             ({language === 'ko' ? '비교주의' : 'Scope'})
@@ -426,13 +480,17 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
                       >
                         {item.company.shortName}
                       </span>
-                      {item.observation.volumeDefinition && (
+                      {item.observation.volumeDefinition ? (
                         <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800">
                           {item.observation.volumeDefinition === 'retail_deliveries'
                             ? language === 'ko' ? '인도' : 'Retail'
                             : language === 'ko' ? '출하' : 'Wholesale'}
                         </span>
-                      )}
+                      ) : volumeAnalysis.isVolumeMetric ? (
+                        <span className="text-[9px] font-mono font-medium px-1 py-0.2 rounded mt-0.5 text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                          {language === 'ko' ? '미분류' : 'Unclassified'}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -451,7 +509,7 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-3">
-          {volumeDefs.has('retail_deliveries') && (
+          {volumeAnalysis.retailCount > 0 && (
             <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
               <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold">
                 {language === 'ko' ? '인도' : 'Retail'}
@@ -459,12 +517,20 @@ export const MetricBarChart: React.FC<MetricBarChartProps> = ({
               <span>{language === 'ko' ? '소매 인도' : 'Retail Deliveries'}</span>
             </span>
           )}
-          {volumeDefs.has('wholesale_shipments') && (
+          {volumeAnalysis.wholesaleCount > 0 && (
             <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
               <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold">
                 {language === 'ko' ? '출하' : 'Wholesale'}
               </span>
               <span>{language === 'ko' ? '도매 출하' : 'Wholesale Shipments'}</span>
+            </span>
+          )}
+          {volumeAnalysis.unclassifiedCount > 0 && (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-slate-600 dark:text-slate-300">
+              <span className="px-1 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold">
+                {language === 'ko' ? '미분류' : 'Unclassified'}
+              </span>
+              <span>{language === 'ko' ? '공시 기준 미분류' : 'Unclassified Perimeter'}</span>
             </span>
           )}
           <span className="flex items-center gap-1 font-medium">

@@ -80,6 +80,7 @@ import {
   detectHistoricalValueReuse,
   validateSourceClaims,
   validateMetricLabelSemantics,
+  analyzeVolumeComparability,
   hasLocatorNumericContradiction,
   validateSourceContentFixtures,
   hashFixtureContent,
@@ -8483,6 +8484,31 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(validateMetricLabelSemantics('operating_income', 'Operating profit before net financial items').valid === true, 'Test 244h-24: "Operating profit before net financial items" accepted');
   check(validateMetricLabelSemantics('operating_margin', 'Adjusted EBIT margin').valid === true, 'Test 244h-25: "Adjusted EBIT margin" accepted');
 
+  // 5e. Ambiguous compound labels rejected / flagged
+  const compoundOnEbit = validateMetricLabelSemantics('operating_income', 'Operating profit and net income');
+  check(compoundOnEbit.valid === false, 'Test 244h-26: Compound "Operating profit and net income" on operating_income rejected');
+  check(compoundOnEbit.code === 'ambiguousCompoundLabel', 'Test 244h-27: Code is ambiguousCompoundLabel');
+
+  const compoundOnNet = validateMetricLabelSemantics('net_income', 'EBIT and Net Profit');
+  check(compoundOnNet.valid === false, 'Test 244h-28: Compound "EBIT and Net Profit" on net_income rejected');
+
+  const compoundOnMargin = validateMetricLabelSemantics('operating_margin', 'Operating and net margin');
+  check(compoundOnMargin.valid === false, 'Test 244h-29: Compound "Operating and net margin" on operating_margin rejected');
+
+  // 5f. Ambiguous standalone labels rejected
+  const ambiguousIncomeOnEbit = validateMetricLabelSemantics('operating_income', 'Income');
+  check(ambiguousIncomeOnEbit.valid === false, 'Test 244h-30: Standalone "Income" on operating_income rejected');
+  check(ambiguousIncomeOnEbit.code === 'ambiguousStandaloneLabel', 'Test 244h-31: Code is ambiguousStandaloneLabel');
+
+  const ambiguousProfitOnNet = validateMetricLabelSemantics('net_income', 'Profit');
+  check(ambiguousProfitOnNet.valid === false, 'Test 244h-32: Standalone "Profit" on net_income rejected');
+
+  const ambiguousMargin = validateMetricLabelSemantics('operating_margin', 'Margin');
+  check(ambiguousMargin.valid === false, 'Test 244h-33: Standalone "Margin" on operating_margin rejected');
+
+  const ambiguousEarningsOnRev = validateMetricLabelSemantics('revenue', 'Earnings');
+  check(ambiguousEarningsOnRev.valid === false, 'Test 244h-34: Standalone "Earnings" on revenue rejected');
+
   // 6. Dataset-wide semantic verification: 100% of observations must pass
   let datasetSemanticErrors = 0;
   for (const obs of METRIC_OBSERVATIONS) {
@@ -8609,6 +8635,77 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const allVolDefs = new Set(q3Volumes.map((o) => o.volumeDefinition).filter(Boolean));
   check(allVolDefs.size === 2, 'Test 246d: Mixed ranking has 2 distinct volume definitions');
   check(allVolDefs.has('retail_deliveries') && allVolDefs.has('wholesale_shipments'), 'Test 246e: Mixed ranking contains both retail and wholesale');
+
+  // 5. Direct Unit Tests for analyzeVolumeComparability()
+  // 5a. Retail-only data
+  const retailOnlyItems = [
+    { company: { shortName: 'Tesla' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'retail_deliveries' as const, value: 486 } as any },
+    { company: { shortName: 'VW' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'retail_deliveries' as const, value: 1885 } as any },
+  ];
+  const retailOnlyRes = analyzeVolumeComparability(retailOnlyItems);
+  check(retailOnlyRes.warningType === 'none', 'Test 246f-1: Retail-only data produces warningType === none');
+  check(retailOnlyRes.isFullyComparable === true, 'Test 246f-2: Retail-only data is fully comparable');
+  check(retailOnlyRes.retailCount === 2 && retailOnlyRes.wholesaleCount === 0 && retailOnlyRes.unclassifiedCount === 0, 'Test 246f-3: Retail-only counts correct');
+
+  // 5b. Wholesale-only data
+  const wholesaleOnlyItems = [
+    { company: { shortName: 'GM' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'wholesale_shipments' as const, value: 1028 } as any },
+    { company: { shortName: 'Ford' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'wholesale_shipments' as const, value: 1040 } as any },
+  ];
+  const wholesaleOnlyRes = analyzeVolumeComparability(wholesaleOnlyItems);
+  check(wholesaleOnlyRes.warningType === 'none', 'Test 246g-1: Wholesale-only data produces warningType === none');
+  check(wholesaleOnlyRes.isFullyComparable === true, 'Test 246g-2: Wholesale-only data is fully comparable');
+  check(wholesaleOnlyRes.wholesaleCount === 2 && wholesaleOnlyRes.retailCount === 0, 'Test 246g-3: Wholesale-only counts correct');
+
+  // 5c. Mixed known data (retail + wholesale)
+  const mixedKnownItems = [
+    { company: { shortName: 'Tesla' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'retail_deliveries' as const, value: 486 } as any },
+    { company: { shortName: 'GM' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'wholesale_shipments' as const, value: 1028 } as any },
+  ];
+  const mixedKnownRes = analyzeVolumeComparability(mixedKnownItems);
+  check(mixedKnownRes.warningType === 'mixed_known', 'Test 246h-1: Mixed known data produces warningType === mixed_known');
+  check(mixedKnownRes.isFullyComparable === false, 'Test 246h-2: Mixed known data is not fully comparable');
+  check(Boolean(mixedKnownRes.warningMessageKo?.includes('Tesla') && mixedKnownRes.warningMessageKo?.includes('GM')), 'Test 246h-3: Mixed known Korean warning mentions dynamic OEM names Tesla & GM');
+  check(Boolean(mixedKnownRes.warningMessageEn?.includes('Tesla') && mixedKnownRes.warningMessageEn?.includes('GM')), 'Test 246h-4: Mixed known English warning mentions dynamic OEM names Tesla & GM');
+
+  // 5d. One known definition plus unclassified metadata
+  const oneKnownWithUnclassified = [
+    { company: { shortName: 'VW' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'retail_deliveries' as const, value: 1885 } as any },
+    { company: { shortName: 'Historical OEM' }, observation: { metricId: 'deliveries_global', volumeDefinition: undefined, value: 500 } as any },
+  ];
+  const oneKnownRes = analyzeVolumeComparability(oneKnownWithUnclassified);
+  check(oneKnownRes.warningType === 'unclassified_with_known', 'Test 246i-1: One known + missing produces warningType === unclassified_with_known');
+  check(oneKnownRes.isFullyComparable === false, 'Test 246i-2: One known + missing is not fully comparable');
+  check(oneKnownRes.unclassifiedCount === 1 && oneKnownRes.retailCount === 1, 'Test 246i-3: Counts correct for one known + missing');
+  check(Boolean(oneKnownRes.warningMessageKo?.includes('Historical OEM')), 'Test 246i-4: Korean warning dynamically mentions Historical OEM');
+  check(Boolean(oneKnownRes.warningMessageEn?.includes('Historical OEM')), 'Test 246i-5: English warning dynamically mentions Historical OEM');
+
+  // 5e. All definitions missing/unclassified
+  const allUnclassifiedItems = [
+    { company: { shortName: 'Legacy OEM 1' }, observation: { metricId: 'deliveries_global', volumeDefinition: undefined, value: 300 } as any },
+    { company: { shortName: 'Legacy OEM 2' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'unknown' as const, value: 400 } as any },
+  ];
+  const allUnclassifiedRes = analyzeVolumeComparability(allUnclassifiedItems);
+  check(allUnclassifiedRes.warningType === 'all_unclassified', 'Test 246j-1: All unclassified produces warningType === all_unclassified');
+  check(allUnclassifiedRes.isFullyComparable === false, 'Test 246j-2: All unclassified is not fully comparable');
+  check(Boolean(allUnclassifiedRes.warningMessageKo?.includes('Legacy OEM 1')), 'Test 246j-3: Korean text contains unclassified OEMs');
+  check(Boolean(allUnclassifiedRes.warningMessageEn?.includes('Legacy OEM 1')), 'Test 246j-4: English text contains unclassified OEMs');
+
+  // 5f. Mixed retail, wholesale, AND unclassified
+  const mixedAndUnclassifiedItems = [
+    { company: { shortName: 'Tesla' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'retail_deliveries' as const, value: 486 } as any },
+    { company: { shortName: 'GM' }, observation: { metricId: 'deliveries_global', volumeDefinition: 'wholesale_shipments' as const, value: 1028 } as any },
+    { company: { shortName: 'Legacy OEM' }, observation: { metricId: 'deliveries_global', volumeDefinition: undefined, value: 500 } as any },
+  ];
+  const mixedAndUnclassifiedRes = analyzeVolumeComparability(mixedAndUnclassifiedItems);
+  check(mixedAndUnclassifiedRes.warningType === 'mixed_and_unclassified', 'Test 246k-1: Mixed + unclassified produces mixed_and_unclassified');
+  check(mixedAndUnclassifiedRes.isFullyComparable === false, 'Test 246k-2: Mixed + unclassified is not fully comparable');
+
+  // 5g. Empty results after filtering
+  const emptyRes = analyzeVolumeComparability([]);
+  check(emptyRes.warningType === 'none', 'Test 246l-1: Empty input returns warningType none');
+  check(emptyRes.totalCount === 0, 'Test 246l-2: Empty input totalCount is 0');
+  check(emptyRes.isFullyComparable === true, 'Test 246l-3: Empty input isFullyComparable is true');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

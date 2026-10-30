@@ -67,7 +67,10 @@ export const CompanyComparisonPage: React.FC = () => {
   const selectedMetricDef = getMetricById(selectedMetricId);
 
   // Get observations for Bar Chart
-  const observations = getObservations(selectedCompanies, [selectedMetricId], selectedPeriod)
+  const allPeriodObservations = getObservations(selectedCompanies, [selectedMetricId], selectedPeriod);
+  const totalMatchingCount = allPeriodObservations.length;
+
+  const observations = allPeriodObservations
     .filter((obs) => {
       if (selectedMetricId === 'deliveries_global') {
         if (volumeDefinitionFilter === 'retail_deliveries') {
@@ -84,6 +87,25 @@ export const CompanyComparisonPage: React.FC = () => {
       observation: obs,
     }))
     .filter((item) => item.company);
+
+  // Excluded count calculations for volume definition filtering
+  const excludedDifferingCount =
+    selectedMetricId === 'deliveries_global' && volumeDefinitionFilter !== 'all'
+      ? allPeriodObservations.filter((o) => {
+          if (volumeDefinitionFilter === 'retail_deliveries') {
+            return o.volumeDefinition === 'wholesale_shipments';
+          }
+          if (volumeDefinitionFilter === 'wholesale_shipments') {
+            return o.volumeDefinition === 'retail_deliveries';
+          }
+          return false;
+        }).length
+      : 0;
+
+  const excludedUnclassifiedCount =
+    selectedMetricId === 'deliveries_global' && volumeDefinitionFilter !== 'all'
+      ? allPeriodObservations.filter((o) => !o.volumeDefinition || o.volumeDefinition === 'unknown').length
+      : 0;
 
   // Check if there are non-comparable items
   const nonComparableItems = observations.filter((item) => !item.observation.isComparable);
@@ -119,14 +141,14 @@ export const CompanyComparisonPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-8 shadow-xl space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
           <BarChart2 className="w-4 h-4" /> {language === 'ko' ? '글로벌 OEM 정량 실적 비교 엔진' : 'Multi-OEM Quantitative Comparison Engine'}
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+        <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {language === 'ko' ? '글로벌 완성차 다자간 실적 비교 벤치마크' : 'Cross-Company OEM Benchmark'}
         </h1>
-        <p className="text-slate-600 dark:text-slate-300 text-sm max-w-3xl leading-relaxed">
+        <p className="text-slate-600 dark:text-slate-300 text-xs sm:text-sm max-w-3xl leading-relaxed">
           {language === 'ko'
             ? '2개에서 전체 16개 완성차 기업을 자유롭게 선택하여 판매량, 순수전기차 비중, 매출액, 영업이익률을 다각도로 비교 분석합니다. 회계 기준 차이에 따른 비교 한계 경고를 명확히 표시합니다.'
             : `Compare between 2 and all ${allCompanies.length} global automakers side-by-side. View reported volumes, electric vehicle mix, operating margins, and accounting provenance with strict comparability warnings.`}
@@ -134,7 +156,7 @@ export const CompanyComparisonPage: React.FC = () => {
       </div>
 
       {/* Comparison Controls */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-5 shadow-md">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 space-y-4 sm:space-y-5 shadow-md">
         {/* 1. Company Multi-Select (2-16) */}
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
@@ -259,6 +281,27 @@ export const CompanyComparisonPage: React.FC = () => {
                 {language === 'ko' ? '도매 출하 (Wholesale)' : 'Wholesale Shipments'}
               </button>
             </div>
+            {volumeDefinitionFilter !== 'all' && (
+              <div className="w-full mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
+                <span>
+                  {language === 'ko'
+                    ? `선택 기업 ${totalMatchingCount}개 중 ${observations.length}개 표시`
+                    : `Showing ${observations.length} of ${totalMatchingCount} selected OEMs`}
+                </span>
+                <div className="flex items-center gap-2 text-[10px] font-mono">
+                  {excludedDifferingCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      {language === 'ko' ? `타 공시 기준 제외 ${excludedDifferingCount}개` : `${excludedDifferingCount} other perimeters excluded`}
+                    </span>
+                  )}
+                  {excludedUnclassifiedCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold">
+                      {language === 'ko' ? `공시 기준 미확인/미분류 제외 ${excludedUnclassifiedCount}개` : `${excludedUnclassifiedCount} unverified excluded`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -307,18 +350,20 @@ export const CompanyComparisonPage: React.FC = () => {
       </div>
 
       {/* Multi-Metric Side-by-Side Matrix Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-md">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 space-y-4 shadow-md">
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" />
             {language === 'ko' ? '다변수 비교 매트릭스 테이블' : 'Side-by-Side Multi-Metric Matrix'} ({selectedPeriod})
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Comprehensive side-by-side view across sales, electrification, and operating profitability
+            {language === 'ko'
+              ? '판매량, 전동화, 영업 수익성을 아우르는 통합 실적 비교 (가로 스크롤 가능)'
+              : 'Comprehensive side-by-side view across sales, electrification, and operating profitability (scroll horizontally)'}
           </p>
         </div>
 
-        <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl shadow-inner">
+        <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl shadow-inner scrollbar-thin">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase font-mono text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>

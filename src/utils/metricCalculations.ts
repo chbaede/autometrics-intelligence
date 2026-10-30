@@ -2396,11 +2396,41 @@ export function validateMetricLabelSemantics(
       lower.includes('attributable to shareholders') ||
       lower.includes('attributable to equity holders');
 
+    const hasCompoundConflict =
+      (lower.includes('operating') && (lower.includes('net profit') || lower.includes('net income') || lower.includes('당기순이익') || lower.includes('净利润'))) ||
+      (lower.includes('ebit') && lower.includes('net profit'));
+
+    if (hasCompoundConflict) {
+      return {
+        valid: false,
+        code: 'ambiguousCompoundLabel',
+        reason: `Original label "${originalLabel}" is an ambiguous compound label containing both operating and net income concepts; cannot be silently accepted without manual review.`,
+      };
+    }
+
     if (hasNetProfitIndicator) {
       return {
         valid: false,
         code: 'semanticMetricLabelMismatch',
         reason: `Original label "${originalLabel}" denotes net income / shareholder profit, but is assigned to operating income metric "${metricId}".`,
+      };
+    }
+
+    const isAmbiguousStandaloneProfit =
+      lower === 'income' ||
+      lower === 'earnings' ||
+      lower === 'profit' ||
+      lower === 'profit / loss' ||
+      lower === 'income / loss' ||
+      lower === 'net' ||
+      lower === '손익' ||
+      lower === '이익';
+
+    if (isAmbiguousStandaloneProfit) {
+      return {
+        valid: false,
+        code: 'ambiguousStandaloneLabel',
+        reason: `Original label "${originalLabel}" is an ambiguous standalone label that does not specify whether it represents operating income, net income, or gross income.`,
       };
     }
 
@@ -2422,6 +2452,35 @@ export function validateMetricLabelSemantics(
 
   // 2. Net Income semantic checks
   if (metricId === 'net_income') {
+    const hasCompoundConflict =
+      (lower.includes('operating') && (lower.includes('net profit') || lower.includes('net income') || lower.includes('당기순이익') || lower.includes('净利润'))) ||
+      (lower.includes('ebit') && lower.includes('net profit'));
+
+    if (hasCompoundConflict) {
+      return {
+        valid: false,
+        code: 'ambiguousCompoundLabel',
+        reason: `Original label "${originalLabel}" is an ambiguous compound label containing both operating and net income concepts; cannot be silently accepted without manual review.`,
+      };
+    }
+
+    const isAmbiguousStandaloneProfit =
+      lower === 'income' ||
+      lower === 'earnings' ||
+      lower === 'profit' ||
+      lower === 'profit / loss' ||
+      lower === 'income / loss' ||
+      lower === '손익' ||
+      lower === '이익';
+
+    if (isAmbiguousStandaloneProfit) {
+      return {
+        valid: false,
+        code: 'ambiguousStandaloneLabel',
+        reason: `Original label "${originalLabel}" is an ambiguous standalone label that does not specify whether it represents operating income, net income, or gross income.`,
+      };
+    }
+
     const hasOperatingProfitOnly =
       (lower.includes('operating profit') ||
        lower.includes('operating income') ||
@@ -2441,6 +2500,33 @@ export function validateMetricLabelSemantics(
 
   // 3. Operating Margin semantic checks
   if (metricId === 'operating_margin') {
+    const hasCompoundMarginConflict =
+      (lower.includes('operating') && lower.includes('net margin')) ||
+      (lower.includes('operating') && lower.includes('gross margin'));
+
+    if (hasCompoundMarginConflict) {
+      return {
+        valid: false,
+        code: 'ambiguousCompoundLabel',
+        reason: `Original label "${originalLabel}" is an ambiguous compound margin label containing both operating and net/gross margin concepts.`,
+      };
+    }
+
+    const isAmbiguousStandaloneMargin =
+      lower === 'margin' ||
+      lower === 'return' ||
+      lower === '마진' ||
+      lower === '수익률' ||
+      lower === '이익률';
+
+    if (isAmbiguousStandaloneMargin) {
+      return {
+        valid: false,
+        code: 'ambiguousStandaloneLabel',
+        reason: `Original label "${originalLabel}" is an ambiguous standalone margin label that does not specify operating margin.`,
+      };
+    }
+
     const hasNetMarginIndicator =
       lower.includes('net margin') ||
       lower.includes('net profit margin') ||
@@ -2460,6 +2546,21 @@ export function validateMetricLabelSemantics(
 
   // 4. Revenue semantic checks
   if (metricId === 'revenue') {
+    const isAmbiguousStandaloneRev =
+      lower === 'income' ||
+      lower === 'earnings' ||
+      lower === 'profit' ||
+      lower === '손익' ||
+      lower === '이익';
+
+    if (isAmbiguousStandaloneRev) {
+      return {
+        valid: false,
+        code: 'ambiguousStandaloneLabel',
+        reason: `Original label "${originalLabel}" is an ambiguous standalone label that does not denote sales or revenue.`,
+      };
+    }
+
     const hasDeliveryOrProfitIndicator =
       (lower.includes('operating income') ||
        lower.includes('operating profit') ||
@@ -2518,6 +2619,198 @@ export function validateMetricLabelSemantics(
   }
 
   return { valid: true };
+}
+
+export interface VolumeComparabilityItem {
+  company?: { shortName?: string; name?: string; id?: string } | null;
+  observation: MetricObservation;
+}
+
+export type VolumeComparabilityWarningType =
+  | 'none'
+  | 'mixed_and_unclassified'
+  | 'mixed_known'
+  | 'unclassified_with_known'
+  | 'all_unclassified';
+
+export interface VolumeComparabilityAnalysis {
+  isVolumeMetric: boolean;
+  totalCount: number;
+  retailCount: number;
+  wholesaleCount: number;
+  unclassifiedCount: number;
+  otherCount: number;
+  retailOems: string[];
+  wholesaleOems: string[];
+  unclassifiedOems: string[];
+  otherOems: string[];
+  isFullyComparable: boolean;
+  hasMixedKnown: boolean;
+  hasUnclassified: boolean;
+  warningType: VolumeComparabilityWarningType;
+  warningMessageKo?: string;
+  warningMessageEn?: string;
+}
+
+/**
+ * Robust volume comparability evaluator.
+ * Evaluates whether a set of displayed volume observations is homogeneous (e.g. retail only,
+ * wholesale only) or contains mixed definitions and/or unclassified/missing metadata.
+ * Generates dynamic, evidence-backed warnings listing the exact displayed OEMs.
+ */
+export function analyzeVolumeComparability(
+  items: VolumeComparabilityItem[]
+): VolumeComparabilityAnalysis {
+  if (!items || items.length === 0) {
+    return {
+      isVolumeMetric: false,
+      totalCount: 0,
+      retailCount: 0,
+      wholesaleCount: 0,
+      unclassifiedCount: 0,
+      otherCount: 0,
+      retailOems: [],
+      wholesaleOems: [],
+      unclassifiedOems: [],
+      otherOems: [],
+      isFullyComparable: true,
+      hasMixedKnown: false,
+      hasUnclassified: false,
+      warningType: 'none',
+    };
+  }
+
+  // Detect whether items belong to a volume metric
+  const volumeMetricIds = new Set([
+    'deliveries_global',
+    'wholesale_shipments',
+    'bev_deliveries',
+    'phev_deliveries',
+  ]);
+
+  const isVolumeMetric = items.some(
+    (item) =>
+      volumeMetricIds.has(item.observation.metricId) ||
+      item.observation.volumeDefinition !== undefined ||
+      item.observation.unit === 'thousand_units' ||
+      item.observation.unit === 'units'
+  );
+
+  if (!isVolumeMetric) {
+    return {
+      isVolumeMetric: false,
+      totalCount: items.length,
+      retailCount: 0,
+      wholesaleCount: 0,
+      unclassifiedCount: 0,
+      otherCount: 0,
+      retailOems: [],
+      wholesaleOems: [],
+      unclassifiedOems: [],
+      otherOems: [],
+      isFullyComparable: true,
+      hasMixedKnown: false,
+      hasUnclassified: false,
+      warningType: 'none',
+    };
+  }
+
+  const retailOemSet = new Set<string>();
+  const wholesaleOemSet = new Set<string>();
+  const unclassifiedOemSet = new Set<string>();
+  const otherOemSet = new Set<string>();
+
+  let retailCount = 0;
+  let wholesaleCount = 0;
+  let unclassifiedCount = 0;
+  let otherCount = 0;
+
+  for (const item of items) {
+    const name =
+      item.company?.shortName ||
+      item.company?.name ||
+      item.observation.companyId;
+
+    const def = item.observation.volumeDefinition;
+    if (def === 'retail_deliveries') {
+      retailCount++;
+      retailOemSet.add(name);
+    } else if (def === 'wholesale_shipments') {
+      wholesaleCount++;
+      wholesaleOemSet.add(name);
+    } else if (!def || def === 'unknown') {
+      unclassifiedCount++;
+      unclassifiedOemSet.add(name);
+    } else {
+      otherCount++;
+      otherOemSet.add(name);
+    }
+  }
+
+  const retailOems = Array.from(retailOemSet);
+  const wholesaleOems = Array.from(wholesaleOemSet);
+  const unclassifiedOems = Array.from(unclassifiedOemSet);
+  const otherOems = Array.from(otherOemSet);
+
+  const hasRetail = retailCount > 0;
+  const hasWholesale = wholesaleCount > 0;
+  const hasMixedKnown = hasRetail && hasWholesale;
+  const hasUnclassified = unclassifiedCount > 0;
+  const knownTypesCount = (hasRetail ? 1 : 0) + (hasWholesale ? 1 : 0) + (otherCount > 0 ? 1 : 0);
+
+  let warningType: VolumeComparabilityWarningType = 'none';
+  let isFullyComparable = true;
+  let warningMessageKo: string | undefined;
+  let warningMessageEn: string | undefined;
+
+  if (knownTypesCount === 0 && hasUnclassified) {
+    warningType = 'all_unclassified';
+    isFullyComparable = false;
+    const oemsFormatted = unclassifiedOems.join(', ');
+    warningMessageKo = `표시된 모든 기업(${oemsFormatted})의 판매량 공시 기준이 공식 출처에서 미분류/미확인된 상태입니다. 유통 범위가 동일한지 검증되지 않아 직접적인 수치 비교에 주의가 필요합니다.`;
+    warningMessageEn = `Volume perimeters for all displayed automakers (${oemsFormatted}) are unclassified or unverified in official source documents. Direct comparability cannot be established.`;
+  } else if (hasMixedKnown && hasUnclassified) {
+    warningType = 'mixed_and_unclassified';
+    isFullyComparable = false;
+    warningMessageKo = `본 차트에는 소매 인도(고객 전달: ${retailOems.join(', ')}), 도매 출하(딜러 공급: ${wholesaleOems.join(', ')}), 및 공시 기준 미확인 데이터(${unclassifiedOems.join(', ')})가 혼합되어 있습니다. 유통 채널 시점과 재고 변동 차이가 존재하며, 미분류 수치는 완전한 동질적 비교가 불가능합니다.`;
+    warningMessageEn = `This chart combines Retail Deliveries (${retailOems.join(', ')}: customer handovers), Wholesale Shipments (${wholesaleOems.join(', ')}: dealer dispatches), and unclassified volume records (${unclassifiedOems.join(', ')}). Reporting perimeters differ in inventory build and distribution timing, and unclassified records have unverified distribution scopes.`;
+  } else if (hasMixedKnown && !hasUnclassified) {
+    warningType = 'mixed_known';
+    isFullyComparable = false;
+    warningMessageKo = `본 차트에는 고객 인도 기준(소매 인도: ${retailOems.join(', ')})과 딜러 공급 기준(도매 출하: ${wholesaleOems.join(', ')})이 함께 포함되어 있습니다. 유통 채널 시점과 재고 변동 차이를 감안하여 비교하시기 바라며, 각 기업명 하단에 공시 기준 표기[인도/출하]를 제공합니다.`;
+    warningMessageEn = `This chart compares both Retail Deliveries (${retailOems.join(', ')}: customer handovers) and Wholesale Shipments (${wholesaleOems.join(', ')}: factory dispatches to dealers). Reporting perimeters differ in inventory build and distribution timing; each OEM is labelled below.`;
+  } else if (knownTypesCount === 1 && hasUnclassified) {
+    warningType = 'unclassified_with_known';
+    isFullyComparable = false;
+    const knownLabelKo = hasRetail ? '소매 인도' : hasWholesale ? '도매 출하' : '기타 공시 기준';
+    const knownLabelEn = hasRetail ? 'Retail Deliveries' : hasWholesale ? 'Wholesale Shipments' : 'Known Perimeter';
+    const knownOems = hasRetail ? retailOems : hasWholesale ? wholesaleOems : otherOems;
+    warningMessageKo = `본 차트에는 ${knownLabelKo} 기준 기업(${knownOems.join(', ')}) 외에 공시 기준이 미확인/미분류된 판매량(${unclassifiedOems.join(', ')})이 포함되어 있어 완전한 동질적 비교가 불가능합니다.`;
+    warningMessageEn = `This chart includes ${knownLabelEn} (${knownOems.join(', ')}) alongside unclassified volume records (${unclassifiedOems.join(', ')}). Comparisons are not fully homogeneous because reporting perimeters for unclassified records have not been officially established.`;
+  } else {
+    // Single known definition with 0 unclassified
+    warningType = 'none';
+    isFullyComparable = true;
+  }
+
+  return {
+    isVolumeMetric,
+    totalCount: items.length,
+    retailCount,
+    wholesaleCount,
+    unclassifiedCount,
+    otherCount,
+    retailOems,
+    wholesaleOems,
+    unclassifiedOems,
+    otherOems,
+    isFullyComparable,
+    hasMixedKnown,
+    hasUnclassified,
+    warningType,
+    warningMessageKo,
+    warningMessageEn,
+  };
 }
 
 /**
