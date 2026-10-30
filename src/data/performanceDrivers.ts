@@ -29,6 +29,7 @@ export interface StructuredPerformanceClaim {
   reportingScope: 'consolidated_group' | 'automotive_segment' | 'cars_segment' | 'passenger_nev';
   claimCategory?: 'primary_observation' | 'narrative_disclosure';
   comparisonPeriod?: string;
+  comparisonPeriodQoQ?: string;
   growthRateYoY?: number;
   growthRateQoQ?: number;
   changeYoYPercentagePoints?: number;
@@ -81,7 +82,8 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
         accountingBasis: 'reported',
         comparisonPeriod: '2025-Q3',
         growthRateYoY: 11.83,
-        growthRateQoQ: 9.59,
+        comparisonPeriodQoQ: '2026-Q2',
+        growthRateQoQ: 1.33,
         sourceDocId: 'tsla_2026_q3_deck',
         sourceLocator: 'Page 3, Operational Summary',
         verifiedEvidence: 'Tesla Q3 2026 Deck: Total Deliveries 486,532 (Model 3/Y 462,890, Other 23,642)',

@@ -47,7 +47,27 @@ import {
   DETERMINISTIC_SOURCE_CONTENT_FIXTURES,
 } from '../src/data/scopeExceptions';
 
+export function getWorkingTreeStatus(): 'clean' | 'dirty' | 'unknown' {
+  try {
+    const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    if (status === '') return 'clean';
+    const lines = status.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+    const nonDocLines = lines.filter(
+      (l) =>
+        !l.endsWith('docs/audit-report.json') &&
+        !l.endsWith('docs/data-audit-report.md') &&
+        !l.endsWith('docs/data-integrity-report.md')
+    );
+    return nonDocLines.length === 0 ? 'clean' : 'dirty';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export function getAuditCommitSha(): string {
+  if (process.env.AUDIT_COMMIT_SHA && process.env.AUDIT_COMMIT_SHA.trim() !== '') {
+    return process.env.AUDIT_COMMIT_SHA.trim();
+  }
   if (process.env.GITHUB_SHA && process.env.GITHUB_SHA.trim() !== '') {
     return process.env.GITHUB_SHA.trim();
   }
@@ -66,6 +86,9 @@ export function generateDataIntegrityReport(data: AuditReportData): string {
 ## Audit Status
 
 **Commit:** ${data.sourceCommitSha}  
+**Working Tree:** ${data.workingTreeStatus || 'clean'}  
+**Audit Engine:** ${data.auditEngineVersion || '3.1.0'}  
+**Data Registry:** ${data.dataRegistryVersion || '1.0.0'}  
 **Generated:** ${data.generatedAt}  
 **Node.js:** ${process.version}  
 **Branch:** main
@@ -158,6 +181,9 @@ export function generateMarkdownAuditReport(data: AuditReportData): string {
 **Status**: Current (Generated)  
 **Generated At**: ${data.generatedAt}  
 **Audited Source Commit SHA**: ${data.sourceCommitSha}  
+**Working Tree State**: ${data.workingTreeStatus || 'clean'}  
+**Audit Engine Version**: ${data.auditEngineVersion || '3.1.0'}  
+**Data Registry Version**: ${data.dataRegistryVersion || '1.0.0'}  
 **Auditor**: AutoMetrics Intelligence Data Engineering & Automotive Financial Audit Team  
 **Repository**: [github.com/chbaede/autometrics-intelligence](https://github.com/chbaede/autometrics-intelligence)  
 **Target Application**: Global Automotive OEM Financial, Electrification & Investor Intelligence Platform  
@@ -1101,6 +1127,9 @@ export function buildAuditReportData(options?: {
   return {
     generatedAt,
     sourceCommitSha,
+    dataRegistryVersion: '1.0.0',
+    auditEngineVersion: '3.1.0',
+    workingTreeStatus: getWorkingTreeStatus(),
     counts: {
       companies: COMPANIES_REGISTRY.length,
       observations: METRIC_OBSERVATIONS.length,

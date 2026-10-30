@@ -3757,8 +3757,12 @@ export function validateSourceContentFixtures(
 // Re-export performance claim audit functions and types
 export {
   validatePerformanceClaim,
+  auditStructuredPerformanceClaim,
   auditPerformanceDrivers,
   getDefaultAuditObservations,
+  getExpectedPriorPeriod,
+  type ClaimVerificationLevel,
+  type StructuredPerformanceClaimAuditResult,
   type PerformanceClaimAuditFinding,
   type ValidatePerformanceClaimOptions,
 } from './performanceClaimAudit';

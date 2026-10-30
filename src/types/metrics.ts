@@ -898,6 +898,9 @@ export interface AuditReportData {
   generatedAt: string;
   /** The repository source commit that was audited when this report was generated (STEP 4-24, P1) */
   sourceCommitSha: string;
+  dataRegistryVersion?: string;
+  auditEngineVersion?: string;
+  workingTreeStatus?: 'clean' | 'dirty' | 'unknown';
   counts: {
     companies: number;
     observations: number;
