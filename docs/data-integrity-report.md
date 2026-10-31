@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** a5f211b0fd60b4f45244401bea16f3c2b1bf28e8  
-**Report Generation Commit:** a5f211b0fd60b4f45244401bea16f3c2b1bf28e8  
+**Audited Source Commit:** a83b95e2672ceedaa87440925d54d3e55f2b9068  
+**Report Generation Commit:** a83b95e2672ceedaa87440925d54d3e55f2b9068  
 **Working Tree:** clean  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-10-30T13:33:30.810Z  
+**Generated:** 2026-10-31T21:25:08.555Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -20,11 +20,11 @@
 | `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
 | `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 357 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
 | `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 157 source claims across 31 documents match registered observations and document perimeters. ℹ️  Note: This confir |
-| `npm test` | ✅ PASS (exit 0): Results: 1016 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
+| `npm test` | ✅ PASS (exit 0): Results: 1045 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
 | `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
 | `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
 | `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.61s |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.57s |
 
 ---
 
