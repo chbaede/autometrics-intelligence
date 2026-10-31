@@ -19,6 +19,7 @@ export interface StructuredPerformanceClaim {
   claimId: string;
   companyId: string;
   period: string;
+  periodType?: 'quarterly' | 'annual' | 'semi_annual';
   metricId: string;
   metricLabelKo: string;
   metricLabelEn: string;

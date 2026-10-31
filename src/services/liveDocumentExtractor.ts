@@ -7,7 +7,7 @@ import {
   LiveDocumentExtractionResult,
   LiveSourceDocument,
 } from '../types/metrics';
-import { parseContentType } from './liveSourceFetcher';
+import { computeRawByteSha256, parseContentType } from './liveSourceFetcher';
 
 export type {
   DocumentContentBlock,
@@ -877,6 +877,23 @@ export async function extractLiveDocument(
         message: 'Document raw byte buffer is empty (0 bytes).',
         contentType: sourceDocument.contentType,
         sourceDocId: sourceDocument.sourceDocId,
+      },
+      sourceDocument,
+    };
+  }
+
+  // 1b. Cryptographic raw-byte authenticity gate (P1-A)
+  // Verify that rawBytes SHA-256 strictly matches the declared sourceDocument.contentHash
+  const actualSha256 = computeRawByteSha256(rawBytes);
+  if (sourceDocument.contentHash && actualSha256 !== sourceDocument.contentHash) {
+    return {
+      success: false,
+      error: {
+        code: 'contentHashMismatch',
+        message: `Cryptographic content hash mismatch: raw bytes SHA-256 '${actualSha256}' does not match sourceDocument.contentHash '${sourceDocument.contentHash}'.`,
+        contentType: sourceDocument.contentType,
+        sourceDocId: sourceDocument.sourceDocId,
+        details: `computed=${actualSha256}, expected=${sourceDocument.contentHash}`,
       },
       sourceDocument,
     };

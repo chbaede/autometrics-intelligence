@@ -57,6 +57,7 @@ export type ReportingScope =
   | 'commercial_vehicles_segment'
   | 'financial_services'
   | 'business_unit'
+  | 'passenger_nev'
   | 'unknown';
 
 /**
@@ -65,6 +66,8 @@ export type ReportingScope =
 export type AccountingBasis =
   | 'reported'
   | 'adjusted'
+  | 'estimated'
+  | 'restated'
   | 'non_gaap'
   | 'management_defined'
   | 'unknown';
@@ -636,6 +639,7 @@ export interface ExtractedLiveDocument {
 export type LiveDocumentExtractionErrorCode =
   | 'unsupportedContentType'
   | 'invalidDocument'
+  | 'contentHashMismatch'
   | 'extractionUnavailable'
   | 'emptyDocument'
   | 'unsupportedPdfStructure';
@@ -879,6 +883,8 @@ export interface OfficialSourcePipelineResult {
   success: boolean;
   officialSource: OfficialIrSource;
   liveDocument?: LiveSourceDocument;
+  /** Actual downloaded HTTP response wire bytes for cryptographic provenance verification */
+  rawBytes?: Uint8Array;
   extractedDocument?: ExtractedLiveDocument;
   evidenceCandidate?: LiveEvidenceCandidate;
   claimVerificationResult?: ClaimVerificationResult;

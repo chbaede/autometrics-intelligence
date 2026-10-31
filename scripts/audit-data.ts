@@ -48,6 +48,12 @@ import {
 } from '../src/data/scopeExceptions';
 
 export function getWorkingTreeStatus(): 'clean' | 'dirty' | 'unknown' {
+  if (process.env.GIT_UNAVAILABLE === '1') {
+    return 'unknown';
+  }
+  if (process.env.GIT_WORKING_TREE_STATUS === 'clean' || process.env.GIT_WORKING_TREE_STATUS === 'dirty' || process.env.GIT_WORKING_TREE_STATUS === 'unknown') {
+    return process.env.GIT_WORKING_TREE_STATUS;
+  }
   try {
     const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     if (status === '') return 'clean';
@@ -65,6 +71,9 @@ export function getWorkingTreeStatus(): 'clean' | 'dirty' | 'unknown' {
 }
 
 export function getAuditCommitSha(): string {
+  if (process.env.GIT_UNAVAILABLE === '1') {
+    return 'unknown';
+  }
   if (process.env.AUDIT_COMMIT_SHA && process.env.AUDIT_COMMIT_SHA.trim() !== '') {
     return process.env.AUDIT_COMMIT_SHA.trim();
   }
@@ -80,6 +89,53 @@ export function getAuditCommitSha(): string {
   return 'unknown';
 }
 
+/**
+ * Classifies the outcome of a verification command execution (P2).
+ * Strictly distinguishes genuine documented policy failures from execution crashes, timeouts, and errors.
+ */
+export function classifyVerificationCommandResult(
+  commandStr: string,
+  exitCode: number,
+  output: string,
+  err?: any
+): { status: 'PASS' | 'FAIL' | 'EXPECTED_POLICY_FAILURE'; summary: string } {
+  const lines = output.split('\n').map((l) => l.trim()).filter(Boolean);
+  const summaryLine = lines.slice(-2).join(' ') || (err?.message ? String(err.message) : 'Command execution finished');
+  const summary = summaryLine.slice(0, 160);
+
+  if (exitCode === 0) {
+    return { status: 'PASS', summary };
+  }
+
+  // Check for execution crashes, timeouts, and system errors
+  const isTimeout = err?.code === 'ETIMEDOUT' || err?.signal === 'SIGTERM' || output.includes('timed out');
+  const isMissingDep = output.includes('MODULE_NOT_FOUND') || output.includes('Cannot find module');
+  const isExecutionException =
+    output.includes('SyntaxError') ||
+    output.includes('TypeError') ||
+    output.includes('ReferenceError') ||
+    output.includes('UnhandledPromiseRejection') ||
+    output.includes('ERR_PNPM_') ||
+    output.includes('npm ERR!');
+  const hasBlockingErrors = /Audit failed with \d+ blocking structural errors/.test(output);
+
+  if (isTimeout || isMissingDep || isExecutionException || hasBlockingErrors) {
+    return { status: 'FAIL', summary };
+  }
+
+  // Check for genuine strict-mode policy failure
+  const isStrictCommand = commandStr.includes('--strict');
+  const hasStrictPolicySignal =
+    /Strict mode failed with \d+ review findings/.test(output) ||
+    (output.includes('Strict exit code: 1') && /review findings/i.test(output));
+
+  if (isStrictCommand && exitCode === 1 && hasStrictPolicySignal) {
+    return { status: 'EXPECTED_POLICY_FAILURE', summary };
+  }
+
+  return { status: 'FAIL', summary };
+}
+
 export function runVerificationCommand(commandStr: string, commitSha: string): VerificationCommandResult {
   const executedAt = new Date().toISOString();
   try {
@@ -88,31 +144,27 @@ export function runVerificationCommand(commandStr: string, commitSha: string): V
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 180000,
     }).trim();
-    const lines = output.split('\n').map((l) => l.trim()).filter(Boolean);
-    const summary = lines.slice(-2).join(' ') || 'Command completed successfully with 0 errors';
+    const classification = classifyVerificationCommandResult(commandStr, 0, output);
     return {
       command: commandStr,
       executed: true,
       exitCode: 0,
-      status: 'PASS',
-      summary: summary.slice(0, 160),
+      status: classification.status,
+      summary: classification.summary,
       commitSha,
       executedAt,
     };
   } catch (err: any) {
     const exitCode = typeof err.status === 'number' ? err.status : 1;
     const output = ((err.stdout ? err.stdout.toString() : '') + ' ' + (err.stderr ? err.stderr.toString() : '')).trim();
-    const lines = output.split('\n').map((l: string) => l.trim()).filter(Boolean);
-    const isStrictAudit = commandStr.includes('--strict');
-    const isExpectedStrict = isStrictAudit && exitCode === 1;
-    const summary = lines.slice(-2).join(' ') || err.message || 'Command exited with failure';
+    const classification = classifyVerificationCommandResult(commandStr, exitCode, output, err);
 
     return {
       command: commandStr,
       executed: true,
       exitCode,
-      status: isExpectedStrict ? 'EXPECTED_POLICY_FAILURE' : 'FAIL',
-      summary: summary.slice(0, 160),
+      status: classification.status,
+      summary: classification.summary,
       commitSha,
       executedAt,
     };

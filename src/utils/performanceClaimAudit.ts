@@ -33,6 +33,7 @@ import {
 } from '../data/scopeExceptions';
 import { METRICS_MAP } from '../data/metricDefinitions';
 import { isUrlInOfficialDomain, OFFICIAL_IR_SOURCES_MAP } from '../data/officialSources';
+import { computeRawByteSha256 } from './cryptoUtils';
 
 export type ClaimVerificationLevel =
   | 'metadata_validated'
@@ -511,12 +512,19 @@ function resolveAndValidateComparisonObservation(
       }
       const diff = Math.abs(calculatedDiff - claim.changeYoYPercentagePoints);
       if (diff > tolerance) {
+        const pctGrowth = priorObs.value !== 0
+          ? ((matchingObs.value - priorObs.value) / Math.abs(priorObs.value)) * 100
+          : undefined;
+        const isPctGrowthMatch = pctGrowth !== undefined && Math.abs(pctGrowth - claim.changeYoYPercentagePoints) <= tolerance;
+
         findings.push({
           severity: 'ERROR',
           disposition: 'blocking',
           category: 'CALCULATION_DISCREPANCY',
           item: claimItem,
-          detail: `Claimed percentage point change (${claim.changeYoYPercentagePoints}%p) diverges from calculated change (${calculatedDiff.toFixed(2)}%p) between ${targetPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
+          detail: isPctGrowthMatch
+            ? `Claimed percentage point change (${claim.changeYoYPercentagePoints}%p) appears to be a percentage change (${pctGrowth.toFixed(2)}%), not percentage points (${calculatedDiff.toFixed(2)}%p) between ${targetPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`
+            : `Claimed percentage point change (${claim.changeYoYPercentagePoints}%p) diverges from calculated change (${calculatedDiff.toFixed(2)}%p) between ${targetPeriod} (${priorObs.value}) and ${driver.period} (${matchingObs.value}).`,
           claimId: claim.claimId,
         });
       }
@@ -560,6 +568,17 @@ function validateLivePipelineVerification(
     failureReasons.push(`Verification state is '${liveResult.verificationState}', expected 'claim_verified'`);
   }
 
+  // 1b. Cryptographic raw-byte authenticity gate (P1-A, P1-B)
+  // Validation MUST be strictly bound to actual downloaded wire bytes, not caller-supplied strings
+  const rawBytes = liveResult.rawBytes;
+  if (!rawBytes || !(rawBytes instanceof Uint8Array || Buffer.isBuffer(rawBytes)) || rawBytes.byteLength === 0) {
+    failureReasons.push('Actual downloaded source wire bytes (rawBytes) missing or empty in live pipeline result; cryptographic source authenticity cannot be established');
+  }
+
+  const computedRawHash = rawBytes && rawBytes.byteLength > 0
+    ? computeRawByteSha256(rawBytes)
+    : undefined;
+
   // 2. Official source identity & allowlist binding
   if (!liveResult.officialSource) {
     failureReasons.push('Official source definition missing from live pipeline result');
@@ -572,6 +591,10 @@ function validateLivePipelineVerification(
     }
     if (!OFFICIAL_IR_SOURCES_MAP.has(liveResult.officialSource.id) && !sourcesMap[liveResult.officialSource.id]) {
       failureReasons.push(`Official source '${liveResult.officialSource.id}' is not in approved official source registry`);
+    }
+    const targetPeriod = claim.period || driver.period;
+    if (liveResult.officialSource.reportingPeriod && targetPeriod && liveResult.officialSource.reportingPeriod !== targetPeriod) {
+      failureReasons.push(`Official source reporting period '${liveResult.officialSource.reportingPeriod}' does not match claim/driver period '${targetPeriod}'`);
     }
   }
 
@@ -587,12 +610,18 @@ function validateLivePipelineVerification(
       failureReasons.push(`Unsupported or unverified Content-Type: '${liveDoc.contentType}'`);
     }
     if (liveResult.officialSource?.officialDomain) {
+      if (!isUrlInOfficialDomain(liveDoc.url, liveResult.officialSource.officialDomain)) {
+        failureReasons.push(`Disallowed initial URL: '${liveDoc.url}' is outside official domain perimeter`);
+      }
       if (!isUrlInOfficialDomain(liveDoc.finalUrl, liveResult.officialSource.officialDomain)) {
         failureReasons.push(`Disallowed final URL: '${liveDoc.finalUrl}' is outside official domain perimeter`);
       }
     }
     if (!/^[0-9a-f]{64}$/.test(liveDoc.contentHash)) {
       failureReasons.push(`Invalid raw-byte contentHash format: '${liveDoc.contentHash}'`);
+    }
+    if (computedRawHash && liveDoc.contentHash !== computedRawHash) {
+      failureReasons.push(`Cryptographic raw byte hash mismatch: calculated SHA-256 '${computedRawHash}' does not match live document contentHash '${liveDoc.contentHash}'`);
     }
   }
 
@@ -609,6 +638,9 @@ function validateLivePipelineVerification(
     if (!extractedDoc.extractionVersion || extractedDoc.extractionVersion.trim() === '') {
       failureReasons.push('Extraction version missing from extracted live document');
     }
+    if (computedRawHash && extractedDoc.sourceDocument?.contentHash && extractedDoc.sourceDocument.contentHash !== computedRawHash) {
+      failureReasons.push(`Extracted document contentHash '${extractedDoc.sourceDocument.contentHash}' does not match calculated raw byte hash '${computedRawHash}'`);
+    }
     const blockId = verResult?.blockId ?? liveResult.evidenceCandidate?.blockId;
     if (!blockId) {
       failureReasons.push('Evidence block ID missing from live verification candidate');
@@ -616,6 +648,15 @@ function validateLivePipelineVerification(
       const matchingBlock = extractedDoc.blocks?.find((b) => b.id === blockId);
       if (!matchingBlock) {
         failureReasons.push(`Evidence block '${blockId}' could not be resolved in extracted document blocks`);
+      } else {
+        const blockText = matchingBlock.text || (matchingBlock as any).content || '';
+        const claimValueStr = String(claim.value);
+        const hasValueInText = blockText.includes(claimValueStr);
+        const hasValueInCells = matchingBlock.cells?.some((c) => c.includes(claimValueStr));
+        const hasValueInNumerics = (matchingBlock as any).numericValues?.some((v: number) => matchNumericValues(claim.value, v, claim.unit));
+        if (!hasValueInText && !hasValueInCells && !hasValueInNumerics) {
+          failureReasons.push(`Evidence block '${blockId}' text does not contain or support claimed value ${claim.value}`);
+        }
       }
     }
   }
@@ -650,10 +691,22 @@ function validateLivePipelineVerification(
     failureReasons.push(`Verified accounting basis '${verifiedBasis}' does not match claimed basis '${claim.accountingBasis}'`);
   }
 
+  const targetPeriod = claim.period || driver.period;
+  const verifiedPeriod = verResult?.verifiedPeriod ?? cand?.period;
+  if (verifiedPeriod && targetPeriod && verifiedPeriod !== targetPeriod) {
+    failureReasons.push(`Verified period '${verifiedPeriod}' does not match claim/driver period '${targetPeriod}'`);
+  }
+
   // 6. Cryptographic Content Hash Binding & Anti-Forgery Check
   if (verResult && liveDoc) {
     if (verResult.sourceContentHash !== liveDoc.contentHash) {
       failureReasons.push(`Cryptographic content hash mismatch: result hash '${verResult.sourceContentHash}' does not match wire hash '${liveDoc.contentHash}'`);
+    }
+    if (computedRawHash && verResult.sourceContentHash !== computedRawHash) {
+      failureReasons.push(`Cryptographic content hash mismatch: result hash '${verResult.sourceContentHash}' does not match wire byte hash '${computedRawHash}'`);
+    }
+    if (claim.sourceDocId && verResult.sourceDocId && verResult.sourceDocId !== claim.sourceDocId) {
+      failureReasons.push(`Source document ID mismatch: verification result sourceDocId '${verResult.sourceDocId}' does not match claim sourceDocId '${claim.sourceDocId}'`);
     }
   }
 
@@ -667,7 +720,7 @@ function validateLivePipelineVerification(
       claimedUnit: claim.unit as any,
       claimedScope: claim.reportingScope as any,
       claimedAccountingBasis: claim.accountingBasis as any,
-      claimedPeriod: driver.period,
+      claimedPeriod: targetPeriod,
     };
     const targetSourceDoc: SourceDocument = sourcesMap[liveResult.officialSource.id] || {
       id: liveResult.officialSource.id,
@@ -883,79 +936,97 @@ export function auditStructuredPerformanceClaim(
       detail: 'Structured claim lacks required sourceLocator.',
       claimId: claim.claimId,
     });
-  } else {
-    if (claim.sourceLocator.includes('NONEXISTENT') || claim.sourceLocator.includes('FABRICATED')) {
-      findings.push({
-        severity: 'ERROR',
-        disposition: 'blocking',
-        category: 'SOURCE_CLAIM_INTEGRITY',
-        item: claimItem,
-        detail: `Claim sourceLocator '${claim.sourceLocator}' does not resolve against available source content fixtures.`,
-        claimId: claim.claimId,
-      });
-    } else if (contentFixtures && contentFixtures.length > 0 && claim.sourceDocId) {
-      const docFixtures = contentFixtures.filter((f) => f.sourceDocId === claim.sourceDocId);
-      if (docFixtures.length > 0) {
-        // Direct numeric contradiction check in available fixtures
-        const metricFixture = docFixtures.find(
-          (f) =>
-            f.verifiedMetricId === claim.metricId &&
-            f.verifiedNumericValue !== undefined &&
-            Number.isFinite(f.verifiedNumericValue)
-        );
-        if (
-          metricFixture &&
-          metricFixture.verifiedNumericValue !== undefined &&
-          !matchNumericValues(claim.value, metricFixture.verifiedNumericValue, claim.unit)
-        ) {
-          findings.push({
-            severity: 'ERROR',
-            disposition: 'blocking',
-            category: 'SOURCE_CLAIM_INTEGRITY',
-            item: claimItem,
-            detail: `Claim value ${claim.value} contradicts source content fixture verified value ${metricFixture.verifiedNumericValue}.`,
-            claimId: claim.claimId,
-          });
-        }
+  } else if (contentFixtures && contentFixtures.length > 0 && claim.sourceDocId) {
+    const docFixtures = contentFixtures.filter((f) => f.sourceDocId === claim.sourceDocId);
+    if (docFixtures.length > 0) {
+      const targetPeriod = claim.period || driver.period;
+      const targetPeriodType = claim.periodType || 'quarterly';
 
-        // Section locator resolution
-        const knownSections = docFixtures.map((f) => f.sectionLocator).filter(Boolean);
-        if (knownSections.length > 0) {
-          const matchesKnown = knownSections.some((sec) => claim.sourceLocator.includes(sec!));
-          if (!matchesKnown) {
-            findings.push({
-              severity: 'ERROR',
-              disposition: 'blocking',
-              category: 'SOURCE_CLAIM_INTEGRITY',
-              item: claimItem,
-              detail: `Claim sourceLocator '${claim.sourceLocator}' does not resolve against available source content fixtures.`,
-              claimId: claim.claimId,
-            });
-          } else {
-            hasResolvedLocator = true;
-          }
-        } else {
-          hasResolvedLocator = true;
-        }
-
-        // Check if a fixture completely verifies the numeric claim
-        const fullMatchFixture = docFixtures.find((f) => {
-          if (f.verifiedMetricId && f.verifiedMetricId !== claim.metricId) return false;
-          if (f.verifiedNumericValue !== undefined && !matchNumericValues(claim.value, f.verifiedNumericValue, claim.unit)) {
-            return false;
-          }
-          if (f.verifiedUnit && claim.unit && f.verifiedUnit !== claim.unit) return false;
-          if (f.verifiedScope && claim.reportingScope && f.verifiedScope !== claim.reportingScope) return false;
-          if (f.verifiedAccountingBasis && claim.accountingBasis && f.verifiedAccountingBasis !== claim.accountingBasis) {
-            return false;
-          }
-          return f.verifiedNumericValue !== undefined;
+      // Direct numeric contradiction check in available fixtures (matching target period)
+      const metricFixture = docFixtures.find(
+        (f) =>
+          f.verifiedMetricId === claim.metricId &&
+          (!f.verifiedPeriod || f.verifiedPeriod === targetPeriod) &&
+          (!f.verifiedPeriodType || f.verifiedPeriodType === targetPeriodType) &&
+          f.verifiedNumericValue !== undefined &&
+          Number.isFinite(f.verifiedNumericValue)
+      );
+      if (
+        metricFixture &&
+        metricFixture.verifiedNumericValue !== undefined &&
+        !matchNumericValues(claim.value, metricFixture.verifiedNumericValue, claim.unit)
+      ) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'SOURCE_CLAIM_INTEGRITY',
+          item: claimItem,
+          detail: `Claim value ${claim.value} contradicts source content fixture verified value ${metricFixture.verifiedNumericValue}.`,
+          claimId: claim.claimId,
         });
+      }
 
-        if (fullMatchFixture) {
-          hasAuthoritativeSourceEvidence = true;
-          evidenceSource = 'deterministic_fixture';
+      // Section locator resolution against available fixtures
+      const trimmedLoc = claim.sourceLocator.trim().toLowerCase();
+      const resolvingFixture = docFixtures.find((f) => {
+        if (!f.sectionLocator) return false;
+        const trimmedSec = f.sectionLocator.trim().toLowerCase();
+        if (trimmedLoc === trimmedSec) return true;
+        if (trimmedSec.startsWith(trimmedLoc + ' /') || trimmedSec.startsWith(trimmedLoc + ' —') || trimmedSec.startsWith(trimmedLoc + ':')) {
+          return true;
         }
+        if (trimmedLoc.startsWith(trimmedSec + ' /') || trimmedLoc.startsWith(trimmedSec + ' —') || trimmedLoc.startsWith(trimmedSec + ':')) {
+          return true;
+        }
+        if (trimmedSec.includes(trimmedLoc) && trimmedLoc.length >= 8) {
+          return true;
+        }
+        if (trimmedLoc.includes(trimmedSec) && trimmedSec.length >= 8) {
+          return true;
+        }
+        return false;
+      });
+
+      if (!resolvingFixture) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'SOURCE_CLAIM_INTEGRITY',
+          item: claimItem,
+          detail: `Claim sourceLocator '${claim.sourceLocator}' does not resolve against available source content fixtures.`,
+          claimId: claim.claimId,
+        });
+      } else {
+        hasResolvedLocator = true;
+      }
+
+      // Check if a fixture completely verifies the numeric claim
+      const matchingCandidateFixtures = docFixtures.filter((f) => {
+        if (!f.verifiedMetricId || f.verifiedMetricId !== claim.metricId) return false;
+        if (f.verifiedNumericValue === undefined || !Number.isFinite(f.verifiedNumericValue)) return false;
+        if (!matchNumericValues(claim.value, f.verifiedNumericValue, claim.unit)) return false;
+        if (!f.verifiedPeriod || f.verifiedPeriod !== targetPeriod) return false;
+        if (f.verifiedPeriodType && targetPeriodType && f.verifiedPeriodType !== targetPeriodType) return false;
+        if (f.verifiedUnit && claim.unit && f.verifiedUnit !== claim.unit) return false;
+        if (f.verifiedScope && claim.reportingScope && f.verifiedScope !== claim.reportingScope) return false;
+        if (f.verifiedAccountingBasis && claim.accountingBasis && f.verifiedAccountingBasis !== claim.accountingBasis) {
+          return false;
+        }
+        return true;
+      });
+
+      if (matchingCandidateFixtures.length > 1) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'SOURCE_CLAIM_INTEGRITY',
+          item: claimItem,
+          detail: `Multiple ambiguous source content fixtures (${matchingCandidateFixtures.length}) match claim dimensions for metric '${claim.metricId}' and period '${targetPeriod}'.`,
+          claimId: claim.claimId,
+        });
+      } else if (matchingCandidateFixtures.length === 1) {
+        hasAuthoritativeSourceEvidence = true;
+        evidenceSource = 'deterministic_fixture';
       }
     }
   }
@@ -978,9 +1049,26 @@ export function auditStructuredPerformanceClaim(
       detail: 'Structured claim verifiedEvidence is suspiciously brief; requires human auditor verification.',
       claimId: claim.claimId,
     });
-  } else if (contentFixtures && claim.sourceDocId) {
+  } else if (contentFixtures && contentFixtures.length > 0 && claim.sourceDocId) {
+    const targetPeriod = claim.period || driver.period;
     const docFixtures = contentFixtures.filter((f) => f.sourceDocId === claim.sourceDocId);
-    if (docFixtures.some((f) => f.extractedText && (claim.verifiedEvidence.includes(f.extractedText) || f.extractedText.includes(claim.verifiedEvidence)))) {
+    const matchingEvidence = docFixtures.find((f) => {
+      if (!f.extractedText) return false;
+      // Must not come from an unrelated reporting period
+      if (f.verifiedPeriod && targetPeriod && f.verifiedPeriod !== targetPeriod) return false;
+      const textMatches =
+        claim.verifiedEvidence.includes(f.extractedText) || f.extractedText.includes(claim.verifiedEvidence);
+      if (!textMatches) return false;
+      // Evidence must support the claimed metric
+      if (f.verifiedMetricId && f.verifiedMetricId !== claim.metricId) return false;
+      // Evidence must support the claimed numeric value
+      const valStr = String(claim.value);
+      const supportsNum =
+        (f.verifiedNumericValue !== undefined && matchNumericValues(claim.value, f.verifiedNumericValue, claim.unit)) ||
+        f.extractedText.includes(valStr);
+      return supportsNum;
+    });
+    if (matchingEvidence) {
       hasResolvedEvidenceText = true;
     }
   }
