@@ -30,37 +30,39 @@ export const Navbar: React.FC = () => {
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-950/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 shadow-xs transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand Logo & Title */}
-        <Link to="/" className="flex items-center gap-3 group shrink-0">
-          <div className="relative">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-blue-500 text-white flex items-center justify-center shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform">
+    <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-slate-950/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shadow-xs transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 sm:gap-4">
+        {/* Brand Logo & Live Update Indicator */}
+        <Link to="/" className="flex items-center gap-2.5 group shrink-0 py-1">
+          <div className="relative shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-brand-500 to-blue-500 text-white flex items-center justify-center shadow-sm shadow-brand-500/25 group-hover:scale-105 transition-transform duration-200">
               <Activity className="w-5 h-5 text-white" />
             </div>
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-950 animate-pulse" />
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-950" />
           </div>
           <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-[15px] sm:text-base tracking-tight text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">
+            <div className="flex items-center gap-1.5 leading-tight">
+              <span className="font-extrabold text-[15px] tracking-tight text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                 AutoMetrics
               </span>
-              <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hidden sm:inline">
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono tracking-wide">
                 Intelligence
               </span>
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {language === 'ko' ? '2026.11.01 최신 업데이트 버전' : 'Updated Nov 1, 2026 Version'}
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              <span className="font-mono font-medium tracking-tight">
+                {language === 'ko' ? '2026.11.01 최신 업데이트' : 'Updated Nov 1, 2026'}
               </span>
             </div>
-            <span className="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 hidden md:inline">
-              Global OEM IR Performance
-            </span>
           </div>
         </Link>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-900/80 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
+        <nav className="hidden lg:flex items-center gap-1 bg-slate-100/90 dark:bg-slate-900/90 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800/70 shadow-2xs">
           {navLinks.map((link) => {
             const Icon = link.icon;
             return (
@@ -69,38 +71,40 @@ export const Navbar: React.FC = () => {
                 to={link.to}
                 end={link.to === '/'}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  `flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                     isActive
-                      ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm border border-slate-200/60 dark:border-slate-700/60'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50'
+                      ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-xs border border-slate-200/70 dark:border-slate-700/70 font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/60'
                   }`
                 }
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{link.label}</span>
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">{link.label}</span>
               </NavLink>
             );
           })}
         </nav>
 
         {/* Right Utility Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Main Hub Link (Desktop only; moved to mobile drawer on small screens) */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Main Hub External Link */}
           <a
             href="https://main.yocto.co.kr/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden lg:flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition shadow-xs justify-center"
+            className="hidden sm:inline-flex items-center gap-1.5 h-8.5 px-2.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 transition"
             title={t.nav.mainHubDesc}
           >
-            <span>{t.nav.mainHub}</span>
-            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+            <span className="whitespace-nowrap">{t.nav.mainHub}</span>
+            <ExternalLink className="w-3 h-3 text-slate-400" />
           </a>
+
+          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
 
           {/* Language Switcher */}
           <button
             onClick={toggleLanguage}
-            className="flex items-center gap-1 min-h-[44px] min-w-[44px] px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition justify-center"
+            className="flex items-center gap-1 h-8.5 px-2.5 rounded-lg text-xs font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/80 dark:hover:bg-slate-800/80 border border-slate-200/70 dark:border-slate-800/70 transition"
             title={language === 'ko' ? 'Switch to English' : '한국어로 전환'}
             aria-label="Toggle language"
           >
@@ -108,10 +112,10 @@ export const Navbar: React.FC = () => {
             <span>{language.toUpperCase()}</span>
           </button>
 
-          {/* Clean Theme Switcher */}
+          {/* Theme Switcher */}
           <button
             onClick={toggleTheme}
-            className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition flex items-center justify-center"
+            className="w-8.5 h-8.5 rounded-lg text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/80 dark:hover:bg-slate-800/80 border border-slate-200/70 dark:border-slate-800/70 transition flex items-center justify-center"
             title={theme === 'dark' ? '라이트 모드로 전환 (Light Mode)' : '다크 모드로 전환 (Dark Mode)'}
             aria-label="Toggle Theme"
           >
@@ -125,10 +129,10 @@ export const Navbar: React.FC = () => {
           {/* Mobile Menu Trigger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center"
+            className="lg:hidden w-8.5 h-8.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center ml-0.5"
             aria-label="Toggle navigation"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5 text-slate-700 dark:text-slate-200" />}
+            {mobileMenuOpen ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5 text-slate-700 dark:text-slate-200" />}
           </button>
         </div>
       </div>

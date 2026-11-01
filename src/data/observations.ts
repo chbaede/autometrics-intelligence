@@ -54,6 +54,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -169,6 +170,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -280,6 +282,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -393,6 +396,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -507,6 +511,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -617,6 +622,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -728,6 +734,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -840,6 +847,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -952,6 +960,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1063,6 +1072,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1174,6 +1184,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1287,6 +1298,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1401,6 +1413,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1512,6 +1525,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1623,6 +1637,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1736,6 +1751,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1850,6 +1866,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -1960,6 +1977,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2071,6 +2089,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2183,6 +2202,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2296,6 +2316,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2410,6 +2431,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2521,6 +2543,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2634,6 +2657,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2748,6 +2772,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2858,6 +2883,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -2968,6 +2994,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3078,6 +3105,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3188,6 +3216,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3299,6 +3328,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3410,6 +3440,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3523,6 +3554,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3637,6 +3669,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3748,6 +3781,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3859,6 +3893,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -3972,6 +4007,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -4086,6 +4122,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -4196,6 +4233,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -4307,6 +4345,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -4419,6 +4458,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7051,6 +7091,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7177,6 +7218,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7300,6 +7342,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7418,6 +7461,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7542,6 +7586,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7668,6 +7713,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7791,6 +7837,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -7911,6 +7958,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation"
   },
@@ -8041,6 +8089,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'retail_deliveries',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },
@@ -8171,6 +8220,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'retail_deliveries',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },
@@ -8299,6 +8349,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'wholesale_shipments',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },
@@ -8425,6 +8476,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'wholesale_shipments',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },
@@ -8548,6 +8600,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'wholesale_shipments',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },
@@ -8671,6 +8724,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'retail_deliveries',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },
@@ -8797,6 +8851,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'wholesale_shipments',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },
@@ -8928,6 +8983,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'retail_deliveries',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
     notes: 'Derived from official HKEX (01211) disclosures: BEV share of 57.6% (762,482 / 1,323,070).',
@@ -9042,6 +9098,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     isComparable: true,
     reportingScope: 'consolidated_group',
     accountingBasis: 'reported',
+    volumeDefinition: 'retail_deliveries',
     verificationStatus: 'verified',
     verificationMethod: 'derived_calculation',
   },

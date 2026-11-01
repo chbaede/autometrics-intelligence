@@ -1024,6 +1024,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     officialUrl: 'https://www.geelyauto.com.hk/en/investor-relations/results-announcements/',
     isVerified: true,
     verificationStatus: 'verified',
+    financialDisclosureStatus: 'preliminary',
     lastChecked: '2026-11-01',
     notes: 'Official HKEX Q3 2026 disclosure: sales volume 812,523 units (+7% YoY), revenue RMB 98,960M (+10% YoY), operating profit RMB 5,520M (5.6% margin), and net profit RMB 4,840M (+28% YoY).',
     sourceClaims: [
@@ -1265,6 +1266,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     officialUrl: 'https://worldwide.kia.com/en/newsroom/view/?id=161963',
     isVerified: true,
     verificationStatus: 'verified',
+    financialDisclosureStatus: 'preliminary',
     lastChecked: '2026-11-01',
     notes: 'Official Kia Global Newsroom & IR disclosure: Q3 2026 global wholesale sales (847,355 units), global retail sales (~829k units), revenue (KRW 31.5974T), operating profit (KRW 1.8183T), net profit including NCI (KRW 1.2855T), pure EV retail (123k units), and xEV retail (300k units).',
     sourceClaims: [
@@ -1345,6 +1347,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     officialUrl: 'https://worldwide.kia.com/en/newsroom/view/?id=161011',
     isVerified: true,
     verificationStatus: 'verified',
+    financialDisclosureStatus: 'preliminary',
     lastChecked: '2026-11-01',
     notes: 'Official initial press release for 3Q25: wholesale volume 785,137 units, pure EV retail sales 70k units, revenue KRW 28,686.0B, operating profit KRW 1,462.2B (1,462,200M KRW), net profit including NCI KRW 1,422.5B (1,422,500M KRW).',
   },
@@ -1359,6 +1362,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     officialUrl: 'https://worldwide.kia.com/en/newsroom/view/?id=161963',
     isVerified: true,
     verificationStatus: 'verified',
+    financialDisclosureStatus: 'restated',
     lastChecked: '2026-11-01',
     notes: 'Official comparative prior-year financial table disclosed in 3Q 2026 results release: 3Q25 wholesale volume 785,137 units, revenue KRW 28,686,000M (KRW 28,686.0B), operating profit KRW 1,462,300M (KRW 1,462.3B), margin 5.1%, net profit including NCI KRW 1,422,500M (KRW 1,422.5B), and EV retail 70,000 units.',
     sourceClaims: [
@@ -1483,6 +1487,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     officialUrl: 'https://rivian.com/investors',
     isVerified: true,
     verificationStatus: 'verified',
+    financialDisclosureStatus: 'preliminary',
     lastChecked: '2026-11-01',
     notes: 'Official Q3 2026 shareholder letter reporting deliveries of 19,248 vehicles (+46% YoY), production of 19,751, GAAP revenue of $2,155 million (+38% YoY), and operating loss of -$881 million.',
     sourceClaims: [

@@ -208,7 +208,7 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
                   <span className="font-mono font-bold text-sky-600 dark:text-sky-400">{sourceDoc?.publicationDate || '-'}</span>
                 </div>
                 <div className="p-3 space-y-0.5">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">12. {language === 'ko' ? '원문 최종 확인일' : 'Audited Date'}</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">12. {language === 'ko' ? '원문 최종 확인일' : 'Source Verified Date'}</span>
                   <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{sourceDoc?.lastChecked || '-'}</span>
                 </div>
                 <div className="p-3 space-y-0.5">
@@ -228,6 +228,19 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-200">Status: {observation.verificationStatus || 'verified'}</span>
                   <span className="text-slate-400">•</span>
                   <span className="font-mono text-slate-600 dark:text-slate-400">Method: {observation.verificationMethod || 'official_press_release'}</span>
+                  {sourceDoc?.financialDisclosureStatus && (
+                    <>
+                      <span className="text-slate-400">•</span>
+                      <span className="font-mono text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        {language === 'ko' ? '공시 확정성: ' : 'Audit Finality: '}
+                        {sourceDoc.financialDisclosureStatus === 'audited'
+                          ? (language === 'ko' ? '감사 확정 (Audited Final)' : 'Audited Final')
+                          : sourceDoc.financialDisclosureStatus === 'restated'
+                          ? (language === 'ko' ? '비교표 재작성 (Restated)' : 'Restated Comparative')
+                          : (language === 'ko' ? '잠정 공시 (Preliminary / Unaudited)' : 'Preliminary / Unaudited')}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -262,11 +275,28 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
                   <h5 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{sourceDoc.title}</h5>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{sourceDoc.notes}</p>
                 </div>
-                {sourceDoc.isVerified && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold shrink-0">
-                    Verified IR
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                  {sourceDoc.financialDisclosureStatus && (
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${
+                      sourceDoc.financialDisclosureStatus === 'audited'
+                        ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20'
+                        : sourceDoc.financialDisclosureStatus === 'restated'
+                        ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20'
+                        : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
+                    }`}>
+                      {sourceDoc.financialDisclosureStatus === 'audited'
+                        ? (language === 'ko' ? '감사 확정' : 'Audited Final')
+                        : sourceDoc.financialDisclosureStatus === 'restated'
+                        ? (language === 'ko' ? '비교표 재작성' : 'Restated Comparative')
+                        : (language === 'ko' ? '공식 잠정 (미감사)' : 'Preliminary Unaudited IR')}
+                    </span>
+                  )}
+                  {sourceDoc.isVerified && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold shrink-0">
+                      Verified IR
+                    </span>
+                  )}
+                </div>
               </div>
               <a
                 href={sourceDoc.officialUrl}

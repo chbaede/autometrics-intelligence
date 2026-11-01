@@ -1214,6 +1214,15 @@ export interface SourceClaim {
   volumeDefinition?: VolumeDefinition;
 }
 
+/**
+ * Distinguishes the statutory audit finality of a source disclosure.
+ * Independent from source verification (verificationStatus).
+ * - preliminary: Unaudited quarterly earnings release, preliminary results announcement
+ * - audited: Formal audited annual report (10-K, 20-F, IFRS audited financial statements)
+ * - restated: Comparative prior-period financial restatement table in a subsequent release
+ */
+export type FinancialDisclosureStatus = 'preliminary' | 'audited' | 'restated';
+
 export interface SourceDocument {
   id: string;
   companyId: string;
@@ -1227,6 +1236,7 @@ export interface SourceDocument {
   officialUrl: string;
   isVerified: boolean;
   verificationStatus?: VerificationStatus;
+  financialDisclosureStatus?: FinancialDisclosureStatus;
   notes?: string;
   /** Structured claims verified against the source document (STEP 4-20, Task 5). */
   sourceClaims?: SourceClaim[];
@@ -1250,6 +1260,7 @@ export interface BaseObservation {
   reportingScope?: ReportingScope;
   verificationStatus?: VerificationStatus;
   verificationMethod?: VerificationMethod;
+  financialDisclosureStatus?: FinancialDisclosureStatus;
   /**
    * Intrinsic peer-comparability eligibility of the individual observation.
    * - true: Follows standard external reporting definitions (e.g., standard IFRS revenue, retail deliveries)
@@ -1343,6 +1354,7 @@ export interface MetricObservation {
   volumeDefinition?: VolumeDefinition;
   verificationStatus?: VerificationStatus;
   verificationMethod?: VerificationMethod;
+  financialDisclosureStatus?: FinancialDisclosureStatus;
   evidenceReference?: string;
   tableReference?: string;
   sectionReference?: string;

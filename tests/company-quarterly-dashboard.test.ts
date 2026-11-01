@@ -38,7 +38,7 @@ import {
   validateBevShareInputs,
 } from '../src/utils/metricCalculations';
 import { formatLocalizedProfit } from '../src/utils/currencyUtils';
-import { MetricObservation, VerificationCommandResult } from '../src/types/metrics';
+import { MetricObservation, SourceDocument, VerificationCommandResult } from '../src/types/metrics';
 import {
   renderIntegrityCommandResults,
   renderMarkdownCommandResults,
@@ -2491,6 +2491,246 @@ function runSuite18() {
   assert(compDelClaim?.value === 785.14, 'Suite 18-18f: Comparative wholesale sales is 785,137 units (785.14k)');
 }
 
+function runSuite19() {
+  console.log('\n--- Suite 19: Strict Source Claim Verification & BEV Share Integrity ---');
+
+  // 1. Source document has claims, but none for the observation's metric and period.
+  const noClaimObs: MetricObservation = {
+    id: 'test_no_claim_for_metric_obs',
+    companyId: 'kia',
+    metricId: 'fcf', // Kia Q3 IR source document has claims, but not for 'fcf'
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 500000,
+    unit: 'currency_millions',
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const noClaimAudit = auditObservationVerification(noClaimObs);
+  assert(noClaimAudit.fully_verified === false, 'Suite 19-1a: Source document with claims but none for metric fails verification');
+  assert(noClaimAudit.source_verified === false, 'Suite 19-1b: source_verified is false');
+  assert(noClaimAudit.issues.some((i) => i.includes('has claims, but none for metric "fcf" and period "2026-Q3"')), 'Suite 19-1c: Issue cites missing claim for metric and period');
+
+  // 2. Source claim scope exists but observation scope is missing.
+  const missingScopeObs: MetricObservation = {
+    id: 'test_missing_scope_obs',
+    companyId: 'kia',
+    metricId: 'revenue',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 31597400,
+    unit: 'currency_millions',
+    valueType: 'reported',
+    reportingScope: undefined, // Claim specifies consolidated_group, but observation scope is missing
+    accountingBasis: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const missingScopeAudit = auditObservationVerification(missingScopeObs);
+  assert(missingScopeAudit.fully_verified === false, 'Suite 19-2a: Missing observation scope when claim specifies scope fails verification');
+  assert(missingScopeAudit.issues.some((i) => i.includes('does not match official source claim')), 'Suite 19-2b: Issue cites source claim mismatch');
+
+  // 3. Source claim accountingBasis mismatch.
+  const basisMismatchObs: MetricObservation = {
+    id: 'test_basis_mismatch_obs',
+    companyId: 'kia',
+    metricId: 'operating_income',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 1818300,
+    unit: 'currency_millions',
+    valueType: 'reported',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'adjusted', // Claim specifies 'reported', observation specifies 'adjusted'
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const basisMismatchAudit = auditObservationVerification(basisMismatchObs);
+  assert(basisMismatchAudit.fully_verified === false, 'Suite 19-3a: Source claim accountingBasis mismatch fails verification');
+  assert(basisMismatchAudit.issues.some((i) => i.includes('does not match official source claim')), 'Suite 19-3b: Issue cites source claim mismatch');
+
+  // 4. Source claim volumeDefinition missing on the observation.
+  const volDefMissingOnObs: MetricObservation = {
+    id: 'test_vol_missing_on_obs',
+    companyId: 'kia',
+    metricId: 'deliveries_global',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 847.36,
+    unit: 'thousand_units',
+    valueType: 'reported',
+    reportingScope: 'consolidated_group',
+    volumeDefinition: undefined, // Claim in kia_2026_q3_ir specifies wholesale_shipments
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const volDefMissingAudit = auditObservationVerification(volDefMissingOnObs);
+  assert(volDefMissingAudit.fully_verified === false, 'Suite 19-4a: Missing volumeDefinition on observation when claim specifies it fails');
+  assert(volDefMissingAudit.issues.some((i) => i.includes('does not match official source claim')), 'Suite 19-4b: Issue cites source claim mismatch');
+
+  // 5. Derived BEV share has no volumeDefinition.
+  const bevShareNoVol: MetricObservation = {
+    id: 'test_bev_share_no_vol',
+    companyId: 'tesla',
+    metricId: 'bev_share',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 100,
+    unit: 'percentage',
+    valueType: 'derived',
+    volumeDefinition: undefined, // Missing volumeDefinition
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    inputObservationIds: ['tsla_2026_q3_bev', 'tsla_2026_q3_del'],
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const bevShareNoVolRes = validateBevShareInputs(bevShareNoVol, METRIC_OBSERVATIONS);
+  assert(bevShareNoVolRes.isValid === false, 'Suite 19-5a: Derived BEV share with no volumeDefinition fails validation');
+  assert(Boolean(bevShareNoVolRes.failureReason?.includes('lacks explicit volume definition')), 'Suite 19-5b: Rejection reason cites lacks explicit volume definition');
+
+  // 6. Derived BEV share volumeDefinition differs from its inputs.
+  const bevShareVolMismatch: MetricObservation = {
+    id: 'test_bev_share_vol_mismatch',
+    companyId: 'tesla',
+    metricId: 'bev_share',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 100,
+    unit: 'percentage',
+    valueType: 'derived',
+    volumeDefinition: 'wholesale_shipments', // Inputs for Tesla are retail_deliveries
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    inputObservationIds: ['tsla_2026_q3_bev', 'tsla_2026_q3_del'],
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const bevShareVolMismatchRes = validateBevShareInputs(bevShareVolMismatch, METRIC_OBSERVATIONS);
+  assert(bevShareVolMismatchRes.isValid === false, 'Suite 19-6a: Derived BEV share volumeDefinition differing from inputs fails');
+  assert(
+    Boolean(bevShareVolMismatchRes.failureReason?.includes('Volume definition mismatch') || bevShareVolMismatchRes.failureReason?.includes('does not match input volumeDefinition')),
+    'Suite 19-6b: Rejection reason cites volumeDefinition mismatch'
+  );
+
+  // 7. Derived BEV share with correct arithmetic but invalid source claim.
+  const mockClaimTotDel: MetricObservation = {
+    id: 'mock_claim_tot_del',
+    companyId: 'test_co',
+    metricId: 'deliveries_global',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 1000,
+    unit: 'thousand_units',
+    valueType: 'reported',
+    volumeDefinition: 'retail_deliveries',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'mock_test_doc',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const mockClaimBevDel: MetricObservation = {
+    id: 'mock_claim_bev_del',
+    companyId: 'test_co',
+    metricId: 'bev_deliveries',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 200,
+    unit: 'thousand_units',
+    valueType: 'reported',
+    volumeDefinition: 'retail_deliveries',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    sourceDocId: 'mock_test_doc',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const mockShareObs: MetricObservation = {
+    id: 'mock_share_obs',
+    companyId: 'test_co',
+    metricId: 'bev_share',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 20, // 200 / 1000 * 100 = 20.0% (mathematically correct!)
+    unit: 'percentage',
+    valueType: 'derived',
+    volumeDefinition: 'retail_deliveries',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    inputObservationIds: ['mock_claim_bev_del', 'mock_claim_tot_del'],
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  // The mock doc has conflicting source claims: claims deliveries_global is 9999 (conflicting with 1000)
+  const mockTestDoc: SourceDocument = {
+    id: 'mock_test_doc',
+    companyId: 'test_co',
+    title: 'Mock Test IR Document',
+    docType: 'press_release',
+    period: '2026-Q3',
+    publicationDate: '2026-10-30',
+    officialUrl: 'https://example.com/ir',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-11-01',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2026-Q3', value: 9999, unit: 'thousand_units', volumeDefinition: 'retail_deliveries' },
+      { metricId: 'bev_deliveries', period: '2026-Q3', value: 200, unit: 'thousand_units', volumeDefinition: 'retail_deliveries' },
+    ],
+  };
+  const mockSourcesMap = { ...SOURCES_MAP, mock_test_doc: mockTestDoc };
+  const mockArithRes = validateBevShareInputs(mockShareObs, [mockClaimTotDel, mockClaimBevDel, mockShareObs], mockSourcesMap);
+  assert(mockArithRes.isValid === false, 'Suite 19-7a: Derived BEV share with correct arithmetic but invalid source claim fails');
+  assert(Boolean(mockArithRes.failureReason?.includes('conflicts with source document claims')), 'Suite 19-7b: Rejection reason cites conflicts with source document claims');
+
+  // 8. Preliminary financial disclosure is not represented as audited.
+  const kiaQ3Doc = SOURCE_DOCUMENTS.find((d) => d.id === 'kia_2026_q3_ir');
+  assert(kiaQ3Doc !== undefined, 'Suite 19-8a: kia_2026_q3_ir source document exists');
+  assert(kiaQ3Doc?.financialDisclosureStatus === 'preliminary', 'Suite 19-8b: kia_2026_q3_ir disclosure status is preliminary');
+  assert(kiaQ3Doc?.financialDisclosureStatus !== 'audited', 'Suite 19-8c: Preliminary disclosure is not represented as audited');
+  const kiaFreshness = getCompanyDataFreshness('kia', '2026-Q3');
+  assert(kiaFreshness.financialDisclosureStatus === 'preliminary', 'Suite 19-8d: Freshness record exposes financialDisclosureStatus as preliminary');
+
+  // 9. Existing valid Kia 2026 Q3 retail BEV share remains valid.
+  const kiaQ3BevShare = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2026_q3_bev_share');
+  assert(kiaQ3BevShare !== undefined, 'Suite 19-9a: kia_2026_q3_bev_share exists');
+  assert(kiaQ3BevShare?.value === 14.8, 'Suite 19-9b: Kia 2026-Q3 BEV share value is 14.8%');
+  assert(kiaQ3BevShare?.volumeDefinition === 'retail_deliveries', 'Suite 19-9c: Volume definition is retail_deliveries');
+  const kiaBevValidation = validateBevShareInputs(kiaQ3BevShare!, METRIC_OBSERVATIONS);
+  assert(kiaBevValidation.isValid === true, 'Suite 19-9d: Kia 2026-Q3 retail BEV share passes strict input validation');
+  const kiaShareAudit = auditObservationVerification(kiaQ3BevShare!);
+  assert(kiaShareAudit.fully_verified === true, 'Suite 19-9e: Kia 2026-Q3 retail BEV share is fully verified');
+
+  // 10. Existing valid Kia 2025 Q3 comparative financial observations remain valid.
+  const kia2025Rev = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_q3_rev');
+  const kia2025Ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_q3_ebit');
+  const kia2025Net = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_q3_net');
+  const kia2025Del = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_q3_del');
+  assert(kia2025Rev?.value === 28686000, 'Suite 19-10a: Kia 2025-Q3 comparative revenue is 28,686,000M KRW');
+  assert(kia2025Ebit?.value === 1462300, 'Suite 19-10b: Kia 2025-Q3 comparative EBIT is 1,462,300M KRW');
+  assert(kia2025Net?.value === 1422500, 'Suite 19-10c: Kia 2025-Q3 comparative Net Income is 1,422,500M KRW');
+  assert(kia2025Del?.value === 785.14, 'Suite 19-10d: Kia 2025-Q3 comparative wholesale deliveries is 785.14k');
+  assert(auditObservationVerification(kia2025Rev!).fully_verified === true, 'Suite 19-10e: Kia 2025-Q3 comparative revenue fully verified');
+  assert(auditObservationVerification(kia2025Ebit!).fully_verified === true, 'Suite 19-10f: Kia 2025-Q3 comparative EBIT fully verified');
+  assert(auditObservationVerification(kia2025Net!).fully_verified === true, 'Suite 19-10g: Kia 2025-Q3 comparative Net Income fully verified');
+  assert(auditObservationVerification(kia2025Del!).fully_verified === true, 'Suite 19-10h: Kia 2025-Q3 comparative deliveries fully verified');
+}
+
 runSuite12()
   .then(() => {
     runSuite13();
@@ -2499,6 +2739,7 @@ runSuite12()
     runSuite16();
     runSuite17();
     runSuite18();
+    runSuite19();
     console.log(`\nResults: ${passed} passed, ${failed} failed.`);
     if (failed > 0) {
       process.exit(1);

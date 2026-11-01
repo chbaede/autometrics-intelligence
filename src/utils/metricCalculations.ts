@@ -2078,12 +2078,13 @@ export function areBevShareCandidatesCompatible(
     !tot.volumeDefinition ||
     !bev.volumeDefinition ||
     tot.volumeDefinition === 'unknown' ||
+    bev.volumeDefinition === 'unknown' ||
     tot.volumeDefinition !== bev.volumeDefinition ||
-    (share && share.volumeDefinition && share.volumeDefinition !== 'unknown' && share.volumeDefinition !== tot.volumeDefinition)
+    (share && (!share.volumeDefinition || share.volumeDefinition === 'unknown' || share.volumeDefinition !== tot.volumeDefinition))
   ) {
     return {
       compatible: false,
-      reason: `Volume definition mismatch: total is ${tot.volumeDefinition}, BEV is ${bev.volumeDefinition}${share?.volumeDefinition ? `, share is ${share.volumeDefinition}` : ''}.`,
+      reason: `Volume definition mismatch: total is ${tot.volumeDefinition}, BEV is ${bev.volumeDefinition}${share ? `, share is ${share.volumeDefinition}` : ''}.`,
     };
   }
   if (tot.unit !== bev.unit || (share && share.unit !== 'percentage')) {
@@ -2115,6 +2116,14 @@ export function validateBevShareInputs(
 ): BevShareInputIntegrityResult {
   if (shareObs.metricId !== 'bev_share') {
     return { isValid: false, failureReason: 'Observation is not a BEV share metric.' };
+  }
+
+  // Require explicit volumeDefinition on derived observation
+  if (!shareObs.volumeDefinition || shareObs.volumeDefinition === 'unknown') {
+    return {
+      isValid: false,
+      failureReason: 'Derived BEV share observation lacks explicit volume definition.',
+    };
   }
 
   let bevInp: MetricObservation | undefined;
@@ -2278,20 +2287,57 @@ export function validateBevShareInputs(
     }
     if (doc.sourceClaims && doc.sourceClaims.length > 0) {
       const metricClaims = doc.sourceClaims.filter((c) => c.metricId === inp.metricId && c.period === inp.period);
-      if (metricClaims.length > 0) {
-        const matchesClaim = metricClaims.some((claim) => {
-          if (Math.abs(claim.value - inp.value!) > 1e-3) return false;
-          if (claim.unit !== inp.unit) return false;
-          if (claim.scope && inp.reportingScope && claim.scope !== inp.reportingScope) return false;
-          if (claim.volumeDefinition && (!inp.volumeDefinition || claim.volumeDefinition !== inp.volumeDefinition)) {
+      if (metricClaims.length === 0) {
+        return {
+          isValid: false,
+          failureReason: `Input observation ${inp.id} has no matching source claim for metric "${inp.metricId}" and period "${inp.period}" in document ${doc.id}.`,
+          numerator: bevInp,
+          denominator: totInp,
+        };
+      }
+      const matchesClaim = metricClaims.some((claim) => {
+        if (inp.value === null || inp.value === undefined || Math.abs(claim.value - inp.value) > 1e-3) return false;
+        if (claim.unit !== inp.unit) return false;
+        if (claim.scope !== undefined && (inp.reportingScope === undefined || claim.scope !== inp.reportingScope)) return false;
+        if (claim.accountingBasis !== undefined && (inp.accountingBasis === undefined || claim.accountingBasis !== inp.accountingBasis)) return false;
+        if (claim.volumeDefinition !== undefined && (inp.volumeDefinition === undefined || claim.volumeDefinition !== inp.volumeDefinition)) {
+          return false;
+        }
+        return true;
+      });
+      if (!matchesClaim) {
+        return {
+          isValid: false,
+          failureReason: `Input observation ${inp.id} conflicts with source document claims.`,
+          numerator: bevInp,
+          denominator: totInp,
+        };
+      }
+    }
+  }
+
+  // If the derived share observation itself references a sourceDoc with claims, verify consistency
+  if (shareObs.sourceDocId) {
+    const shareDoc = sourcesMap[shareObs.sourceDocId] || SOURCE_DOCUMENTS.find((d) => d.id === shareObs.sourceDocId);
+    if (shareDoc && shareDoc.sourceClaims && shareDoc.sourceClaims.length > 0) {
+      const shareClaims = shareDoc.sourceClaims.filter(
+        (c) => c.metricId === 'bev_share' && c.period === shareObs.period
+      );
+      if (shareClaims.length > 0) {
+        const matches = shareClaims.some((claim) => {
+          if (shareObs.value === null || shareObs.value === undefined || Math.abs(claim.value - shareObs.value) > 1e-3) return false;
+          if (claim.unit !== shareObs.unit) return false;
+          if (claim.scope !== undefined && (shareObs.reportingScope === undefined || claim.scope !== shareObs.reportingScope)) return false;
+          if (claim.accountingBasis !== undefined && (shareObs.accountingBasis === undefined || claim.accountingBasis !== shareObs.accountingBasis)) return false;
+          if (claim.volumeDefinition !== undefined && (shareObs.volumeDefinition === undefined || claim.volumeDefinition !== shareObs.volumeDefinition)) {
             return false;
           }
           return true;
         });
-        if (!matchesClaim) {
+        if (!matches) {
           return {
             isValid: false,
-            failureReason: `Input observation ${inp.id} conflicts with source document claims.`,
+            failureReason: `Derived observation ${shareObs.id} conflicts with source document claims.`,
             numerator: bevInp,
             denominator: totInp,
           };

@@ -24,7 +24,7 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../data/sources';
 import { METRIC_OBSERVATIONS } from '../data/observations';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
 import { COMPANIES_REGISTRY } from '../data/companies';
-import { MetricObservation, SourceDocument } from '../types/metrics';
+import { MetricObservation, SourceDocument, FinancialDisclosureStatus } from '../types/metrics';
 import {
   getDimensionalObservationKey,
   validateBevShareInputs,
@@ -66,6 +66,7 @@ export interface CompanyPeriodFreshness {
   statusBadgeColor: 'emerald' | 'amber' | 'sky' | 'slate' | 'rose' | 'indigo';
   sourceTitle?: string;
   sourceUrl?: string;
+  financialDisclosureStatus?: FinancialDisclosureStatus;
   scheduledDate?: string;
   requiredMetricsCoverage?: RequiredMetricsCoverage;
   notesKo?: string;
@@ -198,6 +199,7 @@ export interface ObservationVerificationAudit {
   issues: string[];
   failureReason?: string;
   sourceDoc?: SourceDocument;
+  financialDisclosureStatus?: FinancialDisclosureStatus;
 }
 
 /**
@@ -276,28 +278,62 @@ export function auditObservationVerification(
         source_verified = false;
         issues.push(`Source document ${sourceDoc.id} is not verified`);
       }
-      // Source claim verification: if document has claims for this metric and period, at least one claim must match
-      if (sourceDoc.sourceClaims && sourceDoc.sourceClaims.length > 0 && obs.value !== null && obs.value !== undefined) {
-        const metricClaims = sourceDoc.sourceClaims.filter(
-          (c) => c.metricId === obs.metricId && c.period === obs.period
-        );
-        if (metricClaims.length > 0) {
-          const matchingClaim = metricClaims.find((claim) => {
-            if (Math.abs(claim.value - obs.value!) > 1e-3) return false;
-            if (claim.unit !== obs.unit) return false;
-            if (claim.scope && obs.reportingScope && claim.scope !== obs.reportingScope) return false;
-            if (claim.volumeDefinition !== undefined) {
-              if (obs.volumeDefinition === undefined || claim.volumeDefinition !== obs.volumeDefinition) {
-                return false;
-              }
-            }
-            return true;
-          });
-          if (!matchingClaim) {
+      // Source claim verification:
+      // If source document has claims, enforce strict claim matching
+      if (sourceDoc.sourceClaims && sourceDoc.sourceClaims.length > 0) {
+        if (obs.valueType !== 'derived') {
+          const metricClaims = sourceDoc.sourceClaims.filter(
+            (c) => c.metricId === obs.metricId && c.period === obs.period
+          );
+          if (metricClaims.length === 0) {
             source_verified = false;
             issues.push(
-              `Observation value ${obs.value} (${obs.unit}) for metric ${obs.metricId} does not match official source claim in document ${sourceDoc.id}`
+              `Source document ${sourceDoc.id} has claims, but none for metric "${obs.metricId}" and period "${obs.period}"`
             );
+          } else {
+            const matchingClaim = metricClaims.find((claim) => {
+              if (obs.value === null || obs.value === undefined) return false;
+              if (Math.abs(claim.value - obs.value) > 1e-3) return false;
+              if (claim.unit !== obs.unit) return false;
+              if (claim.scope !== undefined) {
+                if (obs.reportingScope === undefined || obs.reportingScope !== claim.scope) return false;
+              }
+              if (claim.accountingBasis !== undefined) {
+                if (obs.accountingBasis === undefined || obs.accountingBasis !== claim.accountingBasis) return false;
+              }
+              if (claim.volumeDefinition !== undefined) {
+                if (obs.volumeDefinition === undefined || obs.volumeDefinition !== claim.volumeDefinition) return false;
+              }
+              return true;
+            });
+            if (!matchingClaim) {
+              source_verified = false;
+              issues.push(
+                `Observation value ${obs.value} (${obs.unit}) for metric ${obs.metricId} does not match official source claim in document ${sourceDoc.id}`
+              );
+            }
+          }
+        } else {
+          // For derived metrics, if a direct claim exists in source document, verify it matches
+          const metricClaims = sourceDoc.sourceClaims.filter(
+            (c) => c.metricId === obs.metricId && c.period === obs.period
+          );
+          if (metricClaims.length > 0) {
+            const matchingClaim = metricClaims.find((claim) => {
+              if (obs.value === null || obs.value === undefined) return false;
+              if (Math.abs(claim.value - obs.value) > 1e-3) return false;
+              if (claim.unit !== obs.unit) return false;
+              if (claim.scope !== undefined && (obs.reportingScope === undefined || obs.reportingScope !== claim.scope)) return false;
+              if (claim.accountingBasis !== undefined && (obs.accountingBasis === undefined || obs.accountingBasis !== claim.accountingBasis)) return false;
+              if (claim.volumeDefinition !== undefined && (obs.volumeDefinition === undefined || obs.volumeDefinition !== claim.volumeDefinition)) return false;
+              return true;
+            });
+            if (!matchingClaim) {
+              source_verified = false;
+              issues.push(
+                `Derived observation value ${obs.value} (${obs.unit}) for metric ${obs.metricId} conflicts with official source claim in document ${sourceDoc.id}`
+              );
+            }
           }
         }
       }
@@ -358,6 +394,7 @@ export function auditObservationVerification(
     issues,
     failureReason: issues[0],
     sourceDoc,
+    financialDisclosureStatus: sourceDoc?.financialDisclosureStatus || obs.financialDisclosureStatus,
   };
 }
 
@@ -453,6 +490,7 @@ export function getCompanyDataFreshness(
       statusBadgeColor: 'rose',
       sourceTitle: sourceDoc?.title,
       sourceUrl: sourceDoc?.officialUrl,
+      financialDisclosureStatus: sourceDoc?.financialDisclosureStatus,
       requiredMetricsCoverage: coverage,
       notesKo: `공식 출처 간 수치 또는 정의 불일치가 감지되었습니다: ${conflictCheck.detail}`,
       notesEn: `Conflicting figures or definitions detected across official disclosures: ${conflictCheck.detail}`,
@@ -486,6 +524,7 @@ export function getCompanyDataFreshness(
         statusBadgeColor: 'slate',
         sourceTitle: sourceDoc?.title,
         sourceUrl: sourceDoc?.officialUrl,
+        financialDisclosureStatus: sourceDoc?.financialDisclosureStatus,
         requiredMetricsCoverage: coverage,
         notesKo: '관측 데이터가 등록되었으나 유효한 공식 1차 출처 문서와의 대조 감사가 완료되지 않았습니다.',
         notesEn: 'Observations are ingested, but official primary source document verification is pending or missing.',
@@ -509,6 +548,7 @@ export function getCompanyDataFreshness(
         statusBadgeColor: 'amber',
         sourceTitle: sourceDoc?.title,
         sourceUrl: sourceDoc?.officialUrl,
+        financialDisclosureStatus: sourceDoc?.financialDisclosureStatus,
         requiredMetricsCoverage: coverage,
         notesKo: `핵심 지표 중 일부 세부 내역(${missingMetrics.join(', ')})이 공시 대기 중입니다.`,
         notesEn: `Some required metrics (${missingMetrics.join(', ')}) are pending verification or disclosure.`,
@@ -532,6 +572,7 @@ export function getCompanyDataFreshness(
         statusBadgeColor: 'slate',
         sourceTitle: sourceDoc?.title,
         sourceUrl: sourceDoc?.officialUrl,
+        financialDisclosureStatus: sourceDoc?.financialDisclosureStatus,
         requiredMetricsCoverage: coverage,
         notesKo: `필수 지표 중 일부(${missingMetrics.join(', ')})의 원문 대조가 완료되지 않았습니다.`,
         notesEn: `Some required metrics (${missingMetrics.join(', ')}) are pending verification against official sources.`,
@@ -568,6 +609,7 @@ export function getCompanyDataFreshness(
         statusBadgeColor: 'slate',
         sourceTitle: sourceDoc?.title,
         sourceUrl: sourceDoc?.officialUrl,
+        financialDisclosureStatus: sourceDoc?.financialDisclosureStatus,
         requiredMetricsCoverage: coverage,
         notesKo: `파생 지표 검증 실패: ${derivedFailureReason}`,
         notesEn: `Derived metric verification failed: ${derivedFailureReason}`,
@@ -590,6 +632,7 @@ export function getCompanyDataFreshness(
       statusBadgeColor: 'emerald',
       sourceTitle: sourceDoc?.title,
       sourceUrl: sourceDoc?.officialUrl,
+      financialDisclosureStatus: sourceDoc?.financialDisclosureStatus,
       requiredMetricsCoverage: coverage,
       notesKo: '공식 IR 및 공시 자료와 100% 대조 검증 완료되었습니다.',
       notesEn: 'Fully cross-audited against official primary IR filings.',

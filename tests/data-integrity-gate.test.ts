@@ -163,6 +163,7 @@ const bevShareCandidateA: MetricObservation = {
   valueType: 'derived',
   reportingScope: 'consolidated_group',
   accountingBasis: 'reported',
+  volumeDefinition: 'retail_deliveries',
   verificationStatus: 'verified',
   isComparable: true,
 };
@@ -179,6 +180,7 @@ const bevShareCandidateB: MetricObservation = {
   valueType: 'derived',
   reportingScope: 'consolidated_group',
   accountingBasis: 'reported',
+  volumeDefinition: 'retail_deliveries',
   verificationStatus: 'verified',
   isComparable: true,
 };
