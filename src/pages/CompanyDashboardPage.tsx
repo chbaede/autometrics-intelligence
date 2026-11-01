@@ -25,6 +25,7 @@ import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SOURCE_DOCUMENTS } from '../data/sources';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
+import { getCompanyDataFreshness } from '../utils/dataFreshness';
 import { getPerformanceDriver, getAvailablePerformanceDriverPeriods } from '../data/performanceDrivers';
 import {
   Globe,
@@ -63,6 +64,8 @@ export const CompanyDashboardPage: React.FC = () => {
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
   const [trendCadence, setTrendCadence] = useState<'quarterly' | 'annual'>('quarterly');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
+
+  const activeFreshness = getCompanyDataFreshness(currentCompany.id, activePeriod);
 
   // Synchronize default period when switching OEM
   useEffect(() => {
@@ -250,6 +253,51 @@ export const CompanyDashboardPage: React.FC = () => {
             <span className="text-slate-900 dark:text-slate-200 font-bold block truncate">
               {currentCompany.fiscalYearEnd}
             </span>
+          </div>
+        </div>
+
+        {/* 3-Date Temporal Provenance & Data Freshness Bar */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs font-mono">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px]">
+                {language === 'ko' ? '데이터 기준 및 출처 시점:' : 'Temporal Provenance:'}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                <Calendar className="w-3.5 h-3.5 text-brand-600" />
+                {language === 'ko' ? '보고 기간: ' : 'Reporting Period: '}
+                <span className="text-brand-600 dark:text-brand-400">{formatPeriodLabel(activePeriod, language)}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                <Clock className="w-3.5 h-3.5 text-sky-600" />
+                {language === 'ko' ? '공식 발표일: ' : 'Source Disclosed: '}
+                <span className="text-sky-600 dark:text-sky-400">
+                  {activeFreshness.sourcePublishedAt || (activeFreshness.status === 'scheduled' ? `${activeFreshness.scheduledDate} (예정)` : '미공시')}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                {language === 'ko' ? '시스템 갱신일: ' : 'System Updated: '}
+                <span className="text-emerald-600 dark:text-emerald-400">{activeFreshness.dataUpdatedAt || '2026-11-01'}</span>
+              </span>
+            </div>
+
+            <div>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-[11px] ${
+                activeFreshness.status === 'verified_official'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                  : activeFreshness.status === 'scheduled'
+                  ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-700'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+              }`}>
+                {activeFreshness.status === 'verified_official' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                ) : (
+                  <Clock className="w-3.5 h-3.5" />
+                )}
+                {language === 'ko' ? activeFreshness.statusLabelKo : activeFreshness.statusLabelEn}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -956,7 +1004,7 @@ export const CompanyDashboardPage: React.FC = () => {
                     {doc.period} • {doc.docType.replace('_', ' ')}
                   </span>
                   <span className="text-[11px] font-mono text-slate-500">
-                    {doc.publicationDate}
+                    {language === 'ko' ? `공시: ${doc.publicationDate} | 확인: ${doc.lastChecked}` : `Pub: ${doc.publicationDate} | Chk: ${doc.lastChecked}`}
                   </span>
                 </div>
                 <h3 className="font-semibold text-slate-900 dark:text-slate-200 text-xs sm:text-sm">

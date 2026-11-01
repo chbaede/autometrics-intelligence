@@ -320,6 +320,39 @@ export const CompanyComparisonPage: React.FC = () => {
         )}
       </div>
 
+      {/* Reporting Period Mismatch Notice across Selected OEMs */}
+      {(() => {
+        const reportedInComparison = selectedCompanies.filter((cid) => {
+          const obs = getObservations([cid], undefined, selectedPeriod);
+          return obs.length > 0;
+        });
+        const scheduledInComparison = selectedCompanies.filter((cid) => {
+          const obs = getObservations([cid], undefined, selectedPeriod);
+          return obs.length === 0;
+        });
+
+        if (selectedPeriod === '2026-Q3' && reportedInComparison.length > 0 && scheduledInComparison.length > 0) {
+          return (
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1.5 shadow-xs">
+              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>
+                  {language === 'ko'
+                    ? '비교 대상 기업 간 보고 기간 및 공시 일정 불일치 안내'
+                    : 'Reporting Period Mismatch Notice Across Selected Automakers'}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed">
+                {language === 'ko'
+                  ? `선택된 기업 중 ${reportedInComparison.map((id) => getCompanyById(id)?.name).join(', ')}은(는) 2026-Q3 공식 실적을 공시하였으나, ${scheduledInComparison.map((id) => `${getCompanyById(id)?.name}(${getScheduledDisclosure(id, '2026-Q3')?.scheduledDateKo || '공시 예정'})`).join(', ')}은(는) 아직 3분기 실적이 발표되지 않았습니다. AutoMetrics는 왜곡을 방지하기 위해 미공시 기업에 대해 추정치를 합성하지 않으며, 해당 기업은 미공시(Scheduled)로 명시됩니다.`
+                  : `Among selected OEMs, ${reportedInComparison.map((id) => getCompanyById(id)?.name).join(', ')} have published verified 2026-Q3 results, whereas ${scheduledInComparison.map((id) => `${getCompanyById(id)?.name} (${getScheduledDisclosure(id, '2026-Q3')?.scheduledDateEn || 'Scheduled'})`).join(', ')} have not yet disclosed Q3 financials. AutoMetrics enforces strict integrity and never injects speculative estimates for unreported periods.`}
+              </p>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       {/* Comparability Warning Banner */}
       {nonComparableItems.length > 0 && (
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 space-y-1.5">

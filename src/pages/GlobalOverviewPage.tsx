@@ -8,6 +8,7 @@ import {
   getCompanyById,
 } from '../utils/metricQueries';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
+import { getReportingSeasonSummary } from '../utils/dataFreshness';
 import { MetricObservation, PeriodType, VolumeDefinition } from '../types/metrics';
 import {
   formatPeriodLabel,
@@ -731,25 +732,32 @@ export const GlobalOverviewPage: React.FC = () => {
       </div>
 
       {/* 2026-Q3 Reporting Season Status Banner */}
-      {selectedPeriod === '2026-Q3' && (
-        <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 shadow-xs flex items-start gap-3 text-xs leading-relaxed text-sky-900 dark:text-sky-200">
-          <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5">
-            <Clock className="w-4 h-4" />
-          </div>
-          <div className="space-y-1">
-            <div className="font-bold flex items-center gap-2">
-              <span>{language === 'ko' ? '2026년 3분기(2026-Q3) 공식 실적 공시 현황' : '2026 Q3 Official Earnings Disclosure Status'}</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold">9 Reported</span>
-              <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono text-[10px] font-bold">7 Scheduled</span>
+      {selectedPeriod === '2026-Q3' && (() => {
+        const season = getReportingSeasonSummary('2026-Q3');
+        return (
+          <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 shadow-xs flex items-start gap-3 text-xs leading-relaxed text-sky-900 dark:text-sky-200">
+            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5">
+              <Clock className="w-4 h-4" />
             </div>
-            <p className="text-slate-600 dark:text-slate-300">
-              {language === 'ko'
-                ? '테슬라, 폭스바겐, GM, 포드, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 볼보 9개사 공식 공시 완료. 기아(10/30), BMW(11/4), 토요타(11/5), 리비안(11/5), 닛산(11/7), 혼다(11/8), 지리(11월 중순) 공시 예정.'
-                : 'Tesla, VW, GM, Ford, Hyundai, Mercedes-Benz, Stellantis, BYD, and Volvo have officially reported. Kia (Oct 30), BMW (Nov 4), Toyota (Nov 5), Rivian (Nov 5), Nissan (Nov 7), Honda (Nov 8), and Geely (Mid-Nov) are scheduled.'}
-            </p>
+            <div className="space-y-1">
+              <div className="font-bold flex items-center gap-2">
+                <span>{language === 'ko' ? '2026년 3분기(2026-Q3) 공식 실적 공시 현황' : '2026 Q3 Official Earnings Disclosure Status'}</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold">
+                  {season.reportedCount} Reported
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono text-[10px] font-bold">
+                  {season.scheduledCount} Scheduled
+                </span>
+              </div>
+              <p className="text-slate-600 dark:text-slate-300">
+                {language === 'ko'
+                  ? `테슬라, 폭스바겐, GM, 포드, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 볼보, 기아, 리비안, 지리 ${season.reportedCount}개사 공식 공시 완료. BMW(11/4), 토요타(11/5), 닛산(11/7), 혼다(11/8) 공시 예정.`
+                  : `Tesla, VW, GM, Ford, Hyundai, Mercedes-Benz, Stellantis, BYD, Volvo, Kia, Rivian, and Geely (${season.reportedCount} OEMs) have officially reported. BMW (Nov 4), Toyota (Nov 5), Nissan (Nov 7), and Honda (Nov 8) are scheduled.`}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* SECTION 1: Core Volume & Profitability Benchmarks (Ranked Descending - One Chart Per Row) */}
       <div className="flex flex-col gap-6 w-full">

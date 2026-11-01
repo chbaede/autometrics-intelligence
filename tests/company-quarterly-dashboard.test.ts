@@ -18,6 +18,7 @@ import { getPerformanceDriver, getAvailablePerformanceDriverPeriods } from '../s
 import { getScheduledDisclosure } from '../src/data/scheduledDisclosures';
 import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { TRANSLATIONS } from '../src/i18n/LanguageContext';
+import { getCompanyDataFreshness, getReportingSeasonSummary } from '../src/utils/dataFreshness';
 import {
   comparePeriodsDescending,
   getPeriodSortWeight,
@@ -68,14 +69,14 @@ const REPORTED_Q3_OEMS = [
   'stellantis',
   'byd',
   'volvo_cars',
+  'kia',
+  'rivian',
+  'geely',
 ];
 
 const SCHEDULED_Q3_OEMS = [
   'bmw_group',
   'toyota_motor',
-  'kia',
-  'rivian',
-  'geely',
   'honda_motor',
   'nissan_motor',
 ];
@@ -1871,8 +1872,185 @@ async function runSuite12() {
   );
 }
 
+// =========================================================================
+// Suite 13: Kia Q3 2026 Complete Mathematical & Provenance Audit
+// =========================================================================
+function runSuite13() {
+  console.log('\n--- Suite 13: Kia Q3 2026 Complete Mathematical & Provenance Audit ---');
+  const kiaQ3Obs = getObservationsByCompany('kia').filter((o) => o.period === '2026-Q3');
+  const kiaQ2Obs = getObservationsByCompany('kia').filter((o) => o.period === '2026-Q2');
+  const kia25Q3Obs = getObservationsByCompany('kia').filter((o) => o.period === '2025-Q3');
+
+  const del = kiaQ3Obs.find((o) => o.metricId === 'deliveries_global');
+  const bev = kiaQ3Obs.find((o) => o.metricId === 'bev_deliveries');
+  const bevShare = kiaQ3Obs.find((o) => o.metricId === 'bev_share');
+  const rev = kiaQ3Obs.find((o) => o.metricId === 'revenue');
+  const ebit = kiaQ3Obs.find((o) => o.metricId === 'operating_income');
+  const margin = kiaQ3Obs.find((o) => o.metricId === 'operating_margin');
+  const net = kiaQ3Obs.find((o) => o.metricId === 'net_income');
+
+  assert(del?.value === 847.36, 'Suite 13a-1: Kia Q3 wholesale deliveries is 847.36k (847,355 units)');
+  assert(del?.volumeDefinition === 'wholesale_shipments', 'Suite 13a-2: Kia Q3 volumeDefinition is wholesale_shipments');
+  assert(bev?.value === 123.0, 'Suite 13a-3: Kia Q3 pure EV/BEV deliveries is 123.0k units (+75.4% YoY)');
+  assert(bevShare?.value === 14.5, 'Suite 13a-4: Kia Q3 BEV share of wholesale is 14.5%');
+  assert(rev?.value === 31597400, 'Suite 13a-5: Kia Q3 consolidated revenue is KRW 31,597,400M (₩31.5974T)');
+  assert(ebit?.value === 1818300, 'Suite 13a-6: Kia Q3 operating profit is KRW 1,818,300M (₩1.8183T)');
+  assert(margin?.value === 5.8, 'Suite 13a-7: Kia Q3 operating margin is 5.8%');
+  assert(net?.value === 1285500, 'Suite 13a-8: Kia Q3 net profit is KRW 1,285,500M (₩1.2855T)');
+
+  // Margin math: 1,818,300 / 31,597,400 = 5.7546% -> rounds to 5.8%
+  const calcMargin = Math.round((ebit!.value! / rev!.value!) * 1000) / 10;
+  assert(calcMargin === margin?.value, 'Suite 13b-1: Margin triplet mathematically reconciles (1.8183T / 31.5974T = 5.8%)');
+
+  // YoY calculations (2026-Q3 vs 2025-Q3)
+  const del25Q3 = kia25Q3Obs.find((o) => o.metricId === 'deliveries_global');
+  const rev25Q3 = kia25Q3Obs.find((o) => o.metricId === 'revenue');
+  const ebit25Q3 = kia25Q3Obs.find((o) => o.metricId === 'operating_income');
+  const net25Q3 = kia25Q3Obs.find((o) => o.metricId === 'net_income');
+  const margin25Q3 = kia25Q3Obs.find((o) => o.metricId === 'operating_margin');
+
+  assert(del25Q3?.value === 785.14, 'Suite 13c-1: Kia 2025-Q3 comparative wholesale is 785.14k (785,137 units)');
+  assert(rev25Q3?.value === 28686000, 'Suite 13c-2: Kia 2025-Q3 comparative revenue is KRW 28,686,000M');
+  assert(ebit25Q3?.value === 1462800, 'Suite 13c-3: Kia 2025-Q3 comparative operating profit is KRW 1,462,800M');
+  assert(net25Q3?.value === 1421400, 'Suite 13c-4: Kia 2025-Q3 comparative net profit is KRW 1,421,400M');
+  assert(margin25Q3?.value === 5.1, 'Suite 13c-5: Kia 2025-Q3 comparative margin is 5.1%');
+
+  const yoyDel = Math.round(((del!.value! - del25Q3!.value!) / del25Q3!.value!) * 1000) / 10;
+  assert(yoyDel === 7.9, 'Suite 13d-1: Wholesale YoY growth is +7.9%');
+
+  const yoyRev = Math.round(((rev!.value! - rev25Q3!.value!) / rev25Q3!.value!) * 1000) / 10;
+  assert(yoyRev === 10.1, 'Suite 13d-2: Revenue YoY growth is +10.1%');
+
+  const yoyEbit = Math.round(((ebit!.value! - ebit25Q3!.value!) / ebit25Q3!.value!) * 1000) / 10;
+  assert(yoyEbit === 24.3, 'Suite 13d-3: Operating profit YoY growth is +24.3%');
+
+  const yoyNet = Math.round(((net!.value! - net25Q3!.value!) / net25Q3!.value!) * 1000) / 10;
+  assert(yoyNet === -9.6, 'Suite 13d-4: Net profit YoY growth is -9.6%');
+
+  const marginDiffPp = Math.round((margin!.value! - margin25Q3!.value!) * 10) / 10;
+  assert(marginDiffPp === 0.7, 'Suite 13d-5: Operating margin YoY increase is +0.7%p');
+
+  // QoQ calculations (2026-Q3 vs 2026-Q2)
+  const delQ2 = kiaQ2Obs.find((o) => o.metricId === 'deliveries_global');
+  const revQ2 = kiaQ2Obs.find((o) => o.metricId === 'revenue');
+  const ebitQ2 = kiaQ2Obs.find((o) => o.metricId === 'operating_income');
+
+  assert(delQ2?.value === 851.6, 'Suite 13e-1: Kia 2026-Q2 comparative wholesale is 851.6k');
+  assert(revQ2?.value === 33037000, 'Suite 13e-2: Kia 2026-Q2 comparative revenue is KRW 33,037,000M');
+  assert(ebitQ2?.value === 2628500, 'Suite 13e-3: Kia 2026-Q2 comparative operating profit is KRW 2,628,500M');
+
+  const qoqDel = Math.round(((del!.value! - delQ2!.value!) / delQ2!.value!) * 1000) / 10;
+  assert(qoqDel === -0.5, 'Suite 13e-4: Wholesale QoQ growth is -0.5%');
+
+  const qoqRev = Math.round(((rev!.value! - revQ2!.value!) / revQ2!.value!) * 1000) / 10;
+  assert(qoqRev === -4.4, 'Suite 13e-5: Revenue QoQ growth is -4.4%');
+
+  const qoqEbit = Math.round(((ebit!.value! - ebitQ2!.value!) / ebitQ2!.value!) * 1000) / 10;
+  assert(qoqEbit === -30.8, 'Suite 13e-6: Operating profit QoQ growth is -30.8%');
+}
+
+// =========================================================================
+// Suite 14: Rivian Q3 2026 Full Mathematical & Provenance Audit
+// =========================================================================
+function runSuite14() {
+  console.log('\n--- Suite 14: Rivian Q3 2026 Full Mathematical & Provenance Audit ---');
+  const rivianQ3 = getObservationsByCompany('rivian').filter((o) => o.period === '2026-Q3');
+  const del = rivianQ3.find((o) => o.metricId === 'deliveries_global');
+  const bev = rivianQ3.find((o) => o.metricId === 'bev_deliveries');
+  const bevShare = rivianQ3.find((o) => o.metricId === 'bev_share');
+  const rev = rivianQ3.find((o) => o.metricId === 'revenue');
+  const op = rivianQ3.find((o) => o.metricId === 'operating_income');
+  const margin = rivianQ3.find((o) => o.metricId === 'operating_margin');
+
+  assert(del?.value === 19.25, 'Suite 14a-1: Rivian Q3 retail deliveries is 19.25k (19,248 units)');
+  assert(del?.volumeDefinition === 'retail_deliveries', 'Suite 14a-2: Rivian Q3 volumeDefinition is retail_deliveries');
+  assert(bev?.value === 19.25, 'Suite 14a-3: Rivian Q3 BEV deliveries is 19.25k (pure EV)');
+  assert(bevShare?.value === 100, 'Suite 14a-4: Rivian Q3 BEV share is 100%');
+  assert(rev?.value === 2155, 'Suite 14a-5: Rivian Q3 revenue is $2,155M');
+  assert(op?.value === -881, 'Suite 14a-6: Rivian Q3 operating loss is -$881M');
+  assert(margin?.value === -40.9, 'Suite 14a-7: Rivian Q3 operating margin is -40.9%');
+
+  const calcMargin = Math.round((op!.value! / rev!.value!) * 1000) / 10;
+  assert(calcMargin === margin?.value, 'Suite 14b-1: Margin triplet mathematically reconciles (-$881M / $2,155M = -40.9%)');
+}
+
+// =========================================================================
+// Suite 15: Geely Q3 2026 Full Mathematical & Provenance Audit
+// =========================================================================
+function runSuite15() {
+  console.log('\n--- Suite 15: Geely Q3 2026 Full Mathematical & Provenance Audit ---');
+  const geelyQ3 = getObservationsByCompany('geely').filter((o) => o.period === '2026-Q3');
+  const del = geelyQ3.find((o) => o.metricId === 'deliveries_global');
+  const bev = geelyQ3.find((o) => o.metricId === 'bev_deliveries');
+  const bevShare = geelyQ3.find((o) => o.metricId === 'bev_share');
+  const rev = geelyQ3.find((o) => o.metricId === 'revenue');
+  const op = geelyQ3.find((o) => o.metricId === 'operating_income');
+  const margin = geelyQ3.find((o) => o.metricId === 'operating_margin');
+
+  assert(del?.value === 812.52, 'Suite 15a-1: Geely Q3 retail sales volume is 812.52k (812,523 units)');
+  assert(del?.volumeDefinition === 'retail_deliveries', 'Suite 15a-2: Geely Q3 volumeDefinition is retail_deliveries');
+  assert(bev?.value === 200.7, 'Suite 15a-3: Geely Q3 pure BEV deliveries is 200.7k units');
+  assert(bevShare?.value === 24.7, 'Suite 15a-4: Geely Q3 BEV share is 24.7%');
+  assert(rev?.value === 98960, 'Suite 15a-5: Geely Q3 revenue is RMB 98,960M');
+  assert(op?.value === 5520, 'Suite 15a-6: Geely Q3 operating profit is RMB 5,520M');
+  assert(margin?.value === 5.6, 'Suite 15a-7: Geely Q3 operating margin is 5.6%');
+
+  const calcMargin = Math.round((op!.value! / rev!.value!) * 1000) / 10;
+  assert(calcMargin === margin?.value, 'Suite 15b-1: Margin triplet mathematically reconciles (RMB 5,520M / RMB 98,960M = 5.6%)');
+}
+
+// =========================================================================
+// Suite 16: Data Freshness 3-Date Model & Season Summary
+// =========================================================================
+function runSuite16() {
+  console.log('\n--- Suite 16: Data Freshness 3-Date Model & Season Summary ---');
+
+  // 1. All 12 reported OEMs receive verified_official
+  const reportedIds = [
+    'tesla', 'volkswagen_group', 'general_motors', 'ford',
+    'hyundai_motor', 'mercedes_benz', 'stellantis', 'byd',
+    'volvo_cars', 'kia', 'rivian', 'geely'
+  ];
+
+  for (const id of reportedIds) {
+    const f = getCompanyDataFreshness(id, '2026-Q3');
+    assert(f.status === 'verified_official', `Suite 16a-1 [${id}]: status is verified_official`);
+    assert(f.reportingPeriod === '2026-Q3', `Suite 16a-2 [${id}]: reportingPeriod is 2026-Q3`);
+    assert(Boolean(f.sourcePublishedAt), `Suite 16a-3 [${id}]: sourcePublishedAt is populated (${f.sourcePublishedAt})`);
+    assert(Boolean(f.dataUpdatedAt), `Suite 16a-4 [${id}]: dataUpdatedAt is populated (${f.dataUpdatedAt})`);
+    assert(f.hasObservationsForPeriod === true, `Suite 16a-5 [${id}]: hasObservationsForPeriod is true`);
+  }
+
+  // 2. All 4 scheduled OEMs receive scheduled
+  const scheduledMap: Record<string, string> = {
+    bmw_group: '2026-11-04',
+    toyota_motor: '2026-11-05',
+    nissan_motor: '2026-11-07',
+    honda_motor: '2026-11-08',
+  };
+
+  for (const [id, expectedDate] of Object.entries(scheduledMap)) {
+    const f = getCompanyDataFreshness(id, '2026-Q3');
+    assert(f.status === 'scheduled', `Suite 16b-1 [${id}]: status is scheduled`);
+    assert(f.scheduledDate === expectedDate, `Suite 16b-2 [${id}]: scheduledDate is ${expectedDate}`);
+    assert(f.hasObservationsForPeriod === false, `Suite 16b-3 [${id}]: hasObservationsForPeriod is strictly false`);
+    assert(f.sourcePublishedAt === undefined, `Suite 16b-4 [${id}]: sourcePublishedAt is undefined (no fabrication)`);
+  }
+
+  // 3. Reporting Season Summary
+  const summary = getReportingSeasonSummary('2026-Q3');
+  assert(summary.totalCompanies === 16, 'Suite 16c-1: Total registered OEMs in summary is 16');
+  assert(summary.reportedCount === 12, 'Suite 16c-2: Exactly 12 reported OEMs in 2026-Q3 season');
+  assert(summary.scheduledCount === 4, 'Suite 16c-3: Exactly 4 scheduled pending OEMs in 2026-Q3 season');
+  assert(summary.unconfirmedCount === 0, 'Suite 16c-4: 0 unconfirmed OEMs in 2026-Q3 season');
+}
+
 runSuite12()
   .then(() => {
+    runSuite13();
+    runSuite14();
+    runSuite15();
+    runSuite16();
     console.log(`\nResults: ${passed} passed, ${failed} failed.`);
     if (failed > 0) {
       process.exit(1);
@@ -1881,6 +2059,6 @@ runSuite12()
     }
   })
   .catch((err) => {
-    console.error('Suite 12 unhandled error:', err);
+    console.error('Suite unhandled error:', err);
     process.exit(1);
   });

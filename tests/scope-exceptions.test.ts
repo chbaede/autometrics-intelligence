@@ -6081,7 +6081,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 {
   // 1. Original observations are never deleted from METRIC_OBSERVATIONS
   const totalObsCount = METRIC_OBSERVATIONS.length;
-  check(totalObsCount === 437, 'Test 218a: Total metric observations preserved intact (437: 384 historical + 53 in 2026-Q3)');
+  check(totalObsCount === 463, 'Test 218a: Total metric observations preserved intact (463: 391 historical + 72 in 2026-Q3)');
 
   const rivianObs = METRIC_OBSERVATIONS.filter(o => o.companyId === 'rivian');
   check(rivianObs.length > 0, 'Test 218b: Rivian observations remain present in dataset');
@@ -6545,8 +6545,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   // 4. Actual earnings and revenue chart metric types do not alter audit observations
   const revMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'revenue');
   const ebitMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'operating_income');
-  check(revMetrics.length === 73, 'Test 225l: Exactly 73 revenue observations (16 companies x 4 historical periods + 9 in 2026-Q3)');
-  check(ebitMetrics.length === 72, 'Test 225m: Exactly 72 operating_income observations (16 companies x 4 historical periods + 8 in 2026-Q3, BYD reports net_income)');
+  check(revMetrics.length === 77, 'Test 225l: Exactly 77 revenue observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 12 in 2026-Q3)');
+  check(ebitMetrics.length === 76, 'Test 225m: Exactly 76 operating_income observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 11 in 2026-Q3, BYD reports net_income)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8123,8 +8123,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const dynamicAuditData = buildAuditReportData();
   check(dynamicAuditData.findings.blocking === 0, 'Test 237i-1: Dynamic audit report has 0 blocking findings');
   check(dynamicAuditData.findings.review === 8, 'Test 237i-2: Dynamic audit report review findings dynamically computed as 8');
-  check(dynamicAuditData.counts.sourceClaims === 157, 'Test 237i-3: Exactly 157 verified source claims audited');
-  check(dynamicAuditData.counts.documentsWithSourceClaims === 31, 'Test 237i-4: Exactly 31 documents with source claims');
+  check(dynamicAuditData.counts.sourceClaims === 183, 'Test 237i-3: Exactly 183 verified source claims audited');
+  check(dynamicAuditData.counts.documentsWithSourceClaims === 35, 'Test 237i-4: Exactly 35 documents with source claims');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8223,9 +8223,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 {
   console.log('--- TEST 240: Regional 2026-Q3 Coverage & Exact Non-Fallback Behavior ---');
 
-  // Test 240a: Global Q3 deliveries contains 9 reporting OEMs
+  // Test 240a: Global Q3 deliveries contains 12 reporting OEMs
   const globalQ3 = getRegionalObservations('global', undefined, '2026-Q3');
-  check(globalQ3.length === 9, 'Test 240a: Global Q3 regional observations contains exactly 9 reporting OEMs');
+  check(globalQ3.length === 12, 'Test 240a: Global Q3 regional observations contains exactly 12 reporting OEMs');
 
   const q3Oems = new Set(globalQ3.map((o) => o.companyId));
   check(q3Oems.has('tesla'), 'Test 240a-1: Tesla global Q3 regional observation present');
@@ -8237,6 +8237,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(q3Oems.has('stellantis'), 'Test 240a-7: Stellantis global Q3 regional observation present');
   check(q3Oems.has('byd'), 'Test 240a-8: BYD global Q3 regional observation present');
   check(q3Oems.has('volvo_cars'), 'Test 240a-9: Volvo Cars global Q3 regional observation present');
+  check(q3Oems.has('kia'), 'Test 240a-10: Kia global Q3 regional observation present');
+  check(q3Oems.has('geely'), 'Test 240a-11: Geely global Q3 regional observation present');
+  check(q3Oems.has('rivian'), 'Test 240a-12: Rivian global Q3 regional observation present');
 
   // Test 240b: Volvo Cars officially disaggregated Q3 regional deliveries
   const volvoEurope = getRegionalObservations('europe', 'volvo_cars', '2026-Q3');
@@ -8256,9 +8259,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(southAmericaQ3.length === 0, 'Test 240c-1: South America Q3 has 0 records (fail-closed, no silent fallback to Q2)');
 
   const unpopulatedAll = getRegionalObservations(undefined, undefined, '2026-Q3');
-  // Total Q3 regional observations = 9 global + 4 volvo disaggregated = 13
-  check(unpopulatedAll.length === 13, 'Test 240c-2: Total Q3 regional observations is exactly 13 (9 global + 4 disaggregated)');
-  check(REGIONAL_OBSERVATIONS.length === 357, 'Test 240d: Total regional observations matches audited inventory (357)');
+  // Total Q3 regional observations = 12 global + 4 volvo disaggregated + 2 kia disaggregated = 18
+  check(unpopulatedAll.length === 18, 'Test 240c-2: Total Q3 regional observations is exactly 18 (12 global + 4 disaggregated + 2 kia)');
+  check(REGIONAL_OBSERVATIONS.length === 362, 'Test 240d: Total regional observations matches audited inventory (362)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8364,7 +8367,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   console.log('--- TEST 243: Evidence Locator Completeness for 2026-Q3 Observations ---');
 
   const q3Obs = METRIC_OBSERVATIONS.filter((o) => o.period === '2026-Q3');
-  check(q3Obs.length === 53, 'Test 243a: Exactly 53 observations in 2026-Q3 dataset');
+  check(q3Obs.length === 72, 'Test 243a: Exactly 72 observations in 2026-Q3 dataset');
 
   // Verify that all 53 observations have valid locators (page number or web tableReference) and labels
   let missingLocator = 0;
@@ -8533,9 +8536,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   console.log('--- TEST 245: Regional 2026-Q3 Data Invariants ---');
 
   const q3Regional = REGIONAL_OBSERVATIONS.filter((o) => o.period === '2026-Q3');
-  check(q3Regional.length === 13, 'Test 245a: Exactly 13 regional observations registered for 2026-Q3');
+  check(q3Regional.length === 18, 'Test 245a: Exactly 18 regional observations registered for 2026-Q3');
 
-  // 1. All 13 entries must have complete provenance metadata
+  // 1. All 18 entries must have complete provenance metadata
   for (const reg of q3Regional) {
     check(reg.sourceDocId !== undefined && reg.sourceDocId !== '', `Test 245b-1 [${reg.id}]: sourceDocId defined`);
     const hasNumericPage = typeof reg.pageNumber === 'number' && reg.pageNumber >= 1;
@@ -8548,8 +8551,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   }
 
   // 2. Deliveries vs Shipments definition distinction invariant
-  const deliveryOemIds = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars'];
-  const shipmentOemIds = ['general_motors', 'ford', 'hyundai_motor', 'stellantis'];
+  const deliveryOemIds = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars', 'rivian', 'geely'];
+  const shipmentOemIds = ['general_motors', 'ford', 'hyundai_motor', 'stellantis', 'kia'];
 
   for (const reg of q3Regional.filter((o) => o.regionId === 'global')) {
     if (deliveryOemIds.includes(reg.companyId)) {
@@ -8596,10 +8599,10 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const q3Volumes = METRIC_OBSERVATIONS.filter(
     (o) => o.period === '2026-Q3' && (o.metricId === 'deliveries_global' || o.metricId === 'wholesale_shipments')
   );
-  check(q3Volumes.length === 9, 'Test 246a-1: Exactly 9 Q3 volume observations');
+  check(q3Volumes.length === 12, 'Test 246a-1: Exactly 12 Q3 volume observations');
 
-  const retailOems = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars'];
-  const wholesaleOems = ['general_motors', 'ford', 'hyundai_motor', 'stellantis'];
+  const retailOems = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars', 'rivian', 'geely'];
+  const wholesaleOems = ['general_motors', 'ford', 'hyundai_motor', 'stellantis', 'kia'];
 
   for (const obs of q3Volumes) {
     if (retailOems.includes(obs.companyId)) {
@@ -8620,22 +8623,25 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     .filter((o) => o.volumeDefinition === 'retail_deliveries')
     .sort((a, b) => ((b.value as number) ?? 0) - ((a.value as number) ?? 0));
 
-  check(retailRankings.length === 5, 'Test 246c-1: Exactly 5 retail delivery OEMs in Q3');
+  check(retailRankings.length === 7, 'Test 246c-1: Exactly 7 retail delivery OEMs in Q3');
   check(retailRankings[0].companyId === 'volkswagen_group', 'Test 246c-2: VW Group #1 in retail deliveries (1,885k)');
   check(retailRankings[1].companyId === 'byd', 'Test 246c-3: BYD #2 in retail deliveries (1,323.07k)');
-  check(retailRankings[2].companyId === 'mercedes_benz', 'Test 246c-4: Mercedes-Benz #3 in retail deliveries (491.65k)');
-  check(retailRankings[3].companyId === 'tesla', 'Test 246c-5: Tesla #4 in retail deliveries (486.532k)');
-  check(retailRankings[4].companyId === 'volvo_cars', 'Test 246c-6: Volvo Cars #5 in retail deliveries (141.609k)');
+  check(retailRankings[2].companyId === 'geely', 'Test 246c-4: Geely #3 in retail deliveries (812.52k)');
+  check(retailRankings[3].companyId === 'mercedes_benz', 'Test 246c-5: Mercedes-Benz #4 in retail deliveries (491.65k)');
+  check(retailRankings[4].companyId === 'tesla', 'Test 246c-6: Tesla #5 in retail deliveries (486.532k)');
+  check(retailRankings[5].companyId === 'volvo_cars', 'Test 246c-7: Volvo Cars #6 in retail deliveries (141.609k)');
+  check(retailRankings[6].companyId === 'rivian', 'Test 246c-8: Rivian #7 in retail deliveries (19.25k)');
 
   const wholesaleRankings = q3Volumes
     .filter((o) => o.volumeDefinition === 'wholesale_shipments')
     .sort((a, b) => ((b.value as number) ?? 0) - ((a.value as number) ?? 0));
 
-  check(wholesaleRankings.length === 4, 'Test 246c-7: Exactly 4 wholesale shipment OEMs in Q3');
-  check(wholesaleRankings[0].companyId === 'stellantis', 'Test 246c-8: Stellantis #1 in wholesale shipments (1,286k)');
-  check(wholesaleRankings[1].companyId === 'ford', 'Test 246c-9: Ford #2 in wholesale shipments (1,040k)');
-  check(wholesaleRankings[2].companyId === 'general_motors', 'Test 246c-10: GM #3 in wholesale shipments (1,028k)');
-  check(wholesaleRankings[3].companyId === 'hyundai_motor', 'Test 246c-11: Hyundai Motor #4 in wholesale shipments (920.71k)');
+  check(wholesaleRankings.length === 5, 'Test 246c-9: Exactly 5 wholesale shipment OEMs in Q3');
+  check(wholesaleRankings[0].companyId === 'stellantis', 'Test 246c-10: Stellantis #1 in wholesale shipments (1,286k)');
+  check(wholesaleRankings[1].companyId === 'ford', 'Test 246c-11: Ford #2 in wholesale shipments (1,040k)');
+  check(wholesaleRankings[2].companyId === 'general_motors', 'Test 246c-12: GM #3 in wholesale shipments (1,028k)');
+  check(wholesaleRankings[3].companyId === 'hyundai_motor', 'Test 246c-13: Hyundai Motor #4 in wholesale shipments (920.71k)');
+  check(wholesaleRankings[4].companyId === 'kia', 'Test 246c-14: Kia #5 in wholesale shipments (847.36k)');
 
   // 4. Mixed ranking contains both definitions and flags mixed comparability
   const allVolDefs = new Set(q3Volumes.map((o) => o.volumeDefinition).filter(Boolean));
