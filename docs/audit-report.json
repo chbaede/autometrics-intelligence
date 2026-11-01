@@ -1,10 +1,19 @@
 {
-  "generatedAt": "2026-10-31T21:25:08.555Z",
-  "sourceCommitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-  "reportGenerationCommitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
+  "generatedAt": "2026-11-01T14:45:33.355Z",
+  "sourceCommitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+  "executionCommitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+  "reportGenerationCommitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
-  "workingTreeStatus": "clean",
+  "workingTreeStatus": "dirty",
+  "workingTreeExcludingDocs": "clean",
+  "workingTreeExclusions": [
+    "docs/audit-report.json",
+    "docs/data-audit-report.md",
+    "docs/data-integrity-report.md"
+  ],
+  "gitMetadataAvailable": true,
+  "provenanceSource": "git_cli",
   "commandResults": [
     {
       "command": "npm run typecheck",
@@ -12,8 +21,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:24:50.169Z"
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:14.081Z"
     },
     {
       "command": "npm run validate-data",
@@ -21,8 +30,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "🗺️  Total Regional Observations: 357 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:24:52.942Z"
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:16.907Z"
     },
     {
       "command": "npm run validate-source-claims",
@@ -30,17 +39,17 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "✨ Internal consistency validation passed: All 157 source claims across 31 documents match registered observations and document perimeters. ℹ️  Note: This confir",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:24:53.366Z"
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:17.332Z"
     },
     {
       "command": "npm test",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "Results: 1045 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:24:53.747Z"
+      "summary": "Results: 1065 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!",
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:17.734Z"
     },
     {
       "command": "npm run audit-data",
@@ -48,8 +57,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:25:00.863Z"
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:25.025Z"
     },
     {
       "command": "npm run audit-data -- --strict",
@@ -57,8 +66,8 @@
       "exitCode": 1,
       "status": "EXPECTED_POLICY_FAILURE",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:25:01.617Z"
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:25.936Z"
     },
     {
       "command": "npm run lint",
@@ -66,17 +75,17 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:25:02.363Z"
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:26.835Z"
     },
     {
       "command": "npm run build",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.57s",
-      "commitSha": "a83b95e2672ceedaa87440925d54d3e55f2b9068",
-      "executedAt": "2026-10-31T21:25:03.932Z"
+      "summary": "dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.69s",
+      "commitSha": "344c2bcaf11ba5be2c369edd0188d8fe66be646b",
+      "executedAt": "2026-11-01T14:45:28.450Z"
     }
   ],
   "counts": {
