@@ -117,7 +117,7 @@ export const Footer: React.FC = () => {
             </Link>
             <span>•</span>
             <Link to="/coverage" className="hover:text-slate-800 dark:hover:text-slate-300 transition">
-              {language === 'ko' ? '데이터 기준: 2026.Q3 (최신 업데이트)' : 'Data Freshness: Q3 2026 (Updated Oct 2026)'}
+              {language === 'ko' ? '데이터 업데이트: 2026.11.01 최신 버전 (2026-Q3 실적 반영)' : 'Data Updated: Nov 1, 2026 Version (2026-Q3 Disclosures)'}
             </Link>
           </div>
         </div>

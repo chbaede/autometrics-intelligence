@@ -8,7 +8,7 @@ import {
 } from '../utils/metricQueries';
 import { METRIC_OBSERVATIONS } from '../data/observations';
 import { SOURCE_DOCUMENTS } from '../data/sources';
-import { getCompanyDataFreshness } from '../utils/dataFreshness';
+import { getCompanyDataFreshness, getReportingSeasonSummary } from '../utils/dataFreshness';
 import { MetricObservation } from '../types/metrics';
 import { formatPeriodLabel } from '../utils/metricCalculations';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -69,8 +69,14 @@ export const DataCoveragePage: React.FC = () => {
     <div className="space-y-8 pb-12">
       {/* Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
-          <TableProperties className="w-4 h-4" /> {language === 'ko' ? '데이터 무결성 및 공시 투명성' : 'Data Integrity & Provenance Transparency'}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
+            <TableProperties className="w-4 h-4" /> {language === 'ko' ? '데이터 무결성 및 공시 투명성' : 'Data Integrity & Provenance Transparency'}
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-xs font-bold font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            {language === 'ko' ? '2026.11.01 최신 업데이트 버전 기준' : 'Updated Nov 1, 2026 Version'}
+          </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {language === 'ko' ? '데이터 수집 현황 및 공식 IR 공시 종합 테이블' : 'Data Coverage & Verified IR Disclosures Terminal'}
@@ -150,23 +156,84 @@ export const DataCoveragePage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2026-Q3 Required Metrics Inspection Terminal */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-brand-600" />
-              <span>{language === 'ko' ? '2026 Q3 기업별 필수 지표 커버리지 및 누락 감사 매트릭스' : '2026 Q3 Required Metrics Coverage & Audit Table'}</span>
-            </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {language === 'ko'
-                ? '제조사별 사업 구조와 회계 기준(IFRS/GAAP/CASBE)에 부합하는 필수 지표의 충족 여부를 투명하게 공시합니다.'
-                : 'Audits required KPI presence per OEM business model and accounting standard. Identifies missing or pending disclosures.'}
-            </p>
-          </div>
-        </div>
+      {/* 2026-Q3 Reporting Season & Required Metrics Inspection Terminal */}
+      {(() => {
+        const season = getReportingSeasonSummary('2026-Q3');
+        const publishedCount = season.reportedCount + season.partialCount + season.publishedPendingDataCount;
+        const dataIngestedCount = season.reportedCount + season.partialCount;
 
-        <div className="overflow-x-auto">
+        return (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>{language === 'ko' ? '2026년 3분기(2026-Q3) 어닝 시즌 공시 및 검증 종합 현황' : '2026 Q3 Earnings Season Disclosure & Verification Terminal'}</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {language === 'ko'
+                      ? '등록 16개 글로벌 제조사의 공식 IR 발표 여부, 필수 지표 커버리지 및 원문 대조 검증 상태'
+                      : 'Audit breakdown across all 16 global OEMs: primary filing status, required metric coverage, and IR verification'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold font-mono text-[11px]">
+                  {season.reportedCount} {language === 'ko' ? '공식 검증 완료' : 'Verified'}
+                </span>
+                {season.partialCount > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold font-mono text-[11px]">
+                    {season.partialCount} {language === 'ko' ? '일부 반영' : 'Partial'}
+                  </span>
+                )}
+                {season.publishedPendingDataCount > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold font-mono text-[11px]">
+                    {season.publishedPendingDataCount} {language === 'ko' ? '데이터 대기' : 'Pending Ingestion'}
+                  </span>
+                )}
+                <span className="px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-bold font-mono text-[11px]">
+                  {season.scheduledCount} {language === 'ko' ? '공시 예정' : 'Scheduled'}
+                </span>
+              </div>
+            </div>
+
+            {/* 7 Statistics Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-center">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] text-slate-500 block">{language === 'ko' ? '공식 발표 확인' : 'Disclosed'}</span>
+                <span className="text-base font-extrabold font-mono text-slate-900 dark:text-white">{publishedCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] text-slate-500 block">{language === 'ko' ? '데이터 반영' : 'Data Ingested'}</span>
+                <span className="text-base font-extrabold font-mono text-brand-600 dark:text-brand-400">{dataIngestedCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block">{language === 'ko' ? '전체 지표 검증' : 'Fully Verified'}</span>
+                <span className="text-base font-extrabold font-mono text-emerald-600 dark:text-emerald-400">{season.reportedCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
+                <span className="text-[10px] text-amber-700 dark:text-amber-400 block">{language === 'ko' ? '일부 지표 반영' : 'Partial'}</span>
+                <span className="text-base font-extrabold font-mono text-amber-600 dark:text-amber-400">{season.partialCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60">
+                <span className="text-[10px] text-indigo-700 dark:text-indigo-400 block">{language === 'ko' ? '데이터 누락/대기' : 'Pending Ingestion'}</span>
+                <span className="text-base font-extrabold font-mono text-indigo-600 dark:text-indigo-400">{season.publishedPendingDataCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60">
+                <span className="text-[10px] text-sky-700 dark:text-sky-400 block">{language === 'ko' ? '공시 예정' : 'Scheduled'}</span>
+                <span className="text-base font-extrabold font-mono text-sky-600 dark:text-sky-400">{season.scheduledCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] text-slate-500 block">{language === 'ko' ? '공시 여부 미확인' : 'Unconfirmed'}</span>
+                <span className="text-base font-extrabold font-mono text-slate-400">{season.unconfirmedCount}</span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-950 font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
               <tr>
@@ -249,6 +316,8 @@ export const DataCoveragePage: React.FC = () => {
           </table>
         </div>
       </div>
+    );
+  })()}
 
       {/* Coverage Matrix Table */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-md space-y-4">

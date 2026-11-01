@@ -48,6 +48,10 @@ export const Navbar: React.FC = () => {
               <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400 hidden sm:inline">
                 Intelligence
               </span>
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {language === 'ko' ? '2026.11.01 최신 업데이트 버전' : 'Updated Nov 1, 2026 Version'}
+              </span>
             </div>
             <span className="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 hidden md:inline">
               Global OEM IR Performance
