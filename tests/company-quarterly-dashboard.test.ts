@@ -17,8 +17,13 @@ import { getAllCompanies, getObservationsByCompany, getDistinctPeriods } from '.
 import { getPerformanceDriver, getAvailablePerformanceDriverPeriods } from '../src/data/performanceDrivers';
 import { getScheduledDisclosure } from '../src/data/scheduledDisclosures';
 import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
+import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import { TRANSLATIONS } from '../src/i18n/LanguageContext';
-import { getCompanyDataFreshness, getReportingSeasonSummary } from '../src/utils/dataFreshness';
+import {
+  getCompanyDataFreshness,
+  getReportingSeasonSummary,
+  getCompanyRequiredMetrics,
+} from '../src/utils/dataFreshness';
 import {
   comparePeriodsDescending,
   getPeriodSortWeight,
@@ -1892,11 +1897,18 @@ function runSuite13() {
   assert(del?.value === 847.36, 'Suite 13a-1: Kia Q3 wholesale deliveries is 847.36k (847,355 units)');
   assert(del?.volumeDefinition === 'wholesale_shipments', 'Suite 13a-2: Kia Q3 volumeDefinition is wholesale_shipments');
   assert(bev?.value === 123.0, 'Suite 13a-3: Kia Q3 pure EV/BEV deliveries is 123.0k units (+75.4% YoY)');
-  assert(bevShare?.value === 14.5, 'Suite 13a-4: Kia Q3 BEV share of wholesale is 14.5%');
+  assert(bev?.volumeDefinition === 'retail_deliveries', 'Suite 13a-3b: Kia Q3 BEV volumeDefinition is retail_deliveries');
+  assert(bevShare?.value === 14.8, 'Suite 13a-4: Kia Q3 retail BEV share is 14.8% (123k / 829k)');
+  assert(bevShare?.value !== 14.5, 'Suite 13a-4b: Previous mixed-basis 14.5% BEV share is strictly eliminated');
+  assert(bevShare?.volumeDefinition === 'retail_deliveries', 'Suite 13a-4c: BEV share volumeDefinition is retail_deliveries');
   assert(rev?.value === 31597400, 'Suite 13a-5: Kia Q3 consolidated revenue is KRW 31,597,400M (₩31.5974T)');
   assert(ebit?.value === 1818300, 'Suite 13a-6: Kia Q3 operating profit is KRW 1,818,300M (₩1.8183T)');
   assert(margin?.value === 5.8, 'Suite 13a-7: Kia Q3 operating margin is 5.8%');
   assert(net?.value === 1285500, 'Suite 13a-8: Kia Q3 net profit is KRW 1,285,500M (₩1.2855T)');
+  assert(
+    Boolean(net?.originalLabel?.includes('비지배지분 포함') || net?.originalLabel?.includes('non-controlling interests')),
+    'Suite 13a-8b: Net profit originalLabel explicitly confirms NCI inclusion'
+  );
 
   // Margin math: 1,818,300 / 31,597,400 = 5.7546% -> rounds to 5.8%
   const calcMargin = Math.round((ebit!.value! / rev!.value!) * 1000) / 10;
@@ -1914,6 +1926,12 @@ function runSuite13() {
   assert(ebit25Q3?.value === 1462800, 'Suite 13c-3: Kia 2025-Q3 comparative operating profit is KRW 1,462,800M');
   assert(net25Q3?.value === 1421400, 'Suite 13c-4: Kia 2025-Q3 comparative net profit is KRW 1,421,400M');
   assert(margin25Q3?.value === 5.1, 'Suite 13c-5: Kia 2025-Q3 comparative margin is 5.1%');
+  const bev25Q3 = kia25Q3Obs.find((o) => o.metricId === 'bev_deliveries');
+  assert(bev25Q3?.value === 70.0, 'Suite 13c-6: Kia 2025-Q3 pure EV retail is 70.0k');
+  assert(bev25Q3?.volumeDefinition === 'retail_deliveries', 'Suite 13c-7: Kia 2025-Q3 EV volumeDefinition is retail_deliveries');
+  const bevShare25Q3 = kia25Q3Obs.find((o) => o.metricId === 'bev_share');
+  assert(bevShare25Q3?.value === null, 'Suite 13c-8: Kia 2025-Q3 mixed BEV share eliminated (null due to missing retail total)');
+  assert(bevShare25Q3?.verificationStatus === 'needs_review', 'Suite 13c-9: Kia 2025-Q3 mixed BEV share marked needs_review');
 
   const yoyDel = Math.round(((del!.value! - del25Q3!.value!) / del25Q3!.value!) * 1000) / 10;
   assert(yoyDel === 7.9, 'Suite 13d-1: Wholesale YoY growth is +7.9%');
@@ -2045,12 +2063,57 @@ function runSuite16() {
   assert(summary.unconfirmedCount === 0, 'Suite 16c-4: 0 unconfirmed OEMs in 2026-Q3 season');
 }
 
+// =========================================================================
+// Suite 17: Universal 2026 Q3 Freshness, Required Metrics & Provenance Invariants
+// =========================================================================
+function runSuite17() {
+  console.log('\n--- Suite 17: Universal 2026 Q3 Freshness, Required Metrics & Provenance Invariants ---');
+
+  // 1. All 12 reported OEMs have 100% required metrics coverage
+  const reportedIds = [
+    'tesla', 'volkswagen_group', 'general_motors', 'ford', 'hyundai_motor',
+    'mercedes_benz', 'stellantis', 'byd', 'volvo_cars', 'kia', 'rivian', 'geely',
+  ];
+
+  for (const id of reportedIds) {
+    const f = getCompanyDataFreshness(id, '2026-Q3');
+    assert(f.status === 'verified_official', `Suite 17a-1 [${id}]: status is verified_official`);
+    assert(f.requiredMetricsCoverage !== undefined, `Suite 17a-2 [${id}]: coverage object exists`);
+    assert(f.requiredMetricsCoverage?.percentage === 100, `Suite 17a-3 [${id}]: required metrics coverage is 100% (${f.requiredMetricsCoverage?.ratio})`);
+    assert(f.requiredMetricsCoverage?.missingMetrics.length === 0, `Suite 17a-4 [${id}]: 0 missing required metrics`);
+  }
+
+  // 2. Automated evaluation of company required metrics
+  const requiredForKia = getCompanyRequiredMetrics('kia');
+  assert(requiredForKia.includes('net_income'), 'Suite 17b-1: Kia requires net_income in required metrics');
+  assert(requiredForKia.includes('revenue'), 'Suite 17b-2: Kia requires revenue in required metrics');
+  assert(requiredForKia.includes('operating_margin'), 'Suite 17b-3: Kia requires operating_margin in required metrics');
+
+  const requiredForByd = getCompanyRequiredMetrics('byd');
+  assert(!requiredForByd.includes('operating_income'), 'Suite 17b-4: BYD does NOT require operating_income for Q3 (CASBE exemption)');
+  assert(requiredForByd.includes('net_income'), 'Suite 17b-5: BYD requires net_income');
+
+  // 3. Wholesale vs Retail mixed BEV share blocked
+  const kiaDel = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2026_q3_del');
+  const kiaBev = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2026_q3_bev');
+  assert(kiaDel?.volumeDefinition === 'wholesale_shipments', 'Suite 17c-1: Kia del is wholesale_shipments');
+  assert(kiaBev?.volumeDefinition === 'retail_deliveries', 'Suite 17c-2: Kia bev is retail_deliveries');
+  assert(kiaDel?.volumeDefinition !== kiaBev?.volumeDefinition, 'Suite 17c-3: Definitions differ, preventing mixed-basis calculation');
+
+  // 4. Non-applicable metrics not set to 0
+  const rivianPhev = METRIC_OBSERVATIONS.find(
+    (o) => o.companyId === 'rivian' && o.period === '2026-Q3' && o.metricId === 'phev_deliveries'
+  );
+  assert(rivianPhev === undefined, 'Suite 17d-1: Rivian PHEV is not fabricated as 0 (omitted / not applicable)');
+}
+
 runSuite12()
   .then(() => {
     runSuite13();
     runSuite14();
     runSuite15();
     runSuite16();
+    runSuite17();
     console.log(`\nResults: ${passed} passed, ${failed} failed.`);
     if (failed > 0) {
       process.exit(1);

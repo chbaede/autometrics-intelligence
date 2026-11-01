@@ -1266,7 +1266,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-11-01',
-    notes: 'Official Kia Global Newsroom & IR disclosure: Q3 2026 global wholesale sales (847,355 units), revenue (KRW 31.5974T), operating profit (KRW 1.8183T), net profit (KRW 1.2855T), and xEV retail (300k units).',
+    notes: 'Official Kia Global Newsroom & IR disclosure: Q3 2026 global wholesale sales (847,355 units), global retail sales (~829k units), revenue (KRW 31.5974T), operating profit (KRW 1.8183T), net profit including NCI (KRW 1.2855T), pure EV retail (123k units), and xEV retail (300k units).',
     sourceClaims: [
       {
         metricId: 'deliveries_global',
@@ -1285,7 +1285,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
       {
         metricId: 'bev_share',
         period: '2026-Q3',
-        value: 14.5,
+        value: 14.8,
         unit: 'percentage',
         scope: 'consolidated_group',
       },
@@ -1335,7 +1335,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-11-01',
-    notes: 'Official comparative prior-year period disclosures for 3Q25: wholesale 785,137 units, revenue KRW 28,686,000M, operating profit KRW 1,462,800M, margin 5.1%, net profit KRW 1,421,400M, and BEV retail 70,000 units.',
+    notes: 'Official comparative prior-year period disclosures for 3Q25: wholesale 785,137 units, revenue KRW 28,686,000M, operating profit KRW 1,462,800M, margin 5.1%, net profit including NCI KRW 1,421,400M, and BEV retail 70,000 units.',
     sourceClaims: [
       {
         metricId: 'deliveries_global',
@@ -1349,13 +1349,6 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
         period: '2025-Q3',
         value: 70.0,
         unit: 'thousand_units',
-        scope: 'consolidated_group',
-      },
-      {
-        metricId: 'bev_share',
-        period: '2025-Q3',
-        value: 8.9,
-        unit: 'percentage',
         scope: 'consolidated_group',
       },
       {

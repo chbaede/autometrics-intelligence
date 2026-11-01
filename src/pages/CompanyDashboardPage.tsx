@@ -258,46 +258,81 @@ export const CompanyDashboardPage: React.FC = () => {
 
         {/* 3-Date Temporal Provenance & Data Freshness Bar */}
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-          <div className="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs font-mono">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px]">
-                {language === 'ko' ? '데이터 기준 및 출처 시점:' : 'Temporal Provenance:'}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
-                <Calendar className="w-3.5 h-3.5 text-brand-600" />
-                {language === 'ko' ? '보고 기간: ' : 'Reporting Period: '}
-                <span className="text-brand-600 dark:text-brand-400">{formatPeriodLabel(activePeriod, language)}</span>
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
-                <Clock className="w-3.5 h-3.5 text-sky-600" />
-                {language === 'ko' ? '공식 발표일: ' : 'Source Disclosed: '}
-                <span className="text-sky-600 dark:text-sky-400">
-                  {activeFreshness.sourcePublishedAt || (activeFreshness.status === 'scheduled' ? `${activeFreshness.scheduledDate} (예정)` : '미공시')}
+          <div className="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex flex-col gap-3 text-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 flex-wrap font-mono">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px]">
+                  {language === 'ko' ? '데이터 기준 및 출처 시점:' : 'Temporal Provenance:'}
                 </span>
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                {language === 'ko' ? '시스템 갱신일: ' : 'System Updated: '}
-                <span className="text-emerald-600 dark:text-emerald-400">{activeFreshness.dataUpdatedAt || '2026-11-01'}</span>
-              </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                  <Calendar className="w-3.5 h-3.5 text-brand-600" />
+                  {language === 'ko' ? '보고 기간: ' : 'Period: '}
+                  <span className="text-brand-600 dark:text-brand-400">{formatPeriodLabel(activePeriod, language)}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                  <Clock className="w-3.5 h-3.5 text-sky-600" />
+                  {language === 'ko' ? '공식 발표일: ' : 'Disclosed: '}
+                  <span className="text-sky-600 dark:text-sky-400">
+                    {activeFreshness.sourcePublishedAt || (activeFreshness.status === 'scheduled' ? `${activeFreshness.scheduledDate} (예정)` : '미공시')}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  {language === 'ko' ? '데이터 반영일: ' : 'Updated: '}
+                  <span className="text-emerald-600 dark:text-emerald-400">{activeFreshness.dataUpdatedAt || '-'}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  {language === 'ko' ? '원문 최종 확인: ' : 'Audited: '}
+                  <span className="text-indigo-600 dark:text-indigo-400">{activeFreshness.sourceLastCheckedAt || '-'}</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {activeFreshness.requiredMetricsCoverage && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[11px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                    {language === 'ko' ? '지표 반영률: ' : 'Coverage: '}
+                    <span className="text-brand-600 dark:text-brand-400 font-extrabold">{activeFreshness.requiredMetricsCoverage.ratio}</span>
+                  </span>
+                )}
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-[11px] ${
+                  activeFreshness.status === 'verified_official'
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                    : activeFreshness.status === 'scheduled'
+                    ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-700'
+                    : activeFreshness.status === 'published_pending_data'
+                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                }`}>
+                  {activeFreshness.status === 'verified_official' ? (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <Clock className="w-3.5 h-3.5" />
+                  )}
+                  {language === 'ko' ? activeFreshness.statusLabelKo : activeFreshness.statusLabelEn}
+                </span>
+              </div>
             </div>
 
-            <div>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-[11px] ${
-                activeFreshness.status === 'verified_official'
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                  : activeFreshness.status === 'scheduled'
-                  ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-700'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
-              }`}>
-                {activeFreshness.status === 'verified_official' ? (
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                ) : (
-                  <Clock className="w-3.5 h-3.5" />
-                )}
-                {language === 'ko' ? activeFreshness.statusLabelKo : activeFreshness.statusLabelEn}
-              </span>
-            </div>
+            {activeFreshness.sourceUrl && (
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between flex-wrap gap-2 text-[11px]">
+                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 truncate max-w-xl">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">
+                    {language === 'ko' ? '공식 원문 출처: ' : 'Official Primary Source: '}
+                  </span>
+                  <span className="truncate">{activeFreshness.sourceTitle || currentCompany.name}</span>
+                </div>
+                <a
+                  href={activeFreshness.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:text-brand-700 font-semibold underline shrink-0"
+                >
+                  <span>{language === 'ko' ? '공식 발표 자료 바로가기' : 'Open Primary IR Source'}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>

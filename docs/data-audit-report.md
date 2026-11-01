@@ -1,9 +1,9 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-11-01T15:33:08.267Z  
-**Audited Source Commit SHA**: dc11de73d1a16e374ac9738766b1a08701ec43ca  
-**Report Generation Commit SHA**: dc11de73d1a16e374ac9738766b1a08701ec43ca  
+**Generated At**: 2026-11-01T16:15:54.445Z  
+**Audited Source Commit SHA**: 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
+**Report Generation Commit SHA**: 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
 **Working Tree State**: dirty  
 **Audit Engine Version**: 3.2.0  
 **Data Registry Version**: 1.0.0  
@@ -35,7 +35,7 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | **Total Guidance Targets** | 20 | Verified against IR presentations |
 | **Total Verified Primary Sources** | 95 | HTTPS endpoints, audited metadata |
 | **Documents with Source Claims** | 35 | Verified primary reports |
-| **Total Source Claims Audited** | 183 | 100% consistent with observations |
+| **Total Source Claims Audited** | 182 | 100% consistent with observations |
 | **Source Claim Mismatches** | **0** | **0 errors (100% match)** |
 | **Blocking Findings** | **0** | **Pass (0 blocking errors)** |
 | **Review Findings** | **8** | Conservative proxy limitations (BMW / MBG) |
@@ -147,8 +147,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `dc11de73d1a16e374ac9738766b1a08701ec43ca`
-- **Generated at**: `2026-11-01T15:33:08.267Z`
+- **Audited Source Commit SHA**: `9a9280b9ae4f1f14ec9878212d52d27bf2c3a310`
+- **Generated at**: `2026-11-01T16:15:54.445Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

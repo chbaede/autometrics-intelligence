@@ -8123,7 +8123,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const dynamicAuditData = buildAuditReportData();
   check(dynamicAuditData.findings.blocking === 0, 'Test 237i-1: Dynamic audit report has 0 blocking findings');
   check(dynamicAuditData.findings.review === 8, 'Test 237i-2: Dynamic audit report review findings dynamically computed as 8');
-  check(dynamicAuditData.counts.sourceClaims === 183, 'Test 237i-3: Exactly 183 verified source claims audited');
+  check(dynamicAuditData.counts.sourceClaims === 182, 'Test 237i-3: Exactly 182 verified source claims audited (pruned invalid 2025-Q3 Kia mixed 8.9% claim)');
   check(dynamicAuditData.counts.documentsWithSourceClaims === 35, 'Test 237i-4: Exactly 35 documents with source claims');
 }
 

@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** dc11de73d1a16e374ac9738766b1a08701ec43ca  
-**Report Generation Commit:** dc11de73d1a16e374ac9738766b1a08701ec43ca  
+**Audited Source Commit:** 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
+**Report Generation Commit:** 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-01T15:33:08.267Z  
+**Generated:** 2026-11-01T16:15:54.445Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -39,15 +39,15 @@
 | Documents with Source Claims | 35 |
 | Forward-Looking Guidance Items | 20 |
 | Regional Delivery Observations | 362 |
-| Source Claims Audited | 183 |
+| Source Claims Audited | 182 |
 
 ---
 
 ## Audit Summary
 
 ### Source Claims Verification
-- Total Source Claims: **183** across **35** source documents
-- Claims Audited: **183**
+- Total Source Claims: **182** across **35** source documents
+- Claims Audited: **182**
 - Mismatches: **0**
 - Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
 

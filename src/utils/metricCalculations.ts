@@ -2123,6 +2123,31 @@ export function selectCompatibleBevShareTriplets(
     };
   }
 
+  // If no compatible triplets were found:
+  // Check whether candidates have mutually matching bev and share, but no matching total delivery candidate in that perimeter.
+  const hasMatchingBevAndShare = bevCandidates.some((b) =>
+    shareCandidates.some(
+      (s) =>
+        b.periodType === s.periodType &&
+        b.reportingScope === s.reportingScope &&
+        b.accountingBasis === s.accountingBasis &&
+        b.volumeDefinition === s.volumeDefinition
+    )
+  );
+  const matchingTotExists = hasMatchingBevAndShare && bevCandidates.some((b) =>
+    totCandidates.some((t) => t.volumeDefinition === b.volumeDefinition && t.reportingScope === b.reportingScope)
+  );
+
+  if (hasMatchingBevAndShare && !matchingTotExists) {
+    return {
+      status: 'missing',
+      candidatesChecked,
+      reasons: [
+        'Missing total deliveries candidate observation matching BEV candidate volume definition perimeter.',
+      ],
+    };
+  }
+
   return {
     status: 'incompatible',
     candidatesChecked,

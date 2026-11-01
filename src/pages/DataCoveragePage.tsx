@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  getDataQualityReport,
   getCoverageMatrix,
   getDistinctPeriods,
   getObservations,
   getCompanyById,
 } from '../utils/metricQueries';
+import { METRIC_OBSERVATIONS } from '../data/observations';
+import { SOURCE_DOCUMENTS } from '../data/sources';
+import { getCompanyDataFreshness } from '../utils/dataFreshness';
 import { MetricObservation } from '../types/metrics';
 import { formatPeriodLabel } from '../utils/metricCalculations';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -25,13 +28,42 @@ import {
 
 export const DataCoveragePage: React.FC = () => {
   const { language } = useLanguage();
-  const qualityReport = getDataQualityReport();
   const { companies, periods, matrix } = getCoverageMatrix();
   const distinctPeriods = getDistinctPeriods();
   const [selectedPeriod, setSelectedPeriod] = useState<string>(distinctPeriods[0] || '2026-Q3');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
 
   const tableObservations = getObservations(undefined, undefined, selectedPeriod);
+
+  // 5 Specific Coverage Metrics (Section 7.4)
+  const allObs = METRIC_OBSERVATIONS;
+  const validObs = allObs.filter((o) => o.value !== null && o.value !== undefined);
+  const verifiedObs = allObs.filter((o) => o.verificationStatus === 'verified');
+  const derivedObs = allObs.filter((o) => o.valueType === 'derived');
+  const verifiedDerived = derivedObs.filter(
+    (o) => o.verificationStatus === 'verified' && (o.derivationFormula || o.inputObservationIds)
+  );
+
+  const sourceCoverageRatio = Math.round(
+    (SOURCE_DOCUMENTS.filter((s) => s.isVerified && s.officialUrl).length / (SOURCE_DOCUMENTS.length || 1)) * 100
+  );
+  const observationCoverageRatio = Math.round((validObs.length / (allObs.length || 1)) * 100);
+  const officialVerificationCoverageRatio = Math.round((verifiedObs.length / (allObs.length || 1)) * 100);
+  const calculationVerificationCoverageRatio = Math.round(
+    (verifiedDerived.length / (derivedObs.length || 1)) * 100
+  );
+
+  const q3FreshnessList = companies.map((c) => getCompanyDataFreshness(c.id, '2026-Q3'));
+  const totalRequiredCount = q3FreshnessList.reduce(
+    (acc, f) => acc + (f.requiredMetricsCoverage?.requiredCount || 0),
+    0
+  );
+  const totalVerifiedRequiredCount = q3FreshnessList.reduce(
+    (acc, f) => acc + (f.requiredMetricsCoverage?.verifiedCount || 0),
+    0
+  );
+  const requiredMetricCoverageRatio =
+    totalRequiredCount > 0 ? Math.round((totalVerifiedRequiredCount / totalRequiredCount) * 100) : 0;
 
   return (
     <div className="space-y-8 pb-12">
@@ -50,54 +82,171 @@ export const DataCoveragePage: React.FC = () => {
         </p>
       </div>
 
-      {/* Quality Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
-            <span className="text-xs font-semibold">{language === 'ko' ? '총 검증 데이터 수' : 'Total Observations'}</span>
-            <Database className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+      {/* 5 Distinct Quality & Coverage Metrics (Section 7.4) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">{language === 'ko' ? '출처 등록률' : 'Source Coverage'}</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
           </div>
-          <span className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-            {qualityReport.totalObservations}
-          </span>
-          <span className="text-[11px] text-slate-500 block mt-1">Verified data points</span>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
-            <span className="text-xs font-semibold">{language === 'ko' ? '공식 출처 검증률' : 'Verified IR Sources'}</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+          <div className="text-2xl font-extrabold font-mono text-slate-900 dark:text-slate-100">
+            {sourceCoverageRatio}%
           </div>
-          <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-            {qualityReport.verifiedSourcesRatio}%
-          </span>
-          <span className="text-[11px] text-slate-500 block mt-1">57 Primary Official Links</span>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
-            <span className="text-xs font-semibold">{language === 'ko' ? '가이던스 목표 레코드' : 'Guidance Targets'}</span>
-            <FileCheck2 className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-          </div>
-          <span className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-            {qualityReport.totalGuidanceObservations}
-          </span>
-          <span className="text-[11px] text-slate-500 block mt-1">
-            {language === 'ko' ? '2026/2025년 목표 전망' : '2026/2025 Outlook'}
+          <span className="text-[10px] text-slate-500 block">
+            {SOURCE_DOCUMENTS.length} official documents
           </span>
         </div>
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
-            <span className="text-xs font-semibold">{language === 'ko' ? '최근 공시 주기' : 'Reporting Cycle'}</span>
-            <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">{language === 'ko' ? '관측값 수집률' : 'Observation Coverage'}</span>
+            <Database className="w-4 h-4 text-brand-600" />
           </div>
-          <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-            {qualityReport.lastUpdated}
+          <div className="text-2xl font-extrabold font-mono text-brand-600 dark:text-brand-400">
+            {observationCoverageRatio}%
+          </div>
+          <span className="text-[10px] text-slate-500 block">
+            {validObs.length} / {allObs.length} points
           </span>
-          <span className="text-[11px] text-slate-500 block mt-1">
-            {language === 'ko' ? '2026년 3분기 공시 주기' : 'Q3 2026 Cycle'}
+        </div>
+
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">{language === 'ko' ? '원문 검증 완료율' : 'Official Verification'}</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
+            {officialVerificationCoverageRatio}%
+          </div>
+          <span className="text-[10px] text-slate-500 block">
+            {verifiedObs.length} verified observations
           </span>
+        </div>
+
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">{language === 'ko' ? 'Q3 필수 지표 반영률' : 'Required Metric Cov.'}</span>
+            <FileCheck2 className="w-4 h-4 text-indigo-500" />
+          </div>
+          <div className="text-2xl font-extrabold font-mono text-indigo-600 dark:text-indigo-400">
+            {requiredMetricCoverageRatio}%
+          </div>
+          <span className="text-[10px] text-slate-500 block">
+            {totalVerifiedRequiredCount} / {totalRequiredCount} required metrics
+          </span>
+        </div>
+
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">{language === 'ko' ? '계산 검증 완료율' : 'Calc. Verification'}</span>
+            <Clock className="w-4 h-4 text-sky-500" />
+          </div>
+          <div className="text-2xl font-extrabold font-mono text-sky-600 dark:text-sky-400">
+            {calculationVerificationCoverageRatio}%
+          </div>
+          <span className="text-[10px] text-slate-500 block">
+            {verifiedDerived.length} verified derived KPIs
+          </span>
+        </div>
+      </div>
+
+      {/* 2026-Q3 Required Metrics Inspection Terminal */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-brand-600" />
+              <span>{language === 'ko' ? '2026 Q3 기업별 필수 지표 커버리지 및 누락 감사 매트릭스' : '2026 Q3 Required Metrics Coverage & Audit Table'}</span>
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {language === 'ko'
+                ? '제조사별 사업 구조와 회계 기준(IFRS/GAAP/CASBE)에 부합하는 필수 지표의 충족 여부를 투명하게 공시합니다.'
+                : 'Audits required KPI presence per OEM business model and accounting standard. Identifies missing or pending disclosures.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-950 font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="py-2.5 px-3">{language === 'ko' ? '제조사' : 'Automaker'}</th>
+                <th className="py-2.5 px-3">{language === 'ko' ? '공시 상태' : 'Status'}</th>
+                <th className="py-2.5 px-3 text-center">{language === 'ko' ? '인도량' : 'Deliveries'}</th>
+                <th className="py-2.5 px-3 text-center">{language === 'ko' ? '매출액' : 'Revenue'}</th>
+                <th className="py-2.5 px-3 text-center">{language === 'ko' ? '영업이익' : 'EBIT'}</th>
+                <th className="py-2.5 px-3 text-center">{language === 'ko' ? '영업이익률' : 'Margin'}</th>
+                <th className="py-2.5 px-3 text-center">{language === 'ko' ? '전기차(BEV)' : 'BEV'}</th>
+                <th className="py-2.5 px-3 text-center">{language === 'ko' ? '순이익' : 'Net Income'}</th>
+                <th className="py-2.5 px-3 text-right">{language === 'ko' ? '커버리지' : 'Coverage'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              {companies.map((c) => {
+                const freshness = getCompanyDataFreshness(c.id, '2026-Q3');
+                const obs = METRIC_OBSERVATIONS.filter((o) => o.companyId === c.id && o.period === '2026-Q3' && o.value !== null);
+
+                const hasDel = obs.some((o) => o.metricId === 'deliveries_global');
+                const hasRev = obs.some((o) => o.metricId === 'revenue');
+                const hasEbit = obs.some((o) => o.metricId === 'operating_income');
+                const hasMargin = obs.some((o) => o.metricId === 'operating_margin');
+                const hasBev = obs.some((o) => o.metricId === 'bev_deliveries');
+                const hasNet = obs.some((o) => o.metricId === 'net_income');
+
+                // Determine applicability
+                const isByd = c.id === 'byd';
+                const isScheduled = freshness.status === 'scheduled';
+
+                const renderCell = (present: boolean, notApplicable = false) => {
+                  if (isScheduled) return <span className="text-slate-400 font-mono text-[11px]">⏳</span>;
+                  if (notApplicable) return <span className="text-slate-400 font-mono text-[10px]">⊘ N/A</span>;
+                  if (present) return <span className="text-emerald-600 font-bold text-xs">✓</span>;
+                  return <span className="text-amber-500 font-semibold text-[11px]">⚠ 미반영</span>;
+                };
+
+                return (
+                  <tr key={c.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition">
+                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                      <Link to={`/companies/${c.id}`} className="hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-1.5">
+                        <span>{c.name}</span>
+                        <span className="text-[10px] font-mono text-slate-400">({getCompanyById(c.id)?.ticker || c.id})</span>
+                      </Link>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        freshness.status === 'verified_official'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          : freshness.status === 'scheduled'
+                          ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
+                          : freshness.status === 'published_pending_data'
+                          ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                      }`}>
+                        {freshness.status === 'verified_official' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                        {freshness.status === 'scheduled' && <Clock className="w-3 h-3 text-sky-600" />}
+                        <span>{language === 'ko' ? freshness.statusLabelKo : freshness.statusLabelEn}</span>
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasDel)}</td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasRev)}</td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasEbit, isByd)}</td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasMargin, isByd)}</td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasBev)}</td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasNet, !['byd', 'kia'].includes(c.id))}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold">
+                      {freshness.requiredMetricsCoverage ? (
+                        <span className="text-slate-800 dark:text-slate-200">
+                          {freshness.requiredMetricsCoverage.ratio}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 

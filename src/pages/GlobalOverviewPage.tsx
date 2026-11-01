@@ -8,7 +8,7 @@ import {
   getCompanyById,
 } from '../utils/metricQueries';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
-import { getReportingSeasonSummary } from '../utils/dataFreshness';
+import { getReportingSeasonSummary, getCompanyDataFreshness } from '../utils/dataFreshness';
 import { MetricObservation, PeriodType, VolumeDefinition } from '../types/metrics';
 import {
   formatPeriodLabel,
@@ -49,6 +49,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  CheckCircle2,
 } from 'lucide-react';
 
 export const GlobalOverviewPage: React.FC = () => {
@@ -731,29 +732,152 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2026-Q3 Reporting Season Status Banner */}
+      {/* 2026-Q3 Reporting Season Status Terminal */}
       {selectedPeriod === '2026-Q3' && (() => {
         const season = getReportingSeasonSummary('2026-Q3');
+        const publishedCount = season.reportedCount + season.partialCount + season.publishedPendingDataCount;
+        const dataIngestedCount = season.reportedCount + season.partialCount;
+
         return (
-          <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 shadow-xs flex items-start gap-3 text-xs leading-relaxed text-sky-900 dark:text-sky-200">
-            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5">
-              <Clock className="w-4 h-4" />
-            </div>
-            <div className="space-y-1">
-              <div className="font-bold flex items-center gap-2">
-                <span>{language === 'ko' ? '2026년 3분기(2026-Q3) 공식 실적 공시 현황' : '2026 Q3 Official Earnings Disclosure Status'}</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold">
-                  {season.reportedCount} Reported
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>{language === 'ko' ? '2026년 3분기(2026-Q3) 어닝 시즌 공시 및 검증 종합 현황' : '2026 Q3 Earnings Season Disclosure & Verification Terminal'}</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {language === 'ko'
+                      ? '등록 16개 글로벌 제조사의 공식 IR 발표 여부, 필수 지표 커버리지 및 원문 대조 검증 상태'
+                      : 'Audit breakdown across all 16 global OEMs: primary filing status, required metric coverage, and IR verification'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold font-mono text-[11px]">
+                  {season.reportedCount} {language === 'ko' ? '공식 검증 완료' : 'Verified'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono text-[10px] font-bold">
-                  {season.scheduledCount} Scheduled
+                {season.partialCount > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold font-mono text-[11px]">
+                    {season.partialCount} {language === 'ko' ? '일부 반영' : 'Partial'}
+                  </span>
+                )}
+                {season.publishedPendingDataCount > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold font-mono text-[11px]">
+                    {season.publishedPendingDataCount} {language === 'ko' ? '데이터 대기' : 'Pending Ingestion'}
+                  </span>
+                )}
+                <span className="px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-bold font-mono text-[11px]">
+                  {season.scheduledCount} {language === 'ko' ? '공시 예정' : 'Scheduled'}
                 </span>
               </div>
-              <p className="text-slate-600 dark:text-slate-300">
-                {language === 'ko'
-                  ? `테슬라, 폭스바겐, GM, 포드, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 볼보, 기아, 리비안, 지리 ${season.reportedCount}개사 공식 공시 완료. BMW(11/4), 토요타(11/5), 닛산(11/7), 혼다(11/8) 공시 예정.`
-                  : `Tesla, VW, GM, Ford, Hyundai, Mercedes-Benz, Stellantis, BYD, Volvo, Kia, Rivian, and Geely (${season.reportedCount} OEMs) have officially reported. BMW (Nov 4), Toyota (Nov 5), Nissan (Nov 7), and Honda (Nov 8) are scheduled.`}
-              </p>
+            </div>
+
+            {/* 7 Statistics Cards as requested in Section 7.1 */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-center">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] text-slate-500 block">{language === 'ko' ? '공식 발표 확인' : 'Disclosed'}</span>
+                <span className="text-base font-extrabold font-mono text-slate-900 dark:text-white">{publishedCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] text-slate-500 block">{language === 'ko' ? '데이터 반영' : 'Data Ingested'}</span>
+                <span className="text-base font-extrabold font-mono text-brand-600 dark:text-brand-400">{dataIngestedCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block">{language === 'ko' ? '전체 지표 검증' : 'Fully Verified'}</span>
+                <span className="text-base font-extrabold font-mono text-emerald-600 dark:text-emerald-400">{season.reportedCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
+                <span className="text-[10px] text-amber-700 dark:text-amber-400 block">{language === 'ko' ? '일부 지표 반영' : 'Partial'}</span>
+                <span className="text-base font-extrabold font-mono text-amber-600 dark:text-amber-400">{season.partialCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60">
+                <span className="text-[10px] text-indigo-700 dark:text-indigo-400 block">{language === 'ko' ? '데이터 누락/대기' : 'Pending Ingestion'}</span>
+                <span className="text-base font-extrabold font-mono text-indigo-600 dark:text-indigo-400">{season.publishedPendingDataCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60">
+                <span className="text-[10px] text-sky-700 dark:text-sky-400 block">{language === 'ko' ? '공시 예정' : 'Scheduled'}</span>
+                <span className="text-base font-extrabold font-mono text-sky-600 dark:text-sky-400">{season.scheduledCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] text-slate-500 block">{language === 'ko' ? '공시 여부 미확인' : 'Unconfirmed'}</span>
+                <span className="text-base font-extrabold font-mono text-slate-400">{season.unconfirmedCount}</span>
+              </div>
+            </div>
+
+            {/* Compact OEM Disclosure Table with Clickable Navigation to Dashboard */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-950 font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3">{language === 'ko' ? '제조사' : 'Automaker'}</th>
+                    <th className="py-2.5 px-3">{language === 'ko' ? '공시 상태' : 'Status'}</th>
+                    <th className="py-2.5 px-3">{language === 'ko' ? '공식 발표 / 공시일' : 'Disclosure Date'}</th>
+                    <th className="py-2.5 px-3">{language === 'ko' ? '필수 지표 커버리지' : 'Required Metrics'}</th>
+                    <th className="py-2.5 px-3 text-right">{language === 'ko' ? '대시보드' : 'Action'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {companies.map((c) => {
+                    const freshness = getCompanyDataFreshness(c.id, '2026-Q3');
+                    return (
+                      <tr key={c.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition">
+                        <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                          <Link to={`/companies/${c.id}`} className="hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-1.5">
+                            <span>{c.name}</span>
+                            <span className="text-[10px] font-mono text-slate-400 uppercase">({c.ticker || c.id})</span>
+                          </Link>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            freshness.status === 'verified_official'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : freshness.status === 'scheduled'
+                              ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
+                              : freshness.status === 'partial'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              : freshness.status === 'published_pending_data'
+                              ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
+                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                          }`}>
+                            {freshness.status === 'verified_official' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                            {freshness.status === 'scheduled' && <Clock className="w-3 h-3 text-sky-600" />}
+                            <span>{language === 'ko' ? freshness.statusLabelKo : freshness.statusLabelEn}</span>
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400 text-[11px]">
+                          {freshness.sourcePublishedAt || (freshness.scheduledDate ? `${freshness.scheduledDate} (예정)` : '-')}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono">
+                          {freshness.requiredMetricsCoverage ? (
+                            <span className="text-slate-700 dark:text-slate-300 font-bold">
+                              {freshness.requiredMetricsCoverage.ratio}
+                              <span className="text-[10px] text-slate-400 font-normal ml-1">
+                                ({freshness.requiredMetricsCoverage.percentage}%)
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <Link
+                            to={`/companies/${c.id}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 hover:underline"
+                          >
+                            <span>{language === 'ko' ? '상세 분석' : 'Dashboard'}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         );
