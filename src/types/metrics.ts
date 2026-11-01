@@ -917,11 +917,24 @@ export interface AuditReportData {
   generatedAt: string;
   /** The repository source commit that was audited when this report was generated (STEP 4-24, P1) */
   sourceCommitSha: string;
+  /** The repository revision from which commands actually execute (P2-B) */
+  executionCommitSha?: string;
   /** The repository HEAD commit when this report was generated (if different or distinct from audited commit) */
   reportGenerationCommitSha?: string;
+  /** The repository commit when this report was included in the repository (if known) */
+  reportInclusionCommitSha?: string;
   dataRegistryVersion?: string;
   auditEngineVersion?: string;
+  /** Actual Git working tree status at execution time ('clean' | 'dirty' | 'unknown') */
   workingTreeStatus?: 'clean' | 'dirty' | 'unknown';
+  /** Working tree status excluding regenerated audit documentation artifacts */
+  workingTreeExcludingDocs?: 'clean' | 'dirty' | 'unknown';
+  /** Explicit list of documentation files excluded when evaluating workingTreeExcludingDocs */
+  workingTreeExclusions?: string[];
+  /** Whether Git CLI metadata was available during execution */
+  gitMetadataAvailable?: boolean;
+  /** Origin source of the Git provenance metadata */
+  provenanceSource?: 'git_cli' | 'environment_override' | 'caller_supplied' | 'unknown';
   /** Real captured execution results for verification commands (P2) */
   commandResults?: VerificationCommandResult[];
   counts: {

@@ -95,3 +95,12 @@ export function computeRawByteSha256(bytes: Uint8Array): string {
   return hex;
 }
 
+/**
+ * Computes canonical FIPS 180-4 SHA-256 hexadecimal digest from an input string (UTF-8).
+ */
+export function computeStringSha256(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  return computeRawByteSha256(bytes);
+}
+
+

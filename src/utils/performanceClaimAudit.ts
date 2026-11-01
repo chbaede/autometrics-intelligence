@@ -34,6 +34,8 @@ import {
 import { METRICS_MAP } from '../data/metricDefinitions';
 import { isUrlInOfficialDomain, OFFICIAL_IR_SOURCES_MAP } from '../data/officialSources';
 import { computeRawByteSha256 } from './cryptoUtils';
+import { verifyTrustedPipelineReceipt } from '../services/livePipelineTrustStore';
+
 
 export type ClaimVerificationLevel =
   | 'metadata_validated'
@@ -291,7 +293,7 @@ function resolveAndValidateComparisonObservation(
   const priorObs = priorCandidates[0];
   const comparisonObservationId = priorObs.id;
 
-  // 4. Validate prior value finiteness
+  // 4. Validate prior value finiteness & non-zero denominator
   if (priorObs.value == null || !Number.isFinite(priorObs.value)) {
     findings.push({
       severity: 'ERROR',
@@ -303,6 +305,18 @@ function resolveAndValidateComparisonObservation(
     });
     return { valid: false, priorObs, comparisonObservationId, findings };
   }
+
+  if ((calculationType === 'YoY_growth' || calculationType === 'QoQ_growth') && priorObs.value === 0) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'CALCULATION_DISCREPANCY',
+      item: claimItem,
+      detail: `Prior period value is zero; ${calculationType === 'QoQ_growth' ? 'QoQ ' : ''}percentage growth rate cannot be computed.`,
+      claimId: claim.claimId,
+    });
+  }
+
 
   // 5. Shared Dimensional Compatibility Checks
   if (priorObs.companyId !== driver.companyId) {
@@ -328,13 +342,13 @@ function resolveAndValidateComparisonObservation(
   }
 
   // Period type comparability (quarterly vs annual)
-  if (priorObs.periodType !== matchingObs.periodType) {
+  if (!priorObs.periodType || !matchingObs.periodType || priorObs.periodType !== matchingObs.periodType) {
     findings.push({
       severity: 'ERROR',
       disposition: 'blocking',
       category: 'PERIOD_ALIGNMENT',
       item: claimItem,
-      detail: `Cannot validate ${calculationType}: incompatible periodType between comparison (${priorObs.periodType}) and current (${matchingObs.periodType}).`,
+      detail: `Cannot validate ${calculationType}: incompatible periodType between comparison (${priorObs.periodType || 'unspecified'}) and current (${matchingObs.periodType || 'unspecified'}).`,
       claimId: claim.claimId,
     });
   }
@@ -352,13 +366,22 @@ function resolveAndValidateComparisonObservation(
 
   // Unit compatibility
   const currUnit = matchingObs.unit ?? claim.unit;
-  if (priorObs.unit !== currUnit) {
+  if (currUnit && (!priorObs.unit || priorObs.unit !== currUnit)) {
     findings.push({
       severity: 'ERROR',
       disposition: 'blocking',
       category: 'SCOPE_MISMATCH',
       item: claimItem,
-      detail: `Cannot validate ${calculationType}: unit mismatch between comparison (${priorObs.unit}) and current (${currUnit}).`,
+      detail: `Cannot validate ${calculationType}: unit mismatch between comparison (${priorObs.unit || 'unspecified'}) and current (${currUnit}).`,
+      claimId: claim.claimId,
+    });
+  } else if (priorObs.unit && (!currUnit || priorObs.unit !== currUnit)) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: unit mismatch between comparison (${priorObs.unit}) and current (${currUnit || 'unspecified'}).`,
       claimId: claim.claimId,
     });
   }
@@ -378,42 +401,70 @@ function resolveAndValidateComparisonObservation(
 
   // Currency compatibility
   const currCurr = matchingObs.currency ?? claim.currency;
-  if (priorObs.currency && currCurr && priorObs.currency !== currCurr) {
+  if (currCurr && (!priorObs.currency || priorObs.currency !== currCurr)) {
     findings.push({
       severity: 'ERROR',
       disposition: 'blocking',
       category: 'SCOPE_MISMATCH',
       item: claimItem,
-      detail: `Cannot validate ${calculationType}: currency mismatch between comparison (${priorObs.currency}) and current (${currCurr}).`,
+      detail: `Cannot validate ${calculationType}: currency mismatch between comparison (${priorObs.currency || 'unspecified'}) and current (${currCurr}).`,
+      claimId: claim.claimId,
+    });
+  } else if (priorObs.currency && (!currCurr || priorObs.currency !== currCurr)) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: currency mismatch between comparison (${priorObs.currency}) and current (${currCurr || 'unspecified'}).`,
       claimId: claim.claimId,
     });
   }
 
-  // Reporting scope compatibility
+  // Reporting scope compatibility (fail closed: neither side can be missing if the other is set)
   const targetScope = claim.reportingScope ?? matchingObs.reportingScope;
-  if (priorObs.reportingScope && targetScope && priorObs.reportingScope !== targetScope) {
+  if (targetScope && (!priorObs.reportingScope || priorObs.reportingScope !== targetScope)) {
     findings.push({
       severity: 'ERROR',
       disposition: 'blocking',
       category: 'SCOPE_MISMATCH',
       item: claimItem,
-      detail: `Cannot validate ${calculationType}: reportingScope mismatch between comparison (${priorObs.reportingScope}) and current (${targetScope}).`,
+      detail: `Cannot validate ${calculationType}: reportingScope mismatch between comparison (${priorObs.reportingScope || 'unspecified'}) and current (${targetScope}).`,
+      claimId: claim.claimId,
+    });
+  } else if (priorObs.reportingScope && (!targetScope || priorObs.reportingScope !== targetScope)) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: reportingScope mismatch between comparison (${priorObs.reportingScope}) and current (${targetScope || 'unspecified'}).`,
       claimId: claim.claimId,
     });
   }
 
-  // Accounting basis compatibility
+  // Accounting basis compatibility (fail closed: neither side can be missing if the other is set)
   const targetBasis = claim.accountingBasis ?? matchingObs.accountingBasis;
-  if (priorObs.accountingBasis && targetBasis && priorObs.accountingBasis !== targetBasis) {
+  if (targetBasis && (!priorObs.accountingBasis || priorObs.accountingBasis !== targetBasis)) {
     findings.push({
       severity: 'ERROR',
       disposition: 'blocking',
       category: 'SCOPE_MISMATCH',
       item: claimItem,
-      detail: `Cannot validate ${calculationType}: accountingBasis mismatch between comparison (${priorObs.accountingBasis}) and current (${targetBasis}).`,
+      detail: `Cannot validate ${calculationType}: accountingBasis mismatch between comparison (${priorObs.accountingBasis || 'unspecified'}) and current (${targetBasis}).`,
+      claimId: claim.claimId,
+    });
+  } else if (priorObs.accountingBasis && (!targetBasis || priorObs.accountingBasis !== targetBasis)) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'SCOPE_MISMATCH',
+      item: claimItem,
+      detail: `Cannot validate ${calculationType}: accountingBasis mismatch between comparison (${priorObs.accountingBasis}) and current (${targetBasis || 'unspecified'}).`,
       claimId: claim.claimId,
     });
   }
+
 
   // If dimensional checks failed, fail closed and do not perform arithmetic
   if (findings.some((f) => f.disposition === 'blocking')) {
@@ -541,6 +592,16 @@ function resolveAndValidateComparisonObservation(
 }
 
 /**
+ * Infers reporting period type ('quarterly' vs 'annual') from a period string.
+ */
+function inferPeriodType(period: string | undefined): 'quarterly' | 'annual' | undefined {
+  if (!period) return undefined;
+  if (/^\d{4}-Q[1-4]$/.test(period)) return 'quarterly';
+  if (/^\d{4}-FY$/.test(period) || /^\d{4}$/.test(period)) return 'annual';
+  return undefined;
+}
+
+/**
  * Validates a live official source pipeline result against a performance claim (P1).
  * Replaces caller-controlled boolean trust with an authentic verification check.
  */
@@ -558,7 +619,15 @@ function validateLivePipelineVerification(
     };
   }
 
+
   const failureReasons: string[] = [];
+
+  // 0. Architectural Trust Boundary & Pipeline Execution Receipt Verification (P1-A)
+  // Rejects any manually constructed, caller-synthesized, or un-authenticated result object
+  const receiptCheck = verifyTrustedPipelineReceipt(liveResult, claim, driver);
+  if (!receiptCheck.authentic) {
+    failureReasons.push(...receiptCheck.failureReasons);
+  }
 
   // 1. Pipeline execution status
   if (!liveResult.success) {
@@ -641,6 +710,9 @@ function validateLivePipelineVerification(
     if (computedRawHash && extractedDoc.sourceDocument?.contentHash && extractedDoc.sourceDocument.contentHash !== computedRawHash) {
       failureReasons.push(`Extracted document contentHash '${extractedDoc.sourceDocument.contentHash}' does not match calculated raw byte hash '${computedRawHash}'`);
     }
+    if (extractedDoc.sourceDocument?.sourceDocId && claim.sourceDocId && extractedDoc.sourceDocument.sourceDocId !== claim.sourceDocId) {
+      failureReasons.push(`Extracted document belongs to source document '${extractedDoc.sourceDocument.sourceDocId}', expected '${claim.sourceDocId}'`);
+    }
     const blockId = verResult?.blockId ?? liveResult.evidenceCandidate?.blockId;
     if (!blockId) {
       failureReasons.push('Evidence block ID missing from live verification candidate');
@@ -657,6 +729,36 @@ function validateLivePipelineVerification(
         if (!hasValueInText && !hasValueInCells && !hasValueInNumerics) {
           failureReasons.push(`Evidence block '${blockId}' text does not contain or support claimed value ${claim.value}`);
         }
+
+        // Structural table cell resolution check (P1-C)
+        const coords = liveResult.evidenceCandidate?.tableCoordinates;
+        if (coords && coords.columnIndex !== undefined && matchingBlock.cells) {
+          const cellVal = matchingBlock.cells[coords.columnIndex];
+          if (!cellVal || !cellVal.includes(claimValueStr)) {
+            failureReasons.push(`Evidence table column index ${coords.columnIndex} does not contain claimed value '${claim.value}'`);
+          }
+        }
+
+        // Metric semantic conflict check in block text (P1-C)
+        const isVolumeClaim =
+          claim.metricId === 'deliveries_global' ||
+          claim.metricId === 'wholesale_shipments' ||
+          claim.metricId === 'bev_deliveries' ||
+          claim.metricId === 'hev_deliveries';
+        const isFinancialClaim =
+          claim.metricId === 'revenue' ||
+          claim.metricId === 'operating_income' ||
+          claim.metricId === 'net_income' ||
+          claim.metricId === 'operating_margin';
+
+        const hasFinancialTerms = /revenue|operating profit|operating income|ebit|net income|\$|€|₩/i.test(blockText);
+        const hasVolumeTerms = /deliveries|wholesales|sales volume|units|vehicles/i.test(blockText);
+        if (isVolumeClaim && hasFinancialTerms && !hasVolumeTerms) {
+          failureReasons.push(`Evidence block text describes financial metrics rather than claimed volume metric '${claim.metricId}'`);
+        }
+        if (isFinancialClaim && hasVolumeTerms && !hasFinancialTerms) {
+          failureReasons.push(`Evidence block text describes volume metrics rather than claimed financial metric '${claim.metricId}'`);
+        }
       }
     }
   }
@@ -665,7 +767,9 @@ function validateLivePipelineVerification(
   const cand = liveResult.evidenceCandidate;
 
   const verifiedMetric = verResult?.verifiedMetricId ?? cand?.metricId;
-  if (verifiedMetric && verifiedMetric !== claim.metricId) {
+  if (!verifiedMetric) {
+    failureReasons.push('Verified metric ID missing from live verification candidate');
+  } else if (verifiedMetric !== claim.metricId) {
     failureReasons.push(`Evidence metric '${verifiedMetric}' does not match claim metric '${claim.metricId}'`);
   }
 
@@ -677,25 +781,44 @@ function validateLivePipelineVerification(
   }
 
   const verifiedUnit = verResult?.verifiedUnit ?? cand?.unit;
-  if (claim.unit && verifiedUnit && verifiedUnit !== claim.unit) {
-    failureReasons.push(`Verified unit '${verifiedUnit}' does not match claimed unit '${claim.unit}'`);
+  if (claim.unit && (!verifiedUnit || verifiedUnit !== claim.unit)) {
+    failureReasons.push(`Verified unit '${verifiedUnit || 'unspecified'}' does not match claimed unit '${claim.unit}'`);
   }
 
   const verifiedScope = verResult?.verifiedScope ?? cand?.scope;
-  if (claim.reportingScope && verifiedScope && verifiedScope !== claim.reportingScope) {
-    failureReasons.push(`Verified scope '${verifiedScope}' does not match claimed scope '${claim.reportingScope}'`);
+  if (claim.reportingScope && (!verifiedScope || verifiedScope !== claim.reportingScope)) {
+    failureReasons.push(`Verified scope '${verifiedScope || 'unspecified'}' does not match claimed scope '${claim.reportingScope}'`);
   }
 
   const verifiedBasis = verResult?.verifiedAccountingBasis ?? cand?.accountingBasis;
-  if (claim.accountingBasis && verifiedBasis && verifiedBasis !== claim.accountingBasis) {
-    failureReasons.push(`Verified accounting basis '${verifiedBasis}' does not match claimed basis '${claim.accountingBasis}'`);
+  if (claim.accountingBasis && (!verifiedBasis || verifiedBasis !== claim.accountingBasis)) {
+    failureReasons.push(`Verified accounting basis '${verifiedBasis || 'unspecified'}' does not match claimed basis '${claim.accountingBasis}'`);
   }
 
+  // Strict Reporting Period and Period Type Policy (P1-B)
   const targetPeriod = claim.period || driver.period;
+  const targetPeriodType = claim.periodType || inferPeriodType(driver.period) || 'quarterly';
   const verifiedPeriod = verResult?.verifiedPeriod ?? cand?.period;
-  if (verifiedPeriod && targetPeriod && verifiedPeriod !== targetPeriod) {
+  const verifiedPeriodType = verResult?.verifiedPeriodType ?? cand?.periodType;
+
+  if (!targetPeriod) {
+    failureReasons.push('Target reporting period is required for complete live verification');
+  }
+  if (!verifiedPeriod) {
+    failureReasons.push('Verified reporting period missing from live verification candidate');
+  } else if (verifiedPeriod !== targetPeriod) {
     failureReasons.push(`Verified period '${verifiedPeriod}' does not match claim/driver period '${targetPeriod}'`);
   }
+
+  if (!targetPeriodType) {
+    failureReasons.push('Target reporting periodType is required for complete live verification');
+  }
+  if (!verifiedPeriodType) {
+    failureReasons.push('Verified reporting periodType missing from live verification candidate');
+  } else if (verifiedPeriodType !== targetPeriodType) {
+    failureReasons.push(`Verified periodType '${verifiedPeriodType}' does not match target periodType '${targetPeriodType}'`);
+  }
+
 
   // 6. Cryptographic Content Hash Binding & Anti-Forgery Check
   if (verResult && liveDoc) {
@@ -921,8 +1044,43 @@ export function auditStructuredPerformanceClaim(
           claimId: claim.claimId,
         });
       }
+      if (claim.period && claimDoc.period !== claim.period) {
+        findings.push({
+          severity: 'ERROR',
+          disposition: 'blocking',
+          category: 'PERIOD_ALIGNMENT',
+          item: claimItem,
+          detail: `SourceDoc period '${claimDoc.period}' does not match claim period '${claim.period}'.`,
+          claimId: claim.claimId,
+        });
+      }
     }
   }
+
+  // Claim vs Driver Period Alignment Policy (P1-B)
+  if (claim.period && claim.period !== driver.period) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'PERIOD_ALIGNMENT',
+      item: claimItem,
+      detail: `Claim period '${claim.period}' does not match driver period '${driver.period}'.`,
+      claimId: claim.claimId,
+    });
+  }
+  const driverPeriodType = inferPeriodType(driver.period);
+  if (claim.periodType && driverPeriodType && claim.periodType !== driverPeriodType) {
+    findings.push({
+      severity: 'ERROR',
+      disposition: 'blocking',
+      category: 'PERIOD_ALIGNMENT',
+      item: claimItem,
+      detail: `Claim periodType '${claim.periodType}' does not match driver periodType '${driverPeriodType}' for period '${driver.period}'.`,
+      claimId: claim.claimId,
+    });
+  }
+
+
 
   // ────────────────────────────────────────────────────────────────────────────
   // 3. Source Locator & Evidence Validation Against Available Content Fixtures
@@ -942,7 +1100,7 @@ export function auditStructuredPerformanceClaim(
       const targetPeriod = claim.period || driver.period;
       const targetPeriodType = claim.periodType || 'quarterly';
 
-      // Direct numeric contradiction check in available fixtures (matching target period)
+      // Direct numeric contradiction check in available fixtures (matching target period & periodType)
       const metricFixture = docFixtures.find(
         (f) =>
           f.verifiedMetricId === claim.metricId &&
@@ -951,6 +1109,7 @@ export function auditStructuredPerformanceClaim(
           f.verifiedNumericValue !== undefined &&
           Number.isFinite(f.verifiedNumericValue)
       );
+
       if (
         metricFixture &&
         metricFixture.verifiedNumericValue !== undefined &&
@@ -1000,20 +1159,29 @@ export function auditStructuredPerformanceClaim(
         hasResolvedLocator = true;
       }
 
-      // Check if a fixture completely verifies the numeric claim
+      // Check if a fixture completely verifies the numeric claim (P1-B Strict Invariant)
       const matchingCandidateFixtures = docFixtures.filter((f) => {
         if (!f.verifiedMetricId || f.verifiedMetricId !== claim.metricId) return false;
-        if (f.verifiedNumericValue === undefined || !Number.isFinite(f.verifiedNumericValue)) return false;
-        if (!matchNumericValues(claim.value, f.verifiedNumericValue, claim.unit)) return false;
-        if (!f.verifiedPeriod || f.verifiedPeriod !== targetPeriod) return false;
-        if (f.verifiedPeriodType && targetPeriodType && f.verifiedPeriodType !== targetPeriodType) return false;
-        if (f.verifiedUnit && claim.unit && f.verifiedUnit !== claim.unit) return false;
-        if (f.verifiedScope && claim.reportingScope && f.verifiedScope !== claim.reportingScope) return false;
-        if (f.verifiedAccountingBasis && claim.accountingBasis && f.verifiedAccountingBasis !== claim.accountingBasis) {
+        if (f.verifiedNumericValue === undefined || f.verifiedNumericValue === null || !Number.isFinite(f.verifiedNumericValue)) {
           return false;
         }
+        if (!matchNumericValues(claim.value, f.verifiedNumericValue, claim.unit)) return false;
+        // Strict reporting period invariant: both target and fixture must specify period and match
+        if (!targetPeriod || !f.verifiedPeriod || f.verifiedPeriod !== targetPeriod) return false;
+        // Strict period type invariant: both target and fixture must specify periodType and match (annual != quarterly)
+        if (!targetPeriodType || !f.verifiedPeriodType || f.verifiedPeriodType !== targetPeriodType) return false;
+        // Strict unit invariant
+        if (claim.unit && (!f.verifiedUnit || f.verifiedUnit !== claim.unit)) return false;
+        if (f.verifiedUnit && claim.unit && f.verifiedUnit !== claim.unit) return false;
+        // Strict scope invariant: missing scope cannot match an explicitly scoped claim
+        if (claim.reportingScope && (!f.verifiedScope || f.verifiedScope !== claim.reportingScope)) return false;
+        if (f.verifiedScope && claim.reportingScope && f.verifiedScope !== claim.reportingScope) return false;
+        // Strict accounting basis invariant: missing basis cannot match an explicitly based claim
+        if (claim.accountingBasis && (!f.verifiedAccountingBasis || f.verifiedAccountingBasis !== claim.accountingBasis)) return false;
+        if (f.verifiedAccountingBasis && claim.accountingBasis && f.verifiedAccountingBasis !== claim.accountingBasis) return false;
         return true;
       });
+
 
       if (matchingCandidateFixtures.length > 1) {
         findings.push({
@@ -1051,16 +1219,18 @@ export function auditStructuredPerformanceClaim(
     });
   } else if (contentFixtures && contentFixtures.length > 0 && claim.sourceDocId) {
     const targetPeriod = claim.period || driver.period;
+    const targetPeriodType = claim.periodType || inferPeriodType(driver.period) || 'quarterly';
     const docFixtures = contentFixtures.filter((f) => f.sourceDocId === claim.sourceDocId);
     const matchingEvidence = docFixtures.find((f) => {
       if (!f.extractedText) return false;
-      // Must not come from an unrelated reporting period
-      if (f.verifiedPeriod && targetPeriod && f.verifiedPeriod !== targetPeriod) return false;
+      // Must not come from an unrelated reporting period or period type (P1-B)
+      if (!f.verifiedPeriod || !targetPeriod || f.verifiedPeriod !== targetPeriod) return false;
+      if (!f.verifiedPeriodType || !targetPeriodType || f.verifiedPeriodType !== targetPeriodType) return false;
+      // Evidence must support the claimed metric
+      if (!f.verifiedMetricId || f.verifiedMetricId !== claim.metricId) return false;
       const textMatches =
         claim.verifiedEvidence.includes(f.extractedText) || f.extractedText.includes(claim.verifiedEvidence);
       if (!textMatches) return false;
-      // Evidence must support the claimed metric
-      if (f.verifiedMetricId && f.verifiedMetricId !== claim.metricId) return false;
       // Evidence must support the claimed numeric value
       const valStr = String(claim.value);
       const supportsNum =
@@ -1099,11 +1269,14 @@ export function auditStructuredPerformanceClaim(
       detail: `Ambiguous matching observations (${matchingObsCandidates.length}) found for metric '${claim.metricId}' in ${driver.period}.`,
       claimId: claim.claimId,
     });
-    matchingObs = matchingObsCandidates[0];
+    // Strict fail-closed: do not arbitrarily choose candidate 0
+    matchingObs = undefined;
+    matchedObservationId = undefined;
   } else if (matchingObsCandidates.length === 1) {
     matchingObs = matchingObsCandidates[0];
     matchedObservationId = matchingObs.id;
   }
+
 
   if (!matchingObs) {
     if (claim.claimCategory === 'primary_observation') {

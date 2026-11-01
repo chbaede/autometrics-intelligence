@@ -56,13 +56,28 @@ export function getWorkingTreeStatus(): 'clean' | 'dirty' | 'unknown' {
   }
   try {
     const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return status === '' ? 'clean' : 'dirty';
+  } catch {
+    return 'unknown';
+  }
+}
+
+export const AUDIT_REPORT_DOCUMENT_EXCLUSIONS = [
+  'docs/audit-report.json',
+  'docs/data-audit-report.md',
+  'docs/data-integrity-report.md',
+];
+
+export function getWorkingTreeExcludingDocs(): 'clean' | 'dirty' | 'unknown' {
+  if (process.env.GIT_UNAVAILABLE === '1') {
+    return 'unknown';
+  }
+  try {
+    const status = execSync('git status --porcelain', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     if (status === '') return 'clean';
     const lines = status.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
     const nonDocLines = lines.filter(
-      (l) =>
-        !l.endsWith('docs/audit-report.json') &&
-        !l.endsWith('docs/data-audit-report.md') &&
-        !l.endsWith('docs/data-integrity-report.md')
+      (l) => !AUDIT_REPORT_DOCUMENT_EXCLUSIONS.some((exc) => l.endsWith(exc))
     );
     return nonDocLines.length === 0 ? 'clean' : 'dirty';
   } catch {
@@ -89,8 +104,27 @@ export function getAuditCommitSha(): string {
   return 'unknown';
 }
 
+export type VerificationOutcomeClassification = 'PASS' | 'FAIL' | 'EXPECTED_POLICY_FAILURE';
+
+export interface VerificationClassificationDetail {
+  status: VerificationOutcomeClassification;
+  summary: string;
+  reasonCode:
+    | 'SUCCESS'
+    | 'POLICY_FAILURE_REVIEW_FINDINGS'
+    | 'BLOCKING_VALIDATION_FAILURE'
+    | 'EXECUTION_FAILURE'
+    | 'TIMEOUT'
+    | 'MISSING_DEPENDENCY'
+    | 'INVALID_OUTPUT'
+    | 'UNEXPECTED_EXCEPTION'
+    | 'UNEXPECTED_EXIT_CODE'
+    | 'CONFLICTING_OUTPUT_STATUS'
+    | 'NON_STRICT_FAILURE';
+}
+
 /**
- * Classifies the outcome of a verification command execution (P2).
+ * Classifies the outcome of a verification command execution (P2-A).
  * Strictly distinguishes genuine documented policy failures from execution crashes, timeouts, and errors.
  */
 export function classifyVerificationCommandResult(
@@ -98,43 +132,121 @@ export function classifyVerificationCommandResult(
   exitCode: number,
   output: string,
   err?: any
-): { status: 'PASS' | 'FAIL' | 'EXPECTED_POLICY_FAILURE'; summary: string } {
-  const lines = output.split('\n').map((l) => l.trim()).filter(Boolean);
+): VerificationClassificationDetail {
+  const trimmedOutput = (output || '').trim();
+  const lines = trimmedOutput.split('\n').map((l) => l.trim()).filter(Boolean);
   const summaryLine = lines.slice(-2).join(' ') || (err?.message ? String(err.message) : 'Command execution finished');
   const summary = summaryLine.slice(0, 160);
 
+  // 1. Exit code 0: Command succeeded unless conflicting failure banner is present
   if (exitCode === 0) {
-    return { status: 'PASS', summary };
+    const hasConflictingFailure =
+      /Audit failed with [1-9]\d* blocking structural errors/.test(trimmedOutput) ||
+      /❌\s*\[FAIL\]/.test(trimmedOutput) ||
+      /\b[1-9]\d*\s+failed\b/.test(trimmedOutput);
+    if (hasConflictingFailure) {
+      return {
+        status: 'FAIL',
+        reasonCode: 'CONFLICTING_OUTPUT_STATUS',
+        summary: 'Command exited with 0 but reported failure in output',
+      };
+    }
+    return { status: 'PASS', reasonCode: 'SUCCESS', summary };
   }
 
-  // Check for execution crashes, timeouts, and system errors
-  const isTimeout = err?.code === 'ETIMEDOUT' || err?.signal === 'SIGTERM' || output.includes('timed out');
-  const isMissingDep = output.includes('MODULE_NOT_FOUND') || output.includes('Cannot find module');
+  // Nonzero exit code below:
+  // 2. Check for empty or invalid output
+  if (!trimmedOutput) {
+    return {
+      status: 'FAIL',
+      reasonCode: 'INVALID_OUTPUT',
+      summary: 'Command produced empty output with nonzero exit code',
+    };
+  }
+
+  // 3. Check for conflicting claim of pass when command exited nonzero
+  if (
+    trimmedOutput.includes('Scope-Safe Audit Passed with 0 blocking errors') ||
+    trimmedOutput.includes('All tests passed cleanly') ||
+    trimmedOutput.includes('passed validation with 0 findings')
+  ) {
+    return {
+      status: 'FAIL',
+      reasonCode: 'CONFLICTING_OUTPUT_STATUS',
+      summary: 'Command exited nonzero but claimed pass in output',
+    };
+  }
+
+  // 4. Check for timeouts
+  const isTimeout =
+    err?.code === 'ETIMEDOUT' ||
+    err?.signal === 'SIGTERM' ||
+    /timed?\s*out/i.test(trimmedOutput) ||
+    trimmedOutput.includes('ETIMEDOUT');
+  if (isTimeout) {
+    return { status: 'FAIL', reasonCode: 'TIMEOUT', summary };
+  }
+
+  // 5. Check for missing dependencies
+  const isMissingDep =
+    trimmedOutput.includes('MODULE_NOT_FOUND') ||
+    trimmedOutput.includes('Cannot find module') ||
+    trimmedOutput.includes('ERR_MODULE_NOT_FOUND');
+  if (isMissingDep) {
+    return { status: 'FAIL', reasonCode: 'MISSING_DEPENDENCY', summary };
+  }
+
+  // 6. Check for unhandled exceptions and execution crashes
   const isExecutionException =
-    output.includes('SyntaxError') ||
-    output.includes('TypeError') ||
-    output.includes('ReferenceError') ||
-    output.includes('UnhandledPromiseRejection') ||
-    output.includes('ERR_PNPM_') ||
-    output.includes('npm ERR!');
-  const hasBlockingErrors = /Audit failed with \d+ blocking structural errors/.test(output);
-
-  if (isTimeout || isMissingDep || isExecutionException || hasBlockingErrors) {
-    return { status: 'FAIL', summary };
+    trimmedOutput.includes('SyntaxError') ||
+    trimmedOutput.includes('TypeError') ||
+    trimmedOutput.includes('ReferenceError') ||
+    trimmedOutput.includes('UnhandledPromiseRejection') ||
+    trimmedOutput.includes('ERR_PNPM_') ||
+    trimmedOutput.includes('npm ERR!');
+  if (isExecutionException) {
+    return { status: 'FAIL', reasonCode: 'UNEXPECTED_EXCEPTION', summary };
   }
 
-  // Check for genuine strict-mode policy failure
+  // 7. Check for blocking structural validation errors
+  const hasBlockingErrors =
+    /Audit failed with [1-9]\d* blocking structural errors/.test(trimmedOutput) ||
+    /💥\s*Audit failed with \d+ blocking/.test(trimmedOutput) ||
+    /\b[1-9]\d*\s+blocking structural errors\b/.test(trimmedOutput) ||
+    /\b[1-9]\d*\s+blocking findings\b/.test(trimmedOutput);
+  if (hasBlockingErrors) {
+    return { status: 'FAIL', reasonCode: 'BLOCKING_VALIDATION_FAILURE', summary };
+  }
+
+  // 8. Check for strict-mode policy failure
   const isStrictCommand = commandStr.includes('--strict');
-  const hasStrictPolicySignal =
-    /Strict mode failed with \d+ review findings/.test(output) ||
-    (output.includes('Strict exit code: 1') && /review findings/i.test(output));
-
-  if (isStrictCommand && exitCode === 1 && hasStrictPolicySignal) {
-    return { status: 'EXPECTED_POLICY_FAILURE', summary };
+  if (!isStrictCommand) {
+    return { status: 'FAIL', reasonCode: 'NON_STRICT_FAILURE', summary };
   }
 
-  return { status: 'FAIL', summary };
+  if (exitCode !== 1) {
+    return {
+      status: 'FAIL',
+      reasonCode: 'UNEXPECTED_EXIT_CODE',
+      summary: `Unexpected nonzero exit code ${exitCode} for strict command`,
+    };
+  }
+
+  const hasStrictPolicySignal =
+    /Strict mode failed with \d+ review findings/.test(trimmedOutput) ||
+    (trimmedOutput.includes('Strict exit code: 1') && /review findings/i.test(trimmedOutput));
+
+  if (hasStrictPolicySignal) {
+    return {
+      status: 'EXPECTED_POLICY_FAILURE',
+      reasonCode: 'POLICY_FAILURE_REVIEW_FINDINGS',
+      summary,
+    };
+  }
+
+  return { status: 'FAIL', reasonCode: 'EXECUTION_FAILURE', summary };
 }
+
 
 export function runVerificationCommand(commandStr: string, commitSha: string): VerificationCommandResult {
   const executedAt = new Date().toISOString();
@@ -1369,13 +1481,24 @@ export function buildAuditReportData(options?: {
       currentFindings: { blocking, review, documented, informational },
     });
 
+  const executionCommitSha = getAuditCommitSha();
+  const gitMetadataAvailable = process.env.GIT_UNAVAILABLE !== '1' && executionCommitSha !== 'unknown';
+  const provenanceSource = (process.env.AUDIT_COMMIT_SHA || process.env.GITHUB_SHA)
+    ? 'environment_override'
+    : (process.env.GIT_UNAVAILABLE === '1' ? 'unknown' : 'git_cli');
+
   return {
     generatedAt,
     sourceCommitSha,
+    executionCommitSha,
     reportGenerationCommitSha,
     dataRegistryVersion: '1.0.0',
     auditEngineVersion: '3.2.0',
     workingTreeStatus: getWorkingTreeStatus(),
+    workingTreeExcludingDocs: getWorkingTreeExcludingDocs(),
+    workingTreeExclusions: AUDIT_REPORT_DOCUMENT_EXCLUSIONS,
+    gitMetadataAvailable,
+    provenanceSource,
     commandResults,
     counts: {
       companies: COMPANIES_REGISTRY.length,

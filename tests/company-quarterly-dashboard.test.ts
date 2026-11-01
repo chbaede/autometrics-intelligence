@@ -33,9 +33,12 @@ import {
   renderMarkdownCommandResults,
   classifyVerificationCommandResult,
   getWorkingTreeStatus,
+  getWorkingTreeExcludingDocs,
   getAuditCommitSha,
 } from '../scripts/audit-data';
 import { computeRawByteSha256 } from '../src/services/liveSourceFetcher';
+import { executeOfficialSourcePipeline } from '../src/services/officialSourcePipeline';
+
 
 let passed = 0;
 let failed = 0;
@@ -790,14 +793,17 @@ const validLivePipelineResult: any = {
   },
 };
 
-// Live Positive Guard: Genuine valid live pipeline result passes with live_source_verified
+// Live Negative Guard 1: Manually synthesized plain JS object cannot yield live_source_verified
 const validLiveResult = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
   livePipelineResult: validLivePipelineResult,
 });
 assert(
-  validLiveResult.isValid === true && validLiveResult.verificationLevel === 'live_source_verified',
-  'Live Positive Guard: Valid live pipeline result yields live_source_verified'
+  validLiveResult.isValid === false &&
+  validLiveResult.verificationLevel === 'unverified' &&
+  validLiveResult.findings.some((f) => f.detail.includes('caller-synthesized or untracked objects are rejected')),
+  'Live Negative Guard 1: Manually synthesized livePipelineResult is rejected and CANNOT yield live_source_verified'
 );
+
 
 // Live Negative Guard 2: Missing liveDocument in pipeline result rejects live_source_verified
 const liveNoDoc = { ...validLivePipelineResult, liveDocument: undefined };
@@ -1146,261 +1152,735 @@ assert(formatPeriodLabel('2026-Q3', 'en') === '2026 Q3', 'formatPeriodLabel 2026
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n--- Suite 12: Audit Engine Security, Provenance & Invariant Remediation ---');
 
-// 12a. P1: Live Source Authenticity & Wire-Byte Cryptographic Provenance
-// Positive: Authentic source bytes produce valid hash and verify
-const authenticBytes = new Uint8Array(Buffer.from('Consolidated group reported global deliveries reached 920.71 thousand units in Q3 2026'));
-const authenticHash = computeRawByteSha256(authenticBytes);
-const pipelineWithAuthenticBytes: any = {
-  ...validLivePipelineResult,
-  rawBytes: authenticBytes,
-  liveDocument: { ...validLivePipelineResult.liveDocument, contentHash: authenticHash },
-  claimVerificationResult: { ...validLivePipelineResult.claimVerificationResult, sourceContentHash: authenticHash },
-  extractedDocument: {
-    ...validLivePipelineResult.extractedDocument,
-    sourceDocument: { sourceDocId: validSampleClaim.sourceDocId, contentHash: authenticHash },
-    blocks: [
+async function runSuite12() {
+  // 12a. P1-A: Live Source Authenticity & Wire-Byte Cryptographic Provenance
+  const authenticHtml =
+    '<!DOCTYPE html><html><body><table><thead><tr><th>Metric</th><th>Scope</th><th>Q3 2026 (thousand units)</th></tr></thead><tbody><tr><td>Global Deliveries (reported / IFRS)</td><td>Consolidated Group</td><td>920.71</td></tr></tbody></table></body></html>';
+  const authenticBytes = Buffer.from(authenticHtml, 'utf-8');
+  const authenticHash = computeRawByteSha256(authenticBytes);
+  assert(authenticHash.length === 64, 'Suite 12a-0: Authentic wire bytes compute valid SHA-256');
+
+  const authenticOfficialSource = {
+    id: validSampleClaim.sourceDocId,
+    companyId: 'hyundai_motor',
+    title: 'Hyundai Motor Company Q3 2026 Business Results Official Press Release',
+    url: 'https://www.hyundaimotorgroup.com/ko/news/hyundai-motor-company-2026-q3-earnings',
+    documentType: 'press_release' as const,
+    reportingPeriod: '2026-Q3',
+    periodType: 'quarterly' as const,
+    expectedContentType: 'text/html' as const,
+    officialDomain: ['hyundaimotorgroup.com', 'www.hyundaimotorgroup.com'],
+    targetClaims: [
       {
-        id: 'block_live_wholesale_1',
-        text: 'Consolidated group reported global deliveries reached 920.71 thousand units in Q3 2026',
-        sectionHeading: 'Consolidated Group Deliveries (Reported)',
-        blockType: 'text',
+        metricId: 'deliveries_global',
+        period: '2026-Q3',
+        value: 920.71,
+        unit: 'thousand_units' as const,
+        scope: 'consolidated_group' as const,
+        accountingBasis: 'reported' as const,
       },
     ],
-  },
-};
-const resAuthentic = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
-  livePipelineResult: pipelineWithAuthenticBytes,
-});
-assert(resAuthentic.isValid === true && resAuthentic.verificationLevel === 'live_source_verified', 'Suite 12a-1: Authentic wire bytes with matching SHA-256 yield live_source_verified');
+  };
 
-// Negative: Matching hash strings supplied by caller without rawBytes
-const pipelineNoBytes = { ...pipelineWithAuthenticBytes, rawBytes: undefined };
-const resNoBytes = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
-  livePipelineResult: pipelineNoBytes,
-});
-assert(resNoBytes.isValid === false && resNoBytes.verificationLevel === 'unverified' && resNoBytes.findings.some(f => f.detail.includes('rawBytes) missing or empty')), 'Suite 12a-2: Missing rawBytes fails closed even if hash strings match');
+  const authenticPipelineResult = await executeOfficialSourcePipeline({
+    source: authenticOfficialSource,
+    claim: {
+      metricId: 'deliveries_global',
+      period: '2026-Q3',
+      value: 920.71,
+      unit: 'thousand_units',
+      scope: 'consolidated_group',
+      accountingBasis: 'reported',
+    },
+    bindingParams: {
+      rawValue: '920.71',
+      locator: { rawLocator: 'html:table:0:row:1', section: 'Consolidated Group' },
+      evidenceText: 'Global Deliveries (reported / IFRS): 920.71',
+      supportType: 'reported_kpi',
+      scope: 'consolidated_group',
+      accountingBasis: 'reported',
+      metricId: 'deliveries_global',
+      period: '2026-Q3',
+      unit: 'thousand_units',
+    },
+    options: {
+      customFetch: (async () =>
+        new Response(authenticBytes, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })) as any,
+    },
+  });
 
-// Negative: rawBytes whose hash does not match liveDocument contentHash (tampered bytes)
-const tamperedBytes = new Uint8Array(Buffer.from('Tampered payload'));
-const pipelineTamperedBytes = { ...pipelineWithAuthenticBytes, rawBytes: tamperedBytes };
-const resTamperedBytes = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
-  livePipelineResult: pipelineTamperedBytes,
-});
-assert(resTamperedBytes.isValid === false && resTamperedBytes.findings.some(f => f.detail.includes('raw byte hash mismatch')), 'Suite 12a-3: Tampered wire bytes mismatching contentHash is rejected');
+  // Positive: Authentic execution produces live_source_verified
+  const resAuthentic = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: authenticPipelineResult,
+  });
+  assert(
+    resAuthentic.isValid === true && resAuthentic.verificationLevel === 'live_source_verified',
+    'Suite 12a-1: Authentic wire bytes through executeOfficialSourcePipeline yield live_source_verified'
+  );
 
-// Negative: Hash from document A paired with extracted content of document B
-const pipelineMismatchedExtractedHash = {
-  ...pipelineWithAuthenticBytes,
-  extractedDocument: {
-    ...pipelineWithAuthenticBytes.extractedDocument,
-    sourceDocument: { sourceDocId: validSampleClaim.sourceDocId, contentHash: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' },
-  },
-};
-const resMismatchedExtractedHash = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
-  livePipelineResult: pipelineMismatchedExtractedHash,
-});
-assert(resMismatchedExtractedHash.isValid === false && resMismatchedExtractedHash.findings.some(f => f.detail.includes('Extracted document contentHash')), 'Suite 12a-4: Extracted document hash mismatching wire byte hash is rejected');
+  // Negative: Synthesized plain JS object without trusted execution receipt fails closed
+  const synthesizedResult = { ...authenticPipelineResult };
+  const resSynthesized = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: synthesizedResult,
+  });
+  assert(
+    resSynthesized.isValid === false &&
+      resSynthesized.verificationLevel === 'unverified' &&
+      resSynthesized.findings.some((f) => f.detail.includes('caller-synthesized or untracked objects are rejected')),
+    'Suite 12a-2: Synthesized plain JS object without trusted receipt fails closed'
+  );
 
-// Negative: Verification result from document A reused for document B
-const pipelineReusedDocId = {
-  ...pipelineWithAuthenticBytes,
-  claimVerificationResult: {
-    ...pipelineWithAuthenticBytes.claimVerificationResult,
-    sourceDocId: 'other_document_id',
-  },
-};
-const resReusedDocId = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
-  livePipelineResult: pipelineReusedDocId,
-});
-assert(resReusedDocId.isValid === false && resReusedDocId.findings.some(f => f.detail.includes('Source document ID mismatch')), 'Suite 12a-5: Verification result from different source document is rejected');
+  // Negative: Missing rawBytes fails closed
+  const pipelineNoBytes = { ...authenticPipelineResult, rawBytes: undefined };
+  const resNoBytes = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: pipelineNoBytes,
+  });
+  assert(
+    resNoBytes.isValid === false && resNoBytes.verificationLevel === 'unverified',
+    'Suite 12a-3: Missing rawBytes fails closed'
+  );
 
-// Negative: Verification result reused for a different reporting period
-const pipelineWrongPeriod = {
-  ...pipelineWithAuthenticBytes,
-  claimVerificationResult: {
-    ...pipelineWithAuthenticBytes.claimVerificationResult,
-    verifiedPeriod: '2025-Q3',
-  },
-};
-const resWrongPeriod = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
-  livePipelineResult: pipelineWrongPeriod,
-});
-assert(resWrongPeriod.isValid === false && resWrongPeriod.findings.some(f => f.detail.includes('Verified period') && f.detail.includes('does not match')), 'Suite 12a-6: Verification result reused for different reporting period is rejected');
+  // Negative: Tampered wire bytes mismatching contentHash is rejected
+  const tamperedBytes = new Uint8Array(Buffer.from('Tampered payload'));
+  const pipelineTamperedBytes = { ...authenticPipelineResult, rawBytes: tamperedBytes };
+  const resTamperedBytes = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: pipelineTamperedBytes,
+  });
+  assert(
+    resTamperedBytes.isValid === false && resTamperedBytes.verificationLevel === 'unverified',
+    'Suite 12a-4: Tampered wire bytes is rejected'
+  );
 
-// Negative: Changed numeric value with original evidence block
-const claimChangedValue = { ...validSampleClaim, value: 888.88 };
-const resChangedValue = auditStructuredPerformanceClaim(claimChangedValue, prodHyundaiDriver, {
-  livePipelineResult: pipelineWithAuthenticBytes,
-});
-assert(resChangedValue.isValid === false && resChangedValue.findings.some(f => f.detail.includes('contradicts claimed value') || f.detail.includes('does not contain or support')), 'Suite 12a-7: Changed numeric value with unmodified live evidence block is rejected');
+  // Negative: Extracted document contentHash mismatching wire byte hash is rejected
+  const pipelineMismatchedExtractedHash: any = {
+    ...authenticPipelineResult,
+    extractedDocument: {
+      ...authenticPipelineResult.extractedDocument,
+      sourceDocument: {
+        sourceDocId: validSampleClaim.sourceDocId,
+        contentHash: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      },
+    },
+  };
+  const resMismatchedExtractedHash = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: pipelineMismatchedExtractedHash,
+  });
+  assert(
+    resMismatchedExtractedHash.isValid === false,
+    'Suite 12a-5: Extracted document hash mismatch is rejected'
+  );
 
-// Negative: Insecure initial URL outside official domain
-const pipelineInsecureUrl = {
-  ...pipelineWithAuthenticBytes,
-  liveDocument: { ...pipelineWithAuthenticBytes.liveDocument, url: 'https://attacker.evil.com/fake' },
-};
-const resInsecureUrl = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
-  livePipelineResult: pipelineInsecureUrl,
-});
-assert(resInsecureUrl.isValid === false && resInsecureUrl.findings.some(f => f.detail.includes('Disallowed initial URL')), 'Suite 12a-8: Initial URL outside official domain perimeter is rejected');
+  // Negative: Verification result from different source document is rejected
+  const pipelineReusedDocId: any = {
+    ...authenticPipelineResult,
+    claimVerificationResult: {
+      ...authenticPipelineResult.claimVerificationResult,
+      sourceDocId: 'other_document_id',
+    },
+  };
+  const resReusedDocId = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: pipelineReusedDocId,
+  });
+  assert(
+    resReusedDocId.isValid === false,
+    'Suite 12a-6: Verification result from different source document is rejected'
+  );
 
-// 12b. P1: Fixture-Backed Period Identity & Dimensional Enforcement
-// Correct claim, correct period, matching fixture -> numeric_claim_verified
-const fixtureQ3 = {
-  sourceDocId: validSampleClaim.sourceDocId,
-  sectionLocator: validSampleClaim.sourceLocator,
-  extractedText: validSampleClaim.verifiedEvidence,
-  verifiedValue: String(validSampleClaim.value),
-  verifiedNumericValue: validSampleClaim.value,
-  verifiedMetricId: validSampleClaim.metricId,
-  verifiedUnit: validSampleClaim.unit as any,
-  verifiedScope: validSampleClaim.reportingScope,
-  verifiedAccountingBasis: validSampleClaim.accountingBasis,
-  verifiedPeriod: '2026-Q3',
-  verifiedPeriodType: 'quarterly' as const,
-};
-const resMatchQ3 = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: [fixtureQ3] });
-assert(resMatchQ3.isValid === true && resMatchQ3.verificationLevel === 'numeric_claim_verified', 'Suite 12b-1: Matching fixture with matching period yields numeric_claim_verified');
+  // Negative: Verification result reused for different reporting period is rejected
+  const pipelineWrongPeriod: any = {
+    ...authenticPipelineResult,
+    claimVerificationResult: {
+      ...authenticPipelineResult.claimVerificationResult,
+      verifiedPeriod: '2025-Q3',
+    },
+  };
+  const resWrongPeriod = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: pipelineWrongPeriod,
+  });
+  assert(
+    resWrongPeriod.isValid === false,
+    'Suite 12a-7: Verification result reused for different reporting period is rejected'
+  );
 
-// Correct numeric value but wrong period fixture (e.g. 2025-Q3) -> MUST NOT receive numeric_claim_verified
-const fixtureWrongPeriod = { ...fixtureQ3, verifiedPeriod: '2025-Q3' };
-const resWrongPeriodFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: [fixtureWrongPeriod] });
-assert(resWrongPeriodFix.verificationLevel !== 'numeric_claim_verified', 'Suite 12b-2: Correct numeric value with mismatched period fixture CANNOT yield numeric_claim_verified');
+  // Negative: Changed numeric value with unmodified live evidence block is rejected
+  const claimChangedValue = { ...validSampleClaim, value: 888.88 };
+  const resChangedValue = auditStructuredPerformanceClaim(claimChangedValue, prodHyundaiDriver, {
+    livePipelineResult: authenticPipelineResult,
+  });
+  assert(
+    resChangedValue.isValid === false,
+    'Suite 12a-8: Changed numeric value with unmodified live evidence block is rejected'
+  );
 
-// Correct numeric value but wrong period type (annual instead of quarterly) -> MUST NOT receive numeric_claim_verified
-const fixtureWrongPeriodType = { ...fixtureQ3, verifiedPeriodType: 'annual' as const };
-const resWrongPeriodTypeFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: [fixtureWrongPeriodType] });
-assert(resWrongPeriodTypeFix.verificationLevel !== 'numeric_claim_verified', 'Suite 12b-3: Correct value with wrong period type fixture CANNOT yield numeric_claim_verified');
+  // Negative: Initial URL outside official domain perimeter is rejected
+  const pipelineInsecureUrl: any = {
+    ...authenticPipelineResult,
+    liveDocument: { ...authenticPipelineResult.liveDocument, url: 'https://attacker.evil.com/fake' },
+  };
+  const resInsecureUrl = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: pipelineInsecureUrl,
+  });
+  assert(
+    resInsecureUrl.isValid === false,
+    'Suite 12a-9: Initial URL outside official domain perimeter is rejected'
+  );
 
-// Correct period but wrong company / source document
-const fixtureWrongDoc = { ...fixtureQ3, sourceDocId: 'wrong_source_doc' };
-const resWrongDocFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: [fixtureWrongDoc] });
-assert(resWrongDocFix.verificationLevel !== 'numeric_claim_verified', 'Suite 12b-4: Wrong source document fixture CANNOT yield numeric_claim_verified');
+  // Negative: Public API bypass via validatePerformanceClaim fails closed
+  const fPublicBypass = validatePerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    livePipelineResult: { ...authenticPipelineResult },
+  } as any);
+  assert(
+    fPublicBypass.some((f) => f.detail.includes('caller-synthesized or untracked objects are rejected')),
+    'Suite 12a-10: Public API bypass via validatePerformanceClaim with synthesized object fails closed'
+  );
 
-// Correct value and period but wrong metric
-const fixtureWrongMetric = { ...fixtureQ3, verifiedMetricId: 'operating_margin' };
-const resWrongMetricFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: [fixtureWrongMetric] });
-assert(resWrongMetricFix.verificationLevel !== 'numeric_claim_verified', 'Suite 12b-5: Wrong metric fixture CANNOT yield numeric_claim_verified');
+  // Negative: isLiveSource: true boolean flag alone cannot grant verification
+  const resFlagAlone = auditStructuredPerformanceClaim(
+    { ...validSampleClaim, isLiveSource: true } as any,
+    prodHyundaiDriver
+  );
+  assert(
+    resFlagAlone.verificationLevel !== 'live_source_verified',
+    'Suite 12a-11: Boolean flag alone (isLiveSource: true) CANNOT grant live_source_verified'
+  );
 
-// Correct value and metric but incompatible unit
-const fixtureWrongUnit = { ...fixtureQ3, verifiedUnit: 'percentage' as any };
-const resWrongUnitFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: [fixtureWrongUnit] });
-assert(resWrongUnitFix.verificationLevel !== 'numeric_claim_verified', 'Suite 12b-6: Incompatible unit fixture CANNOT yield numeric_claim_verified');
+  // Negative: Trusted receipt for document A reused on claim for document B is rejected
+  const claimDocB = { ...validSampleClaim, sourceDocId: 'other_registered_doc' };
+  const resDocMismatch = auditStructuredPerformanceClaim(claimDocB, prodHyundaiDriver, {
+    livePipelineResult: authenticPipelineResult,
+  });
+  assert(
+    resDocMismatch.isValid === false,
+    'Suite 12a-12: Trusted receipt paired with different sourceDocId claim is rejected'
+  );
 
-// Two matching fixtures for different periods: selects correct period
-const fixtureMultiPeriod = [
-  { ...fixtureQ3, verifiedPeriod: '2025-Q3', verifiedNumericValue: 800 },
-  fixtureQ3,
-];
-const resMultiPeriod = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: fixtureMultiPeriod });
-assert(resMultiPeriod.isValid === true && resMultiPeriod.verificationLevel === 'numeric_claim_verified', 'Suite 12b-7: Multi-period fixtures correctly select the fixture matching target period');
+  // 12b. P1-B: Fixture-Backed Period Identity & Dimensional Enforcement
+  const fixtureQ3 = {
+    sourceDocId: validSampleClaim.sourceDocId,
+    sectionLocator: validSampleClaim.sourceLocator,
+    extractedText: validSampleClaim.verifiedEvidence,
+    verifiedValue: String(validSampleClaim.value),
+    verifiedNumericValue: validSampleClaim.value,
+    verifiedMetricId: validSampleClaim.metricId,
+    verifiedUnit: validSampleClaim.unit as any,
+    verifiedScope: validSampleClaim.reportingScope,
+    verifiedAccountingBasis: validSampleClaim.accountingBasis,
+    verifiedPeriod: '2026-Q3',
+    verifiedPeriodType: 'quarterly' as const,
+  };
+  const resMatchQ3 = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureQ3],
+  });
+  assert(
+    resMatchQ3.isValid === true && resMatchQ3.verificationLevel === 'numeric_claim_verified',
+    'Suite 12b-1: Matching fixture with matching period yields numeric_claim_verified'
+  );
 
-// Two equally plausible fixtures for same required dimensions (ambiguous) -> fails closed
-const fixtureAmbiguous = [
-  fixtureQ3,
-  { ...fixtureQ3, extractedText: 'Alternative snippet with same dimensions' },
-];
-const resAmbiguous = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, { contentFixtures: fixtureAmbiguous });
-assert(resAmbiguous.isValid === false && resAmbiguous.findings.some(f => f.detail.includes('Multiple ambiguous source content fixtures')), 'Suite 12b-8: Multiple ambiguous fixtures for same dimensions fail closed with blocking error');
+  // Correct numeric value but wrong period fixture (e.g. 2025-Q3) -> MUST NOT receive numeric_claim_verified
+  const fixtureWrongPeriod = { ...fixtureQ3, verifiedPeriod: '2025-Q3' };
+  const resWrongPeriodFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureWrongPeriod],
+  });
+  assert(
+    resWrongPeriodFix.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-2: Correct numeric value with mismatched period fixture CANNOT yield numeric_claim_verified'
+  );
 
-// 12c. P2: Meaningful Locator & Evidence Resolution
-// Locator is merely a substring of a different section identifier -> does not resolve
-const claimSubstringLocator = { ...validSampleClaim, sourceLocator: '결적' };
-const resSubLocator = auditStructuredPerformanceClaim(claimSubstringLocator, prodHyundaiDriver, { contentFixtures: [fixtureQ3] });
-assert(resSubLocator.isValid === false && resSubLocator.findings.some(f => f.detail.includes('does not resolve against available source content fixtures')), 'Suite 12c-1: Non-resolving interior substring locator is rejected');
+  // Correct numeric value but wrong period type (annual instead of quarterly) -> MUST NOT receive numeric_claim_verified
+  const fixtureWrongPeriodType = { ...fixtureQ3, verifiedPeriodType: 'annual' as const };
+  const resWrongPeriodTypeFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureWrongPeriodType],
+  });
+  assert(
+    resWrongPeriodTypeFix.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-3: Correct value with wrong period type fixture CANNOT yield numeric_claim_verified'
+  );
 
-// Evidence text comes from an unrelated reporting period -> does not resolve evidence
-const fixtureUnrelatedPeriodEvidence = {
-  ...fixtureQ3,
-  verifiedPeriod: '2024-Q1',
-  extractedText: 'Hyundai deliveries historical extract 920.71',
-};
-const claimWithUnrelatedEv = { ...validSampleClaim, verifiedEvidence: 'Hyundai deliveries historical extract 920.71' };
-const resUnrelatedEv = auditStructuredPerformanceClaim(claimWithUnrelatedEv, prodHyundaiDriver, { contentFixtures: [fixtureUnrelatedPeriodEvidence] });
-assert(resUnrelatedEv.verificationLevel !== 'evidence_validated' && resUnrelatedEv.verificationLevel !== 'numeric_claim_verified', 'Suite 12c-2: Evidence from unrelated reporting period cannot validate claim evidence');
+  // Missing period on fixture -> MUST NOT receive numeric_claim_verified
+  const fixtureNoPeriod = { ...fixtureQ3, verifiedPeriod: undefined };
+  const resNoPeriodFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureNoPeriod],
+  });
+  assert(
+    resNoPeriodFix.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-4: Fixture missing verifiedPeriod CANNOT yield numeric_claim_verified'
+  );
 
-// 12d. P2: Strict-Audit Exit-Code Classification
-// Legitimate strict-mode policy failure
-const classStrictPolicy = classifyVerificationCommandResult(
-  'npm run audit-data -- --strict',
-  1,
-  '⚠️ Strict mode failed with 2 review findings.\nStrict exit code: 1\n'
-);
-assert(classStrictPolicy.status === 'EXPECTED_POLICY_FAILURE', 'Suite 12d-1: Strict mode exit code 1 with genuine review findings classifies as EXPECTED_POLICY_FAILURE');
+  // Missing periodType on fixture -> MUST NOT receive numeric_claim_verified
+  const fixtureNoPeriodType = { ...fixtureQ3, verifiedPeriodType: undefined };
+  const resNoPeriodTypeFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureNoPeriodType],
+  });
+  assert(
+    resNoPeriodTypeFix.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-5: Fixture missing verifiedPeriodType CANNOT yield numeric_claim_verified'
+  );
 
-// Strict mode exit code 1 due to execution exception (e.g. SyntaxError) -> FAIL
-const classSyntaxError = classifyVerificationCommandResult(
-  'npm run audit-data -- --strict',
-  1,
-  'SyntaxError: Unexpected identifier in file.ts\nCommand failed\n'
-);
-assert(classSyntaxError.status === 'FAIL', 'Suite 12d-2: Strict mode exit code 1 from SyntaxError classifies as FAIL');
+  // Correct period but wrong company / source document
+  const fixtureWrongDoc = { ...fixtureQ3, sourceDocId: 'wrong_source_doc' };
+  const resWrongDocFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureWrongDoc],
+  });
+  assert(
+    resWrongDocFix.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-6: Wrong source document fixture CANNOT yield numeric_claim_verified'
+  );
 
-// Strict mode exit code 1 due to timeout -> FAIL
-const classTimeout = classifyVerificationCommandResult(
-  'npm run audit-data -- --strict',
-  1,
-  'Command timed out after 180000ms',
-  { code: 'ETIMEDOUT' }
-);
-assert(classTimeout.status === 'FAIL', 'Suite 12d-3: Strict mode timeout classifies as FAIL');
+  // Correct value and period but wrong metric
+  const fixtureWrongMetric = { ...fixtureQ3, verifiedMetricId: 'operating_margin' };
+  const resWrongMetricFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureWrongMetric],
+  });
+  assert(
+    resWrongMetricFix.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-7: Wrong metric fixture CANNOT yield numeric_claim_verified'
+  );
 
-// Strict mode exit code 1 due to missing dependency -> FAIL
-const classMissingDep = classifyVerificationCommandResult(
-  'npm run audit-data -- --strict',
-  1,
-  'Error: Cannot find module "some-dep"\ncode: MODULE_NOT_FOUND'
-);
-assert(classMissingDep.status === 'FAIL', 'Suite 12d-4: Strict mode missing dependency classifies as FAIL');
+  // Correct value and metric but incompatible unit
+  const fixtureWrongUnit = { ...fixtureQ3, verifiedUnit: 'percentage' as any };
+  const resWrongUnitFix = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureWrongUnit],
+  });
+  assert(
+    resWrongUnitFix.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-8: Incompatible unit fixture CANNOT yield numeric_claim_verified'
+  );
 
-// Strict mode exit code 1 with blocking errors -> FAIL
-const classBlockingError = classifyVerificationCommandResult(
-  'npm run audit-data -- --strict',
-  1,
-  '💥 Audit failed with 2 blocking structural errors.\n'
-);
-assert(classBlockingError.status === 'FAIL', 'Suite 12d-5: Strict mode with blocking structural errors classifies as FAIL');
+  // Two matching fixtures for different periods: selects correct period
+  const fixtureMultiPeriod = [
+    { ...fixtureQ3, verifiedPeriod: '2025-Q3', verifiedNumericValue: 800 },
+    fixtureQ3,
+  ];
+  const resMultiPeriod = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: fixtureMultiPeriod,
+  });
+  assert(
+    resMultiPeriod.isValid === true && resMultiPeriod.verificationLevel === 'numeric_claim_verified',
+    'Suite 12b-9: Multi-period fixtures correctly select the fixture matching target period'
+  );
 
-// Non-strict audit success -> PASS
-const classNonStrictPass = classifyVerificationCommandResult(
-  'npm run audit-data',
-  0,
-  '✨ Scope-Safe Audit Passed with 0 blocking errors.'
-);
-assert(classNonStrictPass.status === 'PASS', 'Suite 12d-6: Non-strict audit success classifies as PASS');
+  // Two equally plausible fixtures for same required dimensions (ambiguous) -> fails closed
+  const fixtureAmbiguous = [
+    fixtureQ3,
+    { ...fixtureQ3, extractedText: 'Alternative snippet with same dimensions' },
+  ];
+  const resAmbiguous = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: fixtureAmbiguous,
+  });
+  assert(
+    resAmbiguous.isValid === false &&
+      resAmbiguous.findings.some((f) => f.detail.includes('Multiple ambiguous source content fixtures')),
+    'Suite 12b-10: Multiple ambiguous fixtures for same dimensions fail closed with blocking error'
+  );
 
-// Non-strict audit failure -> FAIL
-const classNonStrictFail = classifyVerificationCommandResult(
-  'npm run audit-data',
-  1,
-  '💥 Audit failed with 1 blocking structural errors.'
-);
-assert(classNonStrictFail.status === 'FAIL', 'Suite 12d-7: Non-strict audit failure classifies as FAIL');
+  // Annual claim cannot be verified by quarterly fixture
+  const claimAnnual = { ...validSampleClaim, period: '2026-FY' };
+  const resAnnualVsQuarterly = auditStructuredPerformanceClaim(claimAnnual, prodHyundaiDriver, {
+    contentFixtures: [fixtureQ3],
+  });
+  assert(
+    resAnnualVsQuarterly.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-11: Annual claim CANNOT be verified by quarterly fixture'
+  );
 
-// 12e. P2: Audit Provenance & Git State
-const treeStatusClean = getWorkingTreeStatus();
-assert(treeStatusClean === 'clean' || treeStatusClean === 'dirty' || treeStatusClean === 'unknown', 'Suite 12e-1: Working tree status returns valid union state');
+  // Quarterly claim cannot be verified by annual fixture
+  const fixtureAnnual = { ...fixtureQ3, verifiedPeriod: '2026-FY', verifiedPeriodType: 'annual' as const };
+  const resQuarterlyVsAnnual = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureAnnual],
+  });
+  assert(
+    resQuarterlyVsAnnual.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12b-12: Quarterly claim CANNOT be verified by annual fixture'
+  );
 
-process.env.GIT_UNAVAILABLE = '1';
-assert(getWorkingTreeStatus() === 'unknown', 'Suite 12e-2: Working tree status returns unknown when git is unavailable');
-assert(getAuditCommitSha() === 'unknown', 'Suite 12e-3: Audit commit SHA returns unknown when git is unavailable');
-delete process.env.GIT_UNAVAILABLE;
+  // 12c. P1-C: Meaningful Locator & Semantic Evidence Resolution
+  // Locator is merely a substring of a different section identifier -> does not resolve
+  const claimSubstringLocator = { ...validSampleClaim, sourceLocator: '결적' };
+  const resSubLocator = auditStructuredPerformanceClaim(claimSubstringLocator, prodHyundaiDriver, {
+    contentFixtures: [fixtureQ3],
+  });
+  assert(
+    resSubLocator.isValid === false &&
+      resSubLocator.findings.some((f) =>
+        f.detail.includes('does not resolve against available source content fixtures')
+      ),
+    'Suite 12c-1: Non-resolving interior substring locator is rejected'
+  );
 
-// 12f. P2: Percentage-Point vs Percentage Change Compatibility
-const claimPpWithPctChange = {
-  ...validHevShareClaim,
-  changeYoYPercentagePoints: 50.0,
-};
-const resPpPctMismatch = auditStructuredPerformanceClaim(claimPpWithPctChange, prodHyundaiDriver);
-assert(
-  resPpPctMismatch.isValid === false &&
-  resPpPctMismatch.findings.some(f => f.detail.includes('appears to be a percentage change') || f.detail.includes('diverges from calculated change')),
-  'Suite 12f-1: Supplying percentage change instead of percentage-points is caught with clear diagnostic'
-);
+  // Evidence text comes from an unrelated reporting period -> does not resolve evidence
+  const fixtureUnrelatedPeriodEvidence = {
+    ...fixtureQ3,
+    verifiedPeriod: '2024-Q1',
+    extractedText: 'Hyundai deliveries historical extract 920.71',
+  };
+  const claimWithUnrelatedEv = {
+    ...validSampleClaim,
+    verifiedEvidence: 'Hyundai deliveries historical extract 920.71',
+  };
+  const resUnrelatedEv = auditStructuredPerformanceClaim(claimWithUnrelatedEv, prodHyundaiDriver, {
+    contentFixtures: [fixtureUnrelatedPeriodEvidence],
+  });
+  assert(
+    resUnrelatedEv.verificationLevel !== 'evidence_validated' &&
+      resUnrelatedEv.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12c-2: Evidence from unrelated reporting period cannot validate claim evidence'
+  );
 
-console.log(`\nResults: ${passed} passed, ${failed} failed.`);
-if (failed > 0) {
-  process.exit(1);
-} else {
-  console.log('🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!\n');
+  // Semantic contradiction: narrative ref asserting wrong value fails closed
+  const claimWithContradictoryNarrative = {
+    ...validSampleClaim,
+    narrativeRefKo: '글로벌 도매 500,000대(-50.0% YoY)',
+  };
+  const resContradictoryNarrative = auditStructuredPerformanceClaim(
+    claimWithContradictoryNarrative,
+    prodHyundaiDriver
+  );
+  assert(
+    resContradictoryNarrative.findings.some((f) => f.detail.includes('narrativeRefKo')),
+    'Suite 12c-3: Contradictory narrative reference fails validation'
+  );
+
+  // Multi-metric ambiguous block without metric binding fails closed
+  const fixtureMultiMetricAmbiguous = {
+    ...fixtureQ3,
+    verifiedMetricId: 'revenue', // metric does not match deliveries_global
+  };
+  const resMetricMismatch = auditStructuredPerformanceClaim(validSampleClaim, prodHyundaiDriver, {
+    contentFixtures: [fixtureMultiMetricAmbiguous],
+  });
+  assert(
+    resMetricMismatch.verificationLevel !== 'numeric_claim_verified',
+    'Suite 12c-4: Fixture with mismatched metricId fails closed'
+  );
+
+  // 12d. P2-A: Strict-Audit Exit-Code Classification (All 10 codes)
+  // 1. SUCCESS
+  const classSuccess = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    0,
+    '✨ All performance drivers, source claims, and data observations passed validation with 0 findings.'
+  );
+  assert(
+    classSuccess.status === 'PASS' && classSuccess.reasonCode === 'SUCCESS',
+    'Suite 12d-1: Strict mode exit code 0 classifies as PASS with reason SUCCESS'
+  );
+
+  // 2. POLICY_FAILURE_REVIEW_FINDINGS (strict code 1, 0 blocking errors, >0 review findings)
+  const classStrictPolicy = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    1,
+    '⚠️ Strict mode failed with 2 review findings.\nStrict exit code: 1\n'
+  );
+  assert(
+    classStrictPolicy.status === 'EXPECTED_POLICY_FAILURE' &&
+      classStrictPolicy.reasonCode === 'POLICY_FAILURE_REVIEW_FINDINGS',
+    'Suite 12d-2: Strict mode exit code 1 with genuine review findings classifies as EXPECTED_POLICY_FAILURE'
+  );
+
+  // 3. EXECUTION_FAILURE / UNEXPECTED_EXCEPTION
+  const classSyntaxError = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    1,
+    'SyntaxError: Unexpected identifier in file.ts\nCommand failed\n'
+  );
+  assert(
+    classSyntaxError.status === 'FAIL' &&
+      (classSyntaxError.reasonCode === 'EXECUTION_FAILURE' ||
+        classSyntaxError.reasonCode === 'UNEXPECTED_EXCEPTION'),
+    'Suite 12d-3: Strict mode exit code 1 from SyntaxError classifies as FAIL with reason UNEXPECTED_EXCEPTION'
+  );
+
+  // 4. TIMEOUT
+  const classTimeout = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    1,
+    'Command timed out after 180000ms',
+    { code: 'ETIMEDOUT' }
+  );
+  assert(
+    classTimeout.status === 'FAIL' && classTimeout.reasonCode === 'TIMEOUT',
+    'Suite 12d-4: Strict mode timeout classifies as FAIL with reason TIMEOUT'
+  );
+
+  // 5. MISSING_DEPENDENCY
+  const classMissingDep = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    1,
+    'Error: Cannot find module "some-dep"\ncode: MODULE_NOT_FOUND'
+  );
+  assert(
+    classMissingDep.status === 'FAIL' && classMissingDep.reasonCode === 'MISSING_DEPENDENCY',
+    'Suite 12d-5: Strict mode missing dependency classifies as FAIL with reason MISSING_DEPENDENCY'
+  );
+
+  // 6. BLOCKING_VALIDATION_FAILURE
+  const classBlockingError = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    1,
+    '💥 Audit failed with 2 blocking structural errors.\n'
+  );
+  assert(
+    classBlockingError.status === 'FAIL' &&
+      classBlockingError.reasonCode === 'BLOCKING_VALIDATION_FAILURE',
+    'Suite 12d-6: Strict mode with blocking structural errors classifies as FAIL with reason BLOCKING_VALIDATION_FAILURE'
+  );
+
+  // 7. UNEXPECTED_EXCEPTION
+  const classUncaughtException = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    1,
+    'fatal: UnhandledPromiseRejection in runner\nAudit aborted'
+  );
+  assert(
+    classUncaughtException.status === 'FAIL' &&
+      classUncaughtException.reasonCode === 'UNEXPECTED_EXCEPTION',
+    'Suite 12d-7: Strict mode unhandled exception classifies as FAIL with reason UNEXPECTED_EXCEPTION'
+  );
+
+  // 8. UNEXPECTED_EXIT_CODE (e.g. exit code 137 or 2)
+  const classUnexpectedExitCode = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    137,
+    'Killed: out of memory'
+  );
+  assert(
+    classUnexpectedExitCode.status === 'FAIL' &&
+      classUnexpectedExitCode.reasonCode === 'UNEXPECTED_EXIT_CODE',
+    'Suite 12d-8: Strict mode exit code 137 classifies as FAIL with reason UNEXPECTED_EXIT_CODE'
+  );
+
+  // 9. CONFLICTING_OUTPUT_STATUS
+  const classConflictingStatus = classifyVerificationCommandResult(
+    'npm run audit-data -- --strict',
+    1,
+    '✨ Scope-Safe Audit Passed with 0 blocking errors and 0 review findings.'
+  );
+  assert(
+    classConflictingStatus.status === 'FAIL' &&
+      classConflictingStatus.reasonCode === 'CONFLICTING_OUTPUT_STATUS',
+    'Suite 12d-9: Zero findings output with exit code 1 classifies as FAIL with reason CONFLICTING_OUTPUT_STATUS'
+  );
+
+  // 10. NON_STRICT_FAILURE
+  const classNonStrictFail = classifyVerificationCommandResult(
+    'npm run audit-data',
+    1,
+    'General non-strict task failed with runtime errors'
+  );
+  assert(
+    classNonStrictFail.status === 'FAIL' &&
+      classNonStrictFail.reasonCode === 'NON_STRICT_FAILURE',
+    'Suite 12d-10: Non-strict audit failure classifies as FAIL with reason NON_STRICT_FAILURE'
+  );
+
+  // 12e. P2-B: Audit Provenance & Git State
+  const treeStatusClean = getWorkingTreeStatus();
+  assert(
+    treeStatusClean === 'clean' || treeStatusClean === 'dirty' || treeStatusClean === 'unknown',
+    'Suite 12e-1: Working tree status returns valid union state'
+  );
+
+  const treeStatusExDocs = getWorkingTreeExcludingDocs();
+  assert(
+    treeStatusExDocs === 'clean' || treeStatusExDocs === 'dirty' || treeStatusExDocs === 'unknown',
+    'Suite 12e-2: Working tree excluding docs returns valid union state'
+  );
+
+  process.env.GIT_UNAVAILABLE = '1';
+  assert(
+    getWorkingTreeStatus() === 'unknown',
+    'Suite 12e-3: Working tree status returns unknown when git is unavailable'
+  );
+  assert(
+    getAuditCommitSha() === 'unknown',
+    'Suite 12e-4: Audit commit SHA returns unknown when git is unavailable'
+  );
+  assert(
+    getWorkingTreeExcludingDocs() === 'unknown',
+    'Suite 12e-5: Working tree excluding docs returns unknown when git is unavailable'
+  );
+  delete process.env.GIT_UNAVAILABLE;
+
+  // 12f. P2-C: Unified Dimensional Compatibility
+  // Supplying percentage change instead of percentage-points is caught
+  const claimPpWithPctChange = {
+    ...validHevShareClaim,
+    changeYoYPercentagePoints: 50.0,
+  };
+  const resPpPctMismatch = auditStructuredPerformanceClaim(claimPpWithPctChange, prodHyundaiDriver);
+  assert(
+    resPpPctMismatch.isValid === false &&
+      resPpPctMismatch.findings.some(
+        (f) =>
+          f.detail.includes('appears to be a percentage change') ||
+          f.detail.includes('diverges from calculated change')
+      ),
+    'Suite 12f-1: Supplying percentage change instead of percentage-points is caught with clear diagnostic'
+  );
+
+  // Zero denominator in comparison observation fails closed
+  const claimZeroDenom = { ...validSampleClaim };
+  const mockZeroObsList: any[] = [
+    {
+      id: 'curr_obs',
+      companyId: 'hyundai_motor',
+      period: '2026-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2026,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: 920.71,
+      unit: 'thousand_units',
+      isComparable: true,
+    },
+    {
+      id: 'zero_prior_obs',
+      companyId: 'hyundai_motor',
+      period: '2025-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2025,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: 0,
+      unit: 'thousand_units',
+      isComparable: true,
+    },
+  ];
+  const resZeroDenom = auditStructuredPerformanceClaim(claimZeroDenom, prodHyundaiDriver, {
+    observations: mockZeroObsList,
+  });
+  assert(
+    resZeroDenom.isValid === false &&
+      resZeroDenom.findings.some((f) => f.detail.includes('value is zero')),
+    'Suite 12f-2: Comparison observation with zero denominator is rejected with blocking error'
+  );
+
+  // Non-finite value in comparison observation fails closed
+  const mockNanObsList: any[] = [
+    {
+      id: 'curr_obs',
+      companyId: 'hyundai_motor',
+      period: '2026-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2026,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: 920.71,
+      unit: 'thousand_units',
+      isComparable: true,
+    },
+    {
+      id: 'nan_prior_obs',
+      companyId: 'hyundai_motor',
+      period: '2025-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2025,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: NaN,
+      unit: 'thousand_units',
+      isComparable: true,
+    },
+  ];
+  const resNanComparison = auditStructuredPerformanceClaim(claimZeroDenom, prodHyundaiDriver, {
+    observations: mockNanObsList,
+  });
+  assert(
+    resNanComparison.isValid === false &&
+      resNanComparison.findings.some((f) => f.detail.includes('non-finite')),
+    'Suite 12f-3: Comparison observation with non-finite value is rejected with blocking error'
+  );
+
+  // Incompatible accounting basis in comparison observation fails closed
+  const mockBasisMismatchList: any[] = [
+    {
+      id: 'curr_obs',
+      companyId: 'hyundai_motor',
+      period: '2026-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2026,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: 920.71,
+      unit: 'thousand_units',
+      accountingBasis: 'reported',
+      isComparable: true,
+    },
+    {
+      id: 'adjusted_prior_obs',
+      companyId: 'hyundai_motor',
+      period: '2025-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2025,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: 800,
+      unit: 'thousand_units',
+      accountingBasis: 'adjusted',
+      isComparable: true,
+    },
+  ];
+  const resBasisMismatch = auditStructuredPerformanceClaim(claimZeroDenom, prodHyundaiDriver, {
+    observations: mockBasisMismatchList,
+  });
+  assert(
+    resBasisMismatch.isValid === false &&
+      resBasisMismatch.findings.some((f) => f.detail.includes('accountingBasis mismatch')),
+    'Suite 12f-4: Comparison observation with incompatible accounting basis is rejected'
+  );
+
+  // Incompatible reporting scope in comparison observation fails closed
+  const mockScopeMismatchList: any[] = [
+    {
+      id: 'curr_obs',
+      companyId: 'hyundai_motor',
+      period: '2026-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2026,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: 920.71,
+      unit: 'thousand_units',
+      reportingScope: 'consolidated_group',
+      isComparable: true,
+    },
+    {
+      id: 'segment_prior_obs',
+      companyId: 'hyundai_motor',
+      period: '2025-Q3',
+      periodType: 'quarterly',
+      calendarYear: 2025,
+      valueType: 'reported',
+      metricId: 'deliveries_global',
+      value: 800,
+      unit: 'thousand_units',
+      reportingScope: 'automotive_segment',
+      isComparable: true,
+    },
+  ];
+  const resScopeMismatch = auditStructuredPerformanceClaim(claimZeroDenom, prodHyundaiDriver, {
+    observations: mockScopeMismatchList,
+  });
+  assert(
+    resScopeMismatch.isValid === false &&
+      resScopeMismatch.findings.some((f) => f.detail.includes('reportingScope mismatch')),
+    'Suite 12f-5: Comparison observation with incompatible reporting scope is rejected'
+  );
 }
+
+runSuite12()
+  .then(() => {
+    console.log(`\nResults: ${passed} passed, ${failed} failed.`);
+    if (failed > 0) {
+      process.exit(1);
+    } else {
+      console.log('🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!\n');
+    }
+  })
+  .catch((err) => {
+    console.error('Suite 12 unhandled error:', err);
+    process.exit(1);
+  });

@@ -48,6 +48,8 @@ import {
   validateClaimVerificationResult,
   resolveClaimVerificationState,
 } from '../data/scopeExceptions';
+import { recordTrustedPipelineExecution } from './livePipelineTrustStore';
+
 
 export interface ExecuteOfficialPipelineArgs {
   /** Target official IR source definition or registered ID from OFFICIAL_IR_SOURCES */
@@ -363,7 +365,7 @@ export async function executeOfficialSourcePipeline(
     };
   }
 
-  return {
+  const pipelineResult: OfficialSourcePipelineResult = {
     success: true,
     officialSource,
     liveDocument: liveDoc,
@@ -374,6 +376,25 @@ export async function executeOfficialSourcePipeline(
     verificationState: resolvedState,
     isMockVerification,
   };
+
+  // Register authentic execution receipt in trusted execution registry (P1-A)
+  recordTrustedPipelineExecution(pipelineResult, {
+    sourceDocId: officialSource.id,
+    companyId: officialSource.companyId,
+    finalUrl: liveDoc.finalUrl,
+    rawByteSha256: liveDoc.contentHash,
+    metricId: candidate.metricId ?? claim.metricId,
+    numericValue: candidate.numericValue ?? claim.value,
+    unit: candidate.unit ?? claim.unit,
+    scope: candidate.scope ?? claim.scope,
+    accountingBasis: candidate.accountingBasis ?? claim.accountingBasis,
+    period: candidate.period ?? claim.period,
+    periodType: candidate.periodType ?? officialSource.periodType,
+    blockId: candidate.blockId,
+    tableCoordinates: candidate.tableCoordinates,
+  });
+
+  return pipelineResult;
 }
 
 /**
