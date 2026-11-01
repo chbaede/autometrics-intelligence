@@ -1258,6 +1258,16 @@ export function auditStructuredPerformanceClaim(
     const based = matchingObsCandidates.filter((o) => o.accountingBasis === claim.accountingBasis);
     if (based.length > 0) matchingObsCandidates = based;
   }
+  if (matchingObsCandidates.length > 1 && claim.volumeDefinition) {
+    const volDefMatched = matchingObsCandidates.filter((o) => o.volumeDefinition === claim.volumeDefinition);
+    if (volDefMatched.length > 0) matchingObsCandidates = volDefMatched;
+  }
+  if (matchingObsCandidates.length > 1) {
+    const valueMatched = matchingObsCandidates.filter(
+      (o) => o.value !== null && Math.abs(o.value - claim.value) < 1e-3
+    );
+    if (valueMatched.length === 1) matchingObsCandidates = valueMatched;
+  }
 
   let matchingObs: MetricObservation | undefined;
   if (matchingObsCandidates.length > 1) {

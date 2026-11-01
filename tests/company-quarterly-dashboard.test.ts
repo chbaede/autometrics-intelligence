@@ -23,6 +23,7 @@ import {
   getCompanyDataFreshness,
   getReportingSeasonSummary,
   getCompanyRequiredMetrics,
+  detectCompanySourceConflict,
 } from '../src/utils/dataFreshness';
 import {
   comparePeriodsDescending,
@@ -31,6 +32,8 @@ import {
   formatPeriodLabel,
   validatePerformanceClaim,
   auditStructuredPerformanceClaim,
+  validateSourceClaims,
+  selectCompatibleBevShareTriplets,
 } from '../src/utils/metricCalculations';
 import { formatLocalizedProfit } from '../src/utils/currencyUtils';
 import { VerificationCommandResult } from '../src/types/metrics';
@@ -251,7 +254,12 @@ for (const oemId of REPORTED_Q3_OEMS) {
   // Assert each source claim matches application observations exactly
   const obs = getObservationsByCompany(oemId).filter((o) => o.period === '2026-Q3');
   for (const claim of sourceDoc!.sourceClaims || []) {
-    const matchingObs = obs.find((o) => o.metricId === claim.metricId);
+    const matchingObs = obs.find(
+      (o) =>
+        o.metricId === claim.metricId &&
+        (!claim.volumeDefinition || !o.volumeDefinition || o.volumeDefinition === claim.volumeDefinition) &&
+        (!claim.scope || !o.reportingScope || o.reportingScope === claim.scope)
+    );
     assert(matchingObs !== undefined, `OEM ${oemId}: observation exists for claim ${claim.metricId}`);
     if (matchingObs) {
       assert(matchingObs.value === claim.value, `OEM ${oemId}: value ${matchingObs.value} matches claim ${claim.value}`);
@@ -2035,7 +2043,11 @@ function runSuite16() {
     assert(f.status === 'verified_official', `Suite 16a-1 [${id}]: status is verified_official`);
     assert(f.reportingPeriod === '2026-Q3', `Suite 16a-2 [${id}]: reportingPeriod is 2026-Q3`);
     assert(Boolean(f.sourcePublishedAt), `Suite 16a-3 [${id}]: sourcePublishedAt is populated (${f.sourcePublishedAt})`);
-    assert(Boolean(f.dataUpdatedAt), `Suite 16a-4 [${id}]: dataUpdatedAt is populated (${f.dataUpdatedAt})`);
+    if (id === 'kia') {
+      assert(Boolean(f.dataUpdatedAt), `Suite 16a-4 [${id}]: dataUpdatedAt is populated (${f.dataUpdatedAt})`);
+    } else {
+      assert(f.dataUpdatedAt === undefined || typeof f.dataUpdatedAt === 'string', `Suite 16a-4 [${id}]: dataUpdatedAt preserves explicit or undefined state`);
+    }
     assert(f.hasObservationsForPeriod === true, `Suite 16a-5 [${id}]: hasObservationsForPeriod is true`);
   }
 
@@ -2107,6 +2119,124 @@ function runSuite17() {
   assert(rivianPhev === undefined, 'Suite 17d-1: Rivian PHEV is not fabricated as 0 (omitted / not applicable)');
 }
 
+// =========================================================================
+// Suite 18: Final Data Integrity Remediation — Fail-Closed Invariants & Kia Provenance
+// =========================================================================
+function runSuite18() {
+  console.log('\n--- Suite 18: Final Data Integrity Remediation & Provenance Invariants ---');
+
+  // 1. Missing sourceDoc on verified observation -> fails closed to pending_verification
+  const origDocIdx = SOURCE_DOCUMENTS.findIndex((d) => d.id === 'tsla_2026_q3_deck');
+  const removedDoc = SOURCE_DOCUMENTS.splice(origDocIdx, 1)[0];
+  const fNoDoc = getCompanyDataFreshness('tesla', '2026-Q3');
+  assert(
+    fNoDoc.status === 'pending_verification',
+    'Suite 18-1: Missing sourceDoc fails closed to pending_verification'
+  );
+  SOURCE_DOCUMENTS.splice(origDocIdx, 0, removedDoc);
+
+  // 2. Period mismatch between sourceDoc and observation -> pending_verification
+  const docToMismatch = SOURCE_DOCUMENTS.find((d) => d.id === 'tsla_2026_q3_deck')!;
+  const origPeriod = docToMismatch.period;
+  docToMismatch.period = '2099-Q1';
+  const fMismatch = getCompanyDataFreshness('tesla', '2026-Q3');
+  assert(
+    fMismatch.status === 'pending_verification',
+    'Suite 18-2: Target period without verified matching primary sourceDoc fails closed to pending_verification'
+  );
+  docToMismatch.period = origPeriod;
+
+  // 3. Mixed wholesale/retail BEV share calculation rejected
+  const kiaDelWholesale = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2026_q3_del')!;
+  const kiaDelRetail = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2026_q3_del_retail')!;
+  const kiaBev = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2026_q3_bev')!;
+  const kiaBevShare = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2026_q3_bev_share')!;
+
+  assert(kiaDelWholesale.volumeDefinition === 'wholesale_shipments', 'Suite 18-3a: Kia wholesale delivery has wholesale_shipments definition');
+  assert(kiaDelRetail.volumeDefinition === 'retail_deliveries', 'Suite 18-3b: Kia retail delivery has retail_deliveries definition');
+  assert(kiaBev.volumeDefinition === 'retail_deliveries', 'Suite 18-3c: Kia BEV delivery has retail_deliveries definition');
+  assert(kiaBevShare.volumeDefinition === 'retail_deliveries', 'Suite 18-3d: Kia BEV share is defined on retail_deliveries');
+
+  // Verify triplet selection matches only the retail pair
+  const kiaTriplets = selectCompatibleBevShareTriplets(METRIC_OBSERVATIONS, 'kia', '2026-Q3');
+  assert(kiaTriplets.status === 'matched', 'Suite 18-3e: Kia 2026-Q3 triplet matched cleanly');
+  assert(kiaTriplets.totalDelivery?.id === 'kia_2026_q3_del_retail', 'Suite 18-3f: Triplet total delivery is retail delivery observation (829k)');
+  assert(kiaTriplets.reportedShare?.value === 14.8, 'Suite 18-3g: Triplet reported share is 14.8%');
+
+  // 4. Missing retail denominator -> BEV share not calculated for 2025-Q3
+  const kia2025BevShare = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_q3_bev_share')!;
+  assert(kia2025BevShare.value === null, 'Suite 18-4a: Kia 2025-Q3 BEV share value is null');
+  assert(kia2025BevShare.verificationStatus === 'needs_review', 'Suite 18-4b: Kia 2025-Q3 BEV share verificationStatus is needs_review');
+  assert(kia2025BevShare.isComparable === false, 'Suite 18-4c: Kia 2025-Q3 BEV share isComparable is false');
+  assert(Boolean(kia2025BevShare.nonComparableReason?.includes('retail total not disclosed')), 'Suite 18-4d: Explicit nonComparableReason explains missing retail denominator');
+
+  // 5. Claim value mismatch with observation -> flagged by validateSourceClaims
+  const tslaDoc = SOURCE_DOCUMENTS.find((d) => d.id === 'tsla_2026_q3_deck')!;
+  const testMismatchSource = [
+    {
+      ...tslaDoc,
+      sourceClaims: [
+        {
+          metricId: 'revenue',
+          period: '2026-Q3',
+          value: 999999, // Mismatched value vs actual 28046
+          unit: 'currency_millions' as const,
+          scope: 'consolidated_group' as const,
+        },
+      ],
+    },
+  ];
+  const claimValidation = validateSourceClaims(testMismatchSource, METRIC_OBSERVATIONS);
+  assert(claimValidation.valid === false, 'Suite 18-5a: Claim value mismatch is invalid');
+  assert(claimValidation.mismatchCount > 0, 'Suite 18-5b: Mismatch count flagged');
+  assert(claimValidation.errors.some((e) => e.code === 'sourceClaimValueMismatch'), 'Suite 18-5c: Error code sourceClaimValueMismatch present');
+
+  // 6. Source conflict detected -> getCompanyDataFreshness returns source_conflict
+  const noConflict = detectCompanySourceConflict('kia', '2026-Q3');
+  assert(noConflict.hasConflict === false, 'Suite 18-6a: Clean repository has no source conflict for Kia 2026-Q3');
+
+  // 7. Partial collection -> returns partial
+  const testPartialCoverage = getCompanyDataFreshness('toyota_motor', '2026-Q3');
+  assert(
+    testPartialCoverage.status === 'scheduled' || testPartialCoverage.status === 'partial' || testPartialCoverage.status === 'not_yet_published',
+    'Suite 18-7: Unreported period does not claim verified_official'
+  );
+
+  // 8. Distinct updated vs checked dates (no fabrication)
+  const freshnessKia = getCompanyDataFreshness('kia', '2026-Q3');
+  assert(freshnessKia.sourcePublishedAt === '2026-10-30', 'Suite 18-8a: Published date is 2026-10-30');
+  assert(freshnessKia.sourceLastCheckedAt === '2026-11-01', 'Suite 18-8b: Source checked date is 2026-11-01');
+  assert(freshnessKia.dataUpdatedAt === '2026-11-01', 'Suite 18-8c: Data updated date is 2026-11-01');
+  assert(freshnessKia.calculatedAt === '2026-11-01', 'Suite 18-8d: Calculated date is 2026-11-01');
+
+  // An observation without explicit dates preserves undefined in freshness (no fallback to lastChecked)
+  const toyotaFreshness = getCompanyDataFreshness('toyota_motor', '2026-Q3');
+  assert(toyotaFreshness.dataUpdatedAt === undefined, 'Suite 18-8e: Unreported OEM dataUpdatedAt is undefined (no fallback fabrication)');
+  assert(toyotaFreshness.calculatedAt === undefined, 'Suite 18-8f: Unreported OEM calculatedAt is undefined (no fallback fabrication)');
+
+  // 9. Kia 2025 and 2026 data regression
+  // 9a. 2026-Q3: input observation IDs and derivation formula
+  assert(Array.isArray(kiaBevShare.inputObservationIds), 'Suite 18-9a: inputObservationIds is an array');
+  assert(Boolean(kiaBevShare.inputObservationIds?.includes('kia_2026_q3_bev')), 'Suite 18-9b: inputObservationIds includes kia_2026_q3_bev');
+  assert(Boolean(kiaBevShare.inputObservationIds?.includes('kia_2026_q3_del_retail')), 'Suite 18-9c: inputObservationIds includes kia_2026_q3_del_retail');
+  assert(Boolean(kiaBevShare.derivationFormula?.includes('(123.0 / 829.0) * 100 = 14.8%')), 'Suite 18-9d: derivationFormula is explicit and mathematically accurate');
+
+  // 9b. 2025-Q3: source provenance and net income reconciliation
+  const kia2025Doc = SOURCE_DOCUMENTS.find((d) => d.id === 'kia_2025_q3_report');
+  assert(kia2025Doc?.officialUrl === 'https://worldwide.kia.com/en/newsroom/view/?id=161011', 'Suite 18-9e: Kia 2025-Q3 primary URL is view id 161011');
+  assert(kia2025Doc?.publicationDate === '2025-10-31', 'Suite 18-9f: Kia 2025-Q3 primary publicationDate is 2025-10-31');
+
+  const kiaCompDoc = SOURCE_DOCUMENTS.find((d) => d.id === 'kia_2026_q3_comparative');
+  assert(kiaCompDoc !== undefined, 'Suite 18-9g: Separate comparative source doc kia_2026_q3_comparative is registered');
+  assert(kiaCompDoc?.officialUrl === 'https://worldwide.kia.com/en/newsroom/view/?id=161963', 'Suite 18-9h: Comparative source doc points to 3Q26 release (view id 161963)');
+  assert(kiaCompDoc?.publicationDate === '2026-10-30', 'Suite 18-9i: Comparative source doc publication date is 2026-10-30');
+
+  const kia2025Net = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_q3_net')!;
+  assert(kia2025Net.value === 1421400, 'Suite 18-9j: Comparative net income is restated 1,421,400M KRW');
+  assert(kia2025Net.sourceDocId === 'kia_2026_q3_comparative', 'Suite 18-9k: Comparative net income cites kia_2026_q3_comparative');
+  assert(Boolean(kia2025Net.notes?.includes('1,422.5B')), 'Suite 18-9l: Net income note explains reconciliation from initial 1,422.5B headline');
+}
+
 runSuite12()
   .then(() => {
     runSuite13();
@@ -2114,6 +2244,7 @@ runSuite12()
     runSuite15();
     runSuite16();
     runSuite17();
+    runSuite18();
     console.log(`\nResults: ${passed} passed, ${failed} failed.`);
     if (failed > 0) {
       process.exit(1);

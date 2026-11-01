@@ -4498,7 +4498,31 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "accountingBasis": "reported",
     "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
+  },
+  {
+    "id": "kia_2026_q3_del_retail",
+    "companyId": "kia",
+    "metricId": "deliveries_global",
+    "period": "2026-Q3",
+    "periodType": "quarterly",
+    "calendarYear": 2026,
+    "calendarQuarter": 3,
+    "value": 829.0,
+    "unit": "thousand_units",
+    "valueType": "reported",
+    "sourceDocId": "kia_2026_q3_ir",
+    "tableReference": "Kia Global Newsroom: 3Q26 Business Results (Global Retail Sales ~829k units)",
+    "originalLabel": "Global retail sales",
+    "isComparable": true,
+    "reportingScope": "consolidated_group",
+    "accountingBasis": "reported",
+    "volumeDefinition": "retail_deliveries",
+    "verificationStatus": "verified",
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01",
+    "notes": "Official Kia Global Newsroom & IR: Q3 2026 global retail sales reached approximately 829,000 units."
   },
   {
     "id": "kia_2026_q3_bev",
@@ -4520,6 +4544,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01",
     "notes": "Official Kia Global Newsroom: pure electric vehicle (EV) retail sales reached 123,000 units (+75.4% YoY)."
   },
   {
@@ -4542,8 +4567,11 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "derived_calculation",
-    "derivationFormula": "(123.0 / 829.0) * 100 = 14.8%",
-    "notes": "Strict retail-to-retail basis: pure EV retail deliveries (123k) divided by total retail sales (829k). Wholesale mixed calculation prohibited."
+    "inputObservationIds": ["kia_2026_q3_bev", "kia_2026_q3_del_retail"],
+    "derivationFormula": "(kia_2026_q3_bev / kia_2026_q3_del_retail) * 100 = (123.0 / 829.0) * 100 = 14.8%",
+    "dataUpdatedAt": "2026-11-01",
+    "calculatedAt": "2026-11-01",
+    "notes": "Strict retail-to-retail basis: pure EV retail deliveries (123k) divided by total retail sales (829k). Input observation IDs: ['kia_2026_q3_bev', 'kia_2026_q3_del_retail']."
   },
   {
     "id": "kia_2026_q3_rev",
@@ -4564,7 +4592,8 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
   },
   {
     "id": "kia_2026_q3_ebit",
@@ -4585,7 +4614,8 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
   },
   {
     "id": "kia_2026_q3_margin",
@@ -4605,7 +4635,8 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
   },
   {
     "id": "kia_2026_q3_net",
@@ -4627,6 +4658,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "accountingBasis": "reported",
     "verificationStatus": "verified",
     "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01",
     "notes": "Official Kia disclosure reflects consolidated net profit including non-controlling interests (NCI). Equity-holder-only portion not broken out in quarterly headline release."
   },
   {
@@ -4640,7 +4672,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "value": 785.14,
     "unit": "thousand_units",
     "valueType": "reported",
-    "sourceDocId": "kia_2025_q3_report",
+    "sourceDocId": "kia_2026_q3_comparative",
     "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Wholesale (785,137 units)",
     "originalLabel": "Global wholesale volume (3Q25)",
     "isComparable": true,
@@ -4648,7 +4680,8 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "accountingBasis": "reported",
     "volumeDefinition": "wholesale_shipments",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
   },
   {
     "id": "kia_2025_q3_bev",
@@ -4661,7 +4694,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "value": 70.0,
     "unit": "thousand_units",
     "valueType": "reported",
-    "sourceDocId": "kia_2025_q3_report",
+    "sourceDocId": "kia_2026_q3_comparative",
     "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 EV Retail (70k)",
     "originalLabel": "EV retail sales volume (3Q25)",
     "isComparable": true,
@@ -4670,6 +4703,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "volumeDefinition": "retail_deliveries",
     "verificationStatus": "verified",
     "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01",
     "notes": "Official Kia comparative release: EV retail sales 70,000 units."
   },
   {
@@ -4683,7 +4717,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "value": null,
     "unit": "percentage",
     "valueType": "derived",
-    "sourceDocId": "kia_2025_q3_report",
+    "sourceDocId": "kia_2026_q3_comparative",
     "tableReference": "Kia 3Q26 IR Comparative Release: retail denominator not disclosed",
     "originalLabel": "BEV retail share of global volume (3Q25)",
     "isComparable": false,
@@ -4693,6 +4727,8 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "volumeDefinition": "retail_deliveries",
     "verificationStatus": "needs_review",
     "verificationMethod": "derived_calculation",
+    "inputObservationIds": ["kia_2025_q3_bev"],
+    "dataUpdatedAt": "2026-11-01",
     "notes": "Excluded from comparable peer analysis: mixed wholesale/retail calculation blocked under data accuracy policy."
   },
   {
@@ -4707,14 +4743,15 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "unit": "currency_millions",
     "currency": "KRW",
     "valueType": "reported",
-    "sourceDocId": "kia_2025_q3_report",
+    "sourceDocId": "kia_2026_q3_comparative",
     "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Revenue (KRW 28,686,000M)",
     "originalLabel": "Consolidated sales revenue (3Q25)",
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
   },
   {
     "id": "kia_2025_q3_ebit",
@@ -4728,14 +4765,15 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "unit": "currency_millions",
     "currency": "KRW",
     "valueType": "reported",
-    "sourceDocId": "kia_2025_q3_report",
+    "sourceDocId": "kia_2026_q3_comparative",
     "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Operating Profit (KRW 1,462,800M)",
     "originalLabel": "Operating profit (3Q25)",
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
   },
   {
     "id": "kia_2025_q3_margin",
@@ -4748,14 +4786,15 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "value": 5.1,
     "unit": "percentage",
     "valueType": "reported",
-    "sourceDocId": "kia_2025_q3_report",
+    "sourceDocId": "kia_2026_q3_comparative",
     "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Margin (5.1%)",
     "originalLabel": "Operating profit margin (3Q25)",
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
     "verificationStatus": "verified",
-    "verificationMethod": "official_press_release"
+    "verificationMethod": "official_press_release",
+    "dataUpdatedAt": "2026-11-01"
   },
   {
     "id": "kia_2025_q3_net",
@@ -4769,7 +4808,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "unit": "currency_millions",
     "currency": "KRW",
     "valueType": "reported",
-    "sourceDocId": "kia_2025_q3_report",
+    "sourceDocId": "kia_2026_q3_comparative",
     "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Net Profit including NCI (KRW 1,421,400M)",
     "originalLabel": "Consolidated net profit including NCI (3Q25) / 당기순이익(비지배지분 포함)",
     "isComparable": true,
@@ -4777,7 +4816,8 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "accountingBasis": "reported",
     "verificationStatus": "verified",
     "verificationMethod": "official_press_release",
-    "notes": "Official Kia comparative disclosure: 3Q25 Net Profit including NCI of KRW 1,421.4B."
+    "dataUpdatedAt": "2026-11-01",
+    "notes": "Official Kia comparative disclosure: 3Q25 Net Profit including NCI of KRW 1,421,400M (KRW 1,421.4B), restated in 3Q26 comparative table (reconciled from initial 3Q25 headline release of KRW 1,422.5B in document kia_2025_q3_report)."
   },
   {
     "id": "kia_2026_q2_del",

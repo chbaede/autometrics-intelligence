@@ -1,9 +1,9 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-11-01T16:15:54.445Z  
-**Audited Source Commit SHA**: 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
-**Report Generation Commit SHA**: 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
+**Generated At**: 2026-11-01T16:50:02.299Z  
+**Audited Source Commit SHA**: adfc8d5c56de9a8924fe9aeca209403b2303f446  
+**Report Generation Commit SHA**: adfc8d5c56de9a8924fe9aeca209403b2303f446  
 **Working Tree State**: dirty  
 **Audit Engine Version**: 3.2.0  
 **Data Registry Version**: 1.0.0  
@@ -15,7 +15,7 @@
 
 ## 1. Executive Summary & Audit Metrics
 
-This comprehensive data audit inspects all 16 registered automakers, 463 primary financial and delivery observations, 362 regional delivery observations, 20 management forward-looking guidance items, and 95 verified primary source documents in the AutoMetrics Intelligence platform.
+This comprehensive data audit inspects all 16 registered automakers, 464 primary financial and delivery observations, 362 regional delivery observations, 20 management forward-looking guidance items, and 96 verified primary source documents in the AutoMetrics Intelligence platform.
 
 Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were hardened with:
 1. **Source Claim Integrity Validator**: Deterministically audits all `SourceClaim` entries against `SourceDocument` metadata and `MetricObservation` records across 10 error codes (`sourceClaimCompanyMismatch`, `sourceClaimPeriodMismatch`, `sourceClaimPeriodTypeMismatch`, `sourceClaimMetricMismatch`, `sourceClaimValueMismatch`, `sourceClaimUnitMismatch`, `sourceClaimScopeMismatch`, `sourceClaimAccountingBasisMismatch`, `sourceClaimWithoutObservation`, `ambiguousSourceClaimObservation`).
@@ -30,12 +30,12 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | Metric / Dimension | Value | Status / Policy |
 | :--- | :---: | :--- |
 | **Total Registered Automakers** | 16 | Complete global OEM coverage |
-| **Total Metric Observations** | 463 | 100% audited and scoped |
+| **Total Metric Observations** | 464 | 100% audited and scoped |
 | **Total Regional Observations** | 362 | Aligned with primary source decks |
 | **Total Guidance Targets** | 20 | Verified against IR presentations |
-| **Total Verified Primary Sources** | 95 | HTTPS endpoints, audited metadata |
+| **Total Verified Primary Sources** | 96 | HTTPS endpoints, audited metadata |
 | **Documents with Source Claims** | 35 | Verified primary reports |
-| **Total Source Claims Audited** | 182 | 100% consistent with observations |
+| **Total Source Claims Audited** | 183 | 100% consistent with observations |
 | **Source Claim Mismatches** | **0** | **0 errors (100% match)** |
 | **Blocking Findings** | **0** | **Pass (0 blocking errors)** |
 | **Review Findings** | **8** | Conservative proxy limitations (BMW / MBG) |
@@ -147,8 +147,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `9a9280b9ae4f1f14ec9878212d52d27bf2c3a310`
-- **Generated at**: `2026-11-01T16:15:54.445Z`
+- **Audited Source Commit SHA**: `adfc8d5c56de9a8924fe9aeca209403b2303f446`
+- **Generated at**: `2026-11-01T16:50:02.299Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

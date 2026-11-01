@@ -75,13 +75,13 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
       {/* Stacked Bars List */}
       <div className="space-y-3.5 pt-1">
         {data.map((item) => {
+          const isPureBEV = item.company.id === 'tesla' || item.company.id === 'rivian';
           const total = item.totalDeliveries || 1;
-          const bevPct = Math.min(100, (item.bevVolume / total) * 100);
-          const isPureBEV = item.company.id === 'tesla';
-          const hasPHEVDisclosed = item.phevReported ?? (item.company.id === 'byd');
+          const bevPct = isPureBEV ? 100 : Math.min(100, (item.bevVolume / total) * 100);
+          const hasPHEVDisclosed = !isPureBEV && (item.phevReported ?? (item.company.id === 'byd'));
           const phevVol = hasPHEVDisclosed ? (item.phevVolume || 0) : 0;
           const phevPct = hasPHEVDisclosed ? Math.min(100 - bevPct, (phevVol / total) * 100) : 0;
-          const icePct = Math.max(0, 100 - bevPct - phevPct);
+          const icePct = isPureBEV ? 0 : Math.max(0, 100 - bevPct - phevPct);
 
           return (
             <div key={item.company.id} className="space-y-1.5 text-xs">

@@ -1211,6 +1211,7 @@ export interface SourceClaim {
   unit: MetricUnit;
   scope?: ReportingScope;
   accountingBasis?: AccountingBasis;
+  volumeDefinition?: VolumeDefinition;
 }
 
 export interface SourceDocument {
@@ -1356,6 +1357,8 @@ export interface MetricObservation {
   nonComparableReason?: string;
   inputObservationIds?: string[];
   derivationFormula?: string;
+  dataUpdatedAt?: string;
+  calculatedAt?: string;
   notes?: string;
   /** Explicitly marks legitimate historical duplication (STEP 4-21, Test H). */
   allowHistoricalDuplicate?: boolean;

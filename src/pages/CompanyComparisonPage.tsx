@@ -36,14 +36,9 @@ export const CompanyComparisonPage: React.FC = () => {
   );
   const periods = getDistinctPeriods();
 
-  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([
-    'mercedes_benz',
-    'bmw_group',
-    'volkswagen_group',
-    'hyundai_motor',
-    'toyota_motor',
-    'tesla',
-  ]);
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>(() =>
+    allCompanies.map((c) => c.id)
+  );
   const [selectedMetricId, setSelectedMetricId] = useState<string>('deliveries_global');
   const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | VolumeDefinition>('all');
   const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0] || '2026-Q3');

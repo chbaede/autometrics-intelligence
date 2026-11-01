@@ -1274,6 +1274,15 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
         value: 847.36,
         unit: 'thousand_units',
         scope: 'consolidated_group',
+        volumeDefinition: 'wholesale_shipments',
+      },
+      {
+        metricId: 'deliveries_global',
+        period: '2026-Q3',
+        value: 829.0,
+        unit: 'thousand_units',
+        scope: 'consolidated_group',
+        volumeDefinition: 'retail_deliveries',
       },
       {
         metricId: 'bev_deliveries',
@@ -1281,6 +1290,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
         value: 123.0,
         unit: 'thousand_units',
         scope: 'consolidated_group',
+        volumeDefinition: 'retail_deliveries',
       },
       {
         metricId: 'bev_share',
@@ -1288,6 +1298,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
         value: 14.8,
         unit: 'percentage',
         scope: 'consolidated_group',
+        volumeDefinition: 'retail_deliveries',
       },
       {
         metricId: 'revenue',
@@ -1326,16 +1337,30 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
   {
     id: 'kia_2025_q3_report',
     companyId: 'kia',
-    title: 'Kia Corporation Q3 2025 Business Results (Comparative Disclosure)',
+    title: 'Kia Announces 2025 Third Quarter Business Results',
     docType: 'press_release',
     period: '2025-Q3',
     periodType: 'quarterly',
-    publicationDate: '2025-10-25',
+    publicationDate: '2025-10-31',
+    officialUrl: 'https://worldwide.kia.com/en/newsroom/view/?id=161011',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-11-01',
+    notes: 'Official initial press release for 3Q25: wholesale volume 785,137 units, pure EV retail sales 70k units, revenue KRW 28,686.0B, operating profit KRW 1,462.2B (1,462,200M KRW), net profit including NCI KRW 1,422.5B (1,422,500M KRW).',
+  },
+  {
+    id: 'kia_2026_q3_comparative',
+    companyId: 'kia',
+    title: 'Kia Corporation 3Q 2026 Business Results — Comparative 3Q 2025 Financial Table',
+    docType: 'press_release',
+    period: '2025-Q3',
+    periodType: 'quarterly',
+    publicationDate: '2026-10-30',
     officialUrl: 'https://worldwide.kia.com/en/newsroom/view/?id=161963',
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-11-01',
-    notes: 'Official comparative prior-year period disclosures for 3Q25: wholesale 785,137 units, revenue KRW 28,686,000M, operating profit KRW 1,462,800M, margin 5.1%, net profit including NCI KRW 1,421,400M, and BEV retail 70,000 units.',
+    notes: 'Official restated comparative prior-year financial table disclosed in 3Q 2026 results release: 3Q25 wholesale volume 785,137 units, revenue KRW 28,686,000M, restated operating profit KRW 1,462,800M (reconciled from 1,462,200M KRW), margin 5.1%, restated net profit including NCI KRW 1,421,400M (reconciled from 1,422,500M KRW), and EV retail 70,000 units.',
     sourceClaims: [
       {
         metricId: 'deliveries_global',
@@ -1343,6 +1368,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
         value: 785.14,
         unit: 'thousand_units',
         scope: 'consolidated_group',
+        volumeDefinition: 'wholesale_shipments',
       },
       {
         metricId: 'bev_deliveries',
@@ -1350,6 +1376,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
         value: 70.0,
         unit: 'thousand_units',
         scope: 'consolidated_group',
+        volumeDefinition: 'retail_deliveries',
       },
       {
         metricId: 'revenue',

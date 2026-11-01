@@ -25,6 +25,7 @@ import { METRIC_OBSERVATIONS } from '../data/observations';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
 import { COMPANIES_REGISTRY } from '../data/companies';
 import { MetricObservation } from '../types/metrics';
+import { getDimensionalObservationKey } from './metricCalculations';
 
 export type DataFreshnessStatus =
   | 'verified_official'
@@ -100,6 +101,92 @@ export function getCompanyRequiredMetrics(companyId: string): string[] {
 }
 
 /**
+ * Detects real source or data conflict for a company in a given target period.
+ * Connects to real conflict detection logic across observations and source claims.
+ */
+export function detectCompanySourceConflict(
+  companyId: string,
+  targetPeriod: string
+): { hasConflict: boolean; detail?: string } {
+  const companyObs = METRIC_OBSERVATIONS.filter(
+    (o) => o.companyId === companyId && o.period === targetPeriod
+  );
+
+  // 1. Check pairwise observation conflict on identical dimensional key
+  for (let i = 0; i < companyObs.length; i++) {
+    for (let j = i + 1; j < companyObs.length; j++) {
+      const o1 = companyObs[i];
+      const o2 = companyObs[j];
+      const key1 = getDimensionalObservationKey(o1);
+      const key2 = getDimensionalObservationKey(o2);
+
+      if (key1 === key2) {
+        if (
+          o1.value !== null &&
+          o2.value !== null &&
+          Math.abs(o1.value - o2.value) > 1e-4
+        ) {
+          return {
+            hasConflict: true,
+            detail: `Conflicting observation values for identical key ${key1}: ${o1.value} vs ${o2.value}`,
+          };
+        }
+      }
+    }
+  }
+
+  // 2. Check observation vs claimed source value mismatch
+  for (const obs of companyObs) {
+    if (obs.sourceDocId && obs.value !== null) {
+      const doc = SOURCES_MAP[obs.sourceDocId];
+      if (doc && doc.sourceClaims) {
+        const claim = doc.sourceClaims.find(
+          (c) =>
+            c.metricId === obs.metricId &&
+            c.period === obs.period &&
+            (!c.scope || !obs.reportingScope || c.scope === obs.reportingScope) &&
+            (!c.volumeDefinition || !obs.volumeDefinition || c.volumeDefinition === obs.volumeDefinition)
+        );
+        if (claim && Math.abs(claim.value - obs.value) > 1e-3) {
+          return {
+            hasConflict: true,
+            detail: `Observation value ${obs.value} conflicts with source claim ${claim.value} for metric ${obs.metricId}`,
+          };
+        }
+      }
+    }
+  }
+
+  // 3. Check conflicting source claims across documents for the same period
+  const companyDocs = SOURCE_DOCUMENTS.filter(
+    (d) => d.companyId === companyId && d.period === targetPeriod && d.sourceClaims
+  );
+  const allClaims = companyDocs.flatMap((d) => d.sourceClaims || []);
+  for (let i = 0; i < allClaims.length; i++) {
+    for (let j = i + 1; j < allClaims.length; j++) {
+      const c1 = allClaims[i];
+      const c2 = allClaims[j];
+      if (
+        c1.metricId === c2.metricId &&
+        c1.period === c2.period &&
+        c1.scope === c2.scope &&
+        c1.volumeDefinition === c2.volumeDefinition &&
+        c1.accountingBasis === c2.accountingBasis
+      ) {
+        if (Math.abs(c1.value - c2.value) > 1e-4) {
+          return {
+            hasConflict: true,
+            detail: `Conflicting source claims in official documents for ${c1.metricId}: ${c1.value} vs ${c2.value}`,
+          };
+        }
+      }
+    }
+  }
+
+  return { hasConflict: false };
+}
+
+/**
  * Evaluates comprehensive freshness, status, dates, and metric coverage for a company in a given period.
  */
 export function getCompanyDataFreshness(
@@ -127,7 +214,12 @@ export function getCompanyDataFreshness(
   const requiredMetricIds = getCompanyRequiredMetrics(companyId);
   const presentMetrics = requiredMetricIds.filter((mid) => periodObs.some((o) => o.metricId === mid));
   const verifiedMetrics = requiredMetricIds.filter((mid) =>
-    periodObs.some((o) => o.metricId === mid && o.verificationStatus === 'verified')
+    periodObs.some((o) => {
+      if (o.metricId !== mid || o.verificationStatus !== 'verified') return false;
+      if (!o.sourceDocId) return false;
+      const sDoc = SOURCES_MAP[o.sourceDocId];
+      return !!sDoc && sDoc.isVerified === true && sDoc.verificationStatus === 'verified' && sDoc.period === targetPeriod;
+    })
   );
   const missingMetrics = requiredMetricIds.filter(
     (mid) => !periodObs.some((o) => o.metricId === mid && o.verificationStatus === 'verified')
@@ -149,24 +241,63 @@ export function getCompanyDataFreshness(
     requiredMetricIds,
   };
 
-  // Derive dates strictly without fabricating current time
+  // Derive dates strictly without fabricating current time or fallback
   const publishedAt = sourceDoc?.publicationDate;
   const lastChecked = sourceDoc?.lastChecked;
-  // Date data was updated in the DB
-  const dataUpdatedAt = hasObservations
-    ? ['kia', 'rivian', 'geely'].includes(companyId) && targetPeriod === '2026-Q3'
-      ? '2026-11-01'
-      : lastChecked || '2026-10-29'
+
+  // Extract explicit dataUpdatedAt from period observations (no fallback, undefined if unknown)
+  const obsUpdatedDates = periodObs
+    .map((o) => o.dataUpdatedAt)
+    .filter((d): d is string => typeof d === 'string' && d.length > 0);
+  const dataUpdatedAt = obsUpdatedDates.length > 0
+    ? obsUpdatedDates.reduce((max, d) => (d > max ? d : max), obsUpdatedDates[0])
     : undefined;
-  const calculatedAt = hasObservations && periodObs.some((o) => o.valueType === 'derived')
-    ? '2026-11-01'
+
+  // Extract explicit calculatedAt from derived observations (no fallback, undefined if unrecorded)
+  const obsCalcDates = periodObs
+    .filter((o) => o.valueType === 'derived')
+    .map((o) => o.calculatedAt)
+    .filter((d): d is string => typeof d === 'string' && d.length > 0);
+  const calculatedAt = obsCalcDates.length > 0
+    ? obsCalcDates.reduce((max, d) => (d > max ? d : max), obsCalcDates[0])
     : undefined;
+
+  // 0. Check real source/data conflict first
+  const conflictCheck = detectCompanySourceConflict(companyId, targetPeriod);
+  if (conflictCheck.hasConflict) {
+    return {
+      companyId,
+      reportingPeriod: targetPeriod,
+      latestReportedPeriod,
+      hasObservationsForPeriod: hasObservations,
+      sourcePublishedAt: publishedAt,
+      sourceLastCheckedAt: lastChecked,
+      dataUpdatedAt,
+      calculatedAt,
+      status: 'source_conflict',
+      statusLabelKo: '공시 출처 충돌 감지',
+      statusLabelEn: 'Source Conflict Detected',
+      statusBadgeColor: 'rose',
+      sourceTitle: sourceDoc?.title,
+      sourceUrl: sourceDoc?.officialUrl,
+      requiredMetricsCoverage: coverage,
+      notesKo: `공식 출처 간 수치 또는 정의 불일치가 감지되었습니다: ${conflictCheck.detail}`,
+      notesEn: `Conflicting figures or definitions detected across official disclosures: ${conflictCheck.detail}`,
+    };
+  }
 
   // Case 1: Observations exist for targetPeriod
   if (hasObservations) {
-    const allRequiredVerified = verifiedCount === requiredCount;
+    // Fail-closed sourceDoc verification check
+    const hasValidVerifiedSourceDoc =
+      !!sourceDoc &&
+      sourceDoc.period === targetPeriod &&
+      typeof sourceDoc.officialUrl === 'string' &&
+      sourceDoc.officialUrl.startsWith('https://') &&
+      sourceDoc.isVerified === true &&
+      sourceDoc.verificationStatus === 'verified';
 
-    if (allRequiredVerified) {
+    if (!hasValidVerifiedSourceDoc) {
       return {
         companyId,
         reportingPeriod: targetPeriod,
@@ -176,19 +307,125 @@ export function getCompanyDataFreshness(
         sourceLastCheckedAt: lastChecked,
         dataUpdatedAt,
         calculatedAt,
-        status: 'verified_official',
-        statusLabelKo: '공식 실적 검증 완료',
-        statusLabelEn: 'Verified Official Results',
-        statusBadgeColor: 'emerald',
+        status: 'pending_verification',
+        statusLabelKo: '공식 원문 감사 대기',
+        statusLabelEn: 'Pending Primary Source Audit',
+        statusBadgeColor: 'slate',
         sourceTitle: sourceDoc?.title,
         sourceUrl: sourceDoc?.officialUrl,
         requiredMetricsCoverage: coverage,
-        notesKo: '공식 IR 및 공시 자료와 100% 대조 검증 완료되었습니다.',
-        notesEn: 'Fully cross-audited against official primary IR filings.',
+        notesKo: '관측 데이터가 등록되었으나 유효한 공식 1차 출처 문서와의 대조 감사가 완료되지 않았습니다.',
+        notesEn: 'Observations are ingested, but official primary source document verification is pending or missing.',
       };
     }
 
-    // Some metrics are ingested, but not all required are verified
+    // Required metrics collection check
+    if (presentCount < requiredCount) {
+      return {
+        companyId,
+        reportingPeriod: targetPeriod,
+        latestReportedPeriod,
+        hasObservationsForPeriod: true,
+        sourcePublishedAt: publishedAt,
+        sourceLastCheckedAt: lastChecked,
+        dataUpdatedAt,
+        calculatedAt,
+        status: 'partial',
+        statusLabelKo: '일부 지표 반영 (부분 확인)',
+        statusLabelEn: 'Partial Disclosures Ingested',
+        statusBadgeColor: 'amber',
+        sourceTitle: sourceDoc?.title,
+        sourceUrl: sourceDoc?.officialUrl,
+        requiredMetricsCoverage: coverage,
+        notesKo: `핵심 지표 중 일부 세부 내역(${missingMetrics.join(', ')})이 공시 대기 중입니다.`,
+        notesEn: `Some required metrics (${missingMetrics.join(', ')}) are pending verification or disclosure.`,
+      };
+    }
+
+    // Required metrics verification check
+    if (verifiedCount < requiredCount) {
+      return {
+        companyId,
+        reportingPeriod: targetPeriod,
+        latestReportedPeriod,
+        hasObservationsForPeriod: true,
+        sourcePublishedAt: publishedAt,
+        sourceLastCheckedAt: lastChecked,
+        dataUpdatedAt,
+        calculatedAt,
+        status: 'pending_verification',
+        statusLabelKo: '일부 지표 원문 검증 대기',
+        statusLabelEn: 'Pending Metric Verification',
+        statusBadgeColor: 'slate',
+        sourceTitle: sourceDoc?.title,
+        sourceUrl: sourceDoc?.officialUrl,
+        requiredMetricsCoverage: coverage,
+        notesKo: `필수 지표 중 일부(${missingMetrics.join(', ')})의 원문 대조가 완료되지 않았습니다.`,
+        notesEn: `Some required metrics (${missingMetrics.join(', ')}) are pending verification against official sources.`,
+      };
+    }
+
+    // Derived metric validation check
+    const derivedObs = periodObs.filter((o) => o.valueType === 'derived');
+    let derivedValid = true;
+    let derivedFailureReason = '';
+
+    for (const d of derivedObs) {
+      if (d.inputObservationIds && d.inputObservationIds.length > 0) {
+        const inputs = d.inputObservationIds.map((id) => companyObs.find((o) => o.id === id));
+        if (inputs.some((inp) => !inp)) {
+          derivedValid = false;
+          derivedFailureReason = `Derived metric ${d.metricId} references missing input observation.`;
+          break;
+        }
+        if (inputs.some((inp) => inp!.verificationStatus !== 'verified')) {
+          derivedValid = false;
+          derivedFailureReason = `Derived metric ${d.metricId} references unverified input observation.`;
+          break;
+        }
+        // If BEV share calculation, check calculation reconciliation
+        if (d.metricId === 'bev_share' && d.value !== null) {
+          const bevInp = inputs.find((inp) => inp!.metricId === 'bev_deliveries');
+          const totInp = inputs.find((inp) => inp!.metricId === 'deliveries_global');
+          if (bevInp && totInp && bevInp.value !== null && totInp.value !== null && totInp.value > 0) {
+            const expectedShare = (bevInp.value / totInp.value) * 100;
+            if (Math.abs(expectedShare - d.value) > 0.1) {
+              derivedValid = false;
+              derivedFailureReason = `BEV share derivation mismatch: expected ${expectedShare.toFixed(2)}%, got ${d.value}%.`;
+              break;
+            }
+          }
+        }
+      } else if (d.verificationStatus !== 'verified') {
+        derivedValid = false;
+        derivedFailureReason = `Derived metric ${d.metricId} is not verified.`;
+        break;
+      }
+    }
+
+    if (!derivedValid) {
+      return {
+        companyId,
+        reportingPeriod: targetPeriod,
+        latestReportedPeriod,
+        hasObservationsForPeriod: true,
+        sourcePublishedAt: publishedAt,
+        sourceLastCheckedAt: lastChecked,
+        dataUpdatedAt,
+        calculatedAt,
+        status: 'pending_verification',
+        statusLabelKo: '파생 지표 계산 검증 대기',
+        statusLabelEn: 'Pending Derived KPI Verification',
+        statusBadgeColor: 'slate',
+        sourceTitle: sourceDoc?.title,
+        sourceUrl: sourceDoc?.officialUrl,
+        requiredMetricsCoverage: coverage,
+        notesKo: `파생 지표 검증 실패: ${derivedFailureReason}`,
+        notesEn: `Derived metric verification failed: ${derivedFailureReason}`,
+      };
+    }
+
+    // All conditions verified
     return {
       companyId,
       reportingPeriod: targetPeriod,
@@ -198,15 +435,15 @@ export function getCompanyDataFreshness(
       sourceLastCheckedAt: lastChecked,
       dataUpdatedAt,
       calculatedAt,
-      status: 'partial',
-      statusLabelKo: '일부 지표 반영 (부분 확인)',
-      statusLabelEn: 'Partial Disclosures Ingested',
-      statusBadgeColor: 'amber',
+      status: 'verified_official',
+      statusLabelKo: '공식 실적 검증 완료',
+      statusLabelEn: 'Verified Official Results',
+      statusBadgeColor: 'emerald',
       sourceTitle: sourceDoc?.title,
       sourceUrl: sourceDoc?.officialUrl,
       requiredMetricsCoverage: coverage,
-      notesKo: `핵심 지표 중 일부 세부 내역(${missingMetrics.join(', ')})이 공시 대기 중입니다.`,
-      notesEn: `Some required metrics (${missingMetrics.join(', ')}) are pending verification or disclosure.`,
+      notesKo: '공식 IR 및 공시 자료와 100% 대조 검증 완료되었습니다.',
+      notesEn: 'Fully cross-audited against official primary IR filings.',
     };
   }
 

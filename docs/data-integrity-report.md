@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
-**Report Generation Commit:** 9a9280b9ae4f1f14ec9878212d52d27bf2c3a310  
+**Audited Source Commit:** adfc8d5c56de9a8924fe9aeca209403b2303f446  
+**Report Generation Commit:** adfc8d5c56de9a8924fe9aeca209403b2303f446  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-01T16:15:54.445Z  
+**Generated:** 2026-11-01T16:50:02.299Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -34,20 +34,20 @@
 |----------|-------|
 | Registered Automakers | 16 |
 | Metric Definitions | 17 |
-| Financial & Volume Observations | 463 |
-| Primary Source Documents | 95 |
+| Financial & Volume Observations | 464 |
+| Primary Source Documents | 96 |
 | Documents with Source Claims | 35 |
 | Forward-Looking Guidance Items | 20 |
 | Regional Delivery Observations | 362 |
-| Source Claims Audited | 182 |
+| Source Claims Audited | 183 |
 
 ---
 
 ## Audit Summary
 
 ### Source Claims Verification
-- Total Source Claims: **182** across **35** source documents
-- Claims Audited: **182**
+- Total Source Claims: **183** across **35** source documents
+- Claims Audited: **183**
 - Mismatches: **0**
 - Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
 

@@ -42,6 +42,7 @@ import {
   Clock,
   Sparkles,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const CompanyDashboardPage: React.FC = () => {
@@ -55,9 +56,9 @@ export const CompanyDashboardPage: React.FC = () => {
   const companySources = SOURCE_DOCUMENTS.filter((s) => s.companyId === currentCompany.id);
   const scheduledQ3 = getScheduledDisclosure(currentCompany.id, '2026-Q3');
 
-  // Check if this OEM has reported 2026-Q3 data
-  const hasQ3Observations = observations.some((o) => o.period === '2026-Q3');
-  const defaultPeriod = hasQ3Observations ? '2026-Q3' : '2026-Q2';
+  // Check 2026-Q3 freshness and reporting status
+  const q3Freshness = getCompanyDataFreshness(currentCompany.id, '2026-Q3');
+  const defaultPeriod = q3Freshness.hasObservationsForPeriod ? '2026-Q3' : '2026-Q2';
 
   // Active period state (user can toggle between 2026-Q3, 2026-Q2, 2026-Q1, 2025-FY, 2024-FY)
   const [activePeriod, setActivePeriod] = useState<string>(defaultPeriod);
@@ -69,8 +70,8 @@ export const CompanyDashboardPage: React.FC = () => {
 
   // Synchronize default period when switching OEM
   useEffect(() => {
-    const hasQ3 = observations.some((o) => o.period === '2026-Q3');
-    setActivePeriod(hasQ3 ? '2026-Q3' : '2026-Q2');
+    const f = getCompanyDataFreshness(currentCompany.id, '2026-Q3');
+    setActivePeriod(f.hasObservationsForPeriod ? '2026-Q3' : '2026-Q2');
   }, [currentCompany.id]);
 
   // Display periods list
@@ -176,17 +177,32 @@ export const CompanyDashboardPage: React.FC = () => {
                   {currentCompany.ticker}
                 </span>
               )}
-              {hasQ3Observations ? (
+              {q3Freshness.status === 'verified_official' ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {language === 'ko' ? '2026-Q3 실적 공시 완료' : '2026-Q3 Reported'}
+                  {language === 'ko' ? '2026-Q3 공식 실적 검증 완료' : '2026-Q3 Verified Official'}
                 </span>
-              ) : scheduledQ3 ? (
+              ) : q3Freshness.status === 'partial' ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {language === 'ko' ? '2026-Q3 일부 지표 반영' : '2026-Q3 Partial Disclosures'}
+                </span>
+              ) : q3Freshness.status === 'scheduled' ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
                   <Clock className="w-3.5 h-3.5" />
-                  {language === 'ko' ? `2026-Q3 공시 예정: ${scheduledQ3.scheduledDate}` : `2026-Q3 Scheduled: ${scheduledQ3.scheduledDate}`}
+                  {language === 'ko' ? `2026-Q3 공시 예정: ${q3Freshness.scheduledDate}` : `2026-Q3 Scheduled: ${q3Freshness.scheduledDate}`}
                 </span>
-              ) : null}
+              ) : q3Freshness.status === 'source_conflict' ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {language === 'ko' ? '2026-Q3 출처 충돌 감지' : '2026-Q3 Source Conflict'}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-300 border border-slate-300 dark:border-slate-800">
+                  <Clock className="w-3.5 h-3.5" />
+                  {language === 'ko' ? q3Freshness.statusLabelKo : q3Freshness.statusLabelEn}
+                </span>
+              )}
             </div>
             {currentCompany.nativeName && (
               <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{currentCompany.nativeName}</p>
@@ -338,7 +354,7 @@ export const CompanyDashboardPage: React.FC = () => {
       </div>
 
       {/* Scheduled Disclosure Notification Banner (for OEMs without Q3 yet) */}
-      {scheduledQ3 && !hasQ3Observations && (
+      {scheduledQ3 && q3Freshness.status === 'scheduled' && (
         <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/30 dark:border-amber-500/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">

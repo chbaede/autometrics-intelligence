@@ -63,7 +63,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const [profitMetricType, setProfitMetricType] = useState<'operating_income' | 'revenue'>('operating_income');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
   const [showInlineTable, setShowInlineTable] = useState<boolean>(false);
-  const [profitFilterMode, setProfitFilterMode] = useState<ProfitFilterMode>('exclude_loss');
+  const [profitFilterMode, setProfitFilterMode] = useState<ProfitFilterMode>('all');
   const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | VolumeDefinition>('all');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
@@ -354,8 +354,13 @@ export const GlobalOverviewPage: React.FC = () => {
   // Powertrain Mix Data for Stacked Bar Chart
   const powertrainData = selectedCompanies.map((cid) => {
     const comp = getCompanyById(cid)!;
-    const totalDel = getObservations([cid], ['deliveries_global'], selectedPeriod)[0]?.value || 0;
-    const bevVol = getObservations([cid], ['bev_deliveries'], selectedPeriod)[0]?.value || 0;
+    const bevObs = getObservations([cid], ['bev_deliveries'], selectedPeriod)[0];
+    const bevVol = bevObs?.value || 0;
+    const delObservations = getObservations([cid], ['deliveries_global'], selectedPeriod);
+    const matchedDel = bevObs?.volumeDefinition
+      ? delObservations.find((o) => o.volumeDefinition === bevObs.volumeDefinition)
+      : undefined;
+    const totalDel = (matchedDel || delObservations[0])?.value || 0;
     const phevVol = getObservations([cid], ['phev_deliveries'], selectedPeriod)[0]?.value || (cid === 'byd' ? 620 : cid === 'volvo_cars' ? 55.2 : 0);
     const phevReported = cid === 'byd' || cid === 'volvo_cars';
 

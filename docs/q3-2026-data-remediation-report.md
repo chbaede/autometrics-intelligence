@@ -2,8 +2,8 @@
 
 **보고서 작성일:** 2026-11-01  
 **대상 저장소:** `chbaede/autometrics-intelligence`  
-**기준 브랜치:** `main` (HEAD: `9a9280b`)  
-**검증 판정:** **PASS** (12개 공시 완료 OEM 공식 원문 검증 완료 / 4개 미공시 OEM 공식 발표 예정 스케줄 엄격 분리)
+**기준 브랜치:** `main` (HEAD: `adfc8d5`)  
+**검증 판정:** **PASS** (12개 공시 완료 OEM 공식 원문 검증 완료 / 4개 미공시 OEM 공식 발표 예정 스케줄 엄격 분리 / Fail-Closed 신선도 및 출처 충돌 감지 가동)
 
 ---
 
@@ -11,19 +11,93 @@
 
 | 파일 경로 | 구분 | 주요 변경 내역 |
 |---|---|---|
-| `src/data/observations.ts` | Data | Kia 2026-Q3 도매/소매 판매량 구분, BEV 비중(14.8%) 소매 기준 정정, 순이익 라벨 비지배지분(NCI) 명시, 2025-Q3 비교 순이익 NCI 반영, 혼합 비중(8.9%) 제거 |
-| `src/data/sources.ts` | Data | Kia 2026-Q3 공식 출처 클레임 14.8% 반영, Kia 2025-Q3 혼합 비중 8.9% 클레임 제거 (총 클레임 182건 일치) |
-| `src/utils/metricCalculations.ts` | Core Engine | BEV 비중 triplet 매칭 시 도매/소매 기준 분리 및 단일 기준 결측 처리 강화 |
-| `src/utils/dataFreshness.ts` | Core Engine | 5개 독립 일자 분리 (`reportingPeriod`, `sourcePublishedAt`, `sourceLastCheckedAt`, `dataUpdatedAt`, `calculatedAt`), OEM별 필수 지표 커버리지 계산 엔진, 3단계 관측값 검증 함수 추가 |
-| `src/pages/CompanyDashboardPage.tsx` | UI / Page | 상단 Provenance Bar 전면 개편 (5개 독립 일자 표기, 필수 지표 충족률 배지, 공식 IR 출처 다이렉트 링크) |
-| `src/pages/GlobalOverviewPage.tsx` | UI / Page | 2026 Q3 공시 현황 센터 신설 (7대 핵심 지표 카드 및 16개 OEM 상태 대시보드 테이블) |
-| `src/pages/DataCoveragePage.tsx` | UI / Page | 5대 커버리지 지표(출처/관측값/공식검증/필수지표/계산검증) 카드 및 16개 OEM 전수 Q3 감사 매트릭스 표 추가 |
-| `src/components/metrics/ProvenanceModal.tsx` | UI / Modal | 15개 감사 필드 표준 모달 구현 (원문 라벨, 원문 인용문, DB 저장값, 단위, 통화, 기간, 회계기준, 판매기준, 출처 문서, 출처 위치, 발표일, 감사일, 갱신일, 검증방식, 계산 공식) |
-| `tests/company-quarterly-dashboard.test.ts` | Test | Suite 13 Kia 정정값 검증(14.8%, NCI 라벨), Suite 17 전 OEM Q3 신선도 및 필수 지표 100% 충족 회귀 테스트 추가 |
-| `tests/scope-exceptions.test.ts` | Test | Test 237i 클레임 수 182개 정합성 및 동적 감사 리포트 블로킹 0건 회귀 테스트 갱신 |
+| `src/data/observations.ts` | Data | Kia 도매(`kia_2026_q3_del`: 847.36k) 및 소매(`kia_2026_q3_del_retail`: 829.0k) 관측값 분리 등록, `kia_2026_q3_bev_share`에 `inputObservationIds` 및 산식 명시 바인딩, Kia 2025-Q3 비교 관측값의 출처를 `kia_2026_q3_comparative`로 정확히 분리, 2025-Q3 순이익 재작성 차이(1,421.4B vs 1,422.5B) 주석 명시 |
+| `src/data/sources.ts` | Data | Kia 2025-Q3 보도자료(`kia_2025_q3_report`) URL을 실제 발표 원문(`view/?id=161011`, 2025-10-31)으로 정정, 2026-Q3 비교표 전용 출처 문서(`kia_2026_q3_comparative`, 2026-10-30) 별도 등록, `kia_2026_q3_ir`에 소매 판매량(829.0k) 클레임 추가 (총 클레임 183건 일치) |
+| `src/utils/metricCalculations.ts` | Core Engine | `validateSourceClaims` 다중 후보 시 `volumeDefinition` 및 수치 대조를 통한 정밀 디스앰비규에이션, BEV triplet 매칭 시 `inputObservationIds` 일치 검증 추가 |
+| `src/utils/dataFreshness.ts` | Core Engine | Fail-Closed `getCompanyDataFreshness` 개편: 1차 출처 문서 부재/미검증 시 `pending_verification`, 필수 지표 미완료 시 `partial`, `detectCompanySourceConflict`를 통한 실시간 출처 충돌 감지(`source_conflict`), `dataUpdatedAt`/`calculatedAt` 임의 조작 및 폴백 제거 (기록 부재 시 `undefined` 보존) |
+| `src/components/metrics/ProvenanceModal.tsx` | UI / Modal | 4대 독립 일자(공식 발표일, 감사 확인일, DB 갱신일, 파생 계산일) 완전 분리 표기, 임의 날짜 폴백 제거 |
+| `src/components/metrics/charts/PowertrainMixChart.tsx` | UI / Chart | Rivian을 Tesla와 함께 순수 전기차(Pure BEV, 100%)로 정확히 분류, PHEV/내연기관 오표기 차단 |
+| `src/pages/GlobalOverviewPage.tsx` | UI / Page | `profitFilterMode` 기본값을 `'all'`로 변경하여 영업손실 OEM(VW, Volvo, Rivian) 및 CASBE 비영업이익 OEM(BYD)이 기본 차트에 모두 반영되도록 개선, 파워트레인 차트 산출 시 판매 기준(소매 BEV / 소매 전체) 일치 처리 |
+| `src/pages/CompanyComparisonPage.tsx` | UI / Page | `selectedCompanies` 기본값을 6개 하드코딩에서 16개 전체 등록 OEM으로 확장 |
+| `src/pages/CompanyDashboardPage.tsx` | UI / Page | 단순 `hasQ3Observations` 체크를 제거하고 fail-closed `getCompanyDataFreshness`를 연동하여 검증 완료/부분 반영/공시 예정/출처 충돌 배지 차별화 |
+| `src/types/metrics.ts` | Types | `SourceClaim`에 `volumeDefinition` 선택 필드 추가, `MetricObservation`에 `dataUpdatedAt`, `calculatedAt` 필드 추가 |
+| `src/data/performanceDrivers.ts` | Data / Core | `StructuredPerformanceClaim`에 `volumeDefinition` 추가 및 `kia_2026_q3_claim_deliveries`에 도매 판매 기준 명시 |
+| `src/utils/performanceClaimAudit.ts` | Core Engine | 구조화 클레임 감사 시 `volumeDefinition` 일치 검증 추가 |
+| `tests/data-integrity.test.ts` | Test | 관측값 고유성 검증 키를 `volumeDefinition`과 `reportingScope`가 포함된 차원 키로 확장 |
+| `tests/scope-exceptions.test.ts` | Test | Kia 도매+소매 분리에 따른 Q3 판매량 관측값 수(13건), 소매 랭킹(8개사), 클레임 수(183건) 회귀 테스트 갱신 |
+| `tests/company-quarterly-dashboard.test.ts` | Test | Suite 18(9대 필수 검증 항목) 추가 및 1,534개 전수 테스트 통과 확인 |
 | `docs/data-audit-report.md` | Doc | 최신 감사 리포트 자동 생성 |
 | `docs/data-integrity-report.md` | Doc | 데이터 무결성 검증 리포트 자동 생성 |
 | `docs/audit-report.json` | Doc | 기계 판독용 감사 결과 JSON 갱신 |
+
+---
+
+## 2. 수정한 Kia 데이터 상세
+
+### 2.1 도매 및 소매 판매량 별도 관측값 관리 & BEV 비중 산출 (2026-Q3)
+- **공식 출처:** [Kia Global Newsroom View 161963](https://worldwide.kia.com/en/newsroom/view/?id=161963)
+- **글로벌 도매 판매량:** `kia_2026_q3_del` (847.36k, `volumeDefinition: 'wholesale_shipments'`)
+- **글로벌 소매 판매량:** `kia_2026_q3_del_retail` (829.0k, `volumeDefinition: 'retail_deliveries'`)
+- **순수 전기차 판매량:** `kia_2026_q3_bev` (123.0k, `volumeDefinition: 'retail_deliveries'`)
+- **BEV 비중 산출:** `kia_2026_q3_bev_share` (14.8%, `volumeDefinition: 'retail_deliveries'`)
+  - **입력값 참조 ID:** `inputObservationIds: ['kia_2026_q3_bev', 'kia_2026_q3_del_retail']`
+  - **산출 공식:** `(kia_2026_q3_bev / kia_2026_q3_del_retail) * 100 = (123.0 / 829.0) * 100 = 14.8%`
+  - **검증 결과:** 동일 차원(소매 판매) 내에서만 분자/분모가 결합하여 14.8%가 정확히 산출되며, 도매 판매량(847.36k)과의 혼합 계산은 원천 차단됨.
+
+### 2.2 Kia 2025 Q3 출처 분리 및 비교표 재작성 순이익 차이 규명
+- **2025-Q3 당기 발표 원문 (`kia_2025_q3_report`):**
+  - URL: `https://worldwide.kia.com/en/newsroom/view/?id=161011` (발표일: 2025-10-31)
+  - 3Q25 당기 발표 실적: 매출 ₩28.6860조, 영업이익 ₩1.4622조, 순이익 **₩1.4225조 (1,422,500M KRW)**
+- **2026-Q3 비교표 원문 (`kia_2026_q3_comparative`):**
+  - URL: `https://worldwide.kia.com/en/newsroom/view/?id=161963` (발표일: 2026-10-30)
+  - 3Q26 결과 발표 내 3Q25 비교 재작성 수치: 매출 ₩28.6860조, 영업이익 ₩1.4628조, 비지배지분 포함 순이익 **₩1.4214조 (1,421,400M KRW)**
+- **규명 및 정정 내역:**
+  - 2025-Q3 자료 URL을 2026-Q3 URL로 재사용하던 문제를 해결하고 별도의 1차 출처 문서로 등록.
+  - 1,421,400M KRW(₩1.4214조)는 3Q26 비교표에서 비지배지분을 포함하여 재작성된 수치이며, 1,422.5B(₩1.4225조)는 3Q25 초기 헤드라인 발표 수치임.
+  - 관측값 주석(`notes`)에 해당 차이와 근거 문서를 명확히 기록.
+- **2025-Q3 BEV 비중:** 비교표 상 소매 판매 전체 분모가 미공시되었으므로 `value: null`, `verificationStatus: 'needs_review'`, `isComparable: false`, `nonComparableReason: 'Mixed volume basis (retail BEV / wholesale total) not permitted; retail total not disclosed in official comparative filing'` 처리 완료.
+
+---
+
+## 3. Fail-Closed 신선도 서비스 및 출처 충돌 감지
+
+`getCompanyDataFreshness()` 함수를 엄격한 fail-closed 방식으로 재작성 완료:
+1. **1차 출처 문서 부재/미검증 차단:** 대상 기간의 검증된 공식 1차 출처 문서가 없거나 `isVerified !== true`인 경우 `verified_official` 반환 불가 (`pending_verification` 반환).
+2. **필수 지표 미수집 차단:** 필수 지표 중 일부만 수집된 경우 `partial` 반환.
+3. **원문 대조 미완료 차단:** 지표가 등록되었으나 검증되지 않은 경우 `pending_verification` 반환.
+4. **파생 지표 검증:** `inputObservationIds`가 누락되거나 입력 관측값이 미검증/부재한 경우, 또는 산출값 오차가 허용범위(0.1%p)를 초과할 경우 `pending_verification` 반환.
+5. **출처 충돌 실시간 감지:** `detectCompanySourceConflict()` 함수를 연동하여 동일 차원 키 내 상이한 관측값, 출처 클레임과 관측값 간 불일치, 복수 문서 간 충돌 클레임 발견 시 즉시 `source_conflict` 반환.
+6. **날짜 조작 차단:** 관측값에 저장된 명시적 `dataUpdatedAt` 및 `calculatedAt`만 반환하며, 기록이 없는 경우 임의 날짜나 `lastChecked`로 폴백하지 않고 `undefined`를 반환.
+
+---
+
+## 4. UI 일관성 및 그래프 누락 문제 해결
+
+사용자 질의: *"인도,출하에는 회사가 많은데 다른 그래프에는 다 반영이 안된건가? 왜그런지 확인해서 고칠거 있으면 같이 고쳐."*
+- **원인 분석:**
+  1. `GlobalOverviewPage.tsx`에서 `profitFilterMode`가 `'exclude_loss'`로 기본 설정되어 있어, 영업손실을 기록한 3개사(폭스바겐 -1,304M EUR, 볼보 -10,344M SEK, 리비안 -881M USD)와 중국 CASBE 기준 영업이익 미공시 기업(BYD)이 손익 차트 및 마진 순위에서 기본적으로 숨겨져 있었음.
+  2. `CompanyComparisonPage.tsx`에서 `selectedCompanies`가 6개사로 하드코딩되어 10개사가 기본 비교에서 제외되어 있었음.
+  3. `PowertrainMixChart.tsx`에서 Tesla만 순수 전기차로 취급하고 Rivian이 누락되어 있었으며, Kia의 소매 BEV가 도매 전체로 나누어지던 차원 불일치가 존재했음.
+- **조치 결과:**
+  1. `profitFilterMode` 기본값을 `'all'`로 변경하여 12개 실적 발표 OEM이 손익 및 마진 그래프에 기본으로 모두 표시되도록 수정 (필터 토글 기능 유지).
+  2. `CompanyComparisonPage.tsx`의 기본 선택 기업을 16개 전체 등록 OEM으로 확대.
+  3. `PowertrainMixChart.tsx`에서 Rivian을 순수 전기차(100% BEV)로 명시하고, Kia의 파워트레인 믹스를 소매 기준 전체 판매량(829k)과 매칭하여 14.8%로 일관되게 표시.
+  4. `CompanyDashboardPage.tsx`에서 단순 `hasQ3Observations` 체크 대신 `getCompanyDataFreshness`를 연동하여 12개 공시 OEM 및 4개 예정 OEM의 상태 배지를 통일.
+  5. `ProvenanceModal.tsx`에 발표일, 감사일, 갱신일, 계산일 4대 일자를 분리 표시.
+
+---
+
+## 5. 검증 파이프라인 수행 결과 (전수 Exit Code 0)
+
+| 검증 단계 | 실행 명령어 | 종료 코드 | 결과 요약 |
+|---|---|:---:|---|
+| **TypeScript Typecheck** | `npm run typecheck` | **0** | 타입 에러 0건, 전수 통과 |
+| **Unit & Regression Tests** | `npm test` | **0** | **1,534개 테스트 전수 통과** (Suite 18 신규 추가) |
+| **Data Schema Validation** | `npm run validate-data` | **0** | 16개 OEM, 96개 출처, 464개 관측값 무결성 통과 |
+| **Source Claims Validation** | `npm run validate-source-claims` | **0** | **183개 출처 클레임 전수 일치** (불일치 0건) |
+| **Data Audit Engine** | `npm run audit-data` | **0** | **블로킹 오류 0건**, 합법적 프록시 리뷰 8건, BEV 검증 76건 |
+| **ESLint Static Analysis** | `npm run lint` | **0** | 린트 경고 및 에러 0건 |
+| **Production Build** | `npm run build` | **0** | 번들 빌드 성공 (1.70s) |
 
 ---
 

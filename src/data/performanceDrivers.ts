@@ -6,6 +6,8 @@
  * commentary on quarterly financial and operational results across global automakers.
  */
 
+import { VolumeDefinition } from '../types/metrics';
+
 export interface PerformanceDriverItem {
   category: 'profitability' | 'volume' | 'margin' | 'revenue' | 'electrification' | 'one_off' | 'macro' | 'strategy';
   titleKo: string;
@@ -27,6 +29,7 @@ export interface StructuredPerformanceClaim {
   unit: string;
   currency?: string;
   accountingBasis?: 'reported' | 'adjusted' | 'estimated' | 'restated';
+  volumeDefinition?: VolumeDefinition;
   reportingScope: 'consolidated_group' | 'automotive_segment' | 'cars_segment' | 'passenger_nev';
   claimCategory?: 'primary_observation' | 'narrative_disclosure';
   comparisonPeriod?: string;
@@ -1176,6 +1179,7 @@ export const PERFORMANCE_DRIVERS: CompanyPerformanceDriver[] = [
         unit: 'thousand_units',
         reportingScope: 'consolidated_group',
         accountingBasis: 'reported',
+        volumeDefinition: 'wholesale_shipments',
         comparisonPeriod: '2025-Q3',
         growthRateYoY: 7.9,
         sourceDocId: 'kia_2026_q3_ir',

@@ -35,7 +35,7 @@ METRIC_DEFINITIONS.forEach((m) => {
 // 3. Observations Integrity & Source Linkages
 const seenObsKeys = new Set<string>();
 METRIC_OBSERVATIONS.forEach((obs) => {
-  const key = `${obs.companyId}_${obs.metricId}_${obs.period}`;
+  const key = `${obs.companyId}_${obs.metricId}_${obs.period}_${obs.volumeDefinition || 'default'}_${obs.reportingScope || 'default'}`;
   assert(!seenObsKeys.has(key), `Observation uniqueness: ${key} is not duplicated`);
   seenObsKeys.add(key);
 

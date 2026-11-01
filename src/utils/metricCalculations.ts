@@ -2094,8 +2094,12 @@ export function selectCompatibleBevShareTriplets(
           tot.volumeDefinition === bev.volumeDefinition &&
           (!share.volumeDefinition || share.volumeDefinition === tot.volumeDefinition);
         const unitMatch = tot.unit === bev.unit && share.unit === 'percentage';
+        const inputMatch =
+          !share.inputObservationIds ||
+          share.inputObservationIds.length === 0 ||
+          (share.inputObservationIds.includes(tot.id) && share.inputObservationIds.includes(bev.id));
 
-        if (periodTypeMatch && scopeMatch && basisMatch && volumeMatch && unitMatch) {
+        if (periodTypeMatch && scopeMatch && basisMatch && volumeMatch && unitMatch && inputMatch) {
           compatibleTriplets.push({ tot, bev, share });
         }
       }
@@ -3342,14 +3346,26 @@ export function validateSourceClaims(
       if (candidates.length === 1) {
         matchingObs = candidates[0];
       } else {
-        // Disambiguate by scope if specified
-        const scopeMatched = claim.scope
-          ? candidates.filter((c) => c.reportingScope === claim.scope)
-          : candidates;
+        // Disambiguate by scope, volumeDefinition, or value
+        let filteredCandidates = candidates;
+        if (claim.scope) {
+          filteredCandidates = filteredCandidates.filter((c) => c.reportingScope === claim.scope);
+        }
+        if (claim.volumeDefinition) {
+          filteredCandidates = filteredCandidates.filter((c) => c.volumeDefinition === claim.volumeDefinition);
+        }
+        if (filteredCandidates.length > 1) {
+          const valueMatched = filteredCandidates.filter(
+            (c) => c.value !== null && Math.abs(c.value - claim.value) < 1e-4
+          );
+          if (valueMatched.length === 1) {
+            filteredCandidates = valueMatched;
+          }
+        }
 
-        if (scopeMatched.length === 1) {
-          matchingObs = scopeMatched[0];
-        } else if (scopeMatched.length > 1) {
+        if (filteredCandidates.length === 1) {
+          matchingObs = filteredCandidates[0];
+        } else if (filteredCandidates.length > 1) {
           errors.push({
             code: 'ambiguousSourceClaimObservation',
             sourceDocId: doc.id,
@@ -3369,7 +3385,7 @@ export function validateSourceClaims(
             period: claim.period,
             metricId: claim.metricId,
             claim,
-            detail: `No observation matched scope "${claim.scope}" among candidates for document "${doc.id}".`,
+            detail: `No observation matched scope "${claim.scope}" or volumeDefinition "${claim.volumeDefinition}" among candidates for document "${doc.id}".`,
           });
           continue;
         }

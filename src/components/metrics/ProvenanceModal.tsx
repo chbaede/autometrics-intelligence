@@ -32,9 +32,8 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
     : undefined;
 
   const rawValueText = observation.tableReference || 'Primary disclosure text';
-  const dataUpdatedDate = ['kia', 'rivian', 'geely'].includes(observation.companyId) && observation.period === '2026-Q3'
-    ? '2026-11-01'
-    : sourceDoc?.lastChecked || '2026-10-29';
+  const dataUpdatedDate = observation.dataUpdatedAt || '-';
+  const calculatedDate = observation.calculatedAt || (observation.valueType === 'derived' ? '-' : 'N/A');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
@@ -202,25 +201,29 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
                 </div>
               </div>
 
-              {/* Row 6: Three Distinct Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-slate-800/80">
+              {/* Row 6: Four Distinct Non-Fabricated Dates */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-slate-800/80">
                 <div className="p-3 space-y-0.5">
                   <span className="text-[10px] text-slate-400 uppercase font-semibold block">11. {language === 'ko' ? '출처 공식 발표일' : 'Published Date'}</span>
                   <span className="font-mono font-bold text-sky-600 dark:text-sky-400">{sourceDoc?.publicationDate || '-'}</span>
                 </div>
                 <div className="p-3 space-y-0.5">
                   <span className="text-[10px] text-slate-400 uppercase font-semibold block">12. {language === 'ko' ? '원문 최종 확인일' : 'Audited Date'}</span>
-                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{sourceDoc?.lastChecked || '2026-11-01'}</span>
+                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{sourceDoc?.lastChecked || '-'}</span>
                 </div>
                 <div className="p-3 space-y-0.5">
                   <span className="text-[10px] text-slate-400 uppercase font-semibold block">13. {language === 'ko' ? '데이터 갱신일' : 'Data Updated Date'}</span>
                   <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{dataUpdatedDate}</span>
                 </div>
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">14. {language === 'ko' ? '파생 계산일' : 'Calculated Date'}</span>
+                  <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{calculatedDate}</span>
+                </div>
               </div>
 
               {/* Row 7: Verification Status & Method */}
               <div className="p-3 space-y-0.5 bg-slate-50/50 dark:bg-slate-950/40">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold block">14. {language === 'ko' ? '검증 상태 및 감사 방식' : 'Verification Status & Method'}</span>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">15. {language === 'ko' ? '검증 상태 및 감사 방식' : 'Verification Status & Method'}</span>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-200">Status: {observation.verificationStatus || 'verified'}</span>
                   <span className="text-slate-400">•</span>
@@ -230,7 +233,7 @@ export const ProvenanceModal: React.FC<ProvenanceModalProps> = ({
 
               {/* Row 8: Derivation Formula & Input IDs (if derived) */}
               <div className="p-3 space-y-1 bg-brand-50/20 dark:bg-brand-950/10">
-                <span className="text-[10px] text-brand-600 dark:text-brand-400 uppercase font-bold block">15. {language === 'ko' ? '파생 지표 산식 및 입력값 (해당시)' : 'Derivation Formula & Input Observation IDs'}</span>
+                <span className="text-[10px] text-brand-600 dark:text-brand-400 uppercase font-bold block">16. {language === 'ko' ? '파생 지표 산식 및 입력값 (해당시)' : 'Derivation Formula & Input Observation IDs'}</span>
                 {observation.derivationFormula || observation.inputObservationIds ? (
                   <div className="space-y-1 font-mono text-xs">
                     <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
