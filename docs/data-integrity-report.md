@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 344c2bcaf11ba5be2c369edd0188d8fe66be646b  
-**Report Generation Commit:** 344c2bcaf11ba5be2c369edd0188d8fe66be646b  
+**Audited Source Commit:** dc11de73d1a16e374ac9738766b1a08701ec43ca  
+**Report Generation Commit:** dc11de73d1a16e374ac9738766b1a08701ec43ca  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-01T14:45:33.355Z  
+**Generated:** 2026-11-01T15:33:08.267Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -17,14 +17,14 @@
 
 | Command | Result |
 |---------|--------|
-| `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
-| `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 357 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
-| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 157 source claims across 31 documents match registered observations and document perimeters. ℹ️  Note: This confir |
-| `npm test` | ✅ PASS (exit 0): Results: 1065 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
-| `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
-| `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
-| `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-gV_UJi5Z.js          389.03 kB │ gzip: 39.25 kB ✓ built in 1.69s |
+| `npm run typecheck` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm test` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run validate-data` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run validate-source-claims` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run audit-data` | ✅ PASS (exit 0): 0 blocking findings, 8 review findings |
+| `npm run audit-data -- --strict` | ⚪ NOT RUN (exit -): Alternative audit mode not executed in current pass |
+| `npm run lint` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run build` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
 
 ---
 
@@ -34,20 +34,20 @@
 |----------|-------|
 | Registered Automakers | 16 |
 | Metric Definitions | 17 |
-| Financial & Volume Observations | 437 |
-| Primary Source Documents | 91 |
-| Documents with Source Claims | 31 |
+| Financial & Volume Observations | 463 |
+| Primary Source Documents | 95 |
+| Documents with Source Claims | 35 |
 | Forward-Looking Guidance Items | 20 |
-| Regional Delivery Observations | 357 |
-| Source Claims Audited | 157 |
+| Regional Delivery Observations | 362 |
+| Source Claims Audited | 183 |
 
 ---
 
 ## Audit Summary
 
 ### Source Claims Verification
-- Total Source Claims: **157** across **31** source documents
-- Claims Audited: **157**
+- Total Source Claims: **183** across **35** source documents
+- Claims Audited: **183**
 - Mismatches: **0**
 - Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
 
