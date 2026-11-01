@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 27b343ea76627e1bb10d5835220cf32e4c45ffa3  
-**Report Generation Commit:** 27b343ea76627e1bb10d5835220cf32e4c45ffa3  
+**Audited Source Commit:** 07d810533e675c7179bd2bb61362156a2a0d92e9  
+**Report Generation Commit:** 07d810533e675c7179bd2bb61362156a2a0d92e9  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-01T18:12:34.492Z  
+**Generated:** 2026-11-01T20:42:07.490Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -17,14 +17,14 @@
 
 | Command | Result |
 |---------|--------|
-| `npm run typecheck` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm test` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run validate-data` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run validate-source-claims` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run audit-data` | ✅ PASS (exit 0): 0 blocking findings, 8 review findings |
-| `npm run audit-data -- --strict` | ⚪ NOT RUN (exit -): Alternative audit mode not executed in current pass |
-| `npm run lint` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run build` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
+| `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
+| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 183 source claims across 35 documents match registered observations and document perimeters. ℹ️  Note: This confir |
+| `npm test` | ✅ PASS (exit 0): Results: 1589 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
+| `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
+| `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
+| `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-Bw7x-YwC.js          414.60 kB │ gzip: 41.78 kB ✓ built in 1.48s |
 
 ---
 

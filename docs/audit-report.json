@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-01T18:12:34.492Z",
-  "sourceCommitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-  "executionCommitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-  "reportGenerationCommitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
+  "generatedAt": "2026-11-01T20:42:07.490Z",
+  "sourceCommitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+  "executionCommitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+  "reportGenerationCommitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "dirty",
-  "workingTreeExcludingDocs": "dirty",
+  "workingTreeExcludingDocs": "clean",
   "workingTreeExclusions": [
     "docs/audit-report.json",
     "docs/data-audit-report.md",
@@ -17,75 +17,75 @@
   "commandResults": [
     {
       "command": "npm run typecheck",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
-    },
-    {
-      "command": "npm test",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:41:49.830Z"
     },
     {
       "command": "npm run validate-data",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:41:52.549Z"
     },
     {
       "command": "npm run validate-source-claims",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "✨ Internal consistency validation passed: All 183 source claims across 35 documents match registered observations and document perimeters. ℹ️  Note: This confir",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:41:52.997Z"
+    },
+    {
+      "command": "npm test",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "Results: 1589 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:41:53.385Z"
     },
     {
       "command": "npm run audit-data",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "0 blocking findings, 8 review findings",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
+      "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:41:59.792Z"
     },
     {
       "command": "npm run audit-data -- --strict",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Alternative audit mode not executed in current pass",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
+      "executed": true,
+      "exitCode": 1,
+      "status": "EXPECTED_POLICY_FAILURE",
+      "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:42:00.662Z"
     },
     {
       "command": "npm run lint",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:42:01.570Z"
     },
     {
       "command": "npm run build",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "27b343ea76627e1bb10d5835220cf32e4c45ffa3",
-      "executedAt": "2026-11-01T18:12:34.572Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "dist/assets/metricQueries-Bw7x-YwC.js          414.60 kB │ gzip: 41.78 kB ✓ built in 1.48s",
+      "commitSha": "07d810533e675c7179bd2bb61362156a2a0d92e9",
+      "executedAt": "2026-11-01T20:42:02.900Z"
     }
   ],
   "counts": {

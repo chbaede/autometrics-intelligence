@@ -1,9 +1,9 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-11-01T18:12:34.492Z  
-**Audited Source Commit SHA**: 27b343ea76627e1bb10d5835220cf32e4c45ffa3  
-**Report Generation Commit SHA**: 27b343ea76627e1bb10d5835220cf32e4c45ffa3  
+**Generated At**: 2026-11-01T20:42:07.490Z  
+**Audited Source Commit SHA**: 07d810533e675c7179bd2bb61362156a2a0d92e9  
+**Report Generation Commit SHA**: 07d810533e675c7179bd2bb61362156a2a0d92e9  
 **Working Tree State**: dirty  
 **Audit Engine Version**: 3.2.0  
 **Data Registry Version**: 1.0.0  
@@ -97,14 +97,14 @@ The AutoMetrics audit engine strictly distinguishes 9 distinct verification and 
 
 | Command | Exit Code | Result | Key Summary Output |
 | :--- | :---: | :---: | :--- |
-| `npm run typecheck` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm test` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run validate-data` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run validate-source-claims` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run audit-data` | 0 | **PASS** | 0 blocking findings, 8 review findings |
-| `npm run audit-data -- --strict` | - | **NOT RUN** | Alternative audit mode not executed in current pass |
-| `npm run lint` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
-| `npm run build` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run typecheck` | 0 | **PASS** | > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
+| `npm run validate-data` | 0 | **PASS** | 🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
+| `npm run validate-source-claims` | 0 | **PASS** | ✨ Internal consistency validation passed: All 183 source claims across 35 documents match registered observations and document perimeters. ℹ️  Note: This confir |
+| `npm test` | 0 | **PASS** | Results: 1589 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
+| `npm run audit-data` | 0 | **PASS** | ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
+| `npm run audit-data -- --strict` | 1 | **EXPECTED POLICY FAILURE** | ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
+| `npm run lint` | 0 | **PASS** | > autometrics-intelligence@1.0.0 lint > eslint src/ |
+| `npm run build` | 0 | **PASS** | dist/assets/metricQueries-Bw7x-YwC.js          414.60 kB │ gzip: 41.78 kB ✓ built in 1.48s |
 
 ---
 
@@ -147,8 +147,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `27b343ea76627e1bb10d5835220cf32e4c45ffa3`
-- **Generated at**: `2026-11-01T18:12:34.492Z`
+- **Audited Source Commit SHA**: `07d810533e675c7179bd2bb61362156a2a0d92e9`
+- **Generated at**: `2026-11-01T20:42:07.490Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.
