@@ -24,8 +24,11 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../data/sources';
 import { METRIC_OBSERVATIONS } from '../data/observations';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
 import { COMPANIES_REGISTRY } from '../data/companies';
-import { MetricObservation } from '../types/metrics';
-import { getDimensionalObservationKey } from './metricCalculations';
+import { MetricObservation, SourceDocument } from '../types/metrics';
+import {
+  getDimensionalObservationKey,
+  validateBevShareInputs,
+} from './metricCalculations';
 
 export type DataFreshnessStatus =
   | 'verified_official'
@@ -186,6 +189,178 @@ export function detectCompanySourceConflict(
   return { hasConflict: false };
 }
 
+export interface ObservationVerificationAudit {
+  internal_consistency: boolean;
+  source_verified: boolean;
+  calculation_verified: boolean;
+  fully_verified: boolean;
+  isVerified: boolean;
+  issues: string[];
+  failureReason?: string;
+  sourceDoc?: SourceDocument;
+}
+
+/**
+ * Three-tier fail-closed verification audit for observations:
+ *  1. internal_consistency: valid core dimensions, bounded finite numbers
+ *  2. source_verified: verified official HTTPS source doc matching company and period + source claim matching
+ *  3. calculation_verified: mathematical reconciliation for derived metrics (e.g. BEV share inputs)
+ */
+export function auditObservationVerification(
+  obs: MetricObservation,
+  allObs: MetricObservation[] = METRIC_OBSERVATIONS,
+  sourcesMap: Record<string, SourceDocument> = SOURCES_MAP
+): ObservationVerificationAudit {
+  const issues: string[] = [];
+  let internal_consistency = true;
+  let source_verified = true;
+  let calculation_verified = true;
+
+  // 1. Internal consistency
+  if (!obs.companyId || !obs.metricId || !obs.period || !obs.periodType || !obs.unit) {
+    internal_consistency = false;
+    issues.push(`Missing core dimension in observation ${obs.id}`);
+  }
+
+  if (obs.value === null || obs.value === undefined) {
+    internal_consistency = false;
+    issues.push(`Observation value is null or undefined for ${obs.id}`);
+  } else {
+    if (!Number.isFinite(obs.value)) {
+      internal_consistency = false;
+      issues.push(`Non-finite numeric value in observation ${obs.id}: ${obs.value}`);
+    }
+    // Percentage bounds check
+    if (obs.unit === 'percentage' && (obs.value < -100 || obs.value > 100)) {
+      if (obs.metricId === 'bev_share' && (obs.value < 0 || obs.value > 100)) {
+        internal_consistency = false;
+        issues.push(`BEV share out of 0-100% range: ${obs.value}%`);
+      }
+    }
+  }
+
+  // 2. Source verification
+  let sourceDoc: SourceDocument | undefined;
+  if (!obs.sourceDocId) {
+    if (obs.valueType !== 'derived') {
+      source_verified = false;
+      issues.push(`No sourceDocId bound to observation ${obs.id}`);
+    }
+  } else {
+    sourceDoc = sourcesMap[obs.sourceDocId] || SOURCE_DOCUMENTS.find((d) => d.id === obs.sourceDocId);
+    if (!sourceDoc) {
+      source_verified = false;
+      issues.push(`Referenced sourceDocId '${obs.sourceDocId}' not found in registry`);
+    } else {
+      // Source ownership: must match observation companyId
+      if (sourceDoc.companyId !== obs.companyId) {
+        source_verified = false;
+        issues.push(
+          `Source document company mismatch: doc is for ${sourceDoc.companyId}, observation is for ${obs.companyId}`
+        );
+      }
+      // Source period: must match observation period
+      if (sourceDoc.period !== obs.period) {
+        source_verified = false;
+        issues.push(
+          `Source document period mismatch: doc is for ${sourceDoc.period}, observation is for ${obs.period}`
+        );
+      }
+      // Official HTTPS URL check
+      if (typeof sourceDoc.officialUrl !== 'string' || !sourceDoc.officialUrl.startsWith('https://')) {
+        source_verified = false;
+        issues.push(`Source document ${sourceDoc.id} lacks valid official HTTPS URL`);
+      }
+      // Verification status of document
+      if (!sourceDoc.isVerified || sourceDoc.verificationStatus !== 'verified') {
+        source_verified = false;
+        issues.push(`Source document ${sourceDoc.id} is not verified`);
+      }
+      // Source claim verification: if document has claims for this metric and period, at least one claim must match
+      if (sourceDoc.sourceClaims && sourceDoc.sourceClaims.length > 0 && obs.value !== null && obs.value !== undefined) {
+        const metricClaims = sourceDoc.sourceClaims.filter(
+          (c) => c.metricId === obs.metricId && c.period === obs.period
+        );
+        if (metricClaims.length > 0) {
+          const matchingClaim = metricClaims.find((claim) => {
+            if (Math.abs(claim.value - obs.value!) > 1e-3) return false;
+            if (claim.unit !== obs.unit) return false;
+            if (claim.scope && obs.reportingScope && claim.scope !== obs.reportingScope) return false;
+            if (claim.volumeDefinition !== undefined) {
+              if (obs.volumeDefinition === undefined || claim.volumeDefinition !== obs.volumeDefinition) {
+                return false;
+              }
+            }
+            return true;
+          });
+          if (!matchingClaim) {
+            source_verified = false;
+            issues.push(
+              `Observation value ${obs.value} (${obs.unit}) for metric ${obs.metricId} does not match official source claim in document ${sourceDoc.id}`
+            );
+          }
+        }
+      }
+    }
+  }
+
+  if (obs.verificationStatus !== 'verified') {
+    source_verified = false;
+    issues.push(`Observation ${obs.id} verificationStatus is '${obs.verificationStatus}' (not 'verified')`);
+  }
+
+  // 3. Calculation verification
+  if (obs.valueType === 'derived') {
+    if (obs.metricId === 'bev_share') {
+      const bevVal = validateBevShareInputs(obs, allObs, sourcesMap);
+      if (!bevVal.isValid) {
+        calculation_verified = false;
+        issues.push(bevVal.failureReason || 'BEV share calculation invalid');
+      }
+    } else if (obs.inputObservationIds && obs.inputObservationIds.length > 0) {
+      const inputs = obs.inputObservationIds.map((id) => allObs.find((o) => o.id === id));
+      if (inputs.some((inp) => !inp)) {
+        calculation_verified = false;
+        issues.push(`Derived observation ${obs.id} references missing input observation`);
+      } else {
+        for (const inp of inputs) {
+          if (inp!.companyId !== obs.companyId) {
+            calculation_verified = false;
+            issues.push(`Derived input observation ${inp!.id} company mismatch`);
+          }
+          if (inp!.period !== obs.period) {
+            calculation_verified = false;
+            issues.push(`Derived input observation ${inp!.id} period mismatch`);
+          }
+          const inpAudit = auditObservationVerification(inp!, allObs, sourcesMap);
+          if (!inpAudit.fully_verified) {
+            calculation_verified = false;
+            issues.push(
+              `Derived input observation ${inp!.id} verification failed: ${inpAudit.issues.join('; ')}`
+            );
+          }
+        }
+      }
+    } else if (!obs.sourceDocId) {
+      calculation_verified = false;
+      issues.push(`Derived observation ${obs.id} lacks both sourceDocId and inputObservationIds`);
+    }
+  }
+
+  const fully_verified = internal_consistency && source_verified && calculation_verified;
+
+  return {
+    internal_consistency,
+    source_verified,
+    calculation_verified,
+    fully_verified,
+    isVerified: fully_verified,
+    issues,
+    failureReason: issues[0],
+    sourceDoc,
+  };
+}
+
 /**
  * Evaluates comprehensive freshness, status, dates, and metric coverage for a company in a given period.
  */
@@ -210,20 +385,18 @@ export function getCompanyDataFreshness(
 
   const scheduled = getScheduledDisclosure(companyId, targetPeriod);
 
-  // Evaluate company required metrics coverage
+  // Evaluate company required metrics coverage with unified verification predicate
   const requiredMetricIds = getCompanyRequiredMetrics(companyId);
   const presentMetrics = requiredMetricIds.filter((mid) => periodObs.some((o) => o.metricId === mid));
-  const verifiedMetrics = requiredMetricIds.filter((mid) =>
-    periodObs.some((o) => {
-      if (o.metricId !== mid || o.verificationStatus !== 'verified') return false;
-      if (!o.sourceDocId) return false;
-      const sDoc = SOURCES_MAP[o.sourceDocId];
-      return !!sDoc && sDoc.isVerified === true && sDoc.verificationStatus === 'verified' && sDoc.period === targetPeriod;
-    })
-  );
-  const missingMetrics = requiredMetricIds.filter(
-    (mid) => !periodObs.some((o) => o.metricId === mid && o.verificationStatus === 'verified')
-  );
+  
+  const isMetricVerified = (mid: string): boolean => {
+    const metricObsList = periodObs.filter((o) => o.metricId === mid);
+    if (metricObsList.length === 0) return false;
+    return metricObsList.some((o) => auditObservationVerification(o, companyObs).isVerified);
+  };
+
+  const verifiedMetrics = requiredMetricIds.filter(isMetricVerified);
+  const missingMetrics = requiredMetricIds.filter((mid) => !isMetricVerified(mid));
 
   const requiredCount = requiredMetricIds.length;
   const presentCount = presentMetrics.length;
@@ -371,34 +544,10 @@ export function getCompanyDataFreshness(
     let derivedFailureReason = '';
 
     for (const d of derivedObs) {
-      if (d.inputObservationIds && d.inputObservationIds.length > 0) {
-        const inputs = d.inputObservationIds.map((id) => companyObs.find((o) => o.id === id));
-        if (inputs.some((inp) => !inp)) {
-          derivedValid = false;
-          derivedFailureReason = `Derived metric ${d.metricId} references missing input observation.`;
-          break;
-        }
-        if (inputs.some((inp) => inp!.verificationStatus !== 'verified')) {
-          derivedValid = false;
-          derivedFailureReason = `Derived metric ${d.metricId} references unverified input observation.`;
-          break;
-        }
-        // If BEV share calculation, check calculation reconciliation
-        if (d.metricId === 'bev_share' && d.value !== null) {
-          const bevInp = inputs.find((inp) => inp!.metricId === 'bev_deliveries');
-          const totInp = inputs.find((inp) => inp!.metricId === 'deliveries_global');
-          if (bevInp && totInp && bevInp.value !== null && totInp.value !== null && totInp.value > 0) {
-            const expectedShare = (bevInp.value / totInp.value) * 100;
-            if (Math.abs(expectedShare - d.value) > 0.1) {
-              derivedValid = false;
-              derivedFailureReason = `BEV share derivation mismatch: expected ${expectedShare.toFixed(2)}%, got ${d.value}%.`;
-              break;
-            }
-          }
-        }
-      } else if (d.verificationStatus !== 'verified') {
+      const dAudit = auditObservationVerification(d, companyObs);
+      if (!dAudit.isVerified) {
         derivedValid = false;
-        derivedFailureReason = `Derived metric ${d.metricId} is not verified.`;
+        derivedFailureReason = dAudit.failureReason || `Derived metric ${d.metricId} is not verified.`;
         break;
       }
     }
@@ -573,95 +722,5 @@ export function getReportingSeasonSummary(period: string = '2026-Q3'): SeasonFre
     sourceConflictCount,
     reportedCompanies,
     scheduledCompanies,
-  };
-}
-
-export interface ObservationVerificationAudit {
-  internal_consistency: boolean;
-  source_verified: boolean;
-  calculation_verified: boolean;
-  fully_verified: boolean;
-  issues: string[];
-}
-
-/**
- * Three-tier verification audit as specified in Section 5.3:
- *  1. internal_consistency: DB metadata, bounded ranges, period validity
- *  2. source_verified: direct linkage to verified official primary source document
- *  3. calculation_verified: mathematical reconciliation for derived metrics on identical volume/accounting basis
- */
-export function auditObservationVerification(obs: MetricObservation): ObservationVerificationAudit {
-  const issues: string[] = [];
-  let internal_consistency = true;
-  let source_verified = true;
-  let calculation_verified = true;
-
-  // 1. Internal consistency
-  if (!obs.companyId || !obs.metricId || !obs.period || !obs.periodType || !obs.unit) {
-    internal_consistency = false;
-    issues.push(`Missing core dimension in observation ${obs.id}`);
-  }
-
-  if (obs.value !== null && obs.value !== undefined) {
-    if (!Number.isFinite(obs.value)) {
-      internal_consistency = false;
-      issues.push(`Non-finite numeric value in observation ${obs.id}: ${obs.value}`);
-    }
-    // Percentage bounds check
-    if (obs.unit === 'percentage' && (obs.value < -100 || obs.value > 100)) {
-      // RoS/margins can be negative, but extreme negative beyond -100% or positive over 100% is flagged
-      if (obs.metricId === 'bev_share' && (obs.value < 0 || obs.value > 100)) {
-        internal_consistency = false;
-        issues.push(`BEV share out of 0-100% range: ${obs.value}%`);
-      }
-    }
-  }
-
-  // 2. Source verification
-  if (!obs.sourceDocId) {
-    source_verified = false;
-    issues.push(`No sourceDocId bound to observation ${obs.id}`);
-  } else {
-    const doc = SOURCES_MAP[obs.sourceDocId];
-    if (!doc) {
-      source_verified = false;
-      issues.push(`Referenced sourceDocId '${obs.sourceDocId}' not found in registry`);
-    } else {
-      if (!doc.officialUrl || !doc.officialUrl.startsWith('https://')) {
-        source_verified = false;
-        issues.push(`Source document ${doc.id} does not have a valid HTTPS officialUrl`);
-      }
-      if (!doc.isVerified) {
-        source_verified = false;
-        issues.push(`Source document ${doc.id} is not verified`);
-      }
-    }
-  }
-
-  if (obs.verificationStatus !== 'verified') {
-    source_verified = false;
-    issues.push(`Observation ${obs.id} verificationStatus is '${obs.verificationStatus}' (not 'verified')`);
-  }
-
-  // 3. Calculation verification
-  if (obs.valueType === 'derived') {
-    if (!obs.derivationFormula) {
-      calculation_verified = false;
-      issues.push(`Derived observation ${obs.id} lacks derivationFormula`);
-    }
-    if (!obs.inputObservationIds || obs.inputObservationIds.length === 0) {
-      calculation_verified = false;
-      issues.push(`Derived observation ${obs.id} lacks inputObservationIds`);
-    }
-  }
-
-  const fully_verified = internal_consistency && source_verified && calculation_verified;
-
-  return {
-    internal_consistency,
-    source_verified,
-    calculation_verified,
-    fully_verified,
-    issues,
   };
 }

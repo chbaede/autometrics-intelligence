@@ -1360,7 +1360,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
     isVerified: true,
     verificationStatus: 'verified',
     lastChecked: '2026-11-01',
-    notes: 'Official restated comparative prior-year financial table disclosed in 3Q 2026 results release: 3Q25 wholesale volume 785,137 units, revenue KRW 28,686,000M, restated operating profit KRW 1,462,800M (reconciled from 1,462,200M KRW), margin 5.1%, restated net profit including NCI KRW 1,421,400M (reconciled from 1,422,500M KRW), and EV retail 70,000 units.',
+    notes: 'Official comparative prior-year financial table disclosed in 3Q 2026 results release: 3Q25 wholesale volume 785,137 units, revenue KRW 28,686,000M (KRW 28,686.0B), operating profit KRW 1,462,300M (KRW 1,462.3B), margin 5.1%, net profit including NCI KRW 1,422,500M (KRW 1,422.5B), and EV retail 70,000 units.',
     sourceClaims: [
       {
         metricId: 'deliveries_global',
@@ -1389,7 +1389,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
       {
         metricId: 'operating_income',
         period: '2025-Q3',
-        value: 1462800,
+        value: 1462300,
         unit: 'currency_millions',
         scope: 'consolidated_group',
         accountingBasis: 'reported',
@@ -1405,7 +1405,7 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
       {
         metricId: 'net_income',
         period: '2025-Q3',
-        value: 1421400,
+        value: 1422500,
         unit: 'currency_millions',
         scope: 'consolidated_group',
         accountingBasis: 'reported',

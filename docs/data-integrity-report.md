@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 2658a2ca1d4ecdae2007599756a68610835ea149  
-**Report Generation Commit:** 2658a2ca1d4ecdae2007599756a68610835ea149  
+**Audited Source Commit:** 27b343ea76627e1bb10d5835220cf32e4c45ffa3  
+**Report Generation Commit:** 27b343ea76627e1bb10d5835220cf32e4c45ffa3  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-01T17:22:09.974Z  
+**Generated:** 2026-11-01T18:12:34.492Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 

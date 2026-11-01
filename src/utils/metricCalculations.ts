@@ -59,7 +59,7 @@ import {
   PROXY_METRIC_MAPPINGS,
   SourceDocumentContentSnippet,
 } from '../data/scopeExceptions';
-import { SOURCES_MAP } from '../data/sources';
+import { SOURCES_MAP, SOURCE_DOCUMENTS } from '../data/sources';
 import { METRICS_MAP } from '../data/metricDefinitions';
 
 export function calculateYoYGrowth(
@@ -2029,6 +2029,285 @@ export function validateMarginScopeCompatibility(
   };
 }
 
+export interface BevShareInputIntegrityResult {
+  isValid: boolean;
+  failureReason?: string;
+  numerator?: MetricObservation;
+  denominator?: MetricObservation;
+  calculatedShare?: number;
+}
+
+/**
+ * Checks whether candidate observations for total deliveries (denominator),
+ * BEV deliveries (numerator), and optionally BEV share are perimeter and dimensionally compatible.
+ * Used as the shared single source of truth for BEV share triplet compatibility.
+ */
+export function areBevShareCandidatesCompatible(
+  tot: MetricObservation,
+  bev: MetricObservation,
+  share?: MetricObservation | null
+): { compatible: boolean; reason?: string } {
+  if (tot.companyId !== bev.companyId || (share && share.companyId !== tot.companyId)) {
+    return { compatible: false, reason: 'Company mismatch among BEV share candidates.' };
+  }
+  if (tot.period !== bev.period || (share && share.period !== tot.period)) {
+    return { compatible: false, reason: 'Period mismatch among BEV share candidates.' };
+  }
+  if (tot.periodType !== bev.periodType || (share && share.periodType !== tot.periodType)) {
+    return { compatible: false, reason: 'Period type mismatch among BEV share candidates.' };
+  }
+  if (
+    !tot.reportingScope ||
+    !bev.reportingScope ||
+    tot.reportingScope === 'unknown' ||
+    tot.reportingScope !== bev.reportingScope ||
+    (share && share.reportingScope && share.reportingScope !== tot.reportingScope)
+  ) {
+    return { compatible: false, reason: 'Reporting scope mismatch among BEV share candidates.' };
+  }
+  if (
+    !tot.accountingBasis ||
+    !bev.accountingBasis ||
+    tot.accountingBasis === 'unknown' ||
+    tot.accountingBasis !== bev.accountingBasis ||
+    (share && share.accountingBasis && share.accountingBasis !== tot.accountingBasis)
+  ) {
+    return { compatible: false, reason: 'Accounting basis mismatch among BEV share candidates.' };
+  }
+  if (
+    !tot.volumeDefinition ||
+    !bev.volumeDefinition ||
+    tot.volumeDefinition === 'unknown' ||
+    tot.volumeDefinition !== bev.volumeDefinition ||
+    (share && share.volumeDefinition && share.volumeDefinition !== 'unknown' && share.volumeDefinition !== tot.volumeDefinition)
+  ) {
+    return {
+      compatible: false,
+      reason: `Volume definition mismatch: total is ${tot.volumeDefinition}, BEV is ${bev.volumeDefinition}${share?.volumeDefinition ? `, share is ${share.volumeDefinition}` : ''}.`,
+    };
+  }
+  if (tot.unit !== bev.unit || (share && share.unit !== 'percentage')) {
+    return { compatible: false, reason: 'Unit mismatch among BEV share candidates.' };
+  }
+  if (
+    share &&
+    share.inputObservationIds &&
+    share.inputObservationIds.length > 0 &&
+    (!share.inputObservationIds.includes(tot.id) || !share.inputObservationIds.includes(bev.id))
+  ) {
+    return { compatible: false, reason: 'Derived share inputObservationIds does not match candidate observation IDs.' };
+  }
+  return { compatible: true };
+}
+
+/**
+ * Validates the input observations of a derived BEV share observation:
+ * - input observation company and period match derived observation
+ * - numerator and denominator volumeDefinition match (rejects retail/wholesale combinations)
+ * - derived observation volumeDefinition matches input observations
+ * - each input observation is verified by official source document
+ * - mathematical reconciliation of calculated vs reported share
+ */
+export function validateBevShareInputs(
+  shareObs: MetricObservation,
+  allObservations: MetricObservation[],
+  sourcesMap: Record<string, SourceDocument> = SOURCES_MAP
+): BevShareInputIntegrityResult {
+  if (shareObs.metricId !== 'bev_share') {
+    return { isValid: false, failureReason: 'Observation is not a BEV share metric.' };
+  }
+
+  let bevInp: MetricObservation | undefined;
+  let totInp: MetricObservation | undefined;
+
+  if (shareObs.inputObservationIds && shareObs.inputObservationIds.length > 0) {
+    if (!Array.isArray(shareObs.inputObservationIds) || shareObs.inputObservationIds.length < 2) {
+      return {
+        isValid: false,
+        failureReason: 'Derived BEV share observation requires inputObservationIds with at least numerator and denominator.',
+      };
+    }
+
+    const inputs = shareObs.inputObservationIds.map((id) => allObservations.find((o) => o.id === id));
+    if (inputs.some((inp) => !inp)) {
+      return {
+        isValid: false,
+        failureReason: 'One or more input observations referenced in inputObservationIds was not found.',
+      };
+    }
+
+    bevInp = inputs.find((inp) => inp!.metricId === 'bev_deliveries');
+    totInp = inputs.find((inp) => inp!.metricId === 'deliveries_global');
+
+    if (!bevInp || !totInp) {
+      return {
+        isValid: false,
+        failureReason: 'inputObservationIds must contain both bev_deliveries (numerator) and deliveries_global (denominator).',
+      };
+    }
+  } else {
+    const triplet = selectCompatibleBevShareTriplets(allObservations, shareObs.companyId, shareObs.period);
+    if (triplet.status !== 'matched' || !triplet.totalDelivery || !triplet.bevDelivery) {
+      return {
+        isValid: false,
+        failureReason: triplet.reasons.join('; ') || 'No compatible BEV share candidate triplet matched.',
+      };
+    }
+    bevInp = triplet.bevDelivery;
+    totInp = triplet.totalDelivery;
+  }
+
+  // Company and period match
+  if (bevInp.companyId !== shareObs.companyId || totInp.companyId !== shareObs.companyId) {
+    return {
+      isValid: false,
+      failureReason: `Input observation company (${bevInp.companyId}/${totInp.companyId}) does not match derived observation company (${shareObs.companyId}).`,
+      numerator: bevInp,
+      denominator: totInp,
+    };
+  }
+  if (bevInp.period !== shareObs.period || totInp.period !== shareObs.period) {
+    return {
+      isValid: false,
+      failureReason: `Input observation period (${bevInp.period}/${totInp.period}) does not match derived observation period (${shareObs.period}).`,
+      numerator: bevInp,
+      denominator: totInp,
+    };
+  }
+
+  // Check perimeter compatibility using shared helper
+  const compat = areBevShareCandidatesCompatible(totInp, bevInp, shareObs);
+  if (!compat.compatible) {
+    return {
+      isValid: false,
+      failureReason: compat.reason,
+      numerator: bevInp,
+      denominator: totInp,
+    };
+  }
+
+  // Volume definition match on derived vs inputs
+  if (shareObs.volumeDefinition && shareObs.volumeDefinition !== bevInp.volumeDefinition) {
+    return {
+      isValid: false,
+      failureReason: `Derived observation volumeDefinition (${shareObs.volumeDefinition}) does not match input volumeDefinition (${bevInp.volumeDefinition}).`,
+      numerator: bevInp,
+      denominator: totInp,
+    };
+  }
+
+  // Mathematical calculation reconciliation
+  if (totInp.value === null || totInp.value <= 0 || bevInp.value === null) {
+    return {
+      isValid: false,
+      failureReason: 'Input delivery observation values must be valid and positive numbers.',
+      numerator: bevInp,
+      denominator: totInp,
+    };
+  }
+
+  const expectedShare = (bevInp.value / totInp.value) * 100;
+  if (shareObs.value !== null && Math.abs(expectedShare - shareObs.value) > 0.1) {
+    return {
+      isValid: false,
+      failureReason: `BEV share derivation mismatch: calculated ${expectedShare.toFixed(2)}%, reported ${shareObs.value}%.`,
+      numerator: bevInp,
+      denominator: totInp,
+      calculatedShare: expectedShare,
+    };
+  }
+
+  // Official source document verification for each input observation
+  for (const inp of [bevInp, totInp]) {
+    if (inp.verificationStatus !== 'verified') {
+      return {
+        isValid: false,
+        failureReason: `Input observation ${inp.id} verificationStatus is not verified (${inp.verificationStatus}).`,
+        numerator: bevInp,
+        denominator: totInp,
+      };
+    }
+    if (!inp.sourceDocId) {
+      return {
+        isValid: false,
+        failureReason: `Input observation ${inp.id} lacks sourceDocId.`,
+        numerator: bevInp,
+        denominator: totInp,
+      };
+    }
+    const doc = sourcesMap[inp.sourceDocId] || SOURCE_DOCUMENTS.find((d) => d.id === inp.sourceDocId);
+    if (!doc) {
+      return {
+        isValid: false,
+        failureReason: `Input observation ${inp.id} references non-existent source document ${inp.sourceDocId}.`,
+        numerator: bevInp,
+        denominator: totInp,
+      };
+    }
+    if (doc.companyId !== inp.companyId) {
+      return {
+        isValid: false,
+        failureReason: `Input observation ${inp.id} source doc company mismatch (${doc.companyId} vs ${inp.companyId}).`,
+        numerator: bevInp,
+        denominator: totInp,
+      };
+    }
+    if (doc.period !== inp.period) {
+      return {
+        isValid: false,
+        failureReason: `Input observation ${inp.id} source doc period mismatch (${doc.period} vs ${inp.period}).`,
+        numerator: bevInp,
+        denominator: totInp,
+      };
+    }
+    if (!doc.isVerified || doc.verificationStatus !== 'verified') {
+      return {
+        isValid: false,
+        failureReason: `Input observation ${inp.id} source doc is not verified.`,
+        numerator: bevInp,
+        denominator: totInp,
+      };
+    }
+    if (typeof doc.officialUrl !== 'string' || !doc.officialUrl.startsWith('https://')) {
+      return {
+        isValid: false,
+        failureReason: `Input observation ${inp.id} source doc lacks official HTTPS URL.`,
+        numerator: bevInp,
+        denominator: totInp,
+      };
+    }
+    if (doc.sourceClaims && doc.sourceClaims.length > 0) {
+      const metricClaims = doc.sourceClaims.filter((c) => c.metricId === inp.metricId && c.period === inp.period);
+      if (metricClaims.length > 0) {
+        const matchesClaim = metricClaims.some((claim) => {
+          if (Math.abs(claim.value - inp.value!) > 1e-3) return false;
+          if (claim.unit !== inp.unit) return false;
+          if (claim.scope && inp.reportingScope && claim.scope !== inp.reportingScope) return false;
+          if (claim.volumeDefinition && (!inp.volumeDefinition || claim.volumeDefinition !== inp.volumeDefinition)) {
+            return false;
+          }
+          return true;
+        });
+        if (!matchesClaim) {
+          return {
+            isValid: false,
+            failureReason: `Input observation ${inp.id} conflicts with source document claims.`,
+            numerator: bevInp,
+            denominator: totInp,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    isValid: true,
+    numerator: bevInp,
+    denominator: totInp,
+    calculatedShare: expectedShare,
+  };
+}
+
 /**
  * Selects compatible BEV share candidate triplets from a list of observations.
  * Matches on: companyId, period, periodType, reportingScope, accountingBasis, volumeDefinition, unit.
@@ -2072,34 +2351,7 @@ export function selectCompatibleBevShareTriplets(
   for (const tot of totCandidates) {
     for (const bev of bevCandidates) {
       for (const share of shareCandidates) {
-        const periodTypeMatch = tot.periodType === bev.periodType && bev.periodType === share.periodType;
-        const scopeMatch =
-          !!tot.reportingScope &&
-          !!bev.reportingScope &&
-          !!share.reportingScope &&
-          tot.reportingScope !== 'unknown' &&
-          tot.reportingScope === bev.reportingScope &&
-          bev.reportingScope === share.reportingScope;
-        const basisMatch =
-          !!tot.accountingBasis &&
-          !!bev.accountingBasis &&
-          !!share.accountingBasis &&
-          tot.accountingBasis !== 'unknown' &&
-          tot.accountingBasis === bev.accountingBasis &&
-          bev.accountingBasis === share.accountingBasis;
-        const volumeMatch =
-          !!tot.volumeDefinition &&
-          !!bev.volumeDefinition &&
-          tot.volumeDefinition !== 'unknown' &&
-          tot.volumeDefinition === bev.volumeDefinition &&
-          (!share.volumeDefinition || share.volumeDefinition === tot.volumeDefinition);
-        const unitMatch = tot.unit === bev.unit && share.unit === 'percentage';
-        const inputMatch =
-          !share.inputObservationIds ||
-          share.inputObservationIds.length === 0 ||
-          (share.inputObservationIds.includes(tot.id) && share.inputObservationIds.includes(bev.id));
-
-        if (periodTypeMatch && scopeMatch && basisMatch && volumeMatch && unitMatch && inputMatch) {
+        if (areBevShareCandidatesCompatible(tot, bev, share).compatible) {
           compatibleTriplets.push({ tot, bev, share });
         }
       }

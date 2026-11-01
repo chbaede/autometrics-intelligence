@@ -4761,19 +4761,20 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "periodType": "quarterly",
     "calendarYear": 2025,
     "calendarQuarter": 3,
-    "value": 1462800,
+    "value": 1462300,
     "unit": "currency_millions",
     "currency": "KRW",
     "valueType": "reported",
     "sourceDocId": "kia_2026_q3_comparative",
-    "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Operating Profit (KRW 1,462,800M)",
+    "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Operating Profit (KRW 1,462,300M / 1,462.3B)",
     "originalLabel": "Operating profit (3Q25)",
     "isComparable": true,
     "reportingScope": "consolidated_group",
     "accountingBasis": "reported",
     "verificationStatus": "verified",
     "verificationMethod": "official_press_release",
-    "dataUpdatedAt": "2026-11-01"
+    "dataUpdatedAt": "2026-11-01",
+    "notes": "Official Kia 3Q26 comparative financial table: 3Q25 Operating profit of KRW 1,462.3B (KRW 1,462,300M)."
   },
   {
     "id": "kia_2025_q3_margin",
@@ -4804,12 +4805,12 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "periodType": "quarterly",
     "calendarYear": 2025,
     "calendarQuarter": 3,
-    "value": 1421400,
+    "value": 1422500,
     "unit": "currency_millions",
     "currency": "KRW",
     "valueType": "reported",
     "sourceDocId": "kia_2026_q3_comparative",
-    "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Net Profit including NCI (KRW 1,421,400M)",
+    "tableReference": "Kia 3Q26 IR Comparative Release: 3Q25 Net Profit including NCI (KRW 1,422,500M / 1,422.5B)",
     "originalLabel": "Consolidated net profit including NCI (3Q25) / 당기순이익(비지배지분 포함)",
     "isComparable": true,
     "reportingScope": "consolidated_group",
@@ -4817,7 +4818,7 @@ export const METRIC_OBSERVATIONS: MetricObservation[] = [
     "verificationStatus": "verified",
     "verificationMethod": "official_press_release",
     "dataUpdatedAt": "2026-11-01",
-    "notes": "Official Kia comparative disclosure: 3Q25 Net Profit including NCI of KRW 1,421,400M (KRW 1,421.4B), restated in 3Q26 comparative table (reconciled from initial 3Q25 headline release of KRW 1,422.5B in document kia_2025_q3_report)."
+    "notes": "Official Kia 3Q26 comparative financial table: 3Q25 Net profit including non-controlling interest of KRW 1,422.5B (KRW 1,422,500M)."
   },
   {
     "id": "kia_2026_q2_del",

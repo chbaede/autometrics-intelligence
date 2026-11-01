@@ -24,6 +24,7 @@ import {
   getReportingSeasonSummary,
   getCompanyRequiredMetrics,
   detectCompanySourceConflict,
+  auditObservationVerification,
 } from '../src/utils/dataFreshness';
 import {
   comparePeriodsDescending,
@@ -34,9 +35,10 @@ import {
   auditStructuredPerformanceClaim,
   validateSourceClaims,
   selectCompatibleBevShareTriplets,
+  validateBevShareInputs,
 } from '../src/utils/metricCalculations';
 import { formatLocalizedProfit } from '../src/utils/currencyUtils';
-import { VerificationCommandResult } from '../src/types/metrics';
+import { MetricObservation, VerificationCommandResult } from '../src/types/metrics';
 import {
   renderIntegrityCommandResults,
   renderMarkdownCommandResults,
@@ -1931,8 +1933,8 @@ function runSuite13() {
 
   assert(del25Q3?.value === 785.14, 'Suite 13c-1: Kia 2025-Q3 comparative wholesale is 785.14k (785,137 units)');
   assert(rev25Q3?.value === 28686000, 'Suite 13c-2: Kia 2025-Q3 comparative revenue is KRW 28,686,000M');
-  assert(ebit25Q3?.value === 1462800, 'Suite 13c-3: Kia 2025-Q3 comparative operating profit is KRW 1,462,800M');
-  assert(net25Q3?.value === 1421400, 'Suite 13c-4: Kia 2025-Q3 comparative net profit is KRW 1,421,400M');
+  assert(ebit25Q3?.value === 1462300, 'Suite 13c-3: Kia 2025-Q3 comparative operating profit is KRW 1,462,300M (1,462.3B)');
+  assert(net25Q3?.value === 1422500, 'Suite 13c-4: Kia 2025-Q3 comparative net profit is KRW 1,422,500M (1,422.5B)');
   assert(margin25Q3?.value === 5.1, 'Suite 13c-5: Kia 2025-Q3 comparative margin is 5.1%');
   const bev25Q3 = kia25Q3Obs.find((o) => o.metricId === 'bev_deliveries');
   assert(bev25Q3?.value === 70.0, 'Suite 13c-6: Kia 2025-Q3 pure EV retail is 70.0k');
@@ -2232,9 +2234,261 @@ function runSuite18() {
   assert(kiaCompDoc?.publicationDate === '2026-10-30', 'Suite 18-9i: Comparative source doc publication date is 2026-10-30');
 
   const kia2025Net = METRIC_OBSERVATIONS.find((o) => o.id === 'kia_2025_q3_net')!;
-  assert(kia2025Net.value === 1421400, 'Suite 18-9j: Comparative net income is restated 1,421,400M KRW');
+  assert(kia2025Net.value === 1422500, 'Suite 18-9j: Comparative net income is KRW 1,422,500M (1,422.5B)');
   assert(kia2025Net.sourceDocId === 'kia_2026_q3_comparative', 'Suite 18-9k: Comparative net income cites kia_2026_q3_comparative');
-  assert(Boolean(kia2025Net.notes?.includes('1,422.5B')), 'Suite 18-9l: Net income note explains reconciliation from initial 1,422.5B headline');
+  assert(Boolean(kia2025Net.notes?.includes('1,422.5B')), 'Suite 18-9l: Net income note explains KRW 1,422.5B');
+
+  // 10. Negative Test: Connecting another OEM's verified source doc to an observation fails verification
+  const foreignDocObs: MetricObservation = {
+    id: 'test_foreign_source_obs',
+    companyId: 'kia',
+    metricId: 'operating_income',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 1818300,
+    unit: 'currency_millions',
+    valueType: 'reported',
+    sourceDocId: 'tsla_2026_q3_deck', // Tesla's verified doc connected to Kia observation!
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const foreignAudit = auditObservationVerification(foreignDocObs);
+  assert(foreignAudit.fully_verified === false, 'Suite 18-10a: Foreign OEM verified source doc fails verification');
+  assert(foreignAudit.issues.some((i) => i.includes('company mismatch')), 'Suite 18-10b: Foreign OEM doc failure cites company mismatch');
+
+  // 11. Negative Test: Source document period mismatch fails verification
+  const periodMismatchObs: MetricObservation = {
+    id: 'test_period_mismatch_obs',
+    companyId: 'kia',
+    metricId: 'operating_income',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 1818300,
+    unit: 'currency_millions',
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q2_presentation', // 2026-Q2 doc connected to 2026-Q3 observation!
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const periodAudit = auditObservationVerification(periodMismatchObs);
+  assert(periodAudit.fully_verified === false, 'Suite 18-11a: Source document period mismatch fails verification');
+  assert(periodAudit.issues.some((i) => i.includes('period mismatch')), 'Suite 18-11b: Period mismatch failure cites period mismatch');
+
+  // 12. Negative Test: Source claim value mismatch fails verification
+  const claimValueMismatchObs: MetricObservation = {
+    id: 'test_claim_val_mismatch_obs',
+    companyId: 'kia',
+    metricId: 'operating_income',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 1999999, // Mismatched value vs 1818300 claim in kia_2026_q3_ir
+    unit: 'currency_millions',
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const valMismatchAudit = auditObservationVerification(claimValueMismatchObs);
+  assert(valMismatchAudit.fully_verified === false, 'Suite 18-12a: Source claim value mismatch fails verification');
+  assert(valMismatchAudit.issues.some((i) => i.includes('does not match official source claim')), 'Suite 18-12b: Value mismatch failure cites claim mismatch');
+
+  // 13. Negative Test: Source claim unit mismatch fails verification
+  const claimUnitMismatchObs: MetricObservation = {
+    id: 'test_claim_unit_mismatch_obs',
+    companyId: 'kia',
+    metricId: 'operating_income',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 1818300,
+    unit: 'percentage', // Mismatched unit (percentage instead of currency_millions)
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const unitMismatchAudit = auditObservationVerification(claimUnitMismatchObs);
+  assert(unitMismatchAudit.fully_verified === false, 'Suite 18-13a: Source claim unit mismatch fails verification');
+  assert(unitMismatchAudit.issues.some((i) => i.includes('does not match official source claim')), 'Suite 18-13b: Unit mismatch failure cites claim mismatch');
+
+  // 14. Negative Test: Source claim volumeDefinition missing or mismatched fails verification
+  // 14a. volumeDefinition mismatch: wholesale claim vs retail observation
+  const volDefMismatchObs: MetricObservation = {
+    id: 'test_vol_mismatch_obs',
+    companyId: 'kia',
+    metricId: 'deliveries_global',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 847.36, // value of wholesale claim, but labeled as retail_deliveries
+    unit: 'thousand_units',
+    volumeDefinition: 'retail_deliveries',
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const volMismatchAudit = auditObservationVerification(volDefMismatchObs);
+  assert(volMismatchAudit.fully_verified === false, 'Suite 18-14a: Source claim volumeDefinition mismatch fails verification');
+
+  // 14b. volumeDefinition missing on observation when claim specifies volumeDefinition
+  const volDefMissingObs: MetricObservation = {
+    id: 'test_vol_missing_obs',
+    companyId: 'kia',
+    metricId: 'deliveries_global',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 847.36,
+    unit: 'thousand_units',
+    volumeDefinition: undefined, // Missing volumeDefinition
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const volMissingAudit = auditObservationVerification(volDefMissingObs);
+  assert(volMissingAudit.fully_verified === false, 'Suite 18-14b: Missing volumeDefinition on observation fails claim verification');
+
+  // 15. Negative Test: Inject real source conflict -> getCompanyDataFreshness returns source_conflict
+  const conflictObs1: MetricObservation = {
+    id: 'conflict_obs_1',
+    companyId: 'hyundai_motor',
+    metricId: 'revenue',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 45000000,
+    unit: 'currency_millions',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    valueType: 'reported',
+    sourceDocId: 'hmc_2026_q3_presentation',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const conflictObs2: MetricObservation = {
+    id: 'conflict_obs_2',
+    companyId: 'hyundai_motor',
+    metricId: 'revenue',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 49000000, // Direct conflict on identical dimensional key
+    unit: 'currency_millions',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    valueType: 'reported',
+    sourceDocId: 'hmc_2026_q3_presentation',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  METRIC_OBSERVATIONS.push(conflictObs1, conflictObs2);
+  const conflictCheck = detectCompanySourceConflict('hyundai_motor', '2026-Q3');
+  assert(conflictCheck.hasConflict === true, 'Suite 18-15a: Injected conflicting observation values detected');
+  const conflictFreshness = getCompanyDataFreshness('hyundai_motor', '2026-Q3');
+  assert(conflictFreshness.status === 'source_conflict', 'Suite 18-15b: Injected source conflict yields status source_conflict');
+  // Clean up injected test observations
+  METRIC_OBSERVATIONS.splice(METRIC_OBSERVATIONS.indexOf(conflictObs1), 1);
+  METRIC_OBSERVATIONS.splice(METRIC_OBSERVATIONS.indexOf(conflictObs2), 1);
+
+  // 16. Negative Test: BEV numerator retail / denominator wholesale combination rejected
+  const retailNumerator: MetricObservation = {
+    id: 'test_bev_retail_num',
+    companyId: 'kia',
+    metricId: 'bev_deliveries',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 123.0,
+    unit: 'thousand_units',
+    volumeDefinition: 'retail_deliveries',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const wholesaleDenominator: MetricObservation = {
+    id: 'test_wholesale_denom',
+    companyId: 'kia',
+    metricId: 'deliveries_global',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 847.36,
+    unit: 'thousand_units',
+    volumeDefinition: 'wholesale_shipments', // Wholesale denominator!
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    valueType: 'reported',
+    sourceDocId: 'kia_2026_q3_ir',
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const mixedBevShareObs: MetricObservation = {
+    id: 'test_mixed_bev_share',
+    companyId: 'kia',
+    metricId: 'bev_share',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    calendarYear: 2026,
+    value: 14.5,
+    unit: 'percentage',
+    volumeDefinition: 'retail_deliveries',
+    reportingScope: 'consolidated_group',
+    accountingBasis: 'reported',
+    valueType: 'derived',
+    inputObservationIds: ['test_bev_retail_num', 'test_wholesale_denom'],
+    verificationStatus: 'verified',
+    isComparable: true,
+  };
+  const mixedValResult = validateBevShareInputs(mixedBevShareObs, [retailNumerator, wholesaleDenominator, mixedBevShareObs]);
+  assert(mixedValResult.isValid === false, 'Suite 18-16a: Mixed retail numerator / wholesale denominator is rejected');
+  assert(Boolean(mixedValResult.failureReason?.includes('Volume definition mismatch')), 'Suite 18-16b: Rejection reason states Volume definition mismatch');
+
+  // 17. Negative Test: Derived metric invalid inputObservationIds
+  // 17a. Missing input observation ID
+  const invalidInputsObs1: MetricObservation = {
+    ...mixedBevShareObs,
+    inputObservationIds: ['non_existent_id_1', 'non_existent_id_2'],
+  };
+  const invalidInpRes1 = validateBevShareInputs(invalidInputsObs1, METRIC_OBSERVATIONS);
+  assert(invalidInpRes1.isValid === false, 'Suite 18-17a: Non-existent input observation IDs rejected');
+
+  // 17b. Input observations from different company
+  const foreignInputObs: MetricObservation = {
+    ...mixedBevShareObs,
+    inputObservationIds: ['tsla_2026_q3_bev', 'kia_2026_q3_del_retail'],
+  };
+  const invalidInpRes2 = validateBevShareInputs(foreignInputObs, METRIC_OBSERVATIONS);
+  assert(invalidInpRes2.isValid === false, 'Suite 18-17b: Foreign OEM input observation ID rejected');
+
+  // 17c. Input observations from different period
+  const wrongPeriodInputObs: MetricObservation = {
+    ...mixedBevShareObs,
+    inputObservationIds: ['kia_2025_q3_bev', 'kia_2026_q3_del_retail'],
+  };
+  const invalidInpRes3 = validateBevShareInputs(wrongPeriodInputObs, METRIC_OBSERVATIONS);
+  assert(invalidInpRes3.isValid === false, 'Suite 18-17c: Mismatched period input observation ID rejected');
+
+  // 18. Positive Verification: Kia 2025 Q3 official comparative figures validated against official source fixtures
+  const compDoc = SOURCE_DOCUMENTS.find((d) => d.id === 'kia_2026_q3_comparative');
+  assert(compDoc !== undefined, 'Suite 18-18a: kia_2026_q3_comparative source document exists');
+  assert(compDoc?.isVerified === true, 'Suite 18-18b: Comparative source document is verified');
+  const compClaims = compDoc?.sourceClaims || [];
+  const compRevClaim = compClaims.find((c) => c.metricId === 'revenue');
+  const compEbitClaim = compClaims.find((c) => c.metricId === 'operating_income');
+  const compNetClaim = compClaims.find((c) => c.metricId === 'net_income');
+  const compDelClaim = compClaims.find((c) => c.metricId === 'deliveries_global');
+  assert(compRevClaim?.value === 28686000, 'Suite 18-18c: Comparative revenue is KRW 28,686.0B (28,686,000M KRW)');
+  assert(compEbitClaim?.value === 1462300, 'Suite 18-18d: Comparative operating profit is KRW 1,462.3B (1,462,300M KRW)');
+  assert(compNetClaim?.value === 1422500, 'Suite 18-18e: Comparative net profit including NCI is KRW 1,422.5B (1,422,500M KRW)');
+  assert(compDelClaim?.value === 785.14, 'Suite 18-18f: Comparative wholesale sales is 785,137 units (785.14k)');
 }
 
 runSuite12()
