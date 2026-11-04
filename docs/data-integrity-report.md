@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** b74e24831bff650cb8c4c69b105e5f67d474993b  
-**Report Generation Commit:** b74e24831bff650cb8c4c69b105e5f67d474993b  
+**Audited Source Commit:** 72be2d3347e5bb3cdbdfdc9f0d982d63bf7364fd  
+**Report Generation Commit:** 72be2d3347e5bb3cdbdfdc9f0d982d63bf7364fd  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-04T11:53:37.654Z  
+**Generated:** 2026-11-04T12:14:20.239Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -24,7 +24,7 @@
 | `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
 | `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
 | `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-aCLcyh0j.js          419.50 kB │ gzip: 42.14 kB ✓ built in 1.56s |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-aCLcyh0j.js          419.50 kB │ gzip: 42.14 kB ✓ built in 1.64s |
 
 ---
 

@@ -47,6 +47,7 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
+  TrendingUp,
 } from 'lucide-react';
 
 export const GlobalOverviewPage: React.FC = () => {
@@ -63,6 +64,7 @@ export const GlobalOverviewPage: React.FC = () => {
   const [profitFilterMode, setProfitFilterMode] = useState<ProfitFilterMode>('all');
   const [volumeDefinitionFilter, setVolumeDefinitionFilter] = useState<'all' | VolumeDefinition>('all');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+  const [trendCadence, setTrendCadence] = useState<'quarterly' | 'annual'>('quarterly');
 
   const [topFiveMode, setTopFiveMode] = useState<boolean>(false);
 
@@ -314,6 +316,11 @@ export const GlobalOverviewPage: React.FC = () => {
     return palette[idx % palette.length];
   };
 
+  // Cadence-separated Historical Trend Periods (Never mix Quarterly with Annual)
+  const trendPeriods = trendCadence === 'quarterly'
+    ? ['2026-Q1', '2026-Q2', '2026-Q3']
+    : ['2024-FY', '2025-FY'];
+
   // Historical line series for selected OEMs (respecting profitFilterMode)
   const trendSeries = selectedCompanies
     .filter((cid) => {
@@ -336,7 +343,7 @@ export const GlobalOverviewPage: React.FC = () => {
       const companyObs = getObservations([cid], ['operating_margin']);
       return {
         company: comp,
-        data: periods.map((p) => {
+        data: trendPeriods.map((p) => {
           const obs = companyObs.find((o) => o.period === p);
           return {
             period: p,
@@ -348,7 +355,7 @@ export const GlobalOverviewPage: React.FC = () => {
       };
     });
 
-  // Powertrain Mix Data for Stacked Bar Chart
+  // Powertrain Mix Data for Stacked Bar Chart (ranked by BEV share descending)
   const powertrainData = selectedCompanies.map((cid) => {
     const comp = getCompanyById(cid)!;
     const bevObs = getObservations([cid], ['bev_deliveries'], selectedPeriod)[0];
@@ -358,8 +365,9 @@ export const GlobalOverviewPage: React.FC = () => {
       ? delObservations.find((o) => o.volumeDefinition === bevObs.volumeDefinition)
       : undefined;
     const totalDel = (matchedDel || delObservations[0])?.value || 0;
-    const phevVol = getObservations([cid], ['phev_deliveries'], selectedPeriod)[0]?.value || (cid === 'byd' ? 620 : cid === 'volvo_cars' ? 55.2 : 0);
-    const phevReported = cid === 'byd' || cid === 'volvo_cars';
+    const phevObs = getObservations([cid], ['phev_deliveries'], selectedPeriod)[0];
+    const phevVol = phevObs?.value || 0;
+    const phevReported = Boolean(phevObs);
 
     return {
       company: comp,
@@ -368,7 +376,9 @@ export const GlobalOverviewPage: React.FC = () => {
       phevVolume: phevVol,
       phevReported,
     };
-  }).filter((d) => d.totalDeliveries > 0);
+  })
+    .filter((d) => d.totalDeliveries > 0)
+    .sort((a, b) => (b.bevVolume / (b.totalDeliveries || 1)) - (a.bevVolume / (a.totalDeliveries || 1)));
 
   // Scatter matrix points (Volume vs Margin vs Profit) - respects profitFilterMode and preserves negative margins when included
   const scatterPoints = profitFilteredCompanyIds
@@ -913,9 +923,52 @@ export const GlobalOverviewPage: React.FC = () => {
       </div>
 
       {/* SECTION 3: Multi-Period Historical Trend Trajectory */}
-      <div className="w-full">
+      <div className="w-full space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+              <span>{t.charts.historicalTrend}</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {appendFilterSubtitle(
+                trendCadence === 'quarterly'
+                  ? language === 'ko'
+                    ? '분기별 영업이익률 추이 (비율 왜곡 방지를 위해 분기 집계 주기 분리)'
+                    : 'Quarterly Operating Margin Trajectory (Strictly separated from annual cadence)'
+                  : language === 'ko'
+                    ? '연간 종합 영업이익률 마일스톤 (2024~2025 FY)'
+                    : 'Annual Milestone Operating Margin (2024~2025 FY)'
+              )}
+            </p>
+          </div>
+          {/* Cadence Switcher: Quarterly vs Annual */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl self-start sm:self-auto border border-slate-200 dark:border-slate-700/80">
+            <button
+              onClick={() => setTrendCadence('quarterly')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
+                trendCadence === 'quarterly'
+                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              {language === 'ko' ? '분기별 추이 (2026-Q1~Q3)' : 'Quarterly (2026-Q1~Q3)'}
+            </button>
+            <button
+              onClick={() => setTrendCadence('annual')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
+                trendCadence === 'annual'
+                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              {language === 'ko' ? '연간 마일스톤 (2024~2025 FY)' : 'Annual (2024~2025 FY)'}
+            </button>
+          </div>
+        </div>
+
         <MetricLineChart
-          title={t.charts.historicalTrend}
+          title={`${t.charts.historicalTrend} (${trendCadence === 'quarterly' ? 'Quarterly' : 'Annual'})`}
           subtitle={appendFilterSubtitle(t.charts.historicalSubtitle)}
           series={trendSeries}
           unit="percentage"

@@ -323,6 +323,15 @@ export const QuarterlyPerformanceCharts: React.FC<QuarterlyPerformanceChartsProp
 
                   const isLoss = obs?.value !== null && obs?.value !== undefined && obs.value < 0;
 
+                  // Scale for profit progression bars
+                  const allProfitVals = quarterPeriods
+                    .map((p) => getProfitObs(p).obs?.value)
+                    .filter((v): v is number => typeof v === 'number');
+                  const maxProfitVal = allProfitVals.length > 0 ? Math.max(...allProfitVals.map(Math.abs)) * 1.15 : 1000;
+                  const profitBarWidthPct = obs?.value !== null && obs?.value !== undefined
+                    ? Math.min(100, Math.max(10, (Math.abs(obs.value) / maxProfitVal) * 100))
+                    : 0;
+
                   return (
                     <div
                       key={period}
@@ -381,9 +390,27 @@ export const QuarterlyPerformanceCharts: React.FC<QuarterlyPerformanceChartsProp
                         )}
                       </div>
 
+                      {/* Bar Fill matching Chart 1 & Chart 3 */}
+                      {obs?.value !== null && obs?.value !== undefined ? (
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden my-1.5">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              isLoss
+                                ? 'bg-gradient-to-r from-rose-500 to-red-600'
+                                : isCurrentActive
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-600'
+                                : 'bg-gradient-to-r from-emerald-400 to-emerald-500 opacity-80'
+                            }`}
+                            style={{ width: `${profitBarWidthPct}%` }}
+                          />
+                        </div>
+                      ) : isScheduled ? (
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 border border-dashed border-amber-400/50 my-1.5" />
+                      ) : null}
+
                       {/* Status / Label note */}
                       {obs && (
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 gap-1 min-w-0">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 gap-1 min-w-0">
                           <span className="truncate min-w-0 flex-1 mr-1">
                             {obs.originalLabel || (isNetProfit ? 'Net profit attributable' : 'Operating profit')}
                           </span>
@@ -484,6 +511,16 @@ export const QuarterlyPerformanceCharts: React.FC<QuarterlyPerformanceChartsProp
                   const isLoss = marginVal !== null && marginVal !== undefined && marginVal < 0;
                   const isHighProfit = marginVal !== null && marginVal !== undefined && marginVal >= 8.0;
 
+                  // Scale for margin progression bars
+                  const allMarginVals = quarterPeriods
+                    .map((p) => getObs('operating_margin', p)?.value)
+                    .filter((v): v is number => typeof v === 'number');
+                  const maxMarginScale = Math.max(15, ...allMarginVals.map((v) => Math.abs(v) * 1.15));
+                  const marginBarWidthPct = marginVal !== null && marginVal !== undefined
+                    ? Math.min(100, Math.max(10, (Math.abs(marginVal) / maxMarginScale) * 100))
+                    : 0;
+                  const benchmarkLeftPct = (6.0 / maxMarginScale) * 100;
+
                   return (
                     <div
                       key={period}
@@ -559,13 +596,15 @@ export const QuarterlyPerformanceCharts: React.FC<QuarterlyPerformanceChartsProp
 
                       {/* Margin Progress Bar */}
                       {marginVal !== null && marginVal !== undefined ? (
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden relative">
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden relative my-1.5">
                           {/* 6% benchmark marker line */}
-                          <div
-                            className="absolute top-0 bottom-0 w-0.5 bg-slate-400 dark:bg-slate-500 z-10"
-                            style={{ left: `${(6.0 / 15) * 100}%` }}
-                            title="Industry Benchmark (6.0%)"
-                          />
+                          {!isLoss && (
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-slate-400 dark:bg-slate-500 z-10"
+                              style={{ left: `${benchmarkLeftPct}%` }}
+                              title="Industry Benchmark (6.0%)"
+                            />
+                          )}
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${
                               isLoss
@@ -575,10 +614,12 @@ export const QuarterlyPerformanceCharts: React.FC<QuarterlyPerformanceChartsProp
                                 : 'bg-gradient-to-r from-amber-400 to-amber-500'
                             }`}
                             style={{
-                              width: `${Math.min(100, Math.max(10, (Math.abs(marginVal) / 15) * 100))}%`,
+                              width: `${marginBarWidthPct}%`,
                             }}
                           />
                         </div>
+                      ) : isScheduled ? (
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 border border-dashed border-amber-400/50 my-1.5" />
                       ) : null}
                     </div>
                   );

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Company, MetricObservation } from '../../../types/metrics';
 import { useLanguage } from '../../../i18n/LanguageContext';
+import { getPeriodSortWeight } from '../../../utils/metricCalculations';
 import { TrendingUp, LayoutGrid, LineChart as LineIcon, Eye } from 'lucide-react';
 
 export interface TrendSeriesItem {
@@ -140,10 +141,10 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
 
   if (!series || series.length === 0) return null;
 
-  // Extract all periods across series in order
+  // Extract all periods across series in strictly chronological order
   const allPeriods = Array.from(
     new Set(series.flatMap((s) => s.data.map((d) => d.period)))
-  ).sort();
+  ).sort((a, b) => getPeriodSortWeight(a) - getPeriodSortWeight(b));
 
   const effectivePeriod = hoveredPeriod || activePeriod || allPeriods[allPeriods.length - 1];
 
@@ -430,13 +431,22 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                   };
                 });
 
-                // Path generator
-                const pathD = points.reduce((acc, pt) => {
-                  if (pt.value === null) return acc;
-                  return acc === ''
-                    ? `M ${pt.x} ${pt.y}`
-                    : `${acc} L ${pt.x} ${pt.y}`;
-                }, '');
+                // Path generator: Breaks line on missing/null periods so absent data is not falsely interpolated
+                let pathD = '';
+                let inSegment = false;
+                points.forEach((pt) => {
+                  if (pt.value !== null) {
+                    if (!inSegment) {
+                      pathD += ` M ${pt.x} ${pt.y}`;
+                      inSegment = true;
+                    } else {
+                      pathD += ` L ${pt.x} ${pt.y}`;
+                    }
+                  } else {
+                    inSegment = false;
+                  }
+                });
+                pathD = pathD.trim();
 
                 return (
                   <g
