@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-04T11:39:31.685Z",
-  "sourceCommitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-  "executionCommitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-  "reportGenerationCommitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
+  "generatedAt": "2026-11-04T11:53:37.654Z",
+  "sourceCommitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+  "executionCommitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+  "reportGenerationCommitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "dirty",
@@ -21,8 +21,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:12.559Z"
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:19.163Z"
     },
     {
       "command": "npm run validate-data",
@@ -30,8 +30,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:15.452Z"
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:21.998Z"
     },
     {
       "command": "npm run validate-source-claims",
@@ -39,8 +39,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "✨ Internal consistency validation passed: All 189 source claims across 36 documents match registered observations and document perimeters. ℹ️  Note: This confir",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:15.902Z"
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:22.442Z"
     },
     {
       "command": "npm test",
@@ -48,8 +48,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "Results: 1706 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:16.294Z"
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:22.846Z"
     },
     {
       "command": "npm run audit-data",
@@ -57,8 +57,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:22.940Z"
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:29.389Z"
     },
     {
       "command": "npm run audit-data -- --strict",
@@ -66,8 +66,8 @@
       "exitCode": 1,
       "status": "EXPECTED_POLICY_FAILURE",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:23.874Z"
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:30.273Z"
     },
     {
       "command": "npm run lint",
@@ -75,17 +75,17 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:24.844Z"
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:31.180Z"
     },
     {
       "command": "npm run build",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "dist/assets/metricQueries-BBmsY18o.js          419.91 kB │ gzip: 42.27 kB ✓ built in 1.79s",
-      "commitSha": "bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6",
-      "executedAt": "2026-11-04T11:39:26.491Z"
+      "summary": "dist/assets/metricQueries-aCLcyh0j.js          419.50 kB │ gzip: 42.14 kB ✓ built in 1.56s",
+      "commitSha": "b74e24831bff650cb8c4c69b105e5f67d474993b",
+      "executedAt": "2026-11-04T11:53:32.582Z"
     }
   ],
   "counts": {

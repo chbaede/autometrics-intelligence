@@ -8112,12 +8112,14 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(volvoMargin?.accountingBasis === 'reported', 'Test 237g-5: Volvo Cars Q3 margin has reported accounting basis');
   check(volvoEbit?.accountingBasis === volvoMargin?.accountingBasis, 'Test 237g-6: Volvo Cars Q3 EBIT and margin share identical accounting basis');
 
-  // 237h. Scheduled Disclosures: BMW Group statement date must be 2026-11-04
+  // 237h. Scheduled Disclosures: BMW Group has reported and is no longer scheduled; 3 Japanese OEMs remain scheduled
   const bmwSchedule = SCHEDULED_DISCLOSURES.find((s) => s.companyId === 'bmw_group' && s.period === '2026-Q3');
-  check(bmwSchedule !== undefined, 'Test 237h-1: BMW Group scheduled disclosure exists');
-  check(bmwSchedule?.scheduledDate === '2026-11-04', 'Test 237h-2: BMW Group scheduled date is 2026-11-04 (not Nov 5)');
-  check(Boolean(bmwSchedule?.scheduledDateEn.includes('Nov 4')), 'Test 237h-3: BMW Group scheduledDateEn contains Nov 4');
-  check(Boolean(bmwSchedule?.scheduledDateKo.includes('11월 4일')), 'Test 237h-4: BMW Group scheduledDateKo contains 11월 4일');
+  check(bmwSchedule === undefined, 'Test 237h-1: BMW Group is removed from scheduled disclosures after verified 2026-Q3 release');
+  check(SCHEDULED_DISCLOSURES.length === 3, 'Test 237h-2: Exactly 3 OEMs remain in scheduled disclosures (Toyota, Nissan, Honda)');
+  const toyotaSchedule = SCHEDULED_DISCLOSURES.find((s) => s.companyId === 'toyota_motor' && s.period === '2026-Q3');
+  check(toyotaSchedule?.scheduledDate === '2026-11-05', 'Test 237h-3: Toyota scheduled for 2026-11-05');
+  const nissanSchedule = SCHEDULED_DISCLOSURES.find((s) => s.companyId === 'nissan_motor' && s.period === '2026-Q3');
+  check(nissanSchedule?.scheduledDate === '2026-11-07', 'Test 237h-4: Nissan scheduled for 2026-11-07');
 
   // 237i. Dynamic Audit Report Data findings calculation (fail-closed, no hardcoded ?? 8 fallback)
   const dynamicAuditData = buildAuditReportData();

@@ -543,7 +543,8 @@ export const GlobalOverviewPage: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {companies.map((c) => {
-            const scheduled = getScheduledDisclosure(c.id, selectedPeriod);
+            const hasData = getObservations([c.id], undefined, selectedPeriod).length > 0;
+            const scheduled = !hasData ? getScheduledDisclosure(c.id, selectedPeriod) : undefined;
             return (
               <Link
                 key={c.id}

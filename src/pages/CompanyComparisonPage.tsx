@@ -461,7 +461,8 @@ export const CompanyComparisonPage: React.FC = () => {
                                 </span>
                               );
                             }
-                            const scheduled = getScheduledDisclosure(cid, selectedPeriod);
+                            const hasAnyPeriodObs = getObservations([cid], undefined, selectedPeriod).length > 0;
+                            const scheduled = !hasAnyPeriodObs ? getScheduledDisclosure(cid, selectedPeriod) : undefined;
                             if (scheduled) {
                               return (
                                 <span

@@ -20,15 +20,6 @@ export interface ScheduledDisclosure {
 
 export const SCHEDULED_DISCLOSURES: ScheduledDisclosure[] = [
   {
-    companyId: 'bmw_group',
-    period: '2026-Q3',
-    scheduledDate: '2026-11-04',
-    scheduledDateKo: '2026년 11월 4일 (공시 예정)',
-    scheduledDateEn: 'Nov 4, 2026 (Scheduled)',
-    notesKo: 'BMW 그룹 3분기 분기보고서(Quarterly Statement) 공식 발표 예정 (잠정 인도량 55.1만대 선발표)',
-    notesEn: 'BMW Group Q3 2026 Quarterly Statement scheduled for Nov 4, 2026 (Preliminary deliveries of 551.07k disclosed)',
-  },
-  {
     companyId: 'toyota_motor',
     period: '2026-Q3',
     scheduledDate: '2026-11-05',

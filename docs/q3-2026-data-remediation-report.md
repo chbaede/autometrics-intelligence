@@ -142,7 +142,7 @@
 | `kia` | Kia Corporation | `verified_official` | 2026-10-30 | 5 / 5 | 100% |
 | `rivian` | Rivian Automotive, Inc. | `verified_official` | 2026-10-29 | 5 / 5 | 100% |
 | `geely` | Geely Automobile Holdings | `verified_official` | 2026-10-29 | 4 / 4 | 100% |
-| `bmw_group` | BMW Group | `scheduled` | 2026-11-04 (예정) | 0 / 4 (미발표) | - |
+| `bmw_group` | BMW Group | `verified_official` | 2026-11-04 | 4 / 4 | 100% |
 | `toyota_motor` | Toyota Motor Corporation | `scheduled` | 2026-11-05 (예정) | 0 / 4 (미발표) | - |
 | `nissan_motor` | Nissan Motor Co., Ltd. | `scheduled` | 2026-11-07 (예정) | 0 / 4 (미발표) | - |
 | `honda_motor` | Honda Motor Co., Ltd. | `scheduled` | 2026-11-08 (예정) | 0 / 4 (미발표) | - |
@@ -165,6 +165,7 @@
 | Kia | Kia 3Q 2026 Business Results (Newsroom 161963) | 2026-10-30 | https://worldwide.kia.com/en/newsroom/view/?id=161963 |
 | Rivian | Rivian Q3 2026 Shareholder Letter | 2026-10-29 | https://rivian.com/investors |
 | Geely | Geely Automobile Q3 2026 Performance Update | 2026-10-29 | https://www.geelyauto.com.hk/en/investor-relations/ |
+| BMW Group | BMW Group Quarterly Statement to 30 September 2026 | 2026-11-04 | https://www.bmwgroup.com/en/investor-relations/company-reports.html |
 
 ---
 
