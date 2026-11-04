@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 07d810533e675c7179bd2bb61362156a2a0d92e9  
-**Report Generation Commit:** 07d810533e675c7179bd2bb61362156a2a0d92e9  
+**Audited Source Commit:** bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6  
+**Report Generation Commit:** bdecd3b90fde8d62942a66ad94a74bb7c9b34ab6  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-01T20:42:07.490Z  
+**Generated:** 2026-11-04T11:39:31.685Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -19,12 +19,12 @@
 |---------|--------|
 | `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
 | `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
-| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 183 source claims across 35 documents match registered observations and document perimeters. ℹ️  Note: This confir |
-| `npm test` | ✅ PASS (exit 0): Results: 1589 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
+| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 189 source claims across 36 documents match registered observations and document perimeters. ℹ️  Note: This confir |
+| `npm test` | ✅ PASS (exit 0): Results: 1706 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
 | `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
 | `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
 | `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-Bw7x-YwC.js          414.60 kB │ gzip: 41.78 kB ✓ built in 1.48s |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-BBmsY18o.js          419.91 kB │ gzip: 42.27 kB ✓ built in 1.79s |
 
 ---
 
@@ -34,20 +34,20 @@
 |----------|-------|
 | Registered Automakers | 16 |
 | Metric Definitions | 17 |
-| Financial & Volume Observations | 464 |
-| Primary Source Documents | 96 |
-| Documents with Source Claims | 35 |
+| Financial & Volume Observations | 471 |
+| Primary Source Documents | 97 |
+| Documents with Source Claims | 36 |
 | Forward-Looking Guidance Items | 20 |
 | Regional Delivery Observations | 362 |
-| Source Claims Audited | 183 |
+| Source Claims Audited | 189 |
 
 ---
 
 ## Audit Summary
 
 ### Source Claims Verification
-- Total Source Claims: **183** across **35** source documents
-- Claims Audited: **183**
+- Total Source Claims: **189** across **36** source documents
+- Claims Audited: **189**
 - Mismatches: **0**
 - Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
 

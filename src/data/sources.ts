@@ -267,6 +267,29 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
   // 3. BMW GROUP
   // =========================================================================
   {
+    id: 'bmw_2026_q3_statement',
+    companyId: 'bmw_group',
+    title: 'BMW Group Quarterly Statement to 30 September 2026 (Q3)',
+    docType: 'quarterly_report',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    publicationDate: '2026-11-04',
+    officialUrl: 'https://www.bmwgroup.com/en/investor-relations/company-reports.html',
+    isVerified: true,
+    verificationStatus: 'verified',
+    financialDisclosureStatus: 'preliminary',
+    lastChecked: '2026-11-04',
+    notes: 'Official BMW Group quarterly statement covering Q3 2026 deliveries (551.08k), BEV deliveries (110.26k), Group revenues (€30,452m), Group EBIT (€1,589m), and Automotive segment EBIT margin (3.4%).',
+    sourceClaims: [
+      { metricId: 'deliveries_global', period: '2026-Q3', value: 551.08, unit: 'thousand_units', scope: 'consolidated_group', volumeDefinition: 'retail_deliveries' },
+      { metricId: 'bev_deliveries', period: '2026-Q3', value: 110.26, unit: 'thousand_units', scope: 'consolidated_group', volumeDefinition: 'retail_deliveries' },
+      { metricId: 'revenue', period: '2026-Q3', value: 30452, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_income', period: '2026-Q3', value: 1589, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'operating_margin', period: '2026-Q3', value: 5.2, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
+      { metricId: 'net_income', period: '2026-Q3', value: 1448, unit: 'currency_millions', scope: 'consolidated_group', accountingBasis: 'reported' },
+    ],
+  },
+  {
     id: 'bmw_2026_q2_statement',
     companyId: 'bmw_group',
     title: 'BMW Group Quarterly Statement to 30 June 2026 (Q2)',

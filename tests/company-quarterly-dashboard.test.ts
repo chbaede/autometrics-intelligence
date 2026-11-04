@@ -82,10 +82,10 @@ const REPORTED_Q3_OEMS = [
   'kia',
   'rivian',
   'geely',
+  'bmw_group',
 ];
 
 const SCHEDULED_Q3_OEMS = [
-  'bmw_group',
   'toyota_motor',
   'honda_motor',
   'nissan_motor',
@@ -2053,9 +2053,8 @@ function runSuite16() {
     assert(f.hasObservationsForPeriod === true, `Suite 16a-5 [${id}]: hasObservationsForPeriod is true`);
   }
 
-  // 2. All 4 scheduled OEMs receive scheduled
+  // 2. All 3 scheduled OEMs receive scheduled
   const scheduledMap: Record<string, string> = {
-    bmw_group: '2026-11-04',
     toyota_motor: '2026-11-05',
     nissan_motor: '2026-11-07',
     honda_motor: '2026-11-08',
@@ -2072,8 +2071,8 @@ function runSuite16() {
   // 3. Reporting Season Summary
   const summary = getReportingSeasonSummary('2026-Q3');
   assert(summary.totalCompanies === 16, 'Suite 16c-1: Total registered OEMs in summary is 16');
-  assert(summary.reportedCount === 12, 'Suite 16c-2: Exactly 12 reported OEMs in 2026-Q3 season');
-  assert(summary.scheduledCount === 4, 'Suite 16c-3: Exactly 4 scheduled pending OEMs in 2026-Q3 season');
+  assert(summary.reportedCount === 13, 'Suite 16c-2: Exactly 13 reported OEMs in 2026-Q3 season');
+  assert(summary.scheduledCount === 3, 'Suite 16c-3: Exactly 3 scheduled pending OEMs in 2026-Q3 season');
   assert(summary.unconfirmedCount === 0, 'Suite 16c-4: 0 unconfirmed OEMs in 2026-Q3 season');
 }
 
@@ -2083,10 +2082,11 @@ function runSuite16() {
 function runSuite17() {
   console.log('\n--- Suite 17: Universal 2026 Q3 Freshness, Required Metrics & Provenance Invariants ---');
 
-  // 1. All 12 reported OEMs have 100% required metrics coverage
+  // 1. All 13 reported OEMs have 100% required metrics coverage
   const reportedIds = [
     'tesla', 'volkswagen_group', 'general_motors', 'ford', 'hyundai_motor',
     'mercedes_benz', 'stellantis', 'byd', 'volvo_cars', 'kia', 'rivian', 'geely',
+    'bmw_group',
   ];
 
   for (const id of reportedIds) {
@@ -2731,6 +2731,57 @@ function runSuite19() {
   assert(auditObservationVerification(kia2025Del!).fully_verified === true, 'Suite 19-10h: Kia 2025-Q3 comparative deliveries fully verified');
 }
 
+// =========================================================================
+// Suite 20: BMW Group 2026 Q3 Official Financials & Provenance Verification
+// =========================================================================
+function runSuite20() {
+  console.log('\n--- Suite 20: BMW Group 2026 Q3 Official Financials & Provenance Verification ---');
+
+  // 1. Source Document
+  const doc = SOURCE_DOCUMENTS.find((d) => d.id === 'bmw_2026_q3_statement');
+  assert(doc !== undefined, 'Suite 20-1a: bmw_2026_q3_statement source document registered');
+  assert(doc?.publicationDate === '2026-11-04', 'Suite 20-1b: Publication date is 2026-11-04');
+  assert(Boolean(doc?.officialUrl.includes('company-reports.html')), 'Suite 20-1c: Official URL links to company reports portal');
+  assert(doc?.isVerified === true, 'Suite 20-1d: Source document is marked verified');
+  assert(Boolean(doc?.sourceClaims && doc.sourceClaims.length >= 5), 'Suite 20-1e: Document has official source claims');
+
+  // 2. Observations values & definitions
+  const del = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q3_del');
+  const bev = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q3_bev');
+  const share = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q3_bev_share');
+  const rev = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q3_rev');
+  const ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q3_ebit');
+  const margin = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q3_margin');
+  const net = METRIC_OBSERVATIONS.find((o) => o.id === 'bmw_2026_q3_net');
+
+  assert(del?.value === 551.08, 'Suite 20-2a: Deliveries to customers is 551.08k (551,075 units)');
+  assert(del?.volumeDefinition === 'retail_deliveries', 'Suite 20-2b: Volume definition is retail_deliveries');
+  assert(bev?.value === 110.26, 'Suite 20-2c: BEV deliveries is 110.26k (110,257 units)');
+  assert(bev?.volumeDefinition === 'retail_deliveries', 'Suite 20-2d: BEV volume definition is retail_deliveries');
+  assert(share?.value === 20.0, 'Suite 20-2e: Derived BEV share is 20.0%');
+  assert(share?.volumeDefinition === 'retail_deliveries', 'Suite 20-2f: Derived BEV share volumeDefinition matches inputs');
+  assert(rev?.value === 30452, 'Suite 20-2g: Group revenue is €30,452M');
+  assert(ebit?.value === 1589, 'Suite 20-2h: Group EBIT is €1,589M');
+  assert(margin?.value === 5.2, 'Suite 20-2i: Group EBIT margin is 5.2%');
+  assert(net?.value === 1448, 'Suite 20-2j: Group net profit is €1,448M');
+
+  // 3. Mathematical & dimension verification
+  assert(auditObservationVerification(del!).fully_verified === true, 'Suite 20-3a: Deliveries observation fully verified');
+  assert(auditObservationVerification(bev!).fully_verified === true, 'Suite 20-3b: BEV deliveries observation fully verified');
+  assert(auditObservationVerification(share!).fully_verified === true, 'Suite 20-3c: BEV share observation fully verified');
+  assert(auditObservationVerification(rev!).fully_verified === true, 'Suite 20-3d: Revenue observation fully verified');
+  assert(auditObservationVerification(ebit!).fully_verified === true, 'Suite 20-3e: EBIT observation fully verified');
+  assert(auditObservationVerification(margin!).fully_verified === true, 'Suite 20-3f: Margin observation fully verified');
+  assert(auditObservationVerification(net!).fully_verified === true, 'Suite 20-3g: Net income observation fully verified');
+
+  // 4. Freshness status
+  const freshness = getCompanyDataFreshness('bmw_group', '2026-Q3');
+  assert(freshness.status === 'verified_official', 'Suite 20-4a: BMW 2026-Q3 freshness status is verified_official');
+  assert(freshness.requiredMetricsCoverage?.percentage === 100, 'Suite 20-4b: BMW required metrics coverage is 100%');
+  assert(freshness.hasObservationsForPeriod === true, 'Suite 20-4c: hasObservationsForPeriod is true');
+  assert(freshness.sourcePublishedAt === '2026-11-04', 'Suite 20-4d: sourcePublishedAt is 2026-11-04');
+}
+
 runSuite12()
   .then(() => {
     runSuite13();
@@ -2740,6 +2791,7 @@ runSuite12()
     runSuite17();
     runSuite18();
     runSuite19();
+    runSuite20();
     console.log(`\nResults: ${passed} passed, ${failed} failed.`);
     if (failed > 0) {
       process.exit(1);

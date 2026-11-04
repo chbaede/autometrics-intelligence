@@ -89,6 +89,7 @@ export function getCompanyRequiredMetrics(companyId: string): string[] {
     case 'kia':
       // Kia discloses wholesale volume, revenue, operating profit, margin, and net profit
       return ['deliveries_global', 'revenue', 'operating_income', 'operating_margin', 'net_income'];
+    case 'bmw_group':
     case 'hyundai_motor':
     case 'geely':
     case 'general_motors':
