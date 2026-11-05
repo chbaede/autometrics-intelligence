@@ -152,9 +152,33 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       ? Math.round(((minMargin + maxMargin) / 2) * 10) / 10
       : 7.0; // Industry weighted RoS benchmark
 
-  const getX = (vol: number) => padLeft + (Math.min(maxVolume, Math.max(0, vol)) / maxVolume) * chartW;
-  const getY = (margin: number) =>
-    height - padBottom - ((Math.min(maxMargin, Math.max(minMargin, margin)) - minMargin) / (maxMargin - minMargin)) * chartH;
+  // Dual-zone piecewise Y scale when mixed positive & negative margins exist ('all' mode)
+  // Allocates 64% of vertical space to positive margins (where 10-15 OEMs cluster) and 36% to negative outliers
+  const useDualZoneY = minMargin < 0 && maxMargin > 0 && observedMaxMargin > 0;
+  const posZoneRatio = 0.64;
+  const zeroY = useDualZoneY ? padTop + chartH * posZoneRatio : 0;
+
+  const getX = (vol: number) =>
+    padLeft + (Math.min(maxVolume, Math.max(0, vol)) / maxVolume) * chartW;
+
+  const getY = (margin: number) => {
+    const clamped = Math.min(maxMargin, Math.max(minMargin, margin));
+    if (useDualZoneY) {
+      if (clamped >= 0) {
+        return zeroY - (clamped / (maxMargin || 1)) * (chartH * posZoneRatio);
+      }
+      return (
+        zeroY +
+        (Math.abs(clamped) / (Math.abs(minMargin) || 1)) *
+          (chartH * (1 - posZoneRatio))
+      );
+    }
+    return (
+      height -
+      padBottom -
+      ((clamped - minMargin) / (maxMargin - minMargin || 1)) * chartH
+    );
+  };
 
   // Generate X axis ticks
   const xTicks: number[] = [];
@@ -164,9 +188,28 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
   // Generate Y axis ticks
   const yTicks: number[] = [];
-  const startYTick = Math.ceil(minMargin / marginStep) * marginStep;
-  for (let m = startYTick; m <= maxMargin; m += marginStep) {
-    yTicks.push(m);
+  if (useDualZoneY) {
+    const posStep = maxMargin > 12 ? 3 : 2;
+    const negStep =
+      Math.abs(minMargin) > 60
+        ? 30
+        : Math.abs(minMargin) > 25
+        ? 15
+        : Math.abs(minMargin) > 12
+        ? 5
+        : 2;
+    for (let m = Math.ceil(minMargin / negStep) * negStep; m < 0; m += negStep) {
+      yTicks.push(m);
+    }
+    yTicks.push(0);
+    for (let m = posStep; m <= maxMargin; m += posStep) {
+      yTicks.push(m);
+    }
+  } else {
+    const startYTick = Math.ceil(minMargin / marginStep) * marginStep;
+    for (let m = startYTick; m <= maxMargin; m += marginStep) {
+      yTicks.push(m);
+    }
   }
 
   // OEM distinct brand colors
@@ -194,6 +237,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
   // Anti-collision label layout computation
   interface PlacedLabel {
     point: ScatterPoint;
+    rank: number;
     x: number;
     y: number;
     boxX: number;
@@ -208,12 +252,16 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
   const placedLabels: PlacedLabel[] = [];
 
-  // Sort points to place high margin or high volume points first
+  // Sort points strictly by operating margin descending (#1 highest margin first) so top-ranked OEMs get priority placement
   const sortedPoints = [...points].sort((a, b) => {
+    if (b.marginPercent !== a.marginPercent) {
+      return b.marginPercent - a.marginPercent;
+    }
     return b.volumeThousand - a.volumeThousand;
   });
 
-  sortedPoints.forEach((pt) => {
+  sortedPoints.forEach((pt, idx) => {
+    const rank = idx + 1;
     const px = getX(pt.volumeThousand);
     const py = getY(pt.marginPercent);
     const curr = pt.currency || pt.company.reportingCurrency;
@@ -229,32 +277,39 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
     const boxH = 46;
     const color = getOemColor(pt.company.name);
 
-    // Multi-angle candidate offsets relative to (px, py)
+    // Multi-angle candidate offsets relative to (px, py) including wide-ring offsets for dense clusters
     const candidates = [
       // Top-Right variants
       { dx: 20, dy: -52, hasLeader: true },
       { dx: 24, dy: -74, hasLeader: true },
-      { dx: 28, dy: -96, hasLeader: true },
+      { dx: 28, dy: -102, hasLeader: true },
+      { dx: 34, dy: -132, hasLeader: true },
       // Top-Left variants
       { dx: -boxW - 20, dy: -52, hasLeader: true },
       { dx: -boxW - 24, dy: -74, hasLeader: true },
-      { dx: -boxW - 28, dy: -96, hasLeader: true },
+      { dx: -boxW - 28, dy: -102, hasLeader: true },
+      { dx: -boxW - 34, dy: -132, hasLeader: true },
       // Bottom-Right variants
       { dx: 20, dy: 20, hasLeader: true },
-      { dx: 24, dy: 46, hasLeader: true },
-      { dx: 28, dy: 72, hasLeader: true },
+      { dx: 24, dy: 48, hasLeader: true },
+      { dx: 28, dy: 78, hasLeader: true },
+      { dx: 34, dy: 112, hasLeader: true },
+      { dx: 40, dy: 146, hasLeader: true },
       // Bottom-Left variants
       { dx: -boxW - 20, dy: 20, hasLeader: true },
-      { dx: -boxW - 24, dy: 46, hasLeader: true },
-      { dx: -boxW - 28, dy: 72, hasLeader: true },
+      { dx: -boxW - 24, dy: 48, hasLeader: true },
+      { dx: -boxW - 28, dy: 78, hasLeader: true },
+      { dx: -boxW - 34, dy: 112, hasLeader: true },
+      { dx: -boxW - 40, dy: 146, hasLeader: true },
       // Directly Above variants
       { dx: -boxW / 2, dy: -60, hasLeader: true },
-      { dx: -boxW / 2, dy: -84, hasLeader: true },
-      { dx: -boxW / 2, dy: -108, hasLeader: true },
+      { dx: -boxW / 2, dy: -88, hasLeader: true },
+      { dx: -boxW / 2, dy: -118, hasLeader: true },
       // Directly Below variants
       { dx: -boxW / 2, dy: 26, hasLeader: true },
-      { dx: -boxW / 2, dy: 52, hasLeader: true },
-      { dx: -boxW / 2, dy: 78, hasLeader: true },
+      { dx: -boxW / 2, dy: 56, hasLeader: true },
+      { dx: -boxW / 2, dy: 88, hasLeader: true },
+      { dx: -boxW / 2, dy: 122, hasLeader: true },
       // Right-side bias options (essential for points near the left Y-axis boundary)
       { dx: 24, dy: -boxH / 2, hasLeader: true },
       { dx: 45, dy: -boxH / 2, hasLeader: true },
@@ -262,14 +317,22 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       { dx: 24, dy: 14, hasLeader: true },
       { dx: 16, dy: -68, hasLeader: true },
       { dx: 16, dy: 44, hasLeader: true },
+      { dx: 110, dy: -boxH / 2, hasLeader: true },
+      { dx: 110, dy: 38, hasLeader: true },
+      { dx: 110, dy: -56, hasLeader: true },
       // Left-side options (for points far enough to the right)
       { dx: -boxW - 30, dy: -boxH / 2, hasLeader: true },
       { dx: -boxW - 45, dy: -22, hasLeader: true },
+      { dx: -boxW - 110, dy: -boxH / 2, hasLeader: true },
+      { dx: -boxW - 110, dy: 38, hasLeader: true },
+      { dx: -boxW - 110, dy: -56, hasLeader: true },
       // Offset diagonals
-      { dx: -boxW / 2 + 40, dy: -68, hasLeader: true },
-      { dx: -boxW / 2 - 40, dy: -68, hasLeader: true },
-      { dx: -boxW / 2 + 40, dy: 48, hasLeader: true },
-      { dx: -boxW / 2 - 40, dy: 48, hasLeader: true },
+      { dx: -boxW / 2 + 48, dy: -68, hasLeader: true },
+      { dx: -boxW / 2 - 48, dy: -68, hasLeader: true },
+      { dx: -boxW / 2 + 48, dy: 48, hasLeader: true },
+      { dx: -boxW / 2 - 48, dy: 48, hasLeader: true },
+      { dx: -boxW / 2 + 95, dy: 84, hasLeader: true },
+      { dx: -boxW / 2 - 95, dy: 84, hasLeader: true },
     ];
 
     // Bounding areas of quadrant title badges to avoid obscuring them
@@ -335,6 +398,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
 
     placedLabels.push({
       point: pt,
+      rank,
       x: px,
       y: py,
       boxX: px + bestCandidate.dx,
@@ -347,6 +411,9 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
       volumeStr,
     });
   });
+
+  // Reverse paint order for SVG layers so #1 (top rank) is rendered LAST (on top of lower-ranked cards)
+  const paintOrderLabels = [...placedLabels].reverse();
 
   return (
     <div className="p-3.5 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex flex-col space-y-5">
@@ -782,7 +849,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
           </defs>
 
           {/* LAYER 1: Leader Lines for Inactive Points */}
-          {placedLabels
+          {paintOrderLabels
             .filter((lbl) => lbl.point.company.id !== activePoint?.company.id)
             .map((lbl) => {
               const targetX = lbl.boxX + lbl.boxW / 2;
@@ -803,8 +870,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
               );
             })}
 
-          {/* LAYER 2: Bubble Dots for Inactive Points */}
-          {placedLabels
+          {/* LAYER 2: Bubble Dots for Inactive Points (Painted bottom-up so #1 is on top) */}
+          {paintOrderLabels
             .filter((lbl) => lbl.point.company.id !== activePoint?.company.id)
             .map((lbl) => {
               const pt = lbl.point;
@@ -841,8 +908,8 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
               );
             })}
 
-          {/* LAYER 3: Mini Financial Cards for Inactive Points */}
-          {placedLabels
+          {/* LAYER 3: Mini Financial Cards for Inactive Points (Painted bottom-up so #1 is always on top) */}
+          {paintOrderLabels
             .filter((lbl) => lbl.point.company.id !== activePoint?.company.id)
             .map((lbl) => {
               const pt = lbl.point;
@@ -872,7 +939,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     height={lbl.boxH}
                     rx="8"
                     className="scatter-card-bg transition-all shadow-xs fill-white/95 dark:fill-slate-900/95 stroke-slate-200 dark:stroke-slate-700/90"
-                    strokeWidth={1}
+                    strokeWidth={lbl.rank <= 3 ? 1.5 : 1}
                   />
 
                   {/* Left Accent Color Indicator Bar */}
@@ -886,14 +953,14 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                     className="scatter-card-indicator"
                   />
 
-                  {/* Row 1: Company Short Name (Protected from badge overlap by clipPath) */}
+                  {/* Row 1: Rank + Company Short Name (Protected from badge overlap by clipPath) */}
                   <text
-                    x="12"
+                    x="10"
                     y="17"
                     clipPath={`url(#clip-margin-${pt.company.id})`}
                     className="font-extrabold text-[11px] font-sans fill-slate-900 dark:fill-slate-100"
                   >
-                    {pt.company.shortName}
+                    #{lbl.rank} {pt.company.shortName}
                   </text>
 
                   {/* Margin % Pill Badge */}
@@ -929,7 +996,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   {/* Row 2: Actual Profit Number & Deliveries */}
                   <g className="scatter-card-details">
                     <text
-                      x="12"
+                      x="10"
                       y="35"
                       className={`font-mono text-[9.5px] font-bold ${
                         isLoss
@@ -1063,12 +1130,12 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   />
 
                   <text
-                    x="12"
+                    x="10"
                     y="17"
                     clipPath={`url(#clip-margin-${pt.company.id})`}
                     className="font-extrabold text-[11px] font-sans fill-slate-950 dark:fill-white"
                   >
-                    {pt.company.shortName}
+                    #{activeLbl.rank} {pt.company.shortName}
                   </text>
 
                   {/* Margin % Pill Badge */}
@@ -1104,7 +1171,7 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
                   {/* Row 2: Actual Profit Number & Deliveries */}
                   <g className="scatter-card-details">
                     <text
-                      x="12"
+                      x="10"
                       y="35"
                       className={`font-mono text-[9.5px] font-bold ${
                         isLoss
@@ -1129,6 +1196,94 @@ export const MarginScatterChart: React.FC<MarginScatterChartProps> = ({
             );
           })()}
         </svg>
+
+        {/* Ranked Operating Margin Leaderboard Strip (Mobile-Friendly & Full #1..#N Visibility) */}
+        <div className="mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center justify-between gap-2 mb-2 px-1">
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+              {language === 'ko'
+                ? `📊 영업이익률(RoS) 높은순 전체 정렬 (#1 ~ #${placedLabels.length} • 탭하여 차트에서 강조)`
+                : `📊 Ranked by Operating Margin (#1 – #${placedLabels.length} • Tap to highlight)`}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2">
+            {placedLabels.map((lbl) => {
+              const pt = lbl.point;
+              const isSelected = activePoint?.company.id === pt.company.id;
+              const isLoss =
+                pt.marginPercent < 0 ||
+                (pt.operatingIncome !== undefined &&
+                  pt.operatingIncome !== null &&
+                  pt.operatingIncome < 0);
+              return (
+                <button
+                  key={`margin-rank-${pt.company.id}`}
+                  type="button"
+                  onMouseEnter={() => setHovered(pt)}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => {
+                    const next = selectedPoint?.company.id === pt.company.id ? null : pt;
+                    setSelectedPoint(next);
+                    onSelectCompany?.(pt.company);
+                  }}
+                  className={`p-2 rounded-xl border text-left transition flex flex-col justify-between gap-1 ${
+                    isSelected
+                      ? 'bg-brand-50 dark:bg-slate-800 border-brand-500 shadow-xs ring-1 ring-brand-500/40'
+                      : lbl.rank <= 3 && !isLoss
+                      ? 'bg-amber-50/40 dark:bg-slate-900/90 border-amber-300/60 dark:border-amber-800/50 hover:border-amber-400'
+                      : isLoss
+                      ? 'bg-rose-50/30 dark:bg-rose-950/15 border-rose-200/60 dark:border-rose-900/40'
+                      : 'bg-white dark:bg-slate-900/80 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span
+                        className={`text-[10px] font-mono font-extrabold px-1 py-0.2 rounded shrink-0 ${
+                          isLoss
+                            ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                            : lbl.rank === 1
+                            ? 'bg-amber-400/25 text-amber-800 dark:text-amber-300'
+                            : lbl.rank <= 3
+                            ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        #{lbl.rank}
+                      </span>
+                      <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                        {pt.company.shortName}
+                      </span>
+                    </div>
+                    <span
+                      className={`font-mono font-extrabold text-xs shrink-0 ${
+                        pt.marginPercent < 0
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : pt.marginPercent >= 7.0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-brand-600 dark:text-brand-400'
+                      }`}
+                    >
+                      {pt.marginPercent.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    <span
+                      className={
+                        isLoss
+                          ? 'text-rose-600 dark:text-rose-400 font-semibold truncate'
+                          : 'text-emerald-700 dark:text-emerald-400 font-semibold truncate'
+                      }
+                    >
+                      {lbl.profitStr}
+                    </span>
+                    <span className="shrink-0">{lbl.volumeStr}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Dynamic Interactive Detail Panel (Clean adaptive design, NOT pitch black in light mode) */}
         {activePoint && (

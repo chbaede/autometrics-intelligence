@@ -158,6 +158,8 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   const maxVal = allValues.length > 0 ? Math.max(...allValues, 0) : 100;
   const minVal = allValues.length > 0 ? Math.min(...allValues, 0) : 0;
   const range = maxVal - minVal || 1;
+  const useDualZoneY = minVal < 0 && maxVal > 0;
+  const posZoneRatio = 0.65;
 
   // Chart dimensions with clear vertical axis padding
   const width = 1040;
@@ -168,6 +170,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   const paddingBottom = 45;
   const chartW = width - paddingLeft - paddingRight;
   const chartH = height - paddingTop - paddingBottom;
+  const zeroY = useDualZoneY ? paddingTop + chartH * posZoneRatio : 0;
 
   const getX = (periodIndex: number) => {
     if (allPeriods.length <= 1) return paddingLeft + chartW / 2;
@@ -176,8 +179,28 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
 
   const getY = (val: number | null) => {
     if (val === null || !Number.isFinite(val)) return height - paddingBottom;
+    if (useDualZoneY) {
+      if (val >= 0) {
+        return zeroY - (val / (maxVal || 1)) * (chartH * posZoneRatio);
+      }
+      return (
+        zeroY +
+        (Math.abs(val) / (Math.abs(minVal) || 1)) * (chartH * (1 - posZoneRatio))
+      );
+    }
     return height - paddingBottom - ((val - minVal) / range) * chartH;
   };
+
+  const yTickValues = useDualZoneY
+    ? [maxVal, maxVal * 0.5, 0, minVal * 0.5, minVal]
+    : [0, 0.25, 0.5, 0.75, 1].map((r) => minVal + r * range);
+
+  // Sort series by effectivePeriod value descending so pills and small multiples follow rank order
+  const sortedSeries = [...series].sort((a, b) => {
+    const valA = a.data.find((d) => d.period === effectivePeriod)?.value ?? -Infinity;
+    const valB = b.data.find((d) => d.period === effectivePeriod)?.value ?? -Infinity;
+    return valB - valA;
+  });
 
   // Ranking at hovered period
   const getLeaderboardAtPeriod = (period: string) => {
@@ -259,7 +282,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
           >
             {language === 'ko' ? '전체 보기' : 'Show All'}
           </button>
-          {series.map((s) => {
+          {sortedSeries.map((s, idx) => {
             const isSelected = highlightedCompanyId === s.company.id;
             return (
               <button
@@ -273,6 +296,9 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                     : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                 }`}
               >
+                <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 font-bold">
+                  #{idx + 1}
+                </span>
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
                   style={{ backgroundColor: s.color }}
@@ -322,20 +348,20 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
               </text>
 
               {/* Y Axis Grid lines & Ticks */}
-              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                const y = height - paddingBottom - ratio * chartH;
-                const val = minVal + ratio * range;
+              {yTickValues.map((val, idx) => {
+                const y = getY(val);
+                const isZero = Math.abs(val) < 0.001;
                 return (
-                  <g key={ratio}>
+                  <g key={`ytick-${idx}`}>
                     <line
                       x1={paddingLeft}
                       y1={y}
                       x2={width - paddingRight}
                       y2={y}
-                      stroke="#cbd5e1"
-                      className="dark:stroke-slate-800/80"
-                      strokeDasharray="3 3"
-                      strokeWidth="1"
+                      stroke={isZero && useDualZoneY ? '#64748b' : '#cbd5e1'}
+                      className={isZero && useDualZoneY ? 'opacity-80' : 'dark:stroke-slate-800/80'}
+                      strokeDasharray={isZero && useDualZoneY ? '4 4' : '3 3'}
+                      strokeWidth={isZero && useDualZoneY ? '1.4' : '1'}
                     />
                     <line
                       x1={paddingLeft - 6}
@@ -349,7 +375,11 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
                       x={paddingLeft - 12}
                       y={y + 4}
                       textAnchor="end"
-                      className="fill-slate-600 dark:fill-slate-400 text-[11px] font-mono font-bold"
+                      className={`text-[11px] font-mono font-bold ${
+                        val < 0
+                          ? 'fill-rose-600 dark:fill-rose-400'
+                          : 'fill-slate-600 dark:fill-slate-400'
+                      }`}
                     >
                       {formatTickValue(val, unit)}
                     </text>

@@ -142,14 +142,11 @@ export const GuidanceRangeChart: React.FC<GuidanceRangeChartProps> = ({
     return null;
   };
 
-  // Sort order: Kia, Hyundai, General Motors, Mercedes, BMW, Volkswagen, Stellantis
+  // Sort strictly by active stage midpoint descending (#1 highest margin target to lowest)
   const sortedGuidance = [...marginGuidanceList].sort((a, b) => {
-    const order = ['kia', 'hyundai_motor', 'general_motors', 'mercedes_benz', 'bmw_group', 'volkswagen_group', 'stellantis'];
-    const idxA = order.indexOf(a.companyId);
-    const idxB = order.indexOf(b.companyId);
-    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-    if (idxA !== -1) return -1;
-    if (idxB !== -1) return 1;
+    const valA = getStageValues(a, selectedStage).mid;
+    const valB = getStageValues(b, selectedStage).mid;
+    if (valB !== valA) return valB - valA;
     return (b.midpoint ?? 0) - (a.midpoint ?? 0);
   });
 
