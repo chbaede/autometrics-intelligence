@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-05T18:54:18.070Z",
-  "sourceCommitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-  "executionCommitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-  "reportGenerationCommitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
+  "generatedAt": "2026-11-05T22:53:40.608Z",
+  "sourceCommitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+  "executionCommitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+  "reportGenerationCommitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "dirty",
@@ -17,81 +17,81 @@
   "commandResults": [
     {
       "command": "npm run typecheck",
-      "executed": true,
-      "exitCode": 0,
-      "status": "PASS",
-      "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:53:59.000Z"
-    },
-    {
-      "command": "npm run validate-data",
-      "executed": true,
-      "exitCode": 0,
-      "status": "PASS",
-      "summary": "🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:54:02.055Z"
-    },
-    {
-      "command": "npm run validate-source-claims",
-      "executed": true,
-      "exitCode": 0,
-      "status": "PASS",
-      "summary": "✨ Internal consistency validation passed: All 195 source claims across 37 documents match registered observations and document perimeters. ℹ️  Note: This confir",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:54:02.505Z"
+      "executed": false,
+      "exitCode": null,
+      "status": "NOT_RUN",
+      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
     },
     {
       "command": "npm test",
-      "executed": true,
-      "exitCode": 0,
-      "status": "PASS",
-      "summary": "Results: 1825 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly!",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:54:02.903Z"
+      "executed": false,
+      "exitCode": null,
+      "status": "NOT_RUN",
+      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
+    },
+    {
+      "command": "npm run validate-data",
+      "executed": false,
+      "exitCode": null,
+      "status": "NOT_RUN",
+      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
+    },
+    {
+      "command": "npm run validate-source-claims",
+      "executed": false,
+      "exitCode": null,
+      "status": "NOT_RUN",
+      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
     },
     {
       "command": "npm run audit-data",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:54:09.613Z"
+      "summary": "0 blocking findings, 8 review findings",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
     },
     {
       "command": "npm run audit-data -- --strict",
-      "executed": true,
-      "exitCode": 1,
-      "status": "EXPECTED_POLICY_FAILURE",
-      "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:54:10.557Z"
+      "executed": false,
+      "exitCode": null,
+      "status": "NOT_RUN",
+      "summary": "Alternative audit mode not executed in current pass",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
     },
     {
       "command": "npm run lint",
-      "executed": true,
-      "exitCode": 0,
-      "status": "PASS",
-      "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:54:11.558Z"
+      "executed": false,
+      "exitCode": null,
+      "status": "NOT_RUN",
+      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
     },
     {
       "command": "npm run build",
-      "executed": true,
-      "exitCode": 0,
-      "status": "PASS",
-      "summary": "dist/assets/metricQueries-BybIlhk6.js          452.87 kB │ gzip: 48.84 kB ✓ built in 1.59s",
-      "commitSha": "2cc21d8e16c011691af94266b4d946952a05fece",
-      "executedAt": "2026-11-05T18:54:13.013Z"
+      "executed": false,
+      "exitCode": null,
+      "status": "NOT_RUN",
+      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
+      "commitSha": "365be9993e750506bbd9dd066d9ce669d49396cf",
+      "executedAt": "2026-11-05T22:53:40.686Z"
     }
   ],
   "counts": {
     "companies": 16,
     "observations": 478,
-    "regionalObservations": 362,
+    "regionalObservations": 389,
     "guidance": 20,
     "sourceDocuments": 98,
     "documentsWithSourceClaims": 37,

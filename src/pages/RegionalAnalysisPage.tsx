@@ -115,17 +115,31 @@ export const RegionalAnalysisPage: React.FC = () => {
 
       {/* 2026-Q3 Regional Coverage Information Notice */}
       {selectedPeriod === '2026-Q3' && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 text-xs text-amber-900 dark:text-amber-200 shadow-sm">
-          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <div className="font-bold text-sm text-amber-950 dark:text-amber-100">
-              {language === 'ko' ? '2026년 3분기 권역별 공시 현황 안내' : '2026-Q3 Regional Reporting Status'}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-amber-900 dark:text-amber-200 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="font-bold text-sm text-amber-950 dark:text-amber-100 flex items-center gap-2">
+                <span>{language === 'ko' ? '2026년 3분기 권역별 공시 현황 안내' : '2026-Q3 Regional Reporting Status'}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold font-mono">
+                  {language === 'ko' ? '14개사 공시 완료 / 2개사 예정' : '14 Disclosed / 2 Scheduled'}
+                </span>
+              </div>
+              <p className="leading-relaxed">
+                {language === 'ko'
+                  ? '현재 2026년 3분기(2026-Q3) 기준 도요타(Toyota), BMW, 현대차, 기아, 지리, 볼보자동차, 리비안 등 대륙/국가별 세부 인도량을 공시한 제조사와 글로벌 총량을 발표한 14개사의 공식 IR이 반영되었습니다. 공시하지 않은 제조사의 미공시 권역은 이전 분기로 대체하거나 임의 추정하지 않고 엄격히 비워둡니다. (혼다, 닛산은 11월 중순 공시 예정)'
+                  : 'For 2026-Q3, official results from 14 reporting automakers (Toyota, BMW, Hyundai, Kia, Geely, Volvo Cars, Rivian, VW Group, GM, Ford, Mercedes-Benz, Stellantis, BYD, Tesla) have been integrated. Disaggregated geographic deliveries are verified for disclosing OEMs. Missing regional segments remain strictly unpopulated without silent fallback. Honda and Nissan are scheduled for mid-November disclosure.'}
+              </p>
             </div>
-            <p className="leading-relaxed">
-              {language === 'ko'
-                ? '현재 2026년 3분기(2026-Q3)에 대해 대륙 및 국가별 세부 인도량을 공식 분리 공시한 제조사는 볼보자동차(Volvo Cars: 유럽 90.5k, 북미 30.8k, 중국 20.3k 등) 1개사입니다. 그 외 테슬라, 폭스바겐, GM, 현대차, 메르세데스-벤츠, 스텔란티스, BYD, 포드 등 8개사는 글로벌 총 인도량만 공시하였으며 미공시 세부 권역은 이전 분기로 대체하거나 임의 추정하지 않고 엄격히 비워둡니다.'
-                : 'For 2026-Q3, Volvo Cars is the sole OEM that has officially reported disaggregated geographic deliveries (Europe 90.5k, North America 30.8k, China 20.3k, etc.). Other reporting automakers (Tesla, VW Group, GM, Hyundai, Mercedes-Benz, Stellantis, BYD, Ford) have published global totals only. In accordance with primary source integrity policies, unpopulated regional segments are strictly left empty without estimation or silent fallback.'}
-            </p>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <button
+              onClick={() => setSelectedPeriod('2026-Q2')}
+              className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-950 dark:text-amber-100 font-semibold transition text-xs flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <span>{language === 'ko' ? '2026-Q2 16개사 전체 비교' : 'Compare 16 OEMs in 2026-Q2'}</span>
+              <TrendingUp className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

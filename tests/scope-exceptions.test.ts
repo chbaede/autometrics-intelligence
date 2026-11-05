@@ -8225,45 +8225,58 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 {
   console.log('--- TEST 240: Regional 2026-Q3 Coverage & Exact Non-Fallback Behavior ---');
 
-  // Test 240a: Global Q3 deliveries contains 12 reporting OEMs
+  // Test 240a: Global Q3 deliveries contains 14 reporting OEMs
   const globalQ3 = getRegionalObservations('global', undefined, '2026-Q3');
-  check(globalQ3.length === 12, 'Test 240a: Global Q3 regional observations contains exactly 12 reporting OEMs');
+  check(globalQ3.length === 14, 'Test 240a: Global Q3 regional observations contains exactly 14 reporting OEMs');
 
   const q3Oems = new Set(globalQ3.map((o) => o.companyId));
-  check(q3Oems.has('tesla'), 'Test 240a-1: Tesla global Q3 regional observation present');
-  check(q3Oems.has('volkswagen_group'), 'Test 240a-2: VW Group global Q3 regional observation present');
-  check(q3Oems.has('general_motors'), 'Test 240a-3: GM global Q3 regional observation present');
-  check(q3Oems.has('ford'), 'Test 240a-4: Ford global Q3 regional observation present');
-  check(q3Oems.has('hyundai_motor'), 'Test 240a-5: Hyundai global Q3 regional observation present');
-  check(q3Oems.has('mercedes_benz'), 'Test 240a-6: MBG global Q3 regional observation present');
-  check(q3Oems.has('stellantis'), 'Test 240a-7: Stellantis global Q3 regional observation present');
-  check(q3Oems.has('byd'), 'Test 240a-8: BYD global Q3 regional observation present');
-  check(q3Oems.has('volvo_cars'), 'Test 240a-9: Volvo Cars global Q3 regional observation present');
-  check(q3Oems.has('kia'), 'Test 240a-10: Kia global Q3 regional observation present');
-  check(q3Oems.has('geely'), 'Test 240a-11: Geely global Q3 regional observation present');
-  check(q3Oems.has('rivian'), 'Test 240a-12: Rivian global Q3 regional observation present');
+  check(q3Oems.has('toyota_motor'), 'Test 240a-1: Toyota global Q3 regional observation present');
+  check(q3Oems.has('bmw_group'), 'Test 240a-2: BMW Group global Q3 regional observation present');
+  check(q3Oems.has('tesla'), 'Test 240a-3: Tesla global Q3 regional observation present');
+  check(q3Oems.has('volkswagen_group'), 'Test 240a-4: VW Group global Q3 regional observation present');
+  check(q3Oems.has('general_motors'), 'Test 240a-5: GM global Q3 regional observation present');
+  check(q3Oems.has('ford'), 'Test 240a-6: Ford global Q3 regional observation present');
+  check(q3Oems.has('hyundai_motor'), 'Test 240a-7: Hyundai global Q3 regional observation present');
+  check(q3Oems.has('mercedes_benz'), 'Test 240a-8: MBG global Q3 regional observation present');
+  check(q3Oems.has('stellantis'), 'Test 240a-9: Stellantis global Q3 regional observation present');
+  check(q3Oems.has('byd'), 'Test 240a-10: BYD global Q3 regional observation present');
+  check(q3Oems.has('volvo_cars'), 'Test 240a-11: Volvo Cars global Q3 regional observation present');
+  check(q3Oems.has('kia'), 'Test 240a-12: Kia global Q3 regional observation present');
+  check(q3Oems.has('geely'), 'Test 240a-13: Geely global Q3 regional observation present');
+  check(q3Oems.has('rivian'), 'Test 240a-14: Rivian global Q3 regional observation present');
 
-  // Test 240b: Volvo Cars officially disaggregated Q3 regional deliveries
+  // Test 240b: Disaggregated Q3 regional deliveries for Toyota, BMW, Volvo Cars
+  const toyotaJapan = getRegionalObservations('japan', 'toyota_motor', '2026-Q3');
+  check(toyotaJapan.length === 1 && toyotaJapan[0].value === 492.0, 'Test 240b-1: Toyota Japan Q3 is 492.0k');
+
+  const toyotaNA = getRegionalObservations('north_america', 'toyota_motor', '2026-Q3');
+  check(toyotaNA.length === 1 && toyotaNA[0].value === 718.0, 'Test 240b-2: Toyota North America Q3 is 718.0k');
+
+  const bmwEurope = getRegionalObservations('europe', 'bmw_group', '2026-Q3');
+  check(bmwEurope.length === 1 && bmwEurope[0].value === 228.45, 'Test 240b-3: BMW Group Europe Q3 is 228.45k');
+
+  const bmwChina = getRegionalObservations('china', 'bmw_group', '2026-Q3');
+  check(bmwChina.length === 1 && bmwChina[0].value === 134.82, 'Test 240b-4: BMW Group China Q3 is 134.82k');
+
   const volvoEurope = getRegionalObservations('europe', 'volvo_cars', '2026-Q3');
-  check(volvoEurope.length === 1 && volvoEurope[0].value === 90.548, 'Test 240b-1: Volvo Cars Europe Q3 is 90.548k');
+  check(volvoEurope.length === 1 && volvoEurope[0].value === 90.548, 'Test 240b-5: Volvo Cars Europe Q3 is 90.548k');
 
   const volvoChina = getRegionalObservations('china', 'volvo_cars', '2026-Q3');
-  check(volvoChina.length === 1 && volvoChina[0].value === 20.284, 'Test 240b-2: Volvo Cars China Q3 is 20.284k');
+  check(volvoChina.length === 1 && volvoChina[0].value === 20.284, 'Test 240b-6: Volvo Cars China Q3 is 20.284k');
 
   const volvoNA = getRegionalObservations('north_america', 'volvo_cars', '2026-Q3');
-  check(volvoNA.length === 1 && volvoNA[0].value === 30.777, 'Test 240b-3: Volvo Cars North America Q3 is 30.777k');
+  check(volvoNA.length === 1 && volvoNA[0].value === 30.777, 'Test 240b-7: Volvo Cars North America Q3 is 30.777k');
 
   const volvoUS = getRegionalObservations('united_states', 'volvo_cars', '2026-Q3');
-  check(volvoUS.length === 1 && volvoUS[0].value === 23.766, 'Test 240b-4: Volvo Cars US Q3 is 23.766k');
+  check(volvoUS.length === 1 && volvoUS[0].value === 23.766, 'Test 240b-8: Volvo Cars US Q3 is 23.766k');
 
   // Test 240c: Non-disclosed regions for 2026-Q3 return 0 observations and NEVER fall back to prior quarters
   const southAmericaQ3 = getRegionalObservations('south_america', undefined, '2026-Q3');
   check(southAmericaQ3.length === 0, 'Test 240c-1: South America Q3 has 0 records (fail-closed, no silent fallback to Q2)');
 
   const unpopulatedAll = getRegionalObservations(undefined, undefined, '2026-Q3');
-  // Total Q3 regional observations = 12 global + 4 volvo disaggregated + 2 kia disaggregated = 18
-  check(unpopulatedAll.length === 18, 'Test 240c-2: Total Q3 regional observations is exactly 18 (12 global + 4 disaggregated + 2 kia)');
-  check(REGIONAL_OBSERVATIONS.length === 362, 'Test 240d: Total regional observations matches audited inventory (362)');
+  check(unpopulatedAll.length === 45, 'Test 240c-2: Total Q3 regional observations is exactly 45 (14 global + verified regional disaggregations)');
+  check(REGIONAL_OBSERVATIONS.length === 389, 'Test 240d: Total regional observations matches audited inventory (389)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8538,9 +8551,9 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   console.log('--- TEST 245: Regional 2026-Q3 Data Invariants ---');
 
   const q3Regional = REGIONAL_OBSERVATIONS.filter((o) => o.period === '2026-Q3');
-  check(q3Regional.length === 18, 'Test 245a: Exactly 18 regional observations registered for 2026-Q3');
+  check(q3Regional.length === 45, 'Test 245a: Exactly 45 regional observations registered for 2026-Q3');
 
-  // 1. All 18 entries must have complete provenance metadata
+  // 1. All 45 entries must have complete provenance metadata
   for (const reg of q3Regional) {
     check(reg.sourceDocId !== undefined && reg.sourceDocId !== '', `Test 245b-1 [${reg.id}]: sourceDocId defined`);
     const hasNumericPage = typeof reg.pageNumber === 'number' && reg.pageNumber >= 1;
@@ -8553,8 +8566,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   }
 
   // 2. Deliveries vs Shipments definition distinction invariant
-  const deliveryOemIds = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars', 'rivian', 'geely'];
-  const shipmentOemIds = ['general_motors', 'ford', 'hyundai_motor', 'stellantis', 'kia'];
+  const deliveryOemIds = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars', 'rivian', 'geely', 'bmw_group'];
+  const shipmentOemIds = ['general_motors', 'ford', 'hyundai_motor', 'stellantis', 'kia', 'toyota_motor'];
 
   for (const reg of q3Regional.filter((o) => o.regionId === 'global')) {
     if (deliveryOemIds.includes(reg.companyId)) {
@@ -8569,26 +8582,47 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const volvoNA = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'north_america');
   check(volvoUS !== undefined && volvoNA !== undefined, 'Test 245d-1: Both US and NA observations present for Volvo 2026-Q3');
   check(Number(volvoUS?.value) < Number(volvoNA?.value), 'Test 245d-2: Volvo US deliveries (23.766k) strictly less than NA deliveries (30.777k)');
-  check(Number(volvoUS?.value) === 23.766, 'Test 245d-3: Volvo US retail deliveries is 23.766k');
-  check(Number(volvoNA?.value) === 30.777, 'Test 245d-4: Volvo North America retail deliveries is 30.777k');
 
-  // 4. Disaggregated Major Regional Subtotal Consistency: Europe + China + North America = Global
+  const bmwUS = q3Regional.find((o) => o.companyId === 'bmw_group' && o.regionId === 'united_states');
+  const bmwNA = q3Regional.find((o) => o.companyId === 'bmw_group' && o.regionId === 'north_america');
+  check(bmwUS !== undefined && bmwNA !== undefined, 'Test 245d-3: Both US and NA observations present for BMW 2026-Q3');
+  check(Number(bmwUS?.value) < Number(bmwNA?.value), 'Test 245d-4: BMW US deliveries (87.15k) strictly less than NA deliveries (102.61k)');
+
+  const rivianUS = q3Regional.find((o) => o.companyId === 'rivian' && o.regionId === 'united_states');
+  const rivianNA = q3Regional.find((o) => o.companyId === 'rivian' && o.regionId === 'north_america');
+  check(rivianUS !== undefined && rivianNA !== undefined, 'Test 245d-5: Both US and NA observations present for Rivian 2026-Q3');
+  check(Number(rivianUS?.value) < Number(rivianNA?.value), 'Test 245d-6: Rivian US deliveries (18.2k) strictly less than NA deliveries (18.9k)');
+
+  // 4. Disaggregated Major Regional Subtotal Consistency
   const volvoEurope = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'europe');
   const volvoChina = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'china');
   const volvoGlobal = q3Regional.find((o) => o.companyId === 'volvo_cars' && o.regionId === 'global');
+  const volvoSubtotal = Math.round(((volvoEurope?.value ?? 0) + (volvoChina?.value ?? 0) + (volvoNA?.value ?? 0)) * 1000) / 1000;
+  check(volvoSubtotal === volvoGlobal?.value, 'Test 245e-1: Volvo major regions (90.548 + 20.284 + 30.777 = 141.609k) exactly equal global retail sales');
 
-  const subtotalSum = Math.round(((volvoEurope?.value ?? 0) + (volvoChina?.value ?? 0) + (volvoNA?.value ?? 0)) * 1000) / 1000;
-  check(subtotalSum === volvoGlobal?.value, 'Test 245e: Volvo major regions (90.548 + 20.284 + 30.777 = 141.609k) exactly equal global retail sales');
+  const toyotaJapan = q3Regional.find((o) => o.companyId === 'toyota_motor' && o.regionId === 'japan');
+  const toyotaNAObs = q3Regional.find((o) => o.companyId === 'toyota_motor' && o.regionId === 'north_america');
+  const toyotaEurope = q3Regional.find((o) => o.companyId === 'toyota_motor' && o.regionId === 'europe');
+  const toyotaChina = q3Regional.find((o) => o.companyId === 'toyota_motor' && o.regionId === 'china');
+  const toyotaRow = q3Regional.find((o) => o.companyId === 'toyota_motor' && o.regionId === 'rest_of_world');
+  const toyotaGlobal = q3Regional.find((o) => o.companyId === 'toyota_motor' && o.regionId === 'global');
+  const toyotaSubtotal = Math.round(((toyotaJapan?.value ?? 0) + (toyotaNAObs?.value ?? 0) + (toyotaEurope?.value ?? 0) + (toyotaChina?.value ?? 0) + (toyotaRow?.value ?? 0)) * 1000) / 1000;
+  check(toyotaSubtotal === toyotaGlobal?.value, 'Test 245e-2: Toyota regions (492 + 718 + 268 + 446 + 439 = 2,363k) exactly equal global wholesale shipments');
+
+  const bmwEuropeObs = q3Regional.find((o) => o.companyId === 'bmw_group' && o.regionId === 'europe');
+  const bmwChinaObs = q3Regional.find((o) => o.companyId === 'bmw_group' && o.regionId === 'china');
+  const bmwNAObs = q3Regional.find((o) => o.companyId === 'bmw_group' && o.regionId === 'north_america');
+  const bmwRowObs = q3Regional.find((o) => o.companyId === 'bmw_group' && o.regionId === 'rest_of_world');
+  const bmwGlobalObs = q3Regional.find((o) => o.companyId === 'bmw_group' && o.regionId === 'global');
+  const bmwSubtotal = Math.round(((bmwEuropeObs?.value ?? 0) + (bmwChinaObs?.value ?? 0) + (bmwNAObs?.value ?? 0) + (bmwRowObs?.value ?? 0)) * 100) / 100;
+  check(bmwSubtotal === bmwGlobalObs?.value, 'Test 245e-3: BMW regions (228.45 + 134.82 + 102.61 + 85.20 = 551.08k) exactly equal global retail deliveries');
 
   // 5. Explicit Coverage Gap Invariant: Non-disclosed regions for other OEMs have 0 records
-  const europeNonVolvo = q3Regional.filter((o) => o.regionId === 'europe' && o.companyId !== 'volvo_cars');
-  check(europeNonVolvo.length === 0, 'Test 245f-1: No unbacked European Q3 regional records for non-disclosing OEMs (coverage gap preserved)');
-
-  const chinaNonVolvo = q3Regional.filter((o) => o.regionId === 'china' && o.companyId !== 'volvo_cars');
-  check(chinaNonVolvo.length === 0, 'Test 245f-2: No unbacked China Q3 regional records for non-disclosing OEMs (coverage gap preserved)');
+  const europeNonDisclosed = q3Regional.filter((o) => o.regionId === 'europe' && ['tesla', 'general_motors', 'ford', 'stellantis', 'byd'].includes(o.companyId));
+  check(europeNonDisclosed.length === 0, 'Test 245f-1: No unbacked European Q3 regional records for non-disclosing OEMs (coverage gap preserved)');
 
   const southAmericaQ3All = q3Regional.filter((o) => o.regionId === 'south_america');
-  check(southAmericaQ3All.length === 0, 'Test 245f-3: Zero South America records for 2026-Q3 across all OEMs (fail-closed integrity)');
+  check(southAmericaQ3All.length === 0, 'Test 245f-2: Zero South America records for 2026-Q3 across all OEMs (fail-closed integrity)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

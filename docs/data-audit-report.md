@@ -1,9 +1,9 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-11-05T18:54:18.070Z  
-**Audited Source Commit SHA**: 2cc21d8e16c011691af94266b4d946952a05fece  
-**Report Generation Commit SHA**: 2cc21d8e16c011691af94266b4d946952a05fece  
+**Generated At**: 2026-11-05T22:53:40.608Z  
+**Audited Source Commit SHA**: 365be9993e750506bbd9dd066d9ce669d49396cf  
+**Report Generation Commit SHA**: 365be9993e750506bbd9dd066d9ce669d49396cf  
 **Working Tree State**: dirty  
 **Audit Engine Version**: 3.2.0  
 **Data Registry Version**: 1.0.0  
@@ -15,7 +15,7 @@
 
 ## 1. Executive Summary & Audit Metrics
 
-This comprehensive data audit inspects all 16 registered automakers, 478 primary financial and delivery observations, 362 regional delivery observations, 20 management forward-looking guidance items, and 98 verified primary source documents in the AutoMetrics Intelligence platform.
+This comprehensive data audit inspects all 16 registered automakers, 478 primary financial and delivery observations, 389 regional delivery observations, 20 management forward-looking guidance items, and 98 verified primary source documents in the AutoMetrics Intelligence platform.
 
 Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were hardened with:
 1. **Source Claim Integrity Validator**: Deterministically audits all `SourceClaim` entries against `SourceDocument` metadata and `MetricObservation` records across 10 error codes (`sourceClaimCompanyMismatch`, `sourceClaimPeriodMismatch`, `sourceClaimPeriodTypeMismatch`, `sourceClaimMetricMismatch`, `sourceClaimValueMismatch`, `sourceClaimUnitMismatch`, `sourceClaimScopeMismatch`, `sourceClaimAccountingBasisMismatch`, `sourceClaimWithoutObservation`, `ambiguousSourceClaimObservation`).
@@ -31,7 +31,7 @@ Through **STEP 4-19 to STEP 4-22**, the evidence and verification layers were ha
 | :--- | :---: | :--- |
 | **Total Registered Automakers** | 16 | Complete global OEM coverage |
 | **Total Metric Observations** | 478 | 100% audited and scoped |
-| **Total Regional Observations** | 362 | Aligned with primary source decks |
+| **Total Regional Observations** | 389 | Aligned with primary source decks |
 | **Total Guidance Targets** | 20 | Verified against IR presentations |
 | **Total Verified Primary Sources** | 98 | HTTPS endpoints, audited metadata |
 | **Documents with Source Claims** | 37 | Verified primary reports |
@@ -97,14 +97,14 @@ The AutoMetrics audit engine strictly distinguishes 9 distinct verification and 
 
 | Command | Exit Code | Result | Key Summary Output |
 | :--- | :---: | :---: | :--- |
-| `npm run typecheck` | 0 | **PASS** | > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
-| `npm run validate-data` | 0 | **PASS** | 🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
-| `npm run validate-source-claims` | 0 | **PASS** | ✨ Internal consistency validation passed: All 195 source claims across 37 documents match registered observations and document perimeters. ℹ️  Note: This confir |
-| `npm test` | 0 | **PASS** | Results: 1825 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
-| `npm run audit-data` | 0 | **PASS** | ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
-| `npm run audit-data -- --strict` | 1 | **EXPECTED POLICY FAILURE** | ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
-| `npm run lint` | 0 | **PASS** | > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | 0 | **PASS** | dist/assets/metricQueries-BybIlhk6.js          452.87 kB │ gzip: 48.84 kB ✓ built in 1.59s |
+| `npm run typecheck` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm test` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run validate-data` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run validate-source-claims` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run audit-data` | 0 | **PASS** | 0 blocking findings, 8 review findings |
+| `npm run audit-data -- --strict` | - | **NOT RUN** | Alternative audit mode not executed in current pass |
+| `npm run lint` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run build` | - | **NOT RUN** | Not executed in current audit-data pass (use --execute-all to execute and capture all) |
 
 ---
 
@@ -147,8 +147,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `2cc21d8e16c011691af94266b4d946952a05fece`
-- **Generated at**: `2026-11-05T18:54:18.070Z`
+- **Audited Source Commit SHA**: `365be9993e750506bbd9dd066d9ce669d49396cf`
+- **Generated at**: `2026-11-05T22:53:40.608Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.
