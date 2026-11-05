@@ -20,6 +20,7 @@ import {
 } from '../utils/currencyUtils';
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { QuarterlyPerformanceCharts } from '../components/company/QuarterlyPerformanceCharts';
+import { StockEarningsCorrelationChart } from '../components/company/StockEarningsCorrelationChart';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -620,6 +621,15 @@ export const CompanyDashboardPage: React.FC = () => {
         onSelectPeriod={(p) => setActivePeriod(p)}
         onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         scheduledDisclosure={scheduledQ3}
+      />
+
+      {/* 2024 Q1 ~ 2026 Q3 QUARTERLY DISCLOSURE STOCK PRICE & EARNINGS CORRELATION CHART */}
+      <StockEarningsCorrelationChart
+        company={currentCompany}
+        observations={observations}
+        activePeriod={activePeriod}
+        onSelectPeriod={(p) => setActivePeriod(p)}
+        onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
       />
 
       {/* OFFICIAL PERFORMANCE DRIVERS & MANAGEMENT COMMENTARY */}

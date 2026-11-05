@@ -49,6 +49,11 @@ import {
 } from '../scripts/audit-data';
 import { computeRawByteSha256 } from '../src/services/liveSourceFetcher';
 import { executeOfficialSourcePipeline } from '../src/services/officialSourcePipeline';
+import {
+  getCompanyStockHistory,
+  getAllCompanyStockHistories,
+  STOCK_DISCLOSURE_PERIODS,
+} from '../src/data/stockPriceHistory';
 
 
 let passed = 0;
@@ -2832,6 +2837,47 @@ function runSuite21() {
   assert(freshness.sourcePublishedAt === '2026-11-05', 'Suite 21-4d: sourcePublishedAt is 2026-11-05');
 }
 
+// =========================================================================
+// Suite 22: 2024 Q1 ~ 2026 Q3 Quarterly Disclosure Stock Price & Earnings Correlation
+// =========================================================================
+function runSuite22() {
+  console.log('\n--- Suite 22: 2024 Q1 ~ 2026 Q3 Quarterly Disclosure Stock Price & Earnings Correlation ---');
+
+  const allProfiles = getAllCompanyStockHistories();
+  assert(allProfiles.length === 16, 'Suite 22-1: All 16 OEMs have registered stock disclosure profiles');
+  assert(STOCK_DISCLOSURE_PERIODS.length === 11, 'Suite 22-2: Exactly 11 quarterly checkpoints (2024-Q1 to 2026-Q3)');
+
+  for (const c of companies) {
+    const profile = getCompanyStockHistory(c.id);
+    assert(profile !== undefined, `Suite 22-3a [${c.id}]: Stock history profile exists`);
+    assert(profile!.points.length === 11, `Suite 22-3b [${c.id}]: Contains all 11 quarterly points from 2024-Q1 to 2026-Q3`);
+
+    // Verify chronological ordering of disclosure dates
+    for (let i = 1; i < profile!.points.length; i++) {
+      const prevDate = profile!.points[i - 1].disclosureDate;
+      const currDate = profile!.points[i].disclosureDate;
+      assert(
+        currDate > prevDate,
+        `Suite 22-3c [${c.id}]: Disclosure date ${currDate} (${profile!.points[i].period}) is strictly after ${prevDate} (${profile!.points[i - 1].period})`
+      );
+    }
+
+    // Verify 2026-Q3 status alignment (reported vs scheduled)
+    const q3Pt = profile!.points.find((p) => p.period === '2026-Q3')!;
+    if (REPORTED_Q3_OEMS.includes(c.id)) {
+      assert(q3Pt.closePrice !== null && q3Pt.closePrice > 0, `Suite 22-4a [${c.id}]: Reported Q3 OEM has positive closePrice`);
+      assert(!q3Pt.isScheduled, `Suite 22-4b [${c.id}]: Reported Q3 OEM is not marked scheduled`);
+      const q3Doc = SOURCE_DOCUMENTS.find((d) => d.companyId === c.id && d.period === '2026-Q3');
+      if (q3Doc) {
+        assert(q3Pt.disclosureDate === q3Doc.publicationDate, `Suite 22-4c [${c.id}]: Q3 disclosureDate (${q3Pt.disclosureDate}) matches official source publicationDate (${q3Doc.publicationDate})`);
+      }
+    } else {
+      assert(q3Pt.isScheduled === true, `Suite 22-4d [${c.id}]: Scheduled Q3 OEM is marked isScheduled`);
+      assert(q3Pt.closePrice === null, `Suite 22-4e [${c.id}]: Scheduled Q3 OEM does not fabricate closePrice`);
+    }
+  }
+}
+
 runSuite12()
   .then(() => {
     runSuite13();
@@ -2843,6 +2889,7 @@ runSuite12()
     runSuite19();
     runSuite20();
     runSuite21();
+    runSuite22();
     console.log(`\nResults: ${passed} passed, ${failed} failed.`);
     if (failed > 0) {
       process.exit(1);

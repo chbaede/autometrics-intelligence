@@ -27,6 +27,7 @@ import { GuidanceRangeChart } from '../components/metrics/charts/GuidanceRangeCh
 import { PowertrainMixChart } from '../components/metrics/charts/PowertrainMixChart';
 import { MarginScatterChart } from '../components/metrics/charts/MarginScatterChart';
 import { ProfitScatterChart } from '../components/metrics/charts/ProfitScatterChart';
+import { GlobalStockComparisonSection } from '../components/metrics/charts/GlobalStockComparisonSection';
 import { DataTable } from '../components/metrics/DataTable';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
@@ -970,6 +971,14 @@ export const GlobalOverviewPage: React.FC = () => {
           unit="percentage"
           activePeriod={selectedPeriod}
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
+        />
+      </div>
+
+      {/* SECTION 3-B: 2024 Q1 ~ 2026 Q3 Quarterly Disclosure Stock Price & Earnings Benchmark */}
+      <div className="w-full">
+        <GlobalStockComparisonSection
+          selectedCompanyIds={selectedCompanies}
+          activePeriod={selectedPeriod}
         />
       </div>
 
