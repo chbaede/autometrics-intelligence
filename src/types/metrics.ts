@@ -1393,12 +1393,19 @@ export type GuidanceStatus =
 
 export interface GuidanceRevision {
   date: string;
+  stage?: 'initial' | 'q1' | 'q2' | 'q3';
+  stageLabel?: string;
+  stageLabelKo?: string;
   status: GuidanceStatus;
   min?: number;
   max?: number;
   target?: number;
+  midpoint?: number;
   text: string;
+  textKo?: string;
   sourceDocId: string;
+  rationale?: string;
+  rationaleKo?: string;
 }
 
 export interface GuidanceObservation {

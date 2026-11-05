@@ -1,9 +1,9 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-11-05T18:14:25.346Z  
-**Audited Source Commit SHA**: 7b2eaaf204fe1b483ac32a68782fc841f0e31b29  
-**Report Generation Commit SHA**: 7b2eaaf204fe1b483ac32a68782fc841f0e31b29  
+**Generated At**: 2026-11-05T18:27:59.785Z  
+**Audited Source Commit SHA**: 841f6778080c9f92f1100a25eb50bdbafb4b6bbf  
+**Report Generation Commit SHA**: 841f6778080c9f92f1100a25eb50bdbafb4b6bbf  
 **Working Tree State**: dirty  
 **Audit Engine Version**: 3.2.0  
 **Data Registry Version**: 1.0.0  
@@ -147,8 +147,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `7b2eaaf204fe1b483ac32a68782fc841f0e31b29`
-- **Generated at**: `2026-11-05T18:14:25.346Z`
+- **Audited Source Commit SHA**: `841f6778080c9f92f1100a25eb50bdbafb4b6bbf`
+- **Generated at**: `2026-11-05T18:27:59.785Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.
