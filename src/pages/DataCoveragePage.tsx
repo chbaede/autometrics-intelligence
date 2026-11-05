@@ -12,6 +12,7 @@ import { getCompanyDataFreshness, getReportingSeasonSummary } from '../utils/dat
 import { MetricObservation } from '../types/metrics';
 import { formatPeriodLabel } from '../utils/metricCalculations';
 import { useLanguage } from '../i18n/LanguageContext';
+import { SEO } from '../components/common/SEO';
 import { DataTable } from '../components/metrics/DataTable';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import {
@@ -67,6 +68,15 @@ export const DataCoveragePage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO
+        title={language === 'ko' ? '데이터 수집 현황 및 공식 IR 공시 출처' : 'Data Coverage & Verified IR Sources'}
+        description={
+          language === 'ko'
+            ? '글로벌 완성차 16개 제조사의 100% 공식 IR 1차 원문 출처 링크, 공시 주기별 정량 감사 검증 현황 및 실적 커버리지 매트릭스'
+            : 'Complete coverage matrix of verified primary IR source filings, audit logs, and quantitative data integrity for 16 automakers.'
+        }
+        canonicalPath="/coverage"
+      />
       {/* Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
         <div className="flex items-center gap-2 flex-wrap">

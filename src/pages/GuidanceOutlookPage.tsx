@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { getAllGuidance, getCompanyById, getSourceDocById, getObservations } from '../utils/metricQueries';
 import { GuidanceRangeChart } from '../components/metrics/charts/GuidanceRangeChart';
 import { useLanguage } from '../i18n/LanguageContext';
+import { SEO } from '../components/common/SEO';
 import {
   Compass,
   AlertTriangle,
@@ -115,6 +116,15 @@ export const GuidanceOutlookPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO
+        title={language === 'ko' ? '완성차 OEM 공식 연간 가이던스 및 전망' : 'OEM Guidance & Outlook'}
+        description={
+          language === 'ko'
+            ? '완성차 기업들이 공식 공시한 2026 연간 매출액, 영업이익률, 판매량 가이던스 목표치와 분기별 예측 궤적 변동 이력 분석 대시보드'
+            : 'Official management guidance corridors, revenue targets, operating margins, and revision track records for global automakers.'
+        }
+        canonicalPath="/guidance"
+      />
       {/* Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -14,6 +14,7 @@ import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { GlobalStockComparisonSection } from '../components/metrics/charts/GlobalStockComparisonSection';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
+import { SEO } from '../components/common/SEO';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   formatMetricValue,
@@ -150,6 +151,15 @@ export const CompanyComparisonPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO
+        title={language === 'ko' ? '글로벌 완성차 다자간 실적 비교' : 'OEM Head-to-Head Comparison'}
+        description={
+          language === 'ko'
+            ? '글로벌 완성차 16개 제조사 간 매출액, 영업이익, 영업이익률, BEV 전기차 비중 및 인도량 다자간 비교 벤치마크 대시보드'
+            : 'Compare operating margins, revenues, profits, and electrification mix across global automakers.'
+        }
+        canonicalPath="/compare"
+      />
       {/* Header */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-8 shadow-xl space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">

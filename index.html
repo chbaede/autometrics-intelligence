@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#020617" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AutoMetrics" />
     <meta name="google-site-verification" content="2VmKKN5VGVIL9P-KiYywyJoeJQiKVCxEhRM4japgnzE" />
+
+    <!-- Single Page App Redirect Decoder for GitHub Pages (https://github.com/rafgraph/spa-github-pages) -->
+    <script type="text/javascript">
+      (function(l) {
+        if (l.search[1] === '/' ) {
+          var decoded = l.search.slice(1).split('&').map(function(s) { 
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null,
+              l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      }(window.location))
+    </script>
 
     <!-- Google AdSense Script -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6854824605420161" crossorigin="anonymous"></script>
@@ -12,8 +29,8 @@
     <!-- Primary Title and Meta Description -->
     <title>AutoMetrics Intelligence — Global Automotive OEM Performance & Investor Intelligence</title>
     <meta name="title" content="AutoMetrics Intelligence — Global Automotive OEM Performance & Investor Intelligence" />
-    <meta name="description" content="글로벌 완성차 10대 OEM(현대차, 테슬라, 토요타, 폭스바겐, BYD, BMW, 벤츠, 스텔란티스, 포드, GM) 공식 IR 공시 기반 실시간 실적 비교, 영업이익률, BEV/전동화 믹스 및 공식 연간 가이던스 인텔리전스 대시보드." />
-    <meta name="keywords" content="AutoMetrics, 오토메트릭스, 글로벌 완성차 실적, 자동차 IR, 완성차 영업이익률, 현대차 IR 실적, 테슬라 인도량, 토요타 영업이익, BYD 판매량, 전기차 점유율, BEV share, automotive OEM intelligence, IR comparison, operating margin, automotive guidance" />
+    <meta name="description" content="글로벌 완성차 16대 OEM(도요타, 폭스바겐, 현대차, 기아, BMW, 메르세데스-벤츠, GM, 포드, 스텔란티스, BYD, 테슬라, 혼다, 닛산, 지리, 볼보자동차, 리비안) 공식 IR 공시 기반 실시간 실적 비교, 영업이익률, BEV 전동화 믹스, 권역별 인도량 및 공식 가이던스 인텔리전스." />
+    <meta name="keywords" content="AutoMetrics, 오토메트릭스, 글로벌 완성차 실적, 자동차 IR, 완성차 영업이익률, 토요타 실적, 현대차 IR 실적, 기아 실적, 테슬라 인도량, BYD 판매량, BMW 영업이익, 벤츠 실적, 권역별 인도량, 전기차 점유율, BEV share, automotive OEM intelligence, IR comparison, operating margin, automotive guidance" />
     <meta name="author" content="AutoMetrics Intelligence / Yocto" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://autometrics.yocto.co.kr/" />
@@ -23,7 +40,7 @@
     <meta property="og:url" content="https://autometrics.yocto.co.kr/" />
     <meta property="og:site_name" content="AutoMetrics Intelligence" />
     <meta property="og:title" content="AutoMetrics Intelligence — Global Automotive OEM Performance & Investor Intelligence" />
-    <meta property="og:description" content="글로벌 10대 완성차 OEM의 공식 IR 공시 기반 실시간 실적, 영업이익률, 전동화(BEV) 믹스 및 재무 가이던스 비교 인텔리전스." />
+    <meta property="og:description" content="글로벌 16대 완성차 제조사의 공식 IR 공시 기반 실시간 실적, 영업이익률, 전동화(BEV) 믹스, 대륙별 판매량 및 재무 가이던스 비교 인텔리전스." />
     <meta property="og:image" content="https://autometrics.yocto.co.kr/favicon.svg" />
     <meta property="og:locale" content="ko_KR" />
     <meta property="og:locale:alternate" content="en_US" />
@@ -32,7 +49,7 @@
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://autometrics.yocto.co.kr/" />
     <meta property="twitter:title" content="AutoMetrics Intelligence — Global Automotive OEM Performance & Investor Intelligence" />
-    <meta property="twitter:description" content="Official IR-backed automotive financial & engineering intelligence platform for global OEMs." />
+    <meta property="twitter:description" content="Official IR-backed automotive financial & engineering intelligence platform for top 16 global OEMs." />
     <meta property="twitter:image" content="https://autometrics.yocto.co.kr/favicon.svg" />
 
     <!-- Web Fonts -->
@@ -65,12 +82,33 @@
           "url": "https://autometrics.yocto.co.kr/",
           "applicationCategory": "BusinessApplication, FinancialApplication",
           "operatingSystem": "All",
-          "description": "Source-backed quantitative intelligence platform for tracking and comparing global automotive OEM performance based on official IR announcements, deliveries, electrification, and guidance.",
+          "description": "Source-backed quantitative intelligence platform for tracking and comparing top 16 global automotive OEM performance based on official primary IR announcements, deliveries, electrification, operating margins, and guidance.",
           "offers": {
             "@type": "Offer",
             "price": "0",
             "priceCurrency": "USD"
           }
+        },
+        {
+          "@type": "Dataset",
+          "@id": "https://autometrics.yocto.co.kr/#dataset",
+          "name": "Global Automotive OEM Performance & Financial Dataset",
+          "description": "Audited quarterly automotive delivery, electrification, operating profit, and guidance dataset across 16 global OEMs from verified primary IR filings.",
+          "url": "https://autometrics.yocto.co.kr/",
+          "temporalCoverage": "2024/2026",
+          "creator": {
+            "@type": "Organization",
+            "name": "AutoMetrics Intelligence"
+          },
+          "variableMeasured": [
+            "deliveries_global",
+            "wholesale_shipments",
+            "revenue",
+            "operating_income",
+            "operating_margin",
+            "bev_deliveries",
+            "bev_share"
+          ]
         }
       ]
     }

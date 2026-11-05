@@ -4,6 +4,7 @@ import { getRegionalObservations, getCompanyById, getSourceDocById } from '../ut
 import { RegionId } from '../types/metrics';
 import { formatMetricValue, formatPeriodLabel } from '../utils/metricCalculations';
 import { useLanguage } from '../i18n/LanguageContext';
+import { SEO } from '../components/common/SEO';
 import {
   Globe2,
   MapPin,
@@ -50,6 +51,15 @@ export const RegionalAnalysisPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO
+        title={language === 'ko' ? '대륙 및 권역별 완성차 인도량 분석' : 'Regional Delivery Analysis'}
+        description={
+          language === 'ko'
+            ? '글로벌 완성차 제조사들의 북미, 유럽, 중국, 일본, 한국, 인도 등 주요 권역별 공식 판매 및 인도량 실적 비교 분석 대시보드'
+            : 'Verified regional delivery breakdowns across North America, Europe, China, Japan, Korea, and India.'
+        }
+        canonicalPath="/regions"
+      />
       {/* Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">

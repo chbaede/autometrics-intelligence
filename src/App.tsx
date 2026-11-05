@@ -47,8 +47,11 @@ export const App: React.FC = () => {
                   <Route path="/automotive" element={<Navigate to="/" replace />} />
                   <Route path="/company/:companyId" element={<CompanyDashboardPage />} />
                   <Route path="/compare" element={<CompanyComparisonPage />} />
+                  <Route path="/comparison" element={<Navigate to="/compare" replace />} />
                   <Route path="/regions" element={<RegionalAnalysisPage />} />
+                  <Route path="/regional" element={<Navigate to="/regions" replace />} />
                   <Route path="/guidance" element={<GuidanceOutlookPage />} />
+                  <Route path="/outlook" element={<Navigate to="/guidance" replace />} />
                   <Route path="/sources" element={<Navigate to="/coverage" replace />} />
                   <Route path="/coverage" element={<DataCoveragePage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />

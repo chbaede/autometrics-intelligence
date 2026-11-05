@@ -23,6 +23,7 @@ import { QuarterlyPerformanceCharts } from '../components/company/QuarterlyPerfo
 import { StockEarningsCorrelationChart } from '../components/company/StockEarningsCorrelationChart';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
+import { SEO } from '../components/common/SEO';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SOURCE_DOCUMENTS } from '../data/sources';
 import { getScheduledDisclosure } from '../data/scheduledDisclosures';
@@ -135,6 +136,15 @@ export const CompanyDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO
+        title={`${currentCompany.name} | ${language === 'ko' ? '공시 실적 및 주가 분석 대시보드' : 'IR Performance & Stock Analysis'}`}
+        description={
+          language === 'ko'
+            ? `${currentCompany.name}(${currentCompany.ticker})의 공식 IR 공시 분기별 실적, 영업이익률 추이, 전동화(BEV) 믹스 및 실적 공시일 기준 주가 상관관계 분석 대시보드.`
+            : `Official IR performance, operating margins, electric vehicle deliveries, and earnings disclosure stock correlation analysis for ${currentCompany.name}.`
+        }
+        canonicalPath={`/company/${currentCompany.id}`}
+      />
       {/* Top Navigation & Company Quick Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Link

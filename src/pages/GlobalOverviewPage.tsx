@@ -31,6 +31,7 @@ import { GlobalStockComparisonSection } from '../components/metrics/charts/Globa
 import { DataTable } from '../components/metrics/DataTable';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
+import { SEO } from '../components/common/SEO';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   convertMillionsToKRW,
@@ -450,6 +451,15 @@ export const GlobalOverviewPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO
+        title={language === 'ko' ? '글로벌 완성차 실적 종합 개요 대시보드' : 'Global Automotive OEM Overview'}
+        description={
+          language === 'ko'
+            ? '글로벌 16대 완성차 기업(현대차, 기아, 도요타, 폭스바겐, BYD, 테슬라, BMW, 벤츠, GM, 포드, 스텔란티스 등) 공식 IR 공시 기반 실시간 실적 비교, 영업이익률, 전동화(BEV) 믹스 및 공시일 주가 분석 대시보드'
+            : 'Official IR-backed quarterly financial, delivery, operating margin, and electric vehicle mix intelligence for top 16 global automakers.'
+        }
+        canonicalPath="/"
+      />
       {/* Top Banner & KPI Headline */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-8 shadow-xl relative overflow-hidden transition-colors">
         <div className="relative z-10 max-w-4xl space-y-3">
