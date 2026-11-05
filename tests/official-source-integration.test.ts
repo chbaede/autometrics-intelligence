@@ -239,7 +239,7 @@ await (async () => {
     accountingBasis: 'adjusted',
   };
 
-  const mbgUrl = 'https://group.mercedes-benz.com/investors/reports-news/financial-results/q2-2026.html';
+  const mbgUrl = 'https://group.mercedes-benz.com/investors/reports-news/interim-reports/q2-2026/';
   const mbgBytes = Buffer.from(MBG_HTML, 'utf-8');
   const mbgHash = computeSha256(mbgBytes);
 
@@ -387,7 +387,7 @@ await (async () => {
     accountingBasis: 'adjusted',
   };
 
-  const mbgUrl = 'https://group.mercedes-benz.com/investors/reports-news/financial-results/q2-2026.html';
+  const mbgUrl = 'https://group.mercedes-benz.com/investors/reports-news/interim-reports/q2-2026/';
   const bytesOriginal = Buffer.from(MBG_HTML, 'utf-8');
   // Mutation: Add single space to HTML
   const bytesMutated = Buffer.from(MBG_HTML + ' ', 'utf-8');
@@ -463,7 +463,7 @@ await (async () => {
   assert(unregResult.errorCode === 'unauthorizedSource', 'Error code is unauthorizedSource');
 
   // 2. Unauthorized redirect destination (redirect to third-party domain)
-  const mbgUrl = 'https://group.mercedes-benz.com/investors/reports-news/financial-results/q2-2026.html';
+  const mbgUrl = 'https://group.mercedes-benz.com/investors/reports-news/interim-reports/q2-2026/';
   const thirdPartyRedirectFetch = createMockFetch({
     [mbgUrl]: () =>
       new Response(null, {

@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 72be2d3347e5bb3cdbdfdc9f0d982d63bf7364fd  
-**Report Generation Commit:** 72be2d3347e5bb3cdbdfdc9f0d982d63bf7364fd  
+**Audited Source Commit:** 7b2eaaf204fe1b483ac32a68782fc841f0e31b29  
+**Report Generation Commit:** 7b2eaaf204fe1b483ac32a68782fc841f0e31b29  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-04T12:14:20.239Z  
+**Generated:** 2026-11-05T18:14:25.346Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -17,14 +17,14 @@
 
 | Command | Result |
 |---------|--------|
-| `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
-| `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 362 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
-| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 189 source claims across 36 documents match registered observations and document perimeters. ℹ️  Note: This confir |
-| `npm test` | ✅ PASS (exit 0): Results: 1706 passed, 0 failed. 🎉 All Company Dashboard and Source-Backed Regression Tests passed cleanly! |
-| `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
-| `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
-| `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/metricQueries-aCLcyh0j.js          419.50 kB │ gzip: 42.14 kB ✓ built in 1.64s |
+| `npm run typecheck` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm test` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run validate-data` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run validate-source-claims` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run audit-data` | ✅ PASS (exit 0): 0 blocking findings, 8 review findings |
+| `npm run audit-data -- --strict` | ⚪ NOT RUN (exit -): Alternative audit mode not executed in current pass |
+| `npm run lint` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
+| `npm run build` | ⚪ NOT RUN (exit -): Not executed in current audit-data pass (use --execute-all to execute and capture all) |
 
 ---
 

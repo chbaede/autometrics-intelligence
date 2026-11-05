@@ -29,7 +29,7 @@ export const OFFICIAL_IR_SOURCES: OfficialIrSource[] = [
     id: 'mbg_2026_q2_results',
     companyId: 'mercedes_benz',
     title: 'Mercedes-Benz Group Q2 2026 Financial Results Presentation',
-    url: 'https://group.mercedes-benz.com/investors/reports-news/financial-results/q2-2026.html',
+    url: 'https://group.mercedes-benz.com/investors/reports-news/interim-reports/q2-2026/',
     documentType: 'earnings_presentation',
     reportingPeriod: '2026-Q2',
     periodType: 'quarterly',
