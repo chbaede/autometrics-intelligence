@@ -296,7 +296,7 @@ export const CompanyDashboardPage: React.FC = () => {
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   {language === 'ko' ? '데이터 갱신: ' : 'Data Version: '}
                   <span className="text-emerald-600 dark:text-emerald-400">
-                    {activeFreshness.dataUpdatedAt ? `${activeFreshness.dataUpdatedAt} 최신 업데이트 버전` : '2026.11.01 최신 업데이트 버전'}
+                    {activeFreshness.dataUpdatedAt || activeFreshness.sourcePublishedAt || '최신'}
                   </span>
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">

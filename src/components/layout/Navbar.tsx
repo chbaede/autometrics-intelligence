@@ -55,7 +55,7 @@ export const Navbar: React.FC = () => {
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
               </span>
               <span className="font-mono font-medium tracking-tight">
-                {language === 'ko' ? '2026.11.04 최신 업데이트' : 'Updated Nov 4, 2026'}
+                {language === 'ko' ? '2026.11.05 최신 업데이트' : 'Updated Nov 5, 2026'}
               </span>
             </div>
           </div>

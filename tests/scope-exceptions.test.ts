@@ -6081,7 +6081,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 {
   // 1. Original observations are never deleted from METRIC_OBSERVATIONS
   const totalObsCount = METRIC_OBSERVATIONS.length;
-  check(totalObsCount === 471, 'Test 218a: Total metric observations preserved intact (471: 391 historical + 80 in 2026-Q3)');
+  check(totalObsCount === 478, 'Test 218a: Total metric observations preserved intact (478: 391 historical + 87 in 2026-Q3)');
 
   const rivianObs = METRIC_OBSERVATIONS.filter(o => o.companyId === 'rivian');
   check(rivianObs.length > 0, 'Test 218b: Rivian observations remain present in dataset');
@@ -6545,8 +6545,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   // 4. Actual earnings and revenue chart metric types do not alter audit observations
   const revMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'revenue');
   const ebitMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'operating_income');
-  check(revMetrics.length === 78, 'Test 225l: Exactly 78 revenue observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 13 in 2026-Q3)');
-  check(ebitMetrics.length === 77, 'Test 225m: Exactly 77 operating_income observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 12 in 2026-Q3, BYD reports net_income)');
+  check(revMetrics.length === 79, 'Test 225l: Exactly 79 revenue observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 14 in 2026-Q3)');
+  check(ebitMetrics.length === 78, 'Test 225m: Exactly 78 operating_income observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 13 in 2026-Q3, BYD reports net_income)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8112,12 +8112,12 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(volvoMargin?.accountingBasis === 'reported', 'Test 237g-5: Volvo Cars Q3 margin has reported accounting basis');
   check(volvoEbit?.accountingBasis === volvoMargin?.accountingBasis, 'Test 237g-6: Volvo Cars Q3 EBIT and margin share identical accounting basis');
 
-  // 237h. Scheduled Disclosures: BMW Group has reported and is no longer scheduled; 3 Japanese OEMs remain scheduled
+  // 237h. Scheduled Disclosures: BMW and Toyota have reported and are no longer scheduled; 2 Japanese OEMs remain scheduled
   const bmwSchedule = SCHEDULED_DISCLOSURES.find((s) => s.companyId === 'bmw_group' && s.period === '2026-Q3');
   check(bmwSchedule === undefined, 'Test 237h-1: BMW Group is removed from scheduled disclosures after verified 2026-Q3 release');
-  check(SCHEDULED_DISCLOSURES.length === 3, 'Test 237h-2: Exactly 3 OEMs remain in scheduled disclosures (Toyota, Nissan, Honda)');
+  check(SCHEDULED_DISCLOSURES.length === 2, 'Test 237h-2: Exactly 2 OEMs remain in scheduled disclosures (Nissan, Honda)');
   const toyotaSchedule = SCHEDULED_DISCLOSURES.find((s) => s.companyId === 'toyota_motor' && s.period === '2026-Q3');
-  check(toyotaSchedule?.scheduledDate === '2026-11-05', 'Test 237h-3: Toyota scheduled for 2026-11-05');
+  check(toyotaSchedule === undefined, 'Test 237h-3: Toyota Motor is removed from scheduled disclosures after verified 2026-Q3 release');
   const nissanSchedule = SCHEDULED_DISCLOSURES.find((s) => s.companyId === 'nissan_motor' && s.period === '2026-Q3');
   check(nissanSchedule?.scheduledDate === '2026-11-07', 'Test 237h-4: Nissan scheduled for 2026-11-07');
 
@@ -8125,8 +8125,8 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const dynamicAuditData = buildAuditReportData();
   check(dynamicAuditData.findings.blocking === 0, 'Test 237i-1: Dynamic audit report has 0 blocking findings');
   check(dynamicAuditData.findings.review === 8, 'Test 237i-2: Dynamic audit report review findings dynamically computed as 8');
-  check(dynamicAuditData.counts.sourceClaims === 189, 'Test 237i-3: Exactly 189 verified source claims audited (added 6 BMW Q3 2026 claims)');
-  check(dynamicAuditData.counts.documentsWithSourceClaims === 36, 'Test 237i-4: Exactly 36 documents with source claims');
+  check(dynamicAuditData.counts.sourceClaims === 195, 'Test 237i-3: Exactly 195 verified source claims audited (added 6 Toyota Q3 2026 claims)');
+  check(dynamicAuditData.counts.documentsWithSourceClaims === 37, 'Test 237i-4: Exactly 37 documents with source claims');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8369,7 +8369,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   console.log('--- TEST 243: Evidence Locator Completeness for 2026-Q3 Observations ---');
 
   const q3Obs = METRIC_OBSERVATIONS.filter((o) => o.period === '2026-Q3');
-  check(q3Obs.length === 80, 'Test 243a: Exactly 80 observations in 2026-Q3 dataset (added 7 BMW observations)');
+  check(q3Obs.length === 87, 'Test 243a: Exactly 87 observations in 2026-Q3 dataset (added 7 BMW + 7 Toyota observations)');
 
   // Verify that all 53 observations have valid locators (page number or web tableReference) and labels
   let missingLocator = 0;
@@ -8601,10 +8601,10 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const q3Volumes = METRIC_OBSERVATIONS.filter(
     (o) => o.period === '2026-Q3' && (o.metricId === 'deliveries_global' || o.metricId === 'wholesale_shipments')
   );
-  check(q3Volumes.length === 14, 'Test 246a-1: Exactly 14 Q3 volume observations (Kia has both wholesale and retail, added BMW)');
+  check(q3Volumes.length === 15, 'Test 246a-1: Exactly 15 Q3 volume observations (Kia has both wholesale and retail, added BMW & Toyota)');
 
   const retailOems = ['tesla', 'volkswagen_group', 'mercedes_benz', 'byd', 'volvo_cars', 'rivian', 'geely', 'bmw_group'];
-  const wholesaleOems = ['general_motors', 'ford', 'hyundai_motor', 'stellantis'];
+  const wholesaleOems = ['general_motors', 'ford', 'hyundai_motor', 'stellantis', 'toyota_motor'];
 
   for (const obs of q3Volumes) {
     if (obs.companyId === 'kia') {
@@ -8642,12 +8642,13 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
     .filter((o) => o.volumeDefinition === 'wholesale_shipments')
     .sort((a, b) => ((b.value as number) ?? 0) - ((a.value as number) ?? 0));
 
-  check(wholesaleRankings.length === 5, 'Test 246c-9: Exactly 5 wholesale shipment OEMs in Q3');
-  check(wholesaleRankings[0].companyId === 'stellantis', 'Test 246c-10: Stellantis #1 in wholesale shipments (1,286k)');
-  check(wholesaleRankings[1].companyId === 'ford', 'Test 246c-11: Ford #2 in wholesale shipments (1,040k)');
-  check(wholesaleRankings[2].companyId === 'general_motors', 'Test 246c-12: GM #3 in wholesale shipments (1,028k)');
-  check(wholesaleRankings[3].companyId === 'hyundai_motor', 'Test 246c-13: Hyundai Motor #4 in wholesale shipments (920.71k)');
-  check(wholesaleRankings[4].companyId === 'kia', 'Test 246c-14: Kia #5 in wholesale shipments (847.36k)');
+  check(wholesaleRankings.length === 6, 'Test 246c-9: Exactly 6 wholesale shipment OEMs in Q3 (added Toyota 2,363k)');
+  check(wholesaleRankings[0].companyId === 'toyota_motor', 'Test 246c-10: Toyota Motor #1 in wholesale shipments (2,363k)');
+  check(wholesaleRankings[1].companyId === 'stellantis', 'Test 246c-11: Stellantis #2 in wholesale shipments (1,286k)');
+  check(wholesaleRankings[2].companyId === 'ford', 'Test 246c-12: Ford #3 in wholesale shipments (1,040k)');
+  check(wholesaleRankings[3].companyId === 'general_motors', 'Test 246c-13: GM #4 in wholesale shipments (1,028k)');
+  check(wholesaleRankings[4].companyId === 'hyundai_motor', 'Test 246c-14: Hyundai Motor #5 in wholesale shipments (920.71k)');
+  check(wholesaleRankings[5].companyId === 'kia', 'Test 246c-15: Kia #6 in wholesale shipments (847.36k)');
 
   // 4. Mixed ranking contains both definitions and flags mixed comparability
   const allVolDefs = new Set(q3Volumes.map((o) => o.volumeDefinition).filter(Boolean));

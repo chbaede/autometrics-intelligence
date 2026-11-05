@@ -20,15 +20,6 @@ export interface ScheduledDisclosure {
 
 export const SCHEDULED_DISCLOSURES: ScheduledDisclosure[] = [
   {
-    companyId: 'toyota_motor',
-    period: '2026-Q3',
-    scheduledDate: '2026-11-05',
-    scheduledDateKo: '2026년 11월 5일 (공시 예정)',
-    scheduledDateEn: 'Nov 5, 2026 (Scheduled)',
-    notesKo: '토요타 자동차 FY2027 2분기(CY2026 3분기) 결산 단신 및 재무제표 발표 예정',
-    notesEn: 'Toyota Motor FY2027 Q2 (CY2026 Q3) Financial Results scheduled for Nov 5, 2026',
-  },
-  {
     companyId: 'nissan_motor',
     period: '2026-Q3',
     scheduledDate: '2026-11-07',

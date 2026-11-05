@@ -456,10 +456,6 @@ export const GlobalOverviewPage: React.FC = () => {
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-xs font-mono font-semibold">
               <ShieldCheck className="w-4 h-4" /> {t.global.badge}
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-xs font-bold font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              {language === 'ko' ? '2026.11.01 최신 업데이트 버전' : 'Updated Nov 1, 2026 Version'}
-            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             {t.global.title}

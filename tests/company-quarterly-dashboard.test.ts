@@ -83,10 +83,10 @@ const REPORTED_Q3_OEMS = [
   'rivian',
   'geely',
   'bmw_group',
+  'toyota_motor',
 ];
 
 const SCHEDULED_Q3_OEMS = [
-  'toyota_motor',
   'honda_motor',
   'nissan_motor',
 ];
@@ -2053,9 +2053,8 @@ function runSuite16() {
     assert(f.hasObservationsForPeriod === true, `Suite 16a-5 [${id}]: hasObservationsForPeriod is true`);
   }
 
-  // 2. All 3 scheduled OEMs receive scheduled
+  // 2. All 2 scheduled OEMs receive scheduled
   const scheduledMap: Record<string, string> = {
-    toyota_motor: '2026-11-05',
     nissan_motor: '2026-11-07',
     honda_motor: '2026-11-08',
   };
@@ -2071,8 +2070,8 @@ function runSuite16() {
   // 3. Reporting Season Summary
   const summary = getReportingSeasonSummary('2026-Q3');
   assert(summary.totalCompanies === 16, 'Suite 16c-1: Total registered OEMs in summary is 16');
-  assert(summary.reportedCount === 13, 'Suite 16c-2: Exactly 13 reported OEMs in 2026-Q3 season');
-  assert(summary.scheduledCount === 3, 'Suite 16c-3: Exactly 3 scheduled pending OEMs in 2026-Q3 season');
+  assert(summary.reportedCount === 14, 'Suite 16c-2: Exactly 14 reported OEMs in 2026-Q3 season');
+  assert(summary.scheduledCount === 2, 'Suite 16c-3: Exactly 2 scheduled pending OEMs in 2026-Q3 season');
   assert(summary.unconfirmedCount === 0, 'Suite 16c-4: 0 unconfirmed OEMs in 2026-Q3 season');
 }
 
@@ -2082,11 +2081,11 @@ function runSuite16() {
 function runSuite17() {
   console.log('\n--- Suite 17: Universal 2026 Q3 Freshness, Required Metrics & Provenance Invariants ---');
 
-  // 1. All 13 reported OEMs have 100% required metrics coverage
+  // 1. All 14 reported OEMs have 100% required metrics coverage
   const reportedIds = [
     'tesla', 'volkswagen_group', 'general_motors', 'ford', 'hyundai_motor',
     'mercedes_benz', 'stellantis', 'byd', 'volvo_cars', 'kia', 'rivian', 'geely',
-    'bmw_group',
+    'bmw_group', 'toyota_motor',
   ];
 
   for (const id of reportedIds) {
@@ -2198,7 +2197,7 @@ function runSuite18() {
   assert(noConflict.hasConflict === false, 'Suite 18-6a: Clean repository has no source conflict for Kia 2026-Q3');
 
   // 7. Partial collection -> returns partial
-  const testPartialCoverage = getCompanyDataFreshness('toyota_motor', '2026-Q3');
+  const testPartialCoverage = getCompanyDataFreshness('nissan_motor', '2026-Q3');
   assert(
     testPartialCoverage.status === 'scheduled' || testPartialCoverage.status === 'partial' || testPartialCoverage.status === 'not_yet_published',
     'Suite 18-7: Unreported period does not claim verified_official'
@@ -2212,9 +2211,9 @@ function runSuite18() {
   assert(freshnessKia.calculatedAt === '2026-11-01', 'Suite 18-8d: Calculated date is 2026-11-01');
 
   // An observation without explicit dates preserves undefined in freshness (no fallback to lastChecked)
-  const toyotaFreshness = getCompanyDataFreshness('toyota_motor', '2026-Q3');
-  assert(toyotaFreshness.dataUpdatedAt === undefined, 'Suite 18-8e: Unreported OEM dataUpdatedAt is undefined (no fallback fabrication)');
-  assert(toyotaFreshness.calculatedAt === undefined, 'Suite 18-8f: Unreported OEM calculatedAt is undefined (no fallback fabrication)');
+  const nissanFreshness = getCompanyDataFreshness('nissan_motor', '2026-Q3');
+  assert(nissanFreshness.dataUpdatedAt === undefined, 'Suite 18-8e: Unreported OEM dataUpdatedAt is undefined (no fallback fabrication)');
+  assert(nissanFreshness.calculatedAt === undefined, 'Suite 18-8f: Unreported OEM calculatedAt is undefined (no fallback fabrication)');
 
   // 9. Kia 2025 and 2026 data regression
   // 9a. 2026-Q3: input observation IDs and derivation formula
@@ -2782,6 +2781,57 @@ function runSuite20() {
   assert(freshness.sourcePublishedAt === '2026-11-04', 'Suite 20-4d: sourcePublishedAt is 2026-11-04');
 }
 
+// =========================================================================
+// Suite 21: Toyota Motor Corporation 2026 Q3 Official Financials & Provenance Verification
+// =========================================================================
+function runSuite21() {
+  console.log('\n--- Suite 21: Toyota Motor Corporation 2026 Q3 Official Financials & Provenance Verification ---');
+
+  // 1. Source document checks
+  const doc = SOURCE_DOCUMENTS.find((d) => d.id === 'tm_2026_q3_tanshin');
+  assert(doc !== undefined, 'Suite 21-1a: tm_2026_q3_tanshin source document registered');
+  assert(doc?.publicationDate === '2026-11-05', 'Suite 21-1b: Publication date is 2026-11-05');
+  assert(doc?.officialUrl === 'https://global.toyota/en/ir/financial-results/', 'Suite 21-1c: Official URL links to Toyota financial results');
+  assert(doc?.isVerified === true, 'Suite 21-1d: Source document is marked verified');
+  assert(Array.isArray(doc?.sourceClaims) && (doc?.sourceClaims.length ?? 0) >= 6, 'Suite 21-1e: Document has official source claims');
+
+  // 2. Observations values & dimension integrity
+  const del = METRIC_OBSERVATIONS.find((o) => o.id === 'tm_2026_q3_del');
+  const bev = METRIC_OBSERVATIONS.find((o) => o.id === 'tm_2026_q3_bev');
+  const share = METRIC_OBSERVATIONS.find((o) => o.id === 'tm_2026_q3_bev_share');
+  const rev = METRIC_OBSERVATIONS.find((o) => o.id === 'tm_2026_q3_rev');
+  const ebit = METRIC_OBSERVATIONS.find((o) => o.id === 'tm_2026_q3_ebit');
+  const margin = METRIC_OBSERVATIONS.find((o) => o.id === 'tm_2026_q3_margin');
+  const net = METRIC_OBSERVATIONS.find((o) => o.id === 'tm_2026_q3_net_income');
+
+  assert(del?.value === 2363.0, 'Suite 21-2a: Consolidated vehicle sales is 2,363.0k units');
+  assert(del?.volumeDefinition === 'wholesale_shipments', 'Suite 21-2b: Volume definition is wholesale_shipments');
+  assert(bev?.value === 53.0, 'Suite 21-2c: BEV sales is 53.0k units');
+  assert(bev?.volumeDefinition === 'wholesale_shipments', 'Suite 21-2d: BEV volume definition is wholesale_shipments');
+  assert(share?.value === 2.2, 'Suite 21-2e: Derived BEV share is 2.2%');
+  assert(share?.volumeDefinition === 'wholesale_shipments', 'Suite 21-2f: Derived BEV share volumeDefinition matches inputs');
+  assert(rev?.value === 13437400, 'Suite 21-2g: Group sales revenue is 13,437,400M JPY');
+  assert(ebit?.value === 1127700, 'Suite 21-2h: Group operating income is 1,127,700M JPY');
+  assert(margin?.value === 8.4, 'Suite 21-2i: Group operating margin is 8.4%');
+  assert(net?.value === 1073400, 'Suite 21-2j: Group net income is 1,073,400M JPY');
+
+  // 3. Mathematical & dimension verification
+  assert(auditObservationVerification(del!).fully_verified === true, 'Suite 21-3a: Deliveries observation fully verified');
+  assert(auditObservationVerification(bev!).fully_verified === true, 'Suite 21-3b: BEV deliveries observation fully verified');
+  assert(auditObservationVerification(share!).fully_verified === true, 'Suite 21-3c: BEV share observation fully verified');
+  assert(auditObservationVerification(rev!).fully_verified === true, 'Suite 21-3d: Revenue observation fully verified');
+  assert(auditObservationVerification(ebit!).fully_verified === true, 'Suite 21-3e: EBIT observation fully verified');
+  assert(auditObservationVerification(margin!).fully_verified === true, 'Suite 21-3f: Margin observation fully verified');
+  assert(auditObservationVerification(net!).fully_verified === true, 'Suite 21-3g: Net income observation fully verified');
+
+  // 4. Freshness status
+  const freshness = getCompanyDataFreshness('toyota_motor', '2026-Q3');
+  assert(freshness.status === 'verified_official', 'Suite 21-4a: Toyota 2026-Q3 freshness status is verified_official');
+  assert(freshness.requiredMetricsCoverage?.percentage === 100, 'Suite 21-4b: Toyota required metrics coverage is 100%');
+  assert(freshness.hasObservationsForPeriod === true, 'Suite 21-4c: hasObservationsForPeriod is true');
+  assert(freshness.sourcePublishedAt === '2026-11-05', 'Suite 21-4d: sourcePublishedAt is 2026-11-05');
+}
+
 runSuite12()
   .then(() => {
     runSuite13();
@@ -2792,6 +2842,7 @@ runSuite12()
     runSuite18();
     runSuite19();
     runSuite20();
+    runSuite21();
     console.log(`\nResults: ${passed} passed, ${failed} failed.`);
     if (failed > 0) {
       process.exit(1);

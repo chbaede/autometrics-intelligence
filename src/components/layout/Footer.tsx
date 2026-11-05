@@ -115,10 +115,6 @@ export const Footer: React.FC = () => {
             <Link to="/coverage" className="hover:text-slate-800 dark:hover:text-slate-300 transition">
               {language === 'ko' ? '데이터 수집 및 IR 출처 (100%)' : 'Data Coverage & Verified IR (100%)'}
             </Link>
-            <span>•</span>
-            <Link to="/coverage" className="hover:text-slate-800 dark:hover:text-slate-300 transition">
-              {language === 'ko' ? '데이터 업데이트: 2026.11.01 최신 버전 (2026-Q3 실적 반영)' : 'Data Updated: Nov 1, 2026 Version (2026-Q3 Disclosures)'}
-            </Link>
           </div>
         </div>
       </div>
