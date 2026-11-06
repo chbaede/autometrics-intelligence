@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-06T13:56:48.219Z",
-  "sourceCommitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-  "executionCommitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-  "reportGenerationCommitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
+  "generatedAt": "2026-11-06T20:39:13.136Z",
+  "sourceCommitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+  "executionCommitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+  "reportGenerationCommitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "dirty",
-  "workingTreeExcludingDocs": "dirty",
+  "workingTreeExcludingDocs": "clean",
   "workingTreeExclusions": [
     "docs/audit-report.json",
     "docs/data-audit-report.md",
@@ -17,75 +17,75 @@
   "commandResults": [
     {
       "command": "npm run typecheck",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
-    },
-    {
-      "command": "npm test",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:38:53.283Z"
     },
     {
       "command": "npm run validate-data",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "🗺️  Total Regional Observations: 389 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:38:56.534Z"
     },
     {
       "command": "npm run validate-source-claims",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "✨ Internal consistency validation passed: All 195 source claims across 37 documents match registered observations and document perimeters. ℹ️  Note: This confir",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:38:56.983Z"
+    },
+    {
+      "command": "npm test",
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "======================================================== 🎉 All Phase 1 Remediation & Final Accuracy Gate Tests passed cleanly!",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:38:57.373Z"
     },
     {
       "command": "npm run audit-data",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "0 blocking findings, 8 review findings",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
+      "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:39:04.243Z"
     },
     {
       "command": "npm run audit-data -- --strict",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Alternative audit mode not executed in current pass",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
+      "executed": true,
+      "exitCode": 1,
+      "status": "EXPECTED_POLICY_FAILURE",
+      "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:39:05.135Z"
     },
     {
       "command": "npm run lint",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:39:06.029Z"
     },
     {
       "command": "npm run build",
-      "executed": false,
-      "exitCode": null,
-      "status": "NOT_RUN",
-      "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "86e4a0133968cee631125c3294665fb3b6fed977",
-      "executedAt": "2026-11-06T13:56:48.316Z"
+      "executed": true,
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "dist/assets/SEO-DVVnHP0E.js                           468.21 kB │ gzip: 50.59 kB ✓ built in 1.83s",
+      "commitSha": "b2136fbdc138926c549030808647b9a03836e3c5",
+      "executedAt": "2026-11-06T20:39:07.769Z"
     }
   ],
   "counts": {
