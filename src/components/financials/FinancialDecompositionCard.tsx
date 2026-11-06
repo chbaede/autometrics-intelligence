@@ -10,12 +10,14 @@ import {
   Layers,
   ShieldCheck,
   FileText,
+  Info,
+  Calendar,
 } from 'lucide-react';
 
 export const FinancialDecompositionCard: React.FC = () => {
   const { language } = useLanguage();
 
-  // Available OEMs with decompositions
+  // Available OEMs with decompositions (13 companies)
   const supportedCompanyIds = FINANCIAL_DECOMPOSITIONS.map((d) => d.companyId);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(supportedCompanyIds[0] || 'toyota_motor');
 
@@ -32,6 +34,12 @@ export const FinancialDecompositionCard: React.FC = () => {
     }
     if (curr === 'EUR') {
       return `€${(val / 1000).toFixed(1)}B`;
+    }
+    if (curr === 'SEK') {
+      return `${(val / 1000).toFixed(1)}B SEK`;
+    }
+    if (curr === 'CNY') {
+      return `¥${(val / 1000).toFixed(1)}B`;
     }
     return `$${(val / 1000).toFixed(1)}B`;
   };
@@ -51,32 +59,102 @@ export const FinancialDecompositionCard: React.FC = () => {
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {language === 'ko'
-              ? '단순 차트 확인을 넘어, 매출과 영업이익이 왜 변했는지 공식 공시 팩트와 수학적 산출 지표, 경영진 분석 요인으로 엄격히 분해합니다.'
-              : 'Beyond high-level charts: Deconstruct why profitability changed into reported facts, calculated metrics, and official driver commentary.'}
+              ? '단순 차트 확인을 넘어, 매출과 영업이익이 왜 변했는지 공식 공시 팩트와 수학적 산출 지표, 경영진 분석 요인으로 엄격히 분해합니다. (총 13개 주요 글로벌 OEM 지원)'
+              : 'Beyond high-level charts: Deconstruct why profitability changed into reported facts, calculated metrics, and official driver commentary across 13 major global OEMs.'}
           </p>
         </div>
 
-        {/* Company Quick Selector */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
-            {language === 'ko' ? '대상 기업:' : 'Select OEM:'}
-          </label>
-          <select
-            value={selectedCompanyId}
-            onChange={(e) => setSelectedCompanyId(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-hidden"
-          >
-            {supportedCompanyIds.map((cid) => {
-              const c = getCompanyById(cid);
-              return (
-                <option key={cid} value={cid}>
-                  {c ? c.name : cid}
-                </option>
-              );
-            })}
-          </select>
+        {/* Company Quick Selector Dropdown & Period Badge */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono text-xs font-bold border border-slate-200 dark:border-slate-700">
+            <Calendar className="w-3.5 h-3.5 text-brand-500" />
+            <span>{decomposition.period}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+              {language === 'ko' ? '분석 제조사:' : 'Select OEM:'}
+            </label>
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-hidden"
+            >
+              {supportedCompanyIds.map((cid) => {
+                const c = getCompanyById(cid);
+                return (
+                  <option key={cid} value={cid}>
+                    {c ? c.name : cid}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
         </div>
       </div>
+
+      {/* Scope & Fiscal Calendar Alignment Banner (if applicable) */}
+      {(decomposition.segmentReportingNotesKo || decomposition.derivationFormula) && (
+        <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-900 dark:text-blue-200 space-y-1">
+          <div className="flex items-center gap-1.5 font-bold">
+            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span>
+              {language === 'ko'
+                ? '회계 보고 범위 및 결산 주기 안내 (Accounting Scope & Period Classification)'
+                : 'Accounting Scope & Period Classification Note'}
+            </span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 ml-1">
+              {decomposition.periodClassification === 'derived_quarter'
+                ? (language === 'ko' ? '누적 차감 산출' : 'Derived Standalone')
+                : (language === 'ko' ? '단독 분기 보고' : 'Standalone Quarter')}
+            </span>
+          </div>
+          <p className="leading-relaxed">
+            {language === 'ko' ? decomposition.segmentReportingNotesKo : decomposition.segmentReportingNotesEn}
+          </p>
+          {decomposition.derivationFormula && (
+            <p className="text-[11px] font-mono text-blue-800 dark:text-blue-300">
+              📐 {decomposition.derivationFormula}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Automotive Segment Metrics Mini-Card (if distinguished from Group) */}
+      {decomposition.automotiveSegmentMetrics && (
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-800 dark:text-slate-200">
+              {language === 'ko' ? '🚗 자동차 사업 부문(Automotive Segment) 단독 실적:' : '🚗 Dedicated Automotive Segment Standalone:'}
+            </span>
+            <p className="text-slate-500 text-[11px]">
+              {language === 'ko'
+                ? '그룹 통합 실적(금융·리스·모빌리티 포함)과 별도로 공시된 순수 완성차 제조 부문 지표입니다.'
+                : 'Pure vehicle manufacturing operations segregated from financial services & mobility arms.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-4 font-mono">
+            <div>
+              <span className="text-[10px] text-slate-400 block">{language === 'ko' ? '부문 매출' : 'Segment Rev'}</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                {formatCurrency(decomposition.automotiveSegmentMetrics.revenue, decomposition.currency)}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 block">{language === 'ko' ? '부문 EBIT' : 'Segment EBIT'}</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                {formatCurrency(decomposition.automotiveSegmentMetrics.operatingProfit, decomposition.currency)}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 block">{language === 'ko' ? '부문 EBIT 마진' : 'Segment Margin'}</span>
+              <span className="font-extrabold text-brand-600 dark:text-brand-400">
+                {decomposition.automotiveSegmentMetrics.operatingMargin}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delta KPI Summary (What changed & How much?) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
@@ -113,7 +191,13 @@ export const FinancialDecompositionCard: React.FC = () => {
             <span className="font-mono text-[11px]">{decomposition.currency}</span>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-xl font-extrabold font-mono text-slate-900 dark:text-slate-100">
+            <span
+              className={`text-xl font-extrabold font-mono ${
+                decomposition.currentOperatingProfit < 0
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-slate-900 dark:text-slate-100'
+              }`}
+            >
               {formatCurrency(decomposition.currentOperatingProfit, decomposition.currency)}
             </span>
             <span
@@ -139,7 +223,13 @@ export const FinancialDecompositionCard: React.FC = () => {
             <span className="font-mono text-[11px]">RoS / EBIT Margin</span>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-xl font-extrabold font-mono text-brand-600 dark:text-brand-400">
+            <span
+              className={`text-xl font-extrabold font-mono ${
+                decomposition.currentOperatingMargin < 0
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-brand-600 dark:text-brand-400'
+              }`}
+            >
               {decomposition.currentOperatingMargin}%
             </span>
             <span
@@ -210,14 +300,14 @@ export const FinancialDecompositionCard: React.FC = () => {
 
                 <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-100 dark:border-slate-850">
                   <span className="font-mono text-slate-500">
-                    {factor.quantifiedAmount !== undefined ? (
+                    {factor.isDisclosedNumeric && factor.quantifiedAmount !== undefined ? (
                       <span className="font-bold text-slate-700 dark:text-slate-300">
                         {factor.quantifiedAmount > 0 ? '+' : ''}
                         {factor.quantifiedAmount.toLocaleString()} {factor.quantifiedUnit}
                       </span>
                     ) : (
-                      <span className="italic text-slate-400">
-                        {language === 'ko' ? '방향성 공시 (금액 미공시)' : 'Directional Disclosure'}
+                      <span className="italic text-slate-400 text-[10px]">
+                        {language === 'ko' ? '방향성 공시 (정량 수치 미공시)' : 'Directional Commentary (Unquantified)'}
                       </span>
                     )}
                   </span>

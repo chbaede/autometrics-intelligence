@@ -1,9 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { MetricObservation } from '../../types/metrics';
 import { getAllCompanies, getObservations } from '../../utils/metricQueries';
-import { VolumeDefinition, MetricObservation } from '../../types/metrics';
-import { matchesVolumeFilter } from '../../utils/metricCalculations';
-import { convertMillionsToKRW, convertMillionsToUSD, formatOriginalCurrencyCompact } from '../../utils/currencyUtils';
+import { convertMillionsToKRW, convertMillionsToUSD } from '../../utils/currencyUtils';
 import { useLanguage } from '../../i18n/LanguageContext';
 import {
   Trophy,
@@ -11,36 +9,41 @@ import {
   ArrowDown,
   ShieldCheck,
   HelpCircle,
+  Coins,
+  CheckCircle2,
 } from 'lucide-react';
-
-export type SortField =
-  | 'deliveries'
-  | 'revenue'
-  | 'operating_income'
-  | 'operating_margin'
-  | 'bev_share'
-  | 'name';
+import { Link } from 'react-router-dom';
 
 interface OEMCompetitiveLeaderboardProps {
-  activePeriod: string;
-  onSelectPeriod: (period: string) => void;
-  availablePeriods: string[];
+  activePeriod?: string;
+  onSelectPeriod?: (period: string) => void;
+  availablePeriods?: string[];
   onSelectObservation?: (obs: MetricObservation) => void;
 }
 
+type SortField = 'deliveries' | 'revenue' | 'operating_income' | 'operating_margin' | 'bev_share' | 'name';
+type CurrencyMode = 'KRW' | 'USD';
+type VolumeFilter = 'all' | 'retail_deliveries' | 'wholesale_shipments';
+
 export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps> = ({
-  activePeriod,
-  onSelectPeriod,
-  availablePeriods,
+  activePeriod: controlledPeriod,
+  onSelectPeriod: setControlledPeriod,
+  availablePeriods: controlledPeriods,
   onSelectObservation,
 }) => {
   const { language } = useLanguage();
   const allCompanies = getAllCompanies();
 
+  const [internalPeriod, setInternalPeriod] = useState<string>('2026-Q3');
+  const activePeriod = controlledPeriod ?? internalPeriod;
+  const setActivePeriod = setControlledPeriod ?? setInternalPeriod;
+
   const [sortField, setSortField] = useState<SortField>('operating_income');
   const [sortAscending, setSortAscending] = useState<boolean>(false);
-  const [volumeFilter, setVolumeFilter] = useState<'all' | VolumeDefinition>('all');
-  const [currencyMode, setCurrencyMode] = useState<'KRW' | 'USD'>('KRW');
+  const [currencyMode, setCurrencyMode] = useState<CurrencyMode>('KRW');
+  const [volumeFilter, setVolumeFilter] = useState<VolumeFilter>('all');
+
+  const availablePeriods = controlledPeriods ?? ['2026-Q3', '2026-Q2', '2026-Q1', '2025-FY', '2024-FY'];
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -51,7 +54,7 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
     }
   };
 
-  // Compile full OEM metrics for active period
+  // Compile full OEM metrics for active period without artificial fallback values
   const leaderboardData = useMemo(() => {
     return allCompanies.map((comp) => {
       const delObs = getObservations([comp.id], ['deliveries_global'], activePeriod).find((o) =>
@@ -62,22 +65,37 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
       const marginObs = getObservations([comp.id], ['operating_margin'], activePeriod)[0];
       const bevObs = getObservations([comp.id], ['bev_share'], activePeriod)[0];
 
-      // Normalized Revenue & EBIT
+      // Normalized Revenue & EBIT (Strict typed null for missing observations)
       const curr = comp.reportingCurrency || 'USD';
-      let normRevenue = 0;
-      let normEbit = 0;
+      let normRevenue: number | null = null;
+      let normEbit: number | null = null;
 
-      if (currencyMode === 'KRW') {
-        normRevenue = revObs?.value ? (convertMillionsToKRW(revObs.value, curr) || 0) / 1_000_000_000_000 : 0;
-        normEbit = ebitObs?.value ? (convertMillionsToKRW(ebitObs.value, curr) || 0) / 1_000_000_000_000 : 0;
-      } else {
-        normRevenue = revObs?.value ? (convertMillionsToUSD(revObs.value, curr) || 0) / 1_000_000_000 : 0;
-        normEbit = ebitObs?.value ? (convertMillionsToUSD(ebitObs.value, curr) || 0) / 1_000_000_000 : 0;
+      if (revObs && revObs.value !== null && revObs.value !== undefined) {
+        if (currencyMode === 'KRW') {
+          const converted = convertMillionsToKRW(revObs.value, curr);
+          normRevenue = converted !== null ? converted / 1_000_000_000_000 : null;
+        } else {
+          const converted = convertMillionsToUSD(revObs.value, curr);
+          normRevenue = converted !== null ? converted / 1_000_000_000 : null;
+        }
       }
 
-      const deliveriesVal = delObs?.value ?? 0;
-      const marginVal = marginObs?.value ?? -999;
-      const bevVal = bevObs?.value ?? 0;
+      if (ebitObs && ebitObs.value !== null && ebitObs.value !== undefined) {
+        if (currencyMode === 'KRW') {
+          const converted = convertMillionsToKRW(ebitObs.value, curr);
+          normEbit = converted !== null ? converted / 1_000_000_000_000 : null;
+        } else {
+          const converted = convertMillionsToUSD(ebitObs.value, curr);
+          normEbit = converted !== null ? converted / 1_000_000_000 : null;
+        }
+      }
+
+      const deliveriesVal: number | null =
+        delObs && delObs.value !== null && delObs.value !== undefined ? delObs.value : null;
+      const marginVal: number | null =
+        marginObs && marginObs.value !== null && marginObs.value !== undefined ? marginObs.value : null;
+      const bevVal: number | null =
+        bevObs && bevObs.value !== null && bevObs.value !== undefined ? bevObs.value : null;
 
       return {
         company: comp,
@@ -95,11 +113,17 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
     });
   }, [allCompanies, activePeriod, volumeFilter, currencyMode]);
 
-  // Sort rows
+  // Sort rows: Missing (null) values must always be placed at the bottom regardless of sort order
   const sortedData = useMemo(() => {
     return [...leaderboardData].sort((a, b) => {
-      let valA = 0;
-      let valB = 0;
+      if (sortField === 'name') {
+        return sortAscending
+          ? a.company.shortName.localeCompare(b.company.shortName)
+          : b.company.shortName.localeCompare(a.company.shortName);
+      }
+
+      let valA: number | null = null;
+      let valB: number | null = null;
 
       switch (sortField) {
         case 'deliveries':
@@ -122,18 +146,41 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
           valA = a.bevVal;
           valB = b.bevVal;
           break;
-        case 'name':
-          return sortAscending
-            ? a.company.shortName.localeCompare(b.company.shortName)
-            : b.company.shortName.localeCompare(a.company.shortName);
         default:
           valA = a.normEbit;
           valB = b.normEbit;
       }
 
+      // Null handling: missing observations always sink to the bottom
+      if (valA === null && valB === null) return 0;
+      if (valA === null) return 1;
+      if (valB === null) return -1;
+
       return sortAscending ? valA - valB : valB - valA;
     });
   }, [leaderboardData, sortField, sortAscending]);
+
+  // Compute eligible OEM count for active sort field
+  const eligibleOemCount = useMemo(() => {
+    return leaderboardData.filter((row) => {
+      switch (sortField) {
+        case 'deliveries':
+          return row.deliveriesVal !== null;
+        case 'revenue':
+          return row.normRevenue !== null;
+        case 'operating_income':
+          return row.normEbit !== null;
+        case 'operating_margin':
+          return row.marginVal !== null;
+        case 'bev_share':
+          return row.bevVal !== null;
+        case 'name':
+          return true;
+        default:
+          return row.normEbit !== null;
+      }
+    }).length;
+  }, [leaderboardData, sortField]);
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden space-y-4 p-4 sm:p-6 transition-colors">
@@ -143,60 +190,88 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
           <div className="flex items-center gap-2 mb-1">
             <Trophy className="w-5 h-5 text-amber-500" />
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {language === 'ko' ? '글로벌 완성차 다면적 종합 경쟁력 랭킹' : 'Global OEM Multi-Metric Competitive Leaderboard'}
+              {language === 'ko' ? '글로벌 완성차 공식 실적 순위 (OEM Leaderboard)' : 'OEM Competitive Ranking Leaderboard'}
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {language === 'ko'
-              ? '판매량, 매출액, 실제 영업수익, 마진율 및 전동화 비중을 단일 화면에서 교차 비교 및 정렬합니다.'
-              : 'Sort and rank global automakers side-by-side across volume, revenue, absolute operating profit, and electrification mix.'}
+              ? '완성차 제조사의 공식 IR 원문 공시 데이터를 기반으로 실적 순위를 비교 분석합니다. 결측치는 0으로 왜곡하지 않고 N/A로 투명하게 표시합니다.'
+              : 'Grounded in primary investor relations disclosures. Missing interim data is explicitly treated as N/A and excluded from ranking scores.'}
           </p>
         </div>
 
-        {/* Controls: Period, Volume Filter, Currency */}
-        <div className="flex items-center gap-2 flex-wrap text-xs">
-          {/* Period Selector */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono">
-            {availablePeriods.slice(0, 5).map((p) => (
+        {/* Period Selector Tabs */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-semibold text-slate-400 mr-1">
+            {language === 'ko' ? '공시 기준:' : 'Period:'}
+          </span>
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            {availablePeriods.map((period) => (
               <button
-                key={p}
-                onClick={() => onSelectPeriod(p)}
-                className={`px-2.5 py-1 rounded-lg font-bold transition ${
-                  activePeriod === p
+                key={period}
+                onClick={() => setActivePeriod(period)}
+                className={`px-3 py-1 text-xs font-mono font-bold rounded-lg transition ${
+                  activePeriod === period
                     ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                {p}
+                {period}
               </button>
             ))}
           </div>
+        </div>
+      </div>
 
-          {/* Currency Switcher */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold">
-            <button
-              onClick={() => setCurrencyMode('KRW')}
-              className={`px-2 py-1 rounded-lg transition ${
-                currencyMode === 'KRW'
-                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              KRW(조원)
-            </button>
-            <button
-              onClick={() => setCurrencyMode('USD')}
-              className={`px-2 py-1 rounded-lg transition ${
-                currencyMode === 'USD'
-                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              USD($B)
-            </button>
+      {/* Control Bar: Currency Toggle & Volume Scope Selector & Eligible OEM Count */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Currency Toggle */}
+          <div className="flex items-center gap-1.5">
+            <Coins className="w-3.5 h-3.5 text-slate-400" />
+            <span className="font-semibold text-slate-600 dark:text-slate-400">
+              {language === 'ko' ? '환산 통화:' : 'Currency:'}
+            </span>
+            <div className="flex items-center bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 font-bold font-mono">
+              <button
+                onClick={() => setCurrencyMode('KRW')}
+                className={`px-2 py-0.5 rounded ${
+                  currencyMode === 'KRW'
+                    ? 'bg-brand-600 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                KRW (조 원)
+              </button>
+              <button
+                onClick={() => setCurrencyMode('USD')}
+                className={`px-2 py-0.5 rounded ${
+                  currencyMode === 'USD'
+                    ? 'bg-brand-600 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                USD ($B)
+              </button>
+            </div>
           </div>
 
-          {/* Volume Definition Filter */}
+          {/* Eligible Count Badge */}
+          <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span>
+              {language === 'ko'
+                ? `유효 비교 제조사: ${eligibleOemCount}개사 (미공시 ${allCompanies.length - eligibleOemCount}개사)`
+                : `Eligible Ranked OEMs: ${eligibleOemCount} / ${allCompanies.length}`}
+            </span>
+          </div>
+        </div>
+
+        {/* Volume Perimeter Scope Filter */}
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-600 dark:text-slate-400">
+            {language === 'ko' ? '판매량 공시 기준:' : 'Volume Perimeter:'}
+          </span>
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
             <button
               onClick={() => setVolumeFilter('all')}
@@ -233,6 +308,19 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Analytical Benchmark FX Rate Disclaimer */}
+      <div className="px-3 py-2 rounded-lg bg-slate-100/70 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between flex-wrap gap-2">
+        <span>
+          <span className="font-bold text-slate-700 dark:text-slate-300">
+            {language === 'ko' ? '분석용 표준 고정 환율 안내:' : 'Standardized Analytical Benchmark FX Rates:'}
+          </span>{' '}
+          1 USD = 1,350 KRW | 1 EUR = 1,470 KRW | 100 JPY = 900 KRW | 1 CNY = 188 KRW | 1 SEK = 130 KRW
+        </span>
+        <span className="italic text-slate-400">
+          {language === 'ko' ? '※ 기업 간 수평 비교용 분석 환율이며 개별 기업의 과거 실거래 환율이 아닙니다.' : '※ Fixed analytical benchmark for cross-OEM comparability, not transaction spot rates.'}
+        </span>
       </div>
 
       {/* Leaderboard Table Container */}
@@ -300,6 +388,33 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {sortedData.map((row, idx) => {
+              // Determine whether this row has a valid value for the active sort field
+              let activeVal: number | null = null;
+              switch (sortField) {
+                case 'deliveries':
+                  activeVal = row.deliveriesVal;
+                  break;
+                case 'revenue':
+                  activeVal = row.normRevenue;
+                  break;
+                case 'operating_income':
+                  activeVal = row.normEbit;
+                  break;
+                case 'operating_margin':
+                  activeVal = row.marginVal;
+                  break;
+                case 'bev_share':
+                  activeVal = row.bevVal;
+                  break;
+                case 'name':
+                  activeVal = 1;
+                  break;
+                default:
+                  activeVal = row.normEbit;
+              }
+
+              const isEligibleForRank = activeVal !== null;
+
               return (
                 <tr
                   key={row.company.id}
@@ -307,19 +422,23 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                 >
                   {/* Rank */}
                   <td className="py-3 px-3 text-center font-mono font-bold">
-                    <span
-                      className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${
-                        idx === 0
-                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/40 font-extrabold'
-                          : idx === 1
-                          ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold'
-                          : idx === 2
-                          ? 'bg-amber-700/15 text-amber-800 dark:text-amber-300 font-bold'
-                          : 'text-slate-400 font-mono'
-                      }`}
-                    >
-                      {idx + 1}
-                    </span>
+                    {isEligibleForRank ? (
+                      <span
+                        className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${
+                          idx === 0
+                            ? 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/40 font-extrabold'
+                            : idx === 1
+                            ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold'
+                            : idx === 2
+                            ? 'bg-amber-700/15 text-amber-800 dark:text-amber-300 font-bold'
+                            : 'text-slate-400 font-mono'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-mono">-</span>
+                    )}
                   </td>
 
                   {/* Company Name & Ticker */}
@@ -342,7 +461,7 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
 
                   {/* Deliveries */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {row.deliveriesVal > 0 ? (
+                    {row.deliveriesVal !== null ? (
                       <div className="flex flex-col items-end">
                         <span
                           className="font-bold cursor-pointer hover:underline text-slate-900 dark:text-slate-100"
@@ -359,13 +478,13 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                         </span>
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono">-</span>
+                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
                     )}
                   </td>
 
                   {/* Revenue */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {row.normRevenue > 0 ? (
+                    {row.normRevenue !== null ? (
                       <div className="flex flex-col items-end">
                         <span
                           className="font-bold cursor-pointer hover:underline text-slate-900 dark:text-slate-100"
@@ -375,20 +494,20 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                             ? `₩${row.normRevenue >= 10 ? row.normRevenue.toFixed(1) : row.normRevenue.toFixed(2)}조`
                             : `$${row.normRevenue >= 10 ? row.normRevenue.toFixed(1) : row.normRevenue.toFixed(2)}B`}
                         </span>
-                        {row.revenueObs?.value && (
+                        {row.revenueObs?.value !== undefined && row.revenueObs.value !== null && (
                           <span className="text-[10px] text-slate-400">
                             {formatOriginalCurrencyCompact(row.revenueObs.value, row.company.reportingCurrency)}
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono">-</span>
+                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
                     )}
                   </td>
 
                   {/* Operating Profit */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {row.ebitObs?.value !== undefined && row.ebitObs.value !== null ? (
+                    {row.normEbit !== null ? (
                       <div className="flex flex-col items-end">
                         <span
                           className={`font-bold cursor-pointer hover:underline ${
@@ -402,18 +521,20 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                             ? `${row.normEbit < 0 ? '-' : ''}₩${Math.abs(row.normEbit).toFixed(2)}조`
                             : `${row.normEbit < 0 ? '-' : ''}$${Math.abs(row.normEbit).toFixed(2)}B`}
                         </span>
-                        <span className="text-[10px] text-slate-400">
-                          {formatOriginalCurrencyCompact(row.ebitObs.value, row.company.reportingCurrency)}
-                        </span>
+                        {row.ebitObs?.value !== undefined && row.ebitObs.value !== null && (
+                          <span className="text-[10px] text-slate-400">
+                            {formatOriginalCurrencyCompact(row.ebitObs.value, row.company.reportingCurrency)}
+                          </span>
+                        )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono">-</span>
+                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
                     )}
                   </td>
 
                   {/* Operating Margin */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {row.marginVal !== -999 ? (
+                    {row.marginVal !== null ? (
                       <div className="flex flex-col items-end">
                         <span
                           className={`font-bold px-1.5 py-0.5 rounded cursor-pointer hover:underline ${
@@ -436,13 +557,13 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono">-</span>
+                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
                     )}
                   </td>
 
                   {/* BEV Share */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {row.bevVal > 0 ? (
+                    {row.bevVal !== null ? (
                       <span
                         className="font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
                         onClick={() => row.bevObs && onSelectObservation?.(row.bevObs)}
@@ -450,7 +571,7 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                         {row.bevVal}%
                       </span>
                     ) : (
-                      <span className="text-slate-400 font-mono">0%</span>
+                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
                     )}
                   </td>
 
@@ -487,11 +608,39 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
           </span>
           <p>
             {language === 'ko'
-              ? '① 판매량: 고객 인도(소매)와 딜러 출하(도매) 공시 기준을 엄격히 구분하여 표시합니다. ② 수익성: 메르세데스-벤츠의 경우 승용차(Cars) 부문 단독 조정 RoS가 표시되며, 그 외 제조사는 연결 그룹 기준입니다. ③ 일본 제조사(도요타 등)는 3월 결산 법인으로서 해당 연도 2분기(7~9월)가 달력 기준 3분기(2026-Q3)에 정렬됩니다.'
-              : '① Volume: Clearly discriminates retail customer handovers from wholesale dealer dispatches. ② Margins: Mercedes-Benz displays Cars Division adjusted RoS; other OEMs report consolidated group EBIT. ③ Japanese OEMs align Q2 of their fiscal year ending March to calendar Q3 (July-September).'}
+              ? '① 판매량: 고객 인도(소매)와 딜러 출하(도매) 공시 기준을 엄격히 구분하여 표시합니다. ② 수익성: 메르세데스-벤츠의 경우 승용차(Cars) 부문 단독 조정 RoS가 표시되며, 그 외 제조사는 연결 그룹 기준입니다. ③ 일본 제조사(도요타 등)는 3월 결산 법인으로서 해당 연도 2분기(7~9월)가 달력 기준 3분기(2026-Q3)에 정렬됩니다. ④ 결측치: 중간 분기보고서에서 해당 지표를 공시하지 않는 기업은 0으로 처리하지 않고 N/A로 제외합니다.'
+              : '① Volume: Clearly discriminates retail customer handovers from wholesale dealer dispatches. ② Margins: Mercedes-Benz displays Cars Division adjusted RoS; other OEMs report consolidated group EBIT. ③ Japanese OEMs align Q2 of their fiscal year ending March to calendar Q3 (July-September). ④ Missing data: Automakers omitting specific metrics in quarterly interim reports are explicitly treated as N/A rather than zero.'}
           </p>
         </div>
       </div>
     </div>
   );
 };
+
+function matchesVolumeFilter(obs: MetricObservation | undefined, _metricId: string, filter: VolumeFilter): boolean {
+  if (!obs) return false;
+  if (filter === 'all') return true;
+  return obs.volumeDefinition === filter;
+}
+
+function formatOriginalCurrencyCompact(val: number, currency: string): string {
+  if (currency === 'KRW') {
+    return `${(val / 1_000_000).toFixed(1)}조`;
+  }
+  if (currency === 'JPY') {
+    return `¥${(val / 1_000).toFixed(1)}B`;
+  }
+  if (currency === 'EUR') {
+    return `€${(val / 1_000).toFixed(1)}B`;
+  }
+  if (currency === 'USD') {
+    return `$${(val / 1_000).toFixed(1)}B`;
+  }
+  if (currency === 'CNY') {
+    return `¥${(val / 1_000).toFixed(1)}B`;
+  }
+  if (currency === 'SEK') {
+    return `${(val / 1_000).toFixed(1)}B SEK`;
+  }
+  return `${val.toLocaleString()} ${currency}`;
+}

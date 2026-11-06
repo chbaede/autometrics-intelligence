@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 64e0bc7836fe6c73afa24d1c57358c290d13977d  
-**Report Generation Commit:** 64e0bc7836fe6c73afa24d1c57358c290d13977d  
+**Audited Source Commit:** 7362c54778cb81f86ea38af5936f5bada4921e43  
+**Report Generation Commit:** 7362c54778cb81f86ea38af5936f5bada4921e43  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-06T06:38:53.423Z  
+**Generated:** 2026-11-06T10:24:21.334Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -35,7 +35,7 @@
 | Registered Automakers | 16 |
 | Metric Definitions | 17 |
 | Financial & Volume Observations | 478 |
-| Primary Source Documents | 98 |
+| Primary Source Documents | 99 |
 | Documents with Source Claims | 37 |
 | Forward-Looking Guidance Items | 20 |
 | Regional Delivery Observations | 389 |

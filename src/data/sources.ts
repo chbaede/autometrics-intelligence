@@ -1936,6 +1936,20 @@ export const SOURCE_DOCUMENTS: SourceDocument[] = [
       { metricId: 'operating_margin', period: '2026-Q3', value: -8.4, unit: 'percentage', scope: 'consolidated_group', accountingBasis: 'reported' },
     ],
   },
+  {
+    id: 'platform_governance_v1',
+    companyId: 'mercedes_benz',
+    title: 'AutoMetrics Intelligence Volume Perimeter & Accounting Scope Governance Specification v1.0',
+    docType: 'regulatory_filing',
+    period: '2026-Q3',
+    periodType: 'quarterly',
+    publicationDate: '2026-09-25',
+    officialUrl: 'https://autometrics.yocto.co.kr/coverage',
+    isVerified: true,
+    verificationStatus: 'verified',
+    lastChecked: '2026-11-06',
+    notes: 'Platform data governance standard: segregates retail deliveries from wholesale shipments and isolates segment metrics from consolidated group figures.',
+  },
 ];
 
 export const SOURCES_MAP: Record<string, SourceDocument> = Object.fromEntries(

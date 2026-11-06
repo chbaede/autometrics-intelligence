@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   getMarketDenominator,
+  validateMarketShareCompatibility,
 } from '../../data/marketShareData';
 import { getAllCompanies, getObservations, getRegionalObservations } from '../../utils/metricQueries';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -11,6 +12,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   HelpCircle,
+  Layers,
 } from 'lucide-react';
 
 export const MarketShareEvolutionSection: React.FC = () => {
@@ -22,7 +24,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
 
   const availableMarkets = [
     { id: 'global', nameKo: '글로벌 전체 시장', nameEn: 'Global Light Vehicle Market' },
-    { id: 'europe', nameKo: '유럽 (ACEA 기준)', nameEn: 'Europe (ACEA Registrations)' },
+    { id: 'europe', nameKo: '유럽 (ACEA 승용 기준)', nameEn: 'Europe (ACEA Registrations)' },
     { id: 'china', nameKo: '중국 (CPCA 소매 기준)', nameEn: 'China (CPCA Retail Deliveries)' },
     { id: 'united_states', nameKo: '미국 (BEA 소매 기준)', nameEn: 'United States (BEA Retail Sales)' },
   ];
@@ -58,14 +60,17 @@ export const MarketShareEvolutionSection: React.FC = () => {
       let numeratorVolume: number | null = null;
       let unavailableReason: string | undefined = undefined;
       let sourceDocId: string | undefined = undefined;
+      let volumeDefinition: string | undefined = undefined;
+      let reportingScope: string | undefined = undefined;
+      let regionId: string | undefined = selectedMarketId;
 
       if (selectedMarketId === 'global') {
         const obs = getObservations([comp.id], ['deliveries_global'], selectedPeriod)[0];
         if (obs && obs.value !== null && obs.value !== undefined) {
           numeratorVolume = obs.value;
           sourceDocId = obs.sourceDocId;
-        } else {
-          unavailableReason = language === 'ko' ? '해당 분기 글로벌 총량 미공시' : 'Global volume not disclosed for period';
+          volumeDefinition = obs.volumeDefinition;
+          reportingScope = obs.reportingScope;
         }
       } else {
         // Query regional observations for the specific market
@@ -75,45 +80,73 @@ export const MarketShareEvolutionSection: React.FC = () => {
         if (regObs && regObs.value !== null && regObs.value !== undefined) {
           numeratorVolume = regObs.value;
           sourceDocId = regObs.sourceDocId;
-        } else {
-          // Identify specific OEM disclosure policy
-          if (comp.id === 'tesla') {
-            unavailableReason =
-              language === 'ko'
-                ? '테슬라 IR 정책상 분기별 대륙별 단독 인도량 미공시 (연간 10-K에만 보고)'
-                : 'Tesla IR omits disaggregated quarterly regional volumes (reported only annually in 10-K)';
-          } else {
-            unavailableReason =
-              language === 'ko'
-                ? '해당 분기 공식 IR 원문에 해당 권역 세부 인도량 미공시'
-                : 'Regional deliveries not disaggregated in official quarterly filing';
-          }
+          volumeDefinition = regObs.volumeDefinition;
+          reportingScope = regObs.reportingScope;
+          regionId = regObs.regionId;
         }
       }
 
-      // Calculate share %
-      const marketShare = numeratorVolume !== null ? (numeratorVolume / totalDenom) * 100 : null;
+      // Run strict compatibility validation
+      const compatCheck = validateMarketShareCompatibility(
+        {
+          companyId: comp.id,
+          marketId: selectedMarketId,
+          period: selectedPeriod,
+          observationValue: numeratorVolume,
+          volumeDefinition,
+          reportingScope,
+          regionId,
+        },
+        currentDenominator
+      );
 
-      // YoY Calculation if previous period exists
+      let marketShare: number | null = null;
       let yoyPpDelta: number | null = null;
-      if (marketShare !== null && prevDenominator) {
-        let prevNumerator: number | null = null;
-        if (selectedMarketId === 'global') {
-          const prevObs = previousComparisonPeriod
-            ? getObservations([comp.id], ['deliveries_global'], previousComparisonPeriod)[0]
-            : undefined;
-          if (prevObs && prevObs.value) prevNumerator = prevObs.value;
-        } else if (previousComparisonPeriod) {
-          const regObsPrev = getRegionalObservations(selectedMarketId).find(
-            (o) => o.companyId === comp.id && o.period === previousComparisonPeriod
-          );
-          if (regObsPrev && regObsPrev.value) prevNumerator = regObsPrev.value;
-        }
+      let isCompatible = compatCheck.isCompatible;
 
-        if (prevNumerator !== null && prevDenominator.totalMarketVolume > 0) {
-          const prevShare = (prevNumerator / prevDenominator.totalMarketVolume) * 100;
-          yoyPpDelta = Number((marketShare - prevShare).toFixed(2));
+      if (isCompatible && numeratorVolume !== null && totalDenom > 0) {
+        marketShare = Number(((numeratorVolume / totalDenom) * 100).toFixed(2));
+
+        // Prior period calculation
+        if (prevDenominator && previousComparisonPeriod) {
+          let prevNumerator: number | null = null;
+          let prevVolDef: string | undefined = undefined;
+
+          if (selectedMarketId === 'global') {
+            const prevObs = getObservations([comp.id], ['deliveries_global'], previousComparisonPeriod)[0];
+            if (prevObs && prevObs.value) {
+              prevNumerator = prevObs.value;
+              prevVolDef = prevObs.volumeDefinition;
+            }
+          } else {
+            const regObsPrev = getRegionalObservations(selectedMarketId).find(
+              (o) => o.companyId === comp.id && o.period === previousComparisonPeriod
+            );
+            if (regObsPrev && regObsPrev.value) {
+              prevNumerator = regObsPrev.value;
+              prevVolDef = regObsPrev.volumeDefinition;
+            }
+          }
+
+          const prevCompat = validateMarketShareCompatibility(
+            {
+              companyId: comp.id,
+              marketId: selectedMarketId,
+              period: previousComparisonPeriod,
+              observationValue: prevNumerator,
+              volumeDefinition: prevVolDef,
+              regionId: selectedMarketId,
+            },
+            prevDenominator
+          );
+
+          if (prevCompat.isCompatible && prevNumerator !== null && prevDenominator.totalMarketVolume > 0) {
+            const prevShare = (prevNumerator / prevDenominator.totalMarketVolume) * 100;
+            yoyPpDelta = Number((marketShare - prevShare).toFixed(2));
+          }
         }
+      } else {
+        unavailableReason = language === 'ko' ? compatCheck.rejectionReasonKo : compatCheck.rejectionReasonEn;
       }
 
       return {
@@ -123,9 +156,19 @@ export const MarketShareEvolutionSection: React.FC = () => {
         yoyPpDelta,
         unavailableReason,
         sourceDocId,
+        isCompatible,
+        incompatibilityCategory: compatCheck.incompatibilityCategory,
+        volumeDefinition,
       };
     })
-      .sort((a, b) => (b.marketShare ?? -1) - (a.marketShare ?? -1));
+      .sort((a, b) => {
+        if (a.marketShare !== null && b.marketShare !== null) {
+          return b.marketShare - a.marketShare;
+        }
+        if (a.marketShare !== null) return -1;
+        if (b.marketShare !== null) return 1;
+        return a.company.shortName.localeCompare(b.company.shortName);
+      });
   }, [allCompanies, currentDenominator, prevDenominator, selectedMarketId, selectedPeriod, previousComparisonPeriod, language]);
 
   return (
@@ -141,8 +184,8 @@ export const MarketShareEvolutionSection: React.FC = () => {
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {language === 'ko'
-              ? '임의 추정치를 철저히 배제하고, 공식 등록 기관(ACEA, CPCA, BEA, OICA)의 전체 시장 모수(분모)와 OEM 공식 실적(분자)을 매칭하여 실제 시장 점유율 및 증감을 산출합니다.'
-              : 'Grounded strictly in verified industry authority totals (denominators) matched against official OEM disclosures (numerators) with percentage-point evolution.'}
+              ? '임의 추정치를 철저히 배제하고, 공식 등록 기관(ACEA, CPCA, BEA, OICA)의 전체 시장 모수(분모)와 OEM 공식 실적(분자)을 엄격한 회계 공시 기준(소매 vs 도매 분리)에 따라 검증하여 산출합니다.'
+              : 'Grounded strictly in verified industry authority totals (denominators) matched against official OEM disclosures (numerators) with strict retail vs wholesale perimeter compatibility gates.'}
           </p>
         </div>
 
@@ -188,7 +231,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
       {currentDenominator ? (
         <div className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+            <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 flex-wrap">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span>
                 {language === 'ko' ? currentDenominator.marketNameKo : currentDenominator.marketNameEn} 공식 시장 모수 (분모)
@@ -196,15 +239,21 @@ export const MarketShareEvolutionSection: React.FC = () => {
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">
                 {currentDenominator.authorityName}
               </span>
+              <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-[10px]">
+                {currentDenominator.derivationMethod === 'calculated_from_monthly_sum' ? (language === 'ko' ? '월별 집계 합산' : 'Monthly Sum') : (language === 'ko' ? '공식 발표치' : 'Directly Reported')}
+              </span>
             </div>
             <p className="text-slate-500 dark:text-slate-400 leading-normal">
-              {currentDenominator.vehicleScope} • {currentDenominator.notes}
+              <span className="font-semibold text-slate-700 dark:text-slate-300">범위:</span> {currentDenominator.vehicleScope} • <span className="font-semibold text-slate-700 dark:text-slate-300">지역:</span> {currentDenominator.geographicScope}
+            </p>
+            <p className="text-[11px] text-slate-400 font-mono">
+              출처 원문: {currentDenominator.sourceTitle} ({currentDenominator.sourceLocator})
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-right">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                {language === 'ko' ? '전체 시장 규모 (모수)' : 'Total Market Volume'}
+                {language === 'ko' ? '공식 전체 시장 모수' : 'Total Market Denominator'}
               </span>
               <span className="text-base font-extrabold font-mono text-brand-600 dark:text-brand-400">
                 {(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M 대
@@ -234,7 +283,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
 
       {/* Market Share Evolution Table */}
       <div className="overflow-x-auto -mx-4 sm:mx-0">
-        <table className="w-full text-left border-collapse min-w-[700px] text-xs">
+        <table className="w-full text-left border-collapse min-w-[750px] text-xs">
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               <th className="py-3 px-3 w-12 text-center">#</th>
@@ -243,26 +292,33 @@ export const MarketShareEvolutionSection: React.FC = () => {
               <th className="py-3 px-3 text-right">{language === 'ko' ? '전체 시장 (분모)' : 'Market Total (Denominator)'}</th>
               <th className="py-3 px-3 text-right">{language === 'ko' ? '시장 점유율 (%)' : 'Market Share (%)'}</th>
               <th className="py-3 px-3 text-right">{language === 'ko' ? 'YoY 증감 (pp)' : 'YoY Change (pp)'}</th>
-              <th className="py-3 px-3 text-center">{language === 'ko' ? '데이터 상태' : 'Status'}</th>
+              <th className="py-3 px-3 text-center">{language === 'ko' ? '공시 호환성 상태' : 'Compatibility Status'}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {marketShareRows.map((row, idx) => {
-              const isAvailable = row.marketShare !== null;
+              const isCompatible = row.isCompatible && row.marketShare !== null;
 
               return (
                 <tr key={row.company.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                   {/* Rank */}
                   <td className="py-3 px-3 text-center font-mono font-bold text-slate-400">
-                    {isAvailable ? idx + 1 : '-'}
+                    {isCompatible ? idx + 1 : '-'}
                   </td>
 
                   {/* Company */}
                   <td className="py-3 px-3 font-medium">
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-900 dark:text-slate-100">
-                        {row.company.name}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900 dark:text-slate-100">
+                          {row.company.name}
+                        </span>
+                        {row.volumeDefinition === 'wholesale_shipments' && (
+                          <span className="text-[9px] font-mono font-bold px-1 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            도매(Wholesale)
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-slate-400 font-mono">
                         {row.company.hqCountry} • {row.company.ticker}
                       </span>
@@ -291,7 +347,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
 
                   {/* Market Share % */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {row.marketShare !== null ? (
+                    {isCompatible && row.marketShare !== null ? (
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-16 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden hidden sm:block">
                           <div
@@ -304,13 +360,13 @@ export const MarketShareEvolutionSection: React.FC = () => {
                         </span>
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono">-</span>
+                      <span className="text-slate-400 font-mono">N/A</span>
                     )}
                   </td>
 
                   {/* YoY Change in percentage points */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {row.yoyPpDelta !== null ? (
+                    {isCompatible && row.yoyPpDelta !== null ? (
                       <span
                         className={`font-semibold px-1.5 py-0.5 rounded ${
                           row.yoyPpDelta > 0
@@ -329,19 +385,28 @@ export const MarketShareEvolutionSection: React.FC = () => {
 
                   {/* Status & Caveat */}
                   <td className="py-3 px-3 text-center">
-                    {isAvailable ? (
+                    {isCompatible ? (
                       <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>{language === 'ko' ? '검증 완료' : 'Verified'}</span>
                       </span>
                     ) : (
-                      <span
-                        className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium cursor-help"
+                      <div
+                        className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium cursor-help px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 max-w-[170px] truncate"
                         title={row.unavailableReason}
                       >
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        <span>{language === 'ko' ? '공시 제외' : 'Omitted in IR'}</span>
-                      </span>
+                        {row.incompatibilityCategory === 'wholesale_vs_retail' ? (
+                          <>
+                            <Layers className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{language === 'ko' ? '도매 vs 소매 불일치' : 'Perimeter Mismatch'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{language === 'ko' ? '공시 제외' : 'Omitted in IR'}</span>
+                          </>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -355,12 +420,12 @@ export const MarketShareEvolutionSection: React.FC = () => {
       <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
         <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
           <HelpCircle className="w-3.5 h-3.5 text-brand-500" />
-          <span>{language === 'ko' ? '시장 점유율 산출 원칙 및 한계 고지' : 'Market Share Methodology & Zero-Fabrication Invariants'}</span>
+          <span>{language === 'ko' ? '시장 점유율 산출 원칙 및 회계 기준 호환성 규약' : 'Market Share Strict Accounting Invariants'}</span>
         </div>
         <p className="leading-relaxed">
           {language === 'ko'
-            ? '본 플랫폼은 출처가 불분명한 외부 추정치로 분모를 임의 대체하지 않습니다. 유럽은 ACEA 승용 신규 등록, 중국은 CPCA 승용 소매 인도, 미국은 BEA 경량차 판매 통계를 단일 기준으로 적용합니다. 테슬라 등 분기보고서에서 대륙별 세부 인도량을 공시하지 않는 제조사는 임의 추정하지 않고 엄격히 "공시 제외"로 표기합니다.'
-            : 'Denominator figures are strictly taken from official authority datasets (ACEA, CPCA, BEA, OICA). Automakers that do not disaggregate quarterly deliveries by continent in their investor disclosures (such as Tesla quarterly filings) are transparently marked as omitted rather than estimated.'}
+            ? '1. [회계 기준 일치 원칙] ACEA(유럽), CPCA(중국), BEA(미국)는 등록 및 소매(Retail) 통계입니다. 현대차, 기아, 토요타 등 딜러 도매 출하량(Wholesale)만 공시하는 권역 수치는 소매 시장 분모와 나눗셈 시 분모 왜곡이 발생하므로 자동 차단(Incompatible)됩니다. 2. [임의 추정 금지] 테슬라 등 분기보고서에서 대륙별 세부 인도량을 공시하지 않는 제조사는 임의 추정하지 않고 엄격히 "공시 제외"로 표기합니다.'
+            : '1. [Perimeter Invariant] Regional authorities (ACEA, CPCA, BEA) publish retail registrations. Automakers reporting wholesale dealer shipments cannot be mathematically divided by retail totals without perimeter distortion and are fail-closed as Incompatible. 2. [Zero-Fabrication] Automakers omitting quarterly regional volumes (such as Tesla Form 10-Q) are transparently marked as omitted rather than estimated.'}
         </p>
       </div>
     </div>
