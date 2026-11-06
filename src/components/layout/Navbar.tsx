@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
   Activity,
-  BarChart2,
-  Globe2,
+  Trophy,
+  PieChart,
+  Calculator,
   Compass,
   TableProperties,
   Menu,
@@ -23,8 +24,9 @@ export const Navbar: React.FC = () => {
 
   const navLinks = [
     { to: '/', label: t.nav.overview, icon: Activity },
-    { to: '/compare', label: t.nav.comparison, icon: BarChart2 },
-    { to: '/regions', label: t.nav.regional, icon: Globe2 },
+    { to: '/rankings', label: t.nav.rankings, icon: Trophy },
+    { to: '/market-share', label: t.nav.marketShare, icon: PieChart },
+    { to: '/financials', label: t.nav.financials, icon: Calculator },
     { to: '/guidance', label: t.nav.guidance, icon: Compass },
     { to: '/coverage', label: t.nav.coverage, icon: TableProperties },
   ];

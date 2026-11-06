@@ -12,11 +12,14 @@ const GlobalOverviewPage = lazy(() =>
 const CompanyDashboardPage = lazy(() =>
   import('./pages/CompanyDashboardPage').then((m) => ({ default: m.CompanyDashboardPage }))
 );
-const CompanyComparisonPage = lazy(() =>
-  import('./pages/CompanyComparisonPage').then((m) => ({ default: m.CompanyComparisonPage }))
+const RankingsPage = lazy(() =>
+  import('./pages/RankingsPage').then((m) => ({ default: m.RankingsPage }))
 );
-const RegionalAnalysisPage = lazy(() =>
-  import('./pages/RegionalAnalysisPage').then((m) => ({ default: m.RegionalAnalysisPage }))
+const MarketSharePage = lazy(() =>
+  import('./pages/MarketSharePage').then((m) => ({ default: m.MarketSharePage }))
+);
+const FinancialIntelligencePage = lazy(() =>
+  import('./pages/FinancialIntelligencePage').then((m) => ({ default: m.FinancialIntelligencePage }))
 );
 const GuidanceOutlookPage = lazy(() =>
   import('./pages/GuidanceOutlookPage').then((m) => ({ default: m.GuidanceOutlookPage }))
@@ -46,13 +49,18 @@ export const App: React.FC = () => {
                   <Route path="/overview" element={<Navigate to="/" replace />} />
                   <Route path="/automotive" element={<Navigate to="/" replace />} />
                   <Route path="/company/:companyId" element={<CompanyDashboardPage />} />
-                  <Route path="/compare" element={<CompanyComparisonPage />} />
-                  <Route path="/comparison" element={<Navigate to="/compare" replace />} />
-                  <Route path="/regions" element={<RegionalAnalysisPage />} />
-                  <Route path="/regional" element={<Navigate to="/regions" replace />} />
+                  <Route path="/rankings" element={<RankingsPage />} />
+                  <Route path="/compare" element={<RankingsPage />} />
+                  <Route path="/comparison" element={<Navigate to="/rankings" replace />} />
+                  <Route path="/market-share" element={<MarketSharePage />} />
+                  <Route path="/regions" element={<MarketSharePage />} />
+                  <Route path="/regional" element={<Navigate to="/market-share" replace />} />
+                  <Route path="/financials" element={<FinancialIntelligencePage />} />
+                  <Route path="/decomposition" element={<Navigate to="/financials" replace />} />
                   <Route path="/guidance" element={<GuidanceOutlookPage />} />
                   <Route path="/outlook" element={<Navigate to="/guidance" replace />} />
                   <Route path="/sources" element={<Navigate to="/coverage" replace />} />
+                  <Route path="/history" element={<Navigate to="/coverage" replace />} />
                   <Route path="/coverage" element={<DataCoveragePage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

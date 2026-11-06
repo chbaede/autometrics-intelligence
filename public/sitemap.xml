@@ -7,10 +7,31 @@
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
+  <!-- OEM Competitive Ranking Leaderboard -->
+  <url>
+    <loc>https://autometrics.yocto.co.kr/rankings</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <!-- Market Share Evolution & Regional Footprints -->
+  <url>
+    <loc>https://autometrics.yocto.co.kr/market-share</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <!-- Financial Performance Decomposition Engine -->
+  <url>
+    <loc>https://autometrics.yocto.co.kr/financials</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
   <!-- Multi-OEM Head-to-Head Comparison -->
   <url>
     <loc>https://autometrics.yocto.co.kr/compare</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>

@@ -52,6 +52,10 @@ import {
   ChevronUp,
   TrendingUp,
   Layers,
+  Trophy,
+  PieChart,
+  Calculator,
+  History,
 } from 'lucide-react';
 
 export const GlobalOverviewPage: React.FC = () => {
@@ -530,6 +534,81 @@ export const GlobalOverviewPage: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Phase 1 Executive Intelligence Modules Shortcuts */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <Link
+            to="/rankings"
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-brand-50/50 dark:bg-slate-950/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition block">
+                  {language === 'ko' ? 'OEM 종합 랭킹' : 'OEM Rankings'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-sans block">
+                  {language === 'ko' ? '다면적 정렬 리더보드' : 'Multi-metric Leaderboard'}
+                </span>
+              </div>
+            </div>
+            <ExternalLink className="w-3 h-3 text-slate-400 opacity-60 group-hover:opacity-100" />
+          </Link>
+
+          <Link
+            to="/market-share"
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-brand-50/50 dark:bg-slate-950/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition block">
+                  {language === 'ko' ? '시장 점유율 추이' : 'Market Share'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-sans block">
+                  {language === 'ko' ? '공식 모수 기반 점유율' : 'Official Authority Basis'}
+                </span>
+              </div>
+            </div>
+            <ExternalLink className="w-3 h-3 text-slate-400 opacity-60 group-hover:opacity-100" />
+          </Link>
+
+          <Link
+            to="/financials"
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-brand-50/50 dark:bg-slate-950/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-indigo-500 shrink-0" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition block">
+                  {language === 'ko' ? '재무 실적 요인 분해' : 'Financial Walk'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-sans block">
+                  {language === 'ko' ? '물량·믹스·환율 요인' : 'Volume, Mix & FX Walk'}
+                </span>
+              </div>
+            </div>
+            <ExternalLink className="w-3 h-3 text-slate-400 opacity-60 group-hover:opacity-100" />
+          </Link>
+
+          <Link
+            to="/coverage"
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-brand-50/50 dark:bg-slate-950/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-emerald-500 shrink-0" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition block">
+                  {language === 'ko' ? '데이터 변경 이력' : 'Change History'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-sans block">
+                  {language === 'ko' ? '실적 수정 감사 로그' : 'Audit Trail & Restatements'}
+                </span>
+              </div>
+            </div>
+            <ExternalLink className="w-3 h-3 text-slate-400 opacity-60 group-hover:opacity-100" />
+          </Link>
         </div>
       </div>
 

@@ -61,13 +61,18 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/compare" className="text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
-                  {t.nav.comparison}
+                <Link to="/rankings" className="text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
+                  {t.nav.rankings}
                 </Link>
               </li>
               <li>
-                <Link to="/regions" className="text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
-                  {t.nav.regional}
+                <Link to="/market-share" className="text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
+                  {t.nav.marketShare}
+                </Link>
+              </li>
+              <li>
+                <Link to="/financials" className="text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
+                  {t.nav.financials}
                 </Link>
               </li>
               <li>

@@ -5,11 +5,15 @@ export type Language = 'en' | 'ko';
 export interface Translations {
   nav: {
     overview: string;
+    rankings: string;
     comparison: string;
+    marketShare: string;
     regional: string;
+    financials: string;
     guidance: string;
     sources: string;
     coverage: string;
+    changeHistory: string;
     glossary: string;
     activeOems: string;
     verifiedIr: string;
@@ -74,13 +78,17 @@ export const TRANSLATIONS: Record<Language, Translations> = {
   en: {
     nav: {
       overview: 'Overview',
+      rankings: 'Rankings',
       comparison: 'Comparison',
+      marketShare: 'Market Share',
       regional: 'Regional',
+      financials: 'Financials',
       guidance: 'Guidance',
       sources: 'Source Explorer',
-      coverage: 'Coverage',
+      coverage: 'Data & Audit',
+      changeHistory: 'Change History',
       glossary: 'Glossary & Acronyms',
-      activeOems: '14 Global OEMs Active',
+      activeOems: '16 Global OEMs Active',
       verifiedIr: 'Verified Official IR Filings (Q3 2026)',
       mainHub: 'Main Hub',
       mainHubDesc: 'Back to Yocto Main Hub',
@@ -141,13 +149,17 @@ export const TRANSLATIONS: Record<Language, Translations> = {
   ko: {
     nav: {
       overview: '오버뷰',
+      rankings: 'OEM 랭킹',
       comparison: '실적 비교',
+      marketShare: '시장 점유율',
       regional: '지역 분석',
+      financials: '재무 요인 분해',
       guidance: '가이던스',
       sources: '공식 IR 출처',
-      coverage: '데이터 커버리지',
+      coverage: '데이터 & 감사',
+      changeHistory: '변경 이력',
       glossary: '용어 사전',
-      activeOems: '글로벌 14대 OEM 검증 완료',
+      activeOems: '글로벌 16대 OEM 검증 완료',
       verifiedIr: '공식 IR 공시 원문 검증 완료 (2026.Q3 최신)',
       mainHub: '메인 허브',
       mainHubDesc: 'Yocto 메인 허브로 이동',

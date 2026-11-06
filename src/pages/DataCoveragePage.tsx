@@ -14,6 +14,7 @@ import { formatPeriodLabel } from '../utils/metricCalculations';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SEO } from '../components/common/SEO';
 import { DataTable } from '../components/metrics/DataTable';
+import { DataChangeHistoryTable } from '../components/coverage/DataChangeHistoryTable';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import {
   TableProperties,
@@ -25,6 +26,7 @@ import {
   Database,
   ExternalLink,
   Calendar,
+  History,
 } from 'lucide-react';
 
 export const DataCoveragePage: React.FC = () => {
@@ -33,6 +35,7 @@ export const DataCoveragePage: React.FC = () => {
   const distinctPeriods = getDistinctPeriods();
   const [selectedPeriod, setSelectedPeriod] = useState<string>(distinctPeriods[0] || '2026-Q3');
   const [activeProvenanceObs, setActiveProvenanceObs] = useState<MetricObservation | null>(null);
+  const [activeCoverageTab, setActiveCoverageTab] = useState<'matrix' | 'change_history' | 'data_table'>('matrix');
 
   const tableObservations = getObservations(undefined, undefined, selectedPeriod);
 
@@ -162,7 +165,50 @@ export const DataCoveragePage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2026-Q3 Reporting Season & Required Metrics Inspection Terminal */}
+      {/* Module View Mode Switcher */}
+      <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-fit">
+        <button
+          onClick={() => setActiveCoverageTab('matrix')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            activeCoverageTab === 'matrix'
+              ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <TableProperties className="w-3.5 h-3.5" />
+          <span>{language === 'ko' ? '공시 가용성 매트릭스' : 'Coverage Matrix'}</span>
+        </button>
+        <button
+          onClick={() => setActiveCoverageTab('change_history')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            activeCoverageTab === 'change_history'
+              ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>{language === 'ko' ? '데이터 변경 및 갱신 이력' : 'Data Change History'}</span>
+        </button>
+        <button
+          onClick={() => setActiveCoverageTab('data_table')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            activeCoverageTab === 'data_table'
+              ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5" />
+          <span>{language === 'ko' ? '종합 공시 테이블' : 'Consolidated Table'}</span>
+        </button>
+      </div>
+
+      {activeCoverageTab === 'change_history' && (
+        <DataChangeHistoryTable />
+      )}
+
+      {activeCoverageTab === 'matrix' && (
+        <>
+          {/* 2026-Q3 Reporting Season & Required Metrics Inspection Terminal */}
       {(() => {
         const season = getReportingSeasonSummary('2026-Q3');
         const publishedCount = season.reportedCount + season.partialCount + season.publishedPendingDataCount;
@@ -454,8 +500,11 @@ export const DataCoveragePage: React.FC = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Complete Official IR Disclosures Data Table */}
+      {activeCoverageTab === 'data_table' && (
       <div className="space-y-4">
         {/* Period Filter for Table */}
         <div className="flex items-center justify-between flex-wrap gap-3 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -489,6 +538,7 @@ export const DataCoveragePage: React.FC = () => {
           onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
         />
       </div>
+      )}
 
       {/* Methodology Commitment */}
       <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 text-xs">

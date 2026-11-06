@@ -17,6 +17,10 @@ const generateSpaStaticRoutes = (): Plugin => ({
     const indexHtml = fs.readFileSync(indexHtmlPath, 'utf-8');
 
     const routes = [
+      'rankings',
+      'market-share',
+      'financials',
+      'decomposition',
       'regions',
       'regional',
       'compare',
@@ -25,6 +29,7 @@ const generateSpaStaticRoutes = (): Plugin => ({
       'outlook',
       'coverage',
       'sources',
+      'history',
       'overview',
       'automotive',
       // OEM company routes
