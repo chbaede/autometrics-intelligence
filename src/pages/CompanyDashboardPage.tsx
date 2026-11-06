@@ -21,6 +21,7 @@ import {
 import { MetricLineChart } from '../components/metrics/charts/MetricLineChart';
 import { QuarterlyPerformanceCharts } from '../components/company/QuarterlyPerformanceCharts';
 import { StockEarningsCorrelationChart } from '../components/company/StockEarningsCorrelationChart';
+import { CompanyEfficiencyCard } from '../components/company/CompanyEfficiencyCard';
 import { ProvenanceModal } from '../components/metrics/ProvenanceModal';
 import { GoogleAdBanner } from '../components/common/GoogleAdBanner';
 import { SEO } from '../components/common/SEO';
@@ -641,6 +642,9 @@ export const CompanyDashboardPage: React.FC = () => {
         onSelectPeriod={(p) => setActivePeriod(p)}
         onSelectObservation={(obs) => setActiveProvenanceObs(obs)}
       />
+
+      {/* OEM COST & EFFICIENCY BENCHMARK CARD */}
+      <CompanyEfficiencyCard companyId={currentCompany.id} />
 
       {/* OFFICIAL PERFORMANCE DRIVERS & MANAGEMENT COMMENTARY */}
       {performanceDriver ? (
