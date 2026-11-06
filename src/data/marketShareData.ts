@@ -585,10 +585,14 @@ export interface CompatibilityValidationInput {
   regionId?: string; // 'global' | 'europe' | 'china' | 'united_states' | 'north_america'
   unit?: string; // e.g. 'thousand_units'
   sourceDocId?: string;
+  allowEstimatedDenominator?: boolean;
 }
 
 export interface CompatibilityValidationResult {
   isCompatible: boolean;
+  isEstimatedBasis?: boolean;
+  calculationBasisKo?: string;
+  calculationBasisEn?: string;
   rejectionReasonKo?: string;
   rejectionReasonEn?: string;
   incompatibilityCategory?:
@@ -653,23 +657,25 @@ export function validateMarketShareCompatibility(
     };
   }
 
-  if (!denominator.isCalculationEnabled) {
-    return {
-      isCompatible: false,
-      incompatibilityCategory: 'disabled_denominator',
-      rejectionReasonKo: denominator.disabledReasonKo || '시장 총량 분모의 신뢰성 검증 미완료로 점유율 산출 비활성화',
-      rejectionReasonEn: denominator.disabledReasonEn || 'Market share calculation disabled pending denominator audit verification',
-    };
-  }
+  if (!input.allowEstimatedDenominator) {
+    if (!denominator.isCalculationEnabled) {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'disabled_denominator',
+        rejectionReasonKo: denominator.disabledReasonKo || '시장 총량 분모의 신뢰성 검증 미완료로 점유율 산출 비활성화',
+        rejectionReasonEn: denominator.disabledReasonEn || 'Market share calculation disabled pending denominator audit verification',
+      };
+    }
 
-  // Denominator verification status gate
-  if (denominator.verificationStatus === 'estimated' || denominator.verificationStatus === 'unverified') {
-    return {
-      isCompatible: false,
-      incompatibilityCategory: 'unverified_or_estimated_denominator',
-      rejectionReasonKo: '시장 총량 분모가 추정치(estimated) 또는 미검증(unverified) 상태이므로 공식 점유율 산출이 차단됩니다.',
-      rejectionReasonEn: 'Denominator is estimated or unverified; official market share calculation blocked for audit integrity.',
-    };
+    // Denominator verification status gate
+    if (denominator.verificationStatus === 'estimated' || denominator.verificationStatus === 'unverified') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'unverified_or_estimated_denominator',
+        rejectionReasonKo: '시장 총량 분모가 추정치(estimated) 또는 미검증(unverified) 상태이므로 공식 점유율 산출이 차단됩니다.',
+        rejectionReasonEn: 'Denominator is estimated or unverified; official market share calculation blocked for audit integrity.',
+      };
+    }
   }
 
   // Denominator source URL verification gate
@@ -884,7 +890,13 @@ export function validateMarketShareCompatibility(
     }
   }
 
-  return { isCompatible: true };
+  const isEstimated = denominator.verificationStatus === 'estimated' || !denominator.isCalculationEnabled;
+  return {
+    isCompatible: true,
+    isEstimatedBasis: isEstimated,
+    calculationBasisKo: `산출 근거: ${denominator.authorityName} 모수(${denominator.totalMarketVolume.toLocaleString()}k 대) 대비 [${input.observationValue}k ÷ ${denominator.totalMarketVolume}k] 산출`,
+    calculationBasisEn: `Basis: Calculated against ${denominator.authorityName} (${denominator.totalMarketVolume.toLocaleString()}k units) [${input.observationValue}k ÷ ${denominator.totalMarketVolume}k]`,
+  };
 }
 
 /**

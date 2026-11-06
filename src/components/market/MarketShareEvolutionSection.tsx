@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   HelpCircle,
   Layers,
+  BookOpen,
 } from 'lucide-react';
 
 export const MarketShareEvolutionSection: React.FC = () => {
@@ -93,7 +94,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
         companyId: comp.id,
       });
 
-      // Run strict compatibility validation
+      // Run strict compatibility validation (allowing transparent calculation with stated basis)
       const compatCheck = validateMarketShareCompatibility(
         {
           companyId: comp.id,
@@ -105,6 +106,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
           reportingScope,
           regionId,
           unit: 'thousand_units',
+          allowEstimatedDenominator: true,
         },
         currentDenominator
       );
@@ -155,6 +157,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
               vehicleScopeType: prevVehicleScope,
               regionId: selectedMarketId,
               unit: 'thousand_units',
+              allowEstimatedDenominator: true,
             },
             prevDenominator
           );
@@ -176,6 +179,8 @@ export const MarketShareEvolutionSection: React.FC = () => {
         unavailableReason,
         sourceDocId,
         isCompatible,
+        isEstimatedBasis: compatCheck.isEstimatedBasis ?? false,
+        calculationBasis: language === 'ko' ? compatCheck.calculationBasisKo : compatCheck.calculationBasisEn,
         incompatibilityCategory: compatCheck.incompatibilityCategory,
         volumeDefinition,
       };
@@ -326,19 +331,44 @@ export const MarketShareEvolutionSection: React.FC = () => {
             </div>
           </div>
 
-          {!currentDenominator.isCalculationEnabled && (
-            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-              <div className="space-y-0.5">
-                <span className="font-bold">
-                  {language === 'ko' ? '시장 점유율 산출 비활성화 알림 (Calculation Suspended)' : 'Market Share Calculation Suspended'}
+          {/* Calculation Basis & Applied Denominators Information Banner */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl flex items-start gap-3 text-xs">
+            <BookOpen className="w-4 h-4 shrink-0 text-brand-600 dark:text-brand-400 mt-0.5" />
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-slate-900 dark:text-slate-100">
+                  {language === 'ko' ? '시장 점유율 산출 근거 및 적용 모수 안내' : 'Market Share Calculation Basis & Methodology'}
                 </span>
-                <p className="leading-relaxed">
-                  {language === 'ko' ? currentDenominator.disabledReasonKo : currentDenominator.disabledReasonEn}
-                </p>
+                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-mono text-[10px] font-bold">
+                  {language === 'ko' ? '산출 공식 투명 명시' : 'Formula & Denominator Disclosed'}
+                </span>
+                {currentDenominator.verificationStatus === 'estimated' && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-[10px] font-bold">
+                    {language === 'ko' ? '추정·잠정 모수 기준' : 'Provisional / Estimated Base'}
+                  </span>
+                )}
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                {language === 'ko'
+                  ? `본 플랫폼은 임의 조작 없이 [제조사 공식 인도량(분자) ÷ 시장 총 등록 모수(분모) × 100] 공식을 일관되게 적용하여 산출 근거를 투명하게 제시합니다. ${
+                      currentDenominator.verificationStatus === 'estimated'
+                        ? `${currentDenominator.authorityName}의 최신 등록·인도 집계치(${(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M 대, ${Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k 대)를 모수로 명시하여 점유율을 도출했습니다.`
+                        : `${currentDenominator.authorityName} 공식 확정 통계(${(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M 대)를 분모로 적용했습니다.`
+                    }`
+                  : `Market shares are computed transparently using [OEM Deliveries ÷ Total Market Denominator × 100]. Applied denominator: ${(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M units via ${currentDenominator.authorityName}.`}
+              </p>
+              <div className="flex items-center gap-3 pt-0.5 flex-wrap font-mono text-[11px]">
+                <span className="text-blue-600 dark:text-blue-400 font-semibold bg-blue-500/10 px-2 py-0.5 rounded">
+                  {language === 'ko' ? '산출 공식:' : 'Formula:'} [제조사 공시 인도량(k) ÷ {Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k] × 100
+                </span>
+                {currentDenominator.derivationFormula && (
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {language === 'ko' ? '모수 합산 근거:' : 'Base Breakdown:'} {currentDenominator.derivationFormula}
+                  </span>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       ) : (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-800 dark:text-amber-200">
@@ -370,7 +400,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                 <tr key={row.company.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                   {/* Rank */}
                   <td className="py-3 px-3 text-center font-mono font-bold text-slate-400">
-                    {isCompatible && currentDenominator?.isCalculationEnabled ? idx + 1 : '-'}
+                    {isCompatible && row.marketShare !== null ? idx + 1 : '-'}
                   </td>
 
                   {/* Company */}
@@ -412,32 +442,55 @@ export const MarketShareEvolutionSection: React.FC = () => {
                       : '-'}
                   </td>
 
-                  {/* Market Share % */}
+                  {/* Market Share % with Clear Calculation Basis in place */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {!currentDenominator?.isCalculationEnabled ? (
-                      <span className="text-amber-600 dark:text-amber-400 font-mono text-[11px] font-bold">
-                        {language === 'ko' ? '산출 비활성화' : 'Disabled'}
-                      </span>
-                    ) : isCompatible && row.marketShare !== null ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden hidden sm:block">
-                          <div
-                            className="bg-brand-600 dark:bg-brand-400 h-full rounded-full"
-                            style={{ width: `${Math.min(row.marketShare * 4, 100)}%` }}
-                          />
+                    {isCompatible && row.marketShare !== null ? (
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="w-16 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                            <div
+                              className={`h-full rounded-full ${
+                                row.isEstimatedBasis ? 'bg-blue-500 dark:bg-blue-400' : 'bg-brand-600 dark:bg-brand-400'
+                              }`}
+                              style={{ width: `${Math.min(row.marketShare * 4, 100)}%` }}
+                            />
+                          </div>
+                          <span className="font-bold text-sm text-brand-600 dark:text-brand-400">
+                            {row.marketShare.toFixed(2)}%
+                          </span>
+                          {row.isEstimatedBasis && (
+                            <span className="text-[9px] px-1 py-0.2 rounded font-sans font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
+                              {language === 'ko' ? '추정 모수' : 'Estimated Base'}
+                            </span>
+                          )}
                         </div>
-                        <span className="font-bold text-sm text-brand-600 dark:text-brand-400">
-                          {row.marketShare.toFixed(2)}%
+                        {/* Explicit Calculation Basis right in place */}
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono tracking-tight mt-0.5">
+                          {language === 'ko' ? '산출 근거:' : 'Basis:'} {row.numeratorVolume != null ? (row.numeratorVolume >= 1000 ? `${(row.numeratorVolume / 1000).toFixed(2)}M` : `${Math.round(row.numeratorVolume).toLocaleString()}k`) : 'N/A'} ÷ {currentDenominator ? (currentDenominator.totalMarketVolume >= 1000 ? `${(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M` : `${Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k`) : ''}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono">N/A</span>
+                      <div className="flex flex-col items-end text-right">
+                        <span className="text-slate-400 font-mono font-bold text-xs">
+                          {row.incompatibilityCategory === 'wholesale_vs_retail'
+                            ? (language === 'ko' ? '산출 제외 (도매)' : 'Excluded (Wholesale)')
+                            : row.incompatibilityCategory === 'missing_data'
+                            ? (language === 'ko' ? '미공시 (자료 없음)' : 'Undisclosed')
+                            : (language === 'ko' ? '산출 불가' : 'Not Applicable')}
+                        </span>
+                        <span
+                          className="text-[9px] text-amber-600 dark:text-amber-400/90 font-mono max-w-[200px] truncate"
+                          title={row.unavailableReason}
+                        >
+                          {language === 'ko' ? '근거:' : 'Reason:'} {row.unavailableReason}
+                        </span>
+                      </div>
                     )}
                   </td>
 
                   {/* YoY Change in percentage points */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {currentDenominator?.isCalculationEnabled && isCompatible && row.yoyPpDelta !== null ? (
+                    {isCompatible && row.yoyPpDelta !== null ? (
                       <span
                         className={`font-semibold px-1.5 py-0.5 rounded ${
                           row.yoyPpDelta > 0
@@ -457,10 +510,22 @@ export const MarketShareEvolutionSection: React.FC = () => {
                   {/* Status & Caveat */}
                   <td className="py-3 px-3 text-center">
                     {isCompatible ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{language === 'ko' ? '검증 완료' : 'Verified'}</span>
-                      </span>
+                      row.isEstimatedBasis ? (
+                        <div className="inline-flex flex-col items-center">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>{language === 'ko' ? '산출 근거 명시' : 'Basis Disclosed'}</span>
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            {currentDenominator?.authorityName.split('/')[0]}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{language === 'ko' ? '검증 완료' : 'Verified'}</span>
+                        </span>
+                      )
                     ) : (
                       <div
                         className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium cursor-help px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 max-w-[170px] truncate"
