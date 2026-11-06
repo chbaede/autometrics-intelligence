@@ -200,7 +200,7 @@ export const DataChangeHistoryTable: React.FC = () => {
                     >
                       {rec.isReconstructed
                         ? language === 'ko' ? '소급 검증' : 'Reconstructed'
-                        : language === 'ko' ? '실시간 반영' : 'Prospective'}
+                        : language === 'ko' ? '당기 공시' : 'Prospective Record'}
                     </span>
                   </td>
 

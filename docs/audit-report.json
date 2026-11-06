@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-06T10:24:21.334Z",
-  "sourceCommitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-  "executionCommitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-  "reportGenerationCommitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
+  "generatedAt": "2026-11-06T11:17:25.044Z",
+  "sourceCommitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+  "executionCommitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+  "reportGenerationCommitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "dirty",
@@ -21,8 +21,8 @@
       "exitCode": null,
       "status": "NOT_RUN",
       "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     },
     {
       "command": "npm test",
@@ -30,8 +30,8 @@
       "exitCode": null,
       "status": "NOT_RUN",
       "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     },
     {
       "command": "npm run validate-data",
@@ -39,8 +39,8 @@
       "exitCode": null,
       "status": "NOT_RUN",
       "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     },
     {
       "command": "npm run validate-source-claims",
@@ -48,8 +48,8 @@
       "exitCode": null,
       "status": "NOT_RUN",
       "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     },
     {
       "command": "npm run audit-data",
@@ -57,8 +57,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "0 blocking findings, 8 review findings",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     },
     {
       "command": "npm run audit-data -- --strict",
@@ -66,8 +66,8 @@
       "exitCode": null,
       "status": "NOT_RUN",
       "summary": "Alternative audit mode not executed in current pass",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     },
     {
       "command": "npm run lint",
@@ -75,8 +75,8 @@
       "exitCode": null,
       "status": "NOT_RUN",
       "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     },
     {
       "command": "npm run build",
@@ -84,8 +84,8 @@
       "exitCode": null,
       "status": "NOT_RUN",
       "summary": "Not executed in current audit-data pass (use --execute-all to execute and capture all)",
-      "commitSha": "7362c54778cb81f86ea38af5936f5bada4921e43",
-      "executedAt": "2026-11-06T10:24:21.414Z"
+      "commitSha": "4ad3ef21e05eda136d447a75daf64cfd8eba13cc",
+      "executedAt": "2026-11-06T11:17:25.135Z"
     }
   ],
   "counts": {

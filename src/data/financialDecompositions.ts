@@ -36,7 +36,9 @@ export interface FinancialDecomposition {
     revenue: number;
     operatingProfit: number;
     operatingMargin: number;
+    freeCashFlow?: number;
   };
+  groupEbtMargin?: number;
 
   // Reported Facts
   currentRevenue: number; // in millions
@@ -98,11 +100,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameKo: '외환 환율 변동 효과 (FX Effect)',
         nameEn: 'Foreign Exchange Rate Tailwinds',
         impactType: 'positive',
-        quantifiedAmount: 150000,
-        quantifiedUnit: 'JPY millions',
-        isDisclosedNumeric: true,
-        explanationKo: '엔화 약세(USD/JPY 153엔, EUR/JPY 167엔)에 따른 연결 수출 환산 이익 +1,500억 엔 공시.',
-        explanationEn: 'Weak Japanese Yen provided an officially quantified JPY 150B operating profit boost.',
+        isDisclosedNumeric: false,
+        explanationKo: '엔화 약세(USD/JPY 153엔, EUR/JPY 167엔) 수혜가 발생했으나 공식 IR 공시 상 요인별 증감액(+1,500억 엔 등)은 상반기 6개월 누적 기준이며, 단독 2분기(3개월) 수량적 분해 금액은 공식 미공시 상태입니다.',
+        explanationEn: 'Weak Japanese Yen provided operating profit tailwinds; however, disclosed numeric walk figures apply to 6M cumulative results. Standalone 3-month numeric impact is not officially disclosed.',
         sourceDocId: 'tm_2026_q3_tanshin',
         pageOrLocator: 'p. 6 (Operating Income Analysis)',
       },
@@ -111,11 +111,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameKo: '공급업체 인건비·원가 보전 지원 및 자재비 상승',
         nameEn: 'Supplier Support & Cost Inflation',
         impactType: 'negative',
-        quantifiedAmount: -180000,
-        quantifiedUnit: 'JPY millions',
-        isDisclosedNumeric: true,
-        explanationKo: '공급망 파트너사 가격 보전 지원 및 인건비·에너지 비용 상승으로 영업이익 -1,800억 엔 감소.',
-        explanationEn: 'Increased investments in supplier competitiveness and labor inflation cost JPY 180B.',
+        isDisclosedNumeric: false,
+        explanationKo: '공급망 파트너사 가격 보전 지원 및 자재비 상승으로 수익성 악화 요인 작용. (공시된 -1,800억 엔은 상반기 6개월 누적 기준이며, 단독 2분기 분해 금액 미공시)',
+        explanationEn: 'Supplier support and inflationary cost pressures weighed on profitability. (Disclosed JPY -180B is 6M cumulative; standalone Q2 numeric breakdown is unavailable)',
         sourceDocId: 'tm_2026_q3_tanshin',
         pageOrLocator: 'p. 6',
       },
@@ -124,11 +122,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameKo: '일본 내 형식인증 절차 관련 생산·출하 일시 정지',
         nameEn: 'Domestic Certification Volume Suspension',
         impactType: 'negative',
-        quantifiedAmount: -125000,
-        quantifiedUnit: 'JPY millions',
-        isDisclosedNumeric: true,
-        explanationKo: '일본 국토교통성 인증 이슈로 인한 일부 차종(야리스 크로스 등) 일시적 생산 중단으로 판매량 감소 -1,250억 엔.',
-        explanationEn: 'Temporary production suspensions from certification revisions reduced operating income by JPY 125B.',
+        isDisclosedNumeric: false,
+        explanationKo: '일본 국토교통성 인증 이슈로 인한 일부 차종(야리스 크로스 등) 일시적 생산 중단으로 판매량 감소. (공시된 -1,250억 엔은 상반기 6개월 누적 기준)',
+        explanationEn: 'Temporary production suspensions from certification revisions reduced operating volume. (Disclosed JPY -125B applies to 6M cumulative, not standalone Q2)',
         sourceDocId: 'tm_2026_q3_tanshin',
         pageOrLocator: 'p. 6',
       },
@@ -137,11 +133,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameKo: '글로벌 하이브리드(HEV) 고수익 믹스 개선',
         nameEn: 'Global Hybrid (HEV) Product Mix Expansion',
         impactType: 'positive',
-        quantifiedAmount: 40000,
-        quantifiedUnit: 'JPY millions',
-        isDisclosedNumeric: true,
-        explanationKo: '북미 및 유럽 시장 하이브리드 판매 비중 급증에 따른 고수익 믹스 및 가격 개선 +400억 엔.',
-        explanationEn: 'Strong global hybrid demand across North America and Europe lifted product mix by JPY 40B.',
+        isDisclosedNumeric: false,
+        explanationKo: '북미 및 유럽 시장 하이브리드 판매 비중 급증에 따른 고수익 믹스 개선. (공시된 +400억 엔은 상반기 6개월 누적 기준)',
+        explanationEn: 'Strong global hybrid demand across North America and Europe lifted product mix. (Disclosed JPY +40B is for 6M cumulative, standalone Q2 impact unavailable)',
         sourceDocId: 'tm_2026_q3_tanshin',
         pageOrLocator: 'p. 6',
       },
@@ -151,10 +145,12 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     officialManagementSummaryEn:
       'Despite positive FX tailwinds and hybrid demand lifting quarterly revenue to JPY 13.4T, Toyota experienced a 420 bps margin compression to 8.4% driven by domestic certification-related volume halts and supplier support costs.',
     unavailableInformationKo: [
+      '토요타 IR 공식 요인 분해표(슬라이드 6)는 상반기 6개월 누적 기준만 제공되며, 단독 2분기(3개월) 요인별 수량적 증감액(수익성 브릿지)은 공식 비공개',
       '차종별(RAV4, 캠리, 프리우스 등) 개별 차량당 순마진 기여도 비공개',
       '지역별 배터리 및 원자재 구매 단가 차이 비공시',
     ],
     unavailableInformationEn: [
+      'Toyota IR factor walk (Slide 6) is disclosed strictly for the 6-month cumulative first half; standalone Q2 (3-month) quantified factor walk is withheld',
       'Model-by-model net profit margin contribution not disclosed',
       'Exact raw material procurement price variance by region omitted',
     ],
@@ -172,14 +168,16 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'EUR',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    groupEbtMargin: 6.8,
     segmentReportingNotesKo:
-      'BMW 그룹 연결 영업이익률은 5.2%(매출 €30,452M, EBIT €1,589M)이며, 콘티넨탈 통합 제동 시스템(IBS) 리콜 관련 품질 보증 충당부채의 직접 타격을 입은 자동차 부문(Automotive Segment) 단독 EBIT 마진은 2.6%(매출 €27,854M, EBIT €718M)입니다. 두 수치는 서로 다른 회계 보고 단위입니다.',
+      'BMW 그룹 보고 단위는 그룹 연결(Group Consolidated)과 자동차 부문(Automotive Segment)으로 엄격히 분리됩니다. 그룹 3분기 실적은 매출 €30,452M, EBIT €1,589M(EBIT 마진 5.2%), 세전이익률(EBT Margin) 6.8%입니다. 콘티넨탈 IBS 제동장치 리콜 보증충당부채와 중국 수요 부진의 직접 영향을 받은 자동차 부문(Automotive Segment) 단독 실적은 매출 €26,669M, EBIT €901M, EBIT 마진 3.4%, 잉여현금흐름(FCF) €-566M입니다. 그룹 EBT 마진(6.8%)을 EBIT 마진으로 혼동하거나, 자동차 부문 EBIT 마진(3.4%)을 과거 오기재된 2.6% 또는 €718M로 표기해서는 안 됩니다.',
     segmentReportingNotesEn:
-      'BMW Group consolidated operating margin is 5.2% (Revenue €30,452M, EBIT €1,589M), whereas Automotive Segment EBIT margin is 2.6% (Revenue €27,854M, EBIT €718M) due to Continental IBS warranty provisions. These represent distinct group vs segment accounting perimeters.',
+      'BMW Group maintains strict scope separation between Group Consolidated and Automotive Segment accounting perimeters. Group consolidated Q3 results: Revenue €30,452M, EBIT €1,589M (EBIT margin 5.2%), and Group EBT margin 6.8%. The Automotive Segment, directly burdened by Continental IBS recall warranty provisions and Chinese headwinds, posted Revenue €26,669M, EBIT €901M, Automotive EBIT margin 3.4%, and Free Cash Flow of €-566M. Group EBT margin (6.8%) must not be labeled EBIT margin, and Automotive EBIT margin is verified at 3.4% (rejecting 2.6% or €718M).',
     automotiveSegmentMetrics: {
-      revenue: 27854,
-      operatingProfit: 718,
-      operatingMargin: 2.6,
+      revenue: 26669,
+      operatingProfit: 901,
+      operatingMargin: 3.4,
+      freeCashFlow: -566,
     },
     currentRevenue: 30452,
     previousRevenue: 38458,
@@ -228,9 +226,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
       },
     ],
     officialManagementSummaryKo:
-      'BMW 그룹은 3분기 콘티넨탈 공급 통합 제동장치(IBS) 부품 리콜에 따른 품질 충당금(약 9.8억 유로)과 중국 시장 수요 급감으로 자동차 부문 EBIT 마진이 2.6%(그룹 통합 5.2%)로 대폭 위축되었습니다.',
+      'BMW 그룹은 3분기 콘티넨탈 IBS 부품 리콜 보증 충당금과 중국 수요 위축으로 자동차 부문 EBIT 마진이 3.4%(EBIT €901M, FCF €-566M)를 기록하였으며, 그룹 연결 영업이익률은 5.2%(EBIT €1,589M), 그룹 EBT 마진은 6.8%를 기록했습니다.',
     officialManagementSummaryEn:
-      'BMW Group was severely impacted by warranty provisions for the Integrated Braking System (IBS) delivery stop and muted Chinese consumer demand, reducing Automotive EBIT margin to 2.6% (Group consolidated 5.2%).',
+      'BMW Group Q3 was impacted by Continental IBS recall warranty provisions and China headwinds, resulting in an Automotive Segment EBIT margin of 3.4% (EBIT €901M, FCF €-566M) and consolidated Group EBIT margin of 5.2% (Group EBT margin 6.8%).',
     unavailableInformationKo: [
       'IBS 리콜 관련 부품 공급업체(콘티넨탈) 구상권 청구 회수 예상액 미공시',
       '중국 합작법인(BBA)의 개별 모델별 인센티브 지출 상세액 비공개',

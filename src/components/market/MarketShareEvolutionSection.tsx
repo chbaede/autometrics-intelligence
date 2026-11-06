@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import {
   getMarketDenominator,
   validateMarketShareCompatibility,
+  inferObservationVehicleScope,
+  MarketDenominator,
 } from '../../data/marketShareData';
 import { getAllCompanies, getObservations, getRegionalObservations } from '../../utils/metricQueries';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -86,6 +88,11 @@ export const MarketShareEvolutionSection: React.FC = () => {
         }
       }
 
+      const vehicleScopeType = inferObservationVehicleScope({
+        reportingScope,
+        companyId: comp.id,
+      });
+
       // Run strict compatibility validation
       const compatCheck = validateMarketShareCompatibility(
         {
@@ -94,6 +101,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
           period: selectedPeriod,
           observationValue: numeratorVolume,
           volumeDefinition,
+          vehicleScopeType,
           reportingScope,
           regionId,
         },
@@ -111,12 +119,14 @@ export const MarketShareEvolutionSection: React.FC = () => {
         if (prevDenominator && previousComparisonPeriod) {
           let prevNumerator: number | null = null;
           let prevVolDef: string | undefined = undefined;
+          let prevScope: string | undefined = undefined;
 
           if (selectedMarketId === 'global') {
             const prevObs = getObservations([comp.id], ['deliveries_global'], previousComparisonPeriod)[0];
             if (prevObs && prevObs.value) {
               prevNumerator = prevObs.value;
               prevVolDef = prevObs.volumeDefinition;
+              prevScope = prevObs.reportingScope;
             }
           } else {
             const regObsPrev = getRegionalObservations(selectedMarketId).find(
@@ -125,8 +135,14 @@ export const MarketShareEvolutionSection: React.FC = () => {
             if (regObsPrev && regObsPrev.value) {
               prevNumerator = regObsPrev.value;
               prevVolDef = regObsPrev.volumeDefinition;
+              prevScope = regObsPrev.reportingScope;
             }
           }
+
+          const prevVehicleScope = inferObservationVehicleScope({
+            reportingScope: prevScope,
+            companyId: comp.id,
+          });
 
           const prevCompat = validateMarketShareCompatibility(
             {
@@ -135,6 +151,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
               period: previousComparisonPeriod,
               observationValue: prevNumerator,
               volumeDefinition: prevVolDef,
+              vehicleScopeType: prevVehicleScope,
               regionId: selectedMarketId,
             },
             prevDenominator
@@ -170,6 +187,35 @@ export const MarketShareEvolutionSection: React.FC = () => {
         return a.company.shortName.localeCompare(b.company.shortName);
       });
   }, [allCompanies, currentDenominator, prevDenominator, selectedMarketId, selectedPeriod, previousComparisonPeriod, language]);
+
+  const renderStatusBadge = (denom: MarketDenominator) => {
+    if (denom.verificationStatus === 'verified' && denom.derivationMethod === 'directly_reported') {
+      return (
+        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono text-[10px] font-bold">
+          {language === 'ko' ? '공식 발표치 (Verified)' : 'Officially Reported'}
+        </span>
+      );
+    }
+    if (denom.verificationStatus === 'calculated' || denom.derivationMethod === 'calculated_from_monthly_sum') {
+      return (
+        <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono text-[10px] font-bold">
+          {language === 'ko' ? '월별 집계 합산 (Calculated)' : 'Calculated From Monthly Data'}
+        </span>
+      );
+    }
+    if (denom.verificationStatus === 'estimated' || denom.derivationMethod === 'analytical_estimate') {
+      return (
+        <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-[10px] font-bold">
+          {language === 'ko' ? '분석적 추정치 (Estimated)' : 'Analytical Estimate (Never Green)'}
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-[10px]">
+        {language === 'ko' ? '검증 미등록 (Unverified)' : 'Unverified / Unavailable'}
+      </span>
+    );
+  };
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden p-4 sm:p-6 space-y-5 transition-colors">
@@ -229,49 +275,68 @@ export const MarketShareEvolutionSection: React.FC = () => {
 
       {/* Denominator Transparency Banner */}
       {currentDenominator ? (
-        <div className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 flex-wrap">
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              <span>
-                {language === 'ko' ? currentDenominator.marketNameKo : currentDenominator.marketNameEn} 공식 시장 모수 (분모)
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">
-                {currentDenominator.authorityName}
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-[10px]">
-                {currentDenominator.derivationMethod === 'calculated_from_monthly_sum' ? (language === 'ko' ? '월별 집계 합산' : 'Monthly Sum') : (language === 'ko' ? '공식 발표치' : 'Directly Reported')}
-              </span>
-            </div>
-            <p className="text-slate-500 dark:text-slate-400 leading-normal">
-              <span className="font-semibold text-slate-700 dark:text-slate-300">범위:</span> {currentDenominator.vehicleScope} • <span className="font-semibold text-slate-700 dark:text-slate-300">지역:</span> {currentDenominator.geographicScope}
-            </p>
-            <p className="text-[11px] text-slate-400 font-mono">
-              출처 원문: {currentDenominator.sourceTitle} ({currentDenominator.sourceLocator})
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                {language === 'ko' ? '공식 전체 시장 모수' : 'Total Market Denominator'}
-              </span>
-              <span className="text-base font-extrabold font-mono text-brand-600 dark:text-brand-400">
-                {(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M 대
-                <span className="text-xs text-slate-400 font-normal ml-1">
-                  ({Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k)
+        <div className="space-y-3">
+          <div className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 flex-wrap">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span>
+                  {language === 'ko' ? currentDenominator.marketNameKo : currentDenominator.marketNameEn} 공식 시장 모수 (분모)
                 </span>
-              </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">
+                  {currentDenominator.authorityName}
+                </span>
+                {renderStatusBadge(currentDenominator)}
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 leading-normal">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">범위:</span> {currentDenominator.vehicleScope} • <span className="font-semibold text-slate-700 dark:text-slate-300">지역:</span> {currentDenominator.geographicScope}
+              </p>
+              {currentDenominator.derivationFormula && (
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 font-mono">
+                  {language === 'ko' ? '합산 산출식:' : 'Formula:'} {currentDenominator.derivationFormula}
+                </p>
+              )}
+              <p className="text-[11px] text-slate-400 font-mono">
+                출처 원문: {currentDenominator.sourceTitle} ({currentDenominator.sourceLocator})
+              </p>
             </div>
-            <a
-              href={currentDenominator.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-brand-600 transition"
-              title={currentDenominator.sourceTitle}
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
+                  {language === 'ko' ? '공식 전체 시장 모수' : 'Total Market Denominator'}
+                </span>
+                <span className="text-base font-extrabold font-mono text-brand-600 dark:text-brand-400">
+                  {(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M 대
+                  <span className="text-xs text-slate-400 font-normal ml-1">
+                    ({Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k)
+                  </span>
+                </span>
+              </div>
+              <a
+                href={currentDenominator.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-brand-600 transition"
+                title={currentDenominator.sourceTitle}
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
           </div>
+
+          {!currentDenominator.isCalculationEnabled && (
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-bold">
+                  {language === 'ko' ? '시장 점유율 산출 비활성화 알림 (Calculation Suspended)' : 'Market Share Calculation Suspended'}
+                </span>
+                <p className="leading-relaxed">
+                  {language === 'ko' ? currentDenominator.disabledReasonKo : currentDenominator.disabledReasonEn}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-800 dark:text-amber-200">
@@ -303,7 +368,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                 <tr key={row.company.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                   {/* Rank */}
                   <td className="py-3 px-3 text-center font-mono font-bold text-slate-400">
-                    {isCompatible ? idx + 1 : '-'}
+                    {isCompatible && currentDenominator?.isCalculationEnabled ? idx + 1 : '-'}
                   </td>
 
                   {/* Company */}
@@ -347,7 +412,11 @@ export const MarketShareEvolutionSection: React.FC = () => {
 
                   {/* Market Share % */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {isCompatible && row.marketShare !== null ? (
+                    {!currentDenominator?.isCalculationEnabled ? (
+                      <span className="text-amber-600 dark:text-amber-400 font-mono text-[11px] font-bold">
+                        {language === 'ko' ? '산출 비활성화' : 'Disabled'}
+                      </span>
+                    ) : isCompatible && row.marketShare !== null ? (
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-16 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden hidden sm:block">
                           <div
@@ -366,7 +435,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
 
                   {/* YoY Change in percentage points */}
                   <td className="py-3 px-3 text-right font-mono">
-                    {isCompatible && row.yoyPpDelta !== null ? (
+                    {currentDenominator?.isCalculationEnabled && isCompatible && row.yoyPpDelta !== null ? (
                       <span
                         className={`font-semibold px-1.5 py-0.5 rounded ${
                           row.yoyPpDelta > 0
