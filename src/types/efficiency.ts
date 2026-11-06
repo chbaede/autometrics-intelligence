@@ -8,6 +8,16 @@ export type HeadcountType = 'average' | 'year_end' | 'full_time_equivalent';
 export type HeadcountScope = 'consolidated_group' | 'automotive_segment';
 export type EfficiencyMetricClassification = 'reported' | 'calculated' | 'estimated' | 'proxy';
 export type EfficiencyPeriod = '2025-FY' | '2024-FY' | '2026-LTM-est';
+export type EstimateMethodology = 'simple_annualization' | 'trailing_twelve_months' | 'guidance_based';
+
+export interface ReportedInputDetails {
+  reportedPeriod: string; // e.g. '9M 2026' or 'FY2026 H1'
+  reportedRevenue: number;
+  reportedOperatingProfit: number;
+  reportedVolume: number;
+  annualizationFactor: number; // e.g. 1.3333 or 2.0
+  reconciliationFormula: string;
+}
 
 export interface OEMEfficiencyRecord {
   companyId: string;
@@ -53,6 +63,8 @@ export interface OEMEfficiencyRecord {
 
   // Status & Provenance
   isEstimate: boolean;
+  estimateMethodology?: EstimateMethodology;
+  reportedInputDetails?: ReportedInputDetails;
   estimateBasisNotesKo?: string;
   estimateBasisNotesEn?: string;
   metricClassifications: {

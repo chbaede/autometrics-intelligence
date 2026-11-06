@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-06T21:25:51.986Z",
-  "sourceCommitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-  "executionCommitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-  "reportGenerationCommitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
+  "generatedAt": "2026-11-06T22:06:58.668Z",
+  "sourceCommitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+  "executionCommitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+  "reportGenerationCommitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "dirty",
@@ -21,8 +21,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:30.709Z"
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:38.834Z"
     },
     {
       "command": "npm run validate-data",
@@ -30,8 +30,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "🗺️  Total Regional Observations: 389 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:34.167Z"
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:41.876Z"
     },
     {
       "command": "npm run validate-source-claims",
@@ -39,8 +39,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "✨ Internal consistency validation passed: All 195 source claims across 37 documents match registered observations and document perimeters. ℹ️  Note: This confir",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:34.626Z"
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:42.308Z"
     },
     {
       "command": "npm test",
@@ -48,8 +48,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "ALL PHASE 2 COST & EFFICIENCY BENCHMARK TESTS PASSED (100%) =============================================================",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:35.039Z"
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:42.689Z"
     },
     {
       "command": "npm run audit-data",
@@ -57,8 +57,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:42.468Z"
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:50.024Z"
     },
     {
       "command": "npm run audit-data -- --strict",
@@ -66,8 +66,8 @@
       "exitCode": 1,
       "status": "EXPECTED_POLICY_FAILURE",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:43.450Z"
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:50.931Z"
     },
     {
       "command": "npm run lint",
@@ -75,17 +75,17 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:44.374Z"
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:52.201Z"
     },
     {
       "command": "npm run build",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "dist/assets/SEO-DyymDeZc.js                           468.21 kB │ gzip: 50.59 kB ✓ built in 1.96s",
-      "commitSha": "0e23ac2180ab816db1284c7c77e2158a573b18ac",
-      "executedAt": "2026-11-06T21:25:46.182Z"
+      "summary": "dist/assets/SEO-DyymDeZc.js                           468.21 kB │ gzip: 50.59 kB ✓ built in 1.54s",
+      "commitSha": "b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a",
+      "executedAt": "2026-11-06T22:06:53.656Z"
     }
   ],
   "counts": {

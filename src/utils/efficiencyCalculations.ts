@@ -257,3 +257,40 @@ export function formatEfficiencyPercentage(pct: number | null | undefined, digit
   }
   return `${pct.toFixed(digits)}%`;
 }
+
+/**
+ * Standard Korean display names for 16 global automakers.
+ * Guarantees zero unreadable Chinese/Japanese characters in Korean mode.
+ */
+export const OEM_KOREAN_NAMES: Record<string, string> = {
+  mercedes_benz: '메르세데스-벤츠',
+  bmw_group: 'BMW',
+  volkswagen_group: '폭스바겐',
+  stellantis: '스텔란티스',
+  toyota_motor: '토요타',
+  hyundai_motor: '현대자동차',
+  kia: '기아',
+  tesla: '테슬라',
+  general_motors: 'GM',
+  ford: '포드',
+  byd: 'BYD',
+  geely: '지리자동차',
+  volvo_cars: '볼보',
+  rivian: '리비안',
+  honda_motor: '혼다',
+  nissan_motor: '닛산',
+};
+
+/**
+ * Resolves a friendly, localized automaker display name.
+ */
+export function getOEMDisplayName(
+  companyId: string,
+  fallbackName: string,
+  language = 'ko'
+): string {
+  if (language === 'ko') {
+    return OEM_KOREAN_NAMES[companyId] || fallbackName;
+  }
+  return fallbackName;
+}

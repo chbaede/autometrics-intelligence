@@ -15,6 +15,7 @@ import {
   Layers,
   ChevronRight,
   ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface CompanyEfficiencyCardProps {
@@ -23,7 +24,9 @@ interface CompanyEfficiencyCardProps {
 
 export const CompanyEfficiencyCard: React.FC<CompanyEfficiencyCardProps> = ({ companyId }) => {
   const { language } = useLanguage();
-  const record = getCompanyEfficiencyRecord(companyId, '2025-FY');
+  const record =
+    getCompanyEfficiencyRecord(companyId, '2026-LTM-est') ||
+    getCompanyEfficiencyRecord(companyId, '2025-FY');
 
   if (!record) {
     return null;
@@ -51,15 +54,31 @@ export const CompanyEfficiencyCard: React.FC<CompanyEfficiencyCardProps> = ({ co
             </h3>
             <p className="text-[11px] text-slate-400">
               {language === 'ko'
-                ? '공식 사업보고서 결산 기반 인당 생산성 및 투자 집약도'
+                ? record.isEstimate
+                  ? '2026년 1~3분기 연환산 실적 기반 인당 생산성 및 투자 집약도 (추정치)'
+                  : '공식 사업보고서 결산 기반 인당 생산성 및 투자 집약도'
+                : record.isEstimate
+                ? 'Annualized 9M interim productivity and investment intensity (Estimate)'
                 : 'Audited full-year productivity and investment intensity'}
             </p>
           </div>
         </div>
 
-        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 self-start sm:self-center">
-          <ShieldCheck className="w-3 h-3 text-emerald-500" />
-          <span>{record.period} {record.fiscalYearEnd.includes('Mar') ? '(3월 결산)' : ''}</span>
+        <div
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold self-start sm:self-center ${
+            record.isEstimate
+              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+          }`}
+        >
+          {record.isEstimate ? (
+            <AlertTriangle className="w-3 h-3 text-amber-500" />
+          ) : (
+            <ShieldCheck className="w-3 h-3 text-emerald-500" />
+          )}
+          <span>
+            {record.period} {record.fiscalYearEnd.includes('Mar') ? '(3월 결산)' : ''}
+          </span>
         </div>
       </div>
 

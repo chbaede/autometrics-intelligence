@@ -9,6 +9,7 @@ import {
   formatEfficiencyCurrency,
   formatEfficiencyPercentage,
   formatEfficiencyRatio,
+  getOEMDisplayName,
 } from '../../utils/efficiencyCalculations';
 import { getCompanyById } from '../../utils/metricQueries';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -56,7 +57,7 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
   const { language } = useLanguage();
   const availablePeriods = getAvailableEfficiencyPeriods();
 
-  const [activePeriod, setActivePeriod] = useState<string>(initialPeriod || '2025-FY');
+  const [activePeriod, setActivePeriod] = useState<string>(initialPeriod || '2026-LTM-est');
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>('KRW');
   const [sortField, setSortField] = useState<SortField>('profitPerEmployee');
   const [sortAscending, setSortAscending] = useState<boolean>(false);
@@ -103,9 +104,10 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
       .filter((r) => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
-        const nameKo = r.company?.nativeName?.toLowerCase() || r.company?.shortName?.toLowerCase() || '';
-        const nameEn = r.company?.name?.toLowerCase() || '';
-        return nameKo.includes(q) || nameEn.includes(q) || r.companyId.includes(q);
+        const displayName = getOEMDisplayName(r.companyId, r.company?.shortName || r.companyName, language).toLowerCase();
+        const nameEn = (r.company?.name || r.companyName).toLowerCase();
+        const nameShort = (r.company?.shortName || '').toLowerCase();
+        return displayName.includes(q) || nameEn.includes(q) || nameShort.includes(q) || r.companyId.includes(q);
       })
       .sort((a, b) => {
         let valA: number | string | null = null;
@@ -113,8 +115,8 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
 
         switch (sortField) {
           case 'name':
-            valA = a.company?.name || a.companyId;
-            valB = b.company?.name || b.companyId;
+            valA = getOEMDisplayName(a.companyId, a.company?.shortName || a.companyName, language);
+            valB = getOEMDisplayName(b.companyId, b.company?.shortName || b.companyName, language);
             return sortAscending ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
           case 'headcount':
             valA = a.headcount;
@@ -242,7 +244,7 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
 
         return {
           companyId: r.companyId,
-          name: language === 'ko' ? r.company?.nativeName || r.company?.shortName || r.companyName : r.companyName,
+          name: getOEMDisplayName(r.companyId, r.company?.shortName || r.companyName, language),
           value: numericValue,
           formattedValue,
           logoUrl: r.company?.logoUrl,
@@ -522,29 +524,29 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                   </span>
                 </div>
 
-                {/* Bar Container */}
-                <div className="flex-1 h-6 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden relative flex items-center">
+                {/* Bar Container & Value */}
+                <div className="flex-1 flex items-center gap-3">
+                  <div className="flex-1 h-6 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden flex items-center">
+                    <div
+                      style={{ width: `${barWidthPercent}%` }}
+                      className={`h-full transition-all duration-300 rounded-lg ${
+                        isNegative
+                          ? 'bg-rose-500 dark:bg-rose-600'
+                          : item.isHighlight
+                          ? 'bg-brand-600 dark:bg-brand-500'
+                          : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                      }`}
+                    />
+                  </div>
                   <div
-                    style={{ width: `${barWidthPercent}%` }}
-                    className={`h-full transition-all duration-300 rounded-lg ${
+                    className={`w-24 sm:w-32 text-right font-mono text-[11px] sm:text-xs font-bold shrink-0 ${
                       isNegative
-                        ? 'bg-rose-500 dark:bg-rose-600'
-                        : item.isHighlight
-                        ? 'bg-brand-600 dark:bg-brand-500'
-                        : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                    }`}
-                  />
-                  <span
-                    className={`absolute right-2 font-mono text-[11px] font-bold ${
-                      barWidthPercent > 60
-                        ? 'text-white'
-                        : isNegative
                         ? 'text-rose-600 dark:text-rose-400'
-                        : 'text-slate-700 dark:text-slate-300'
+                        : 'text-slate-800 dark:text-slate-200'
                     }`}
                   >
                     {item.formattedValue}
-                  </span>
+                  </div>
                 </div>
               </div>
             );
@@ -679,7 +681,9 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                         ) : (
                           <div className="w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" />
                         )}
-                        <span className="truncate">{language === 'ko' ? rec.company?.nativeName || rec.company?.shortName || rec.companyName : rec.companyName}</span>
+                        <span className="truncate">
+                          {getOEMDisplayName(rec.companyId, rec.company?.shortName || rec.companyName, language)}
+                        </span>
                         {rec.fiscalYearEnd.includes('Mar') && (
                           <span className="text-[9px] px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
                             3월 결산
@@ -890,6 +894,24 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs">
                   <div className="font-bold mb-0.5">{language === 'ko' ? '추정치 산출 방식:' : 'Estimation Methodology:'}</div>
                   <div>{language === 'ko' ? selectedProvenanceRecord.estimateBasisNotesKo : selectedProvenanceRecord.estimateBasisNotesEn}</div>
+                </div>
+              )}
+              {selectedProvenanceRecord.reportedInputDetails && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs space-y-1 font-mono">
+                  <div className="font-bold font-sans text-slate-800 dark:text-slate-200">
+                    {language === 'ko' ? '기초 공시 실적 및 연환산 산출식:' : 'Underlying Inputs & Formula:'}
+                  </div>
+                  <div className="text-slate-600 dark:text-slate-300">
+                    • {language === 'ko' ? '기초 기간:' : 'Base Period:'} {selectedProvenanceRecord.reportedInputDetails.reportedPeriod}
+                  </div>
+                  <div className="text-slate-600 dark:text-slate-300">
+                    • {language === 'ko' ? '공시 매출 / 영업이익:' : 'Reported Rev / EBIT:'}{' '}
+                    {selectedProvenanceRecord.reportedInputDetails.reportedRevenue.toLocaleString()} / {selectedProvenanceRecord.reportedInputDetails.reportedOperatingProfit.toLocaleString()} ({selectedProvenanceRecord.reportingCurrency})
+                  </div>
+                  <div className="text-slate-600 dark:text-slate-300">
+                    • {language === 'ko' ? '재현 산식:' : 'Reconciliation Formula:'}{' '}
+                    <span className="text-brand-600 dark:text-brand-400 font-bold">{selectedProvenanceRecord.reportedInputDetails.reconciliationFormula}</span>
+                  </div>
                 </div>
               )}
             </div>
