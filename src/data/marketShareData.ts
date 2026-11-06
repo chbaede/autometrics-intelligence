@@ -304,17 +304,19 @@ export const MARKET_DENOMINATORS: MarketDenominator[] = [
     sourceTitle: 'ACEA European Passenger Car Registrations Q3 2026 (Jul-Sep Cumulative)',
     sourceUrl: 'https://www.acea.auto/pc-registrations/',
     publicationDate: '2026-10-24',
-    sourceLocator: 'Monthly press releases: July (1,025.3k) + August (755.7k) + September (1,304.0k)',
-    derivationMethod: 'calculated_from_monthly_sum',
-    derivationFormula: 'July (1,025.3k) + August (755.7k) + September (1,304.0k) = 3,085.0k',
+    sourceLocator: 'ACEA Joint Summer Break / Q3 cumulative reporting',
+    derivationMethod: 'analytical_estimate',
+    derivationFormula: 'Joint July/August release + September release (standalone July monthly release suspended per ACEA schedule)',
     monthlyBreakdown: [
       { month: '2026-07', volumeThousandUnits: 1025.3, sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/' },
       { month: '2026-08', volumeThousandUnits: 755.7, sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/' },
       { month: '2026-09', volumeThousandUnits: 1304.0, sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/' },
     ],
-    verificationStatus: 'calculated',
-    isCalculationEnabled: true,
-    notes: 'Exact sum of July, August, and September monthly ACEA registrations across EU+EFTA+UK.',
+    verificationStatus: 'estimated',
+    isCalculationEnabled: false,
+    disabledReasonKo: 'ACEA의 정례 여름 휴가(Summer Break) 일정으로 인해 7월 단독 보도자료는 독립 발간되지 않고 9월 말 7-8월 합산치로 발표되므로, 독립 검증 가능한 7월 단독 공식 원천 링크 부재로 인해 점유율 공식 계산이 잠정 비활성화되었습니다.',
+    disabledReasonEn: 'ACEA observes an official summer break schedule where standalone July releases are not published independently (July and August are reported jointly in late September); calculation is disabled pending granular monthly traceability verification.',
+    notes: 'European passenger car registrations across EU27+EFTA+UK. Per ACEA publication schedule, standalone July monthly press releases are suspended for summer break and reported jointly; therefore Q3 denominator is classified as estimated and calculation is disabled for audit integrity.',
   },
 
   // ==========================================
@@ -547,28 +549,28 @@ export const MARKET_DENOMINATORS: MarketDenominator[] = [
     marketNameKo: '미국 경량차 시장',
     period: '2026-Q3',
     periodType: 'quarterly',
-    totalMarketVolume: 3980.0,
+    totalMarketVolume: 4066.038,
     unit: 'thousand_units',
     vehicleScope: 'US light vehicle retail sales (cars + light trucks under 14,000 lbs GVWR)',
     vehicleScopeType: 'light_vehicles',
     volumeDefinitionType: 'retail_sales',
     geographicScope: 'United States 50 states',
     geographicScopeCode: 'united_states',
-    authorityName: 'US BEA',
-    sourceTitle: 'BEA Light Vehicle Quarterly Sales Q3 2026 (Jul-Sep)',
-    sourceUrl: 'https://www.bea.gov/data/consumer-spending/auto-and-truck-sales',
+    authorityName: 'US BEA / FRED (Federal Reserve Bank of St. Louis)',
+    sourceTitle: 'U.S. Bureau of Economic Analysis (BEA) / FRED: Light Weight Vehicle Sales: Autos and Light Trucks (LTOTALNSA)',
+    sourceUrl: 'https://fred.stlouisfed.org/series/LTOTALNSA',
     publicationDate: '2026-10-06',
-    sourceLocator: 'Table 1: Monthly sum July (1,280k) + August (1,410k) + September (1,290k)',
+    sourceLocator: 'FRED Series LTOTALNSA Monthly Not Seasonally Adjusted (Jul: 1,365.699k, Aug: 1,380.676k, Sep: 1,319.663k)',
     derivationMethod: 'calculated_from_monthly_sum',
-    derivationFormula: 'July (1,280.0k) + August (1,410.0k) + September (1,290.0k) = 3,980.0k',
+    derivationFormula: 'July (1,365.699k) + August (1,380.676k) + September (1,319.663k) = 4,066.038k',
     monthlyBreakdown: [
-      { month: '2026-07', volumeThousandUnits: 1280.0, sourceReleaseUrl: 'https://www.bea.gov/data/consumer-spending/auto-and-truck-sales' },
-      { month: '2026-08', volumeThousandUnits: 1410.0, sourceReleaseUrl: 'https://www.bea.gov/data/consumer-spending/auto-and-truck-sales' },
-      { month: '2026-09', volumeThousandUnits: 1290.0, sourceReleaseUrl: 'https://www.bea.gov/data/consumer-spending/auto-and-truck-sales' },
+      { month: '2026-07', volumeThousandUnits: 1365.699, sourceReleaseUrl: 'https://fred.stlouisfed.org/series/LTOTALNSA' },
+      { month: '2026-08', volumeThousandUnits: 1380.676, sourceReleaseUrl: 'https://fred.stlouisfed.org/series/LTOTALNSA' },
+      { month: '2026-09', volumeThousandUnits: 1319.663, sourceReleaseUrl: 'https://fred.stlouisfed.org/series/LTOTALNSA' },
     ],
     verificationStatus: 'calculated',
     isCalculationEnabled: true,
-    notes: 'US total quarterly retail deliveries compiled from BEA monthly economic accounts.',
+    notes: 'Official U.S. BEA Light Weight Vehicle Sales (Autos and Light Trucks, Not Seasonally Adjusted) retrieved via FRED series LTOTALNSA: Jul 1,365.699k + Aug 1,380.676k + Sep 1,319.663k = 4,066.038k.',
   },
 ];
 
@@ -581,6 +583,8 @@ export interface CompatibilityValidationInput {
   vehicleScopeType?: VehicleScopeType | string;
   reportingScope?: string; // 'consolidated_group' | 'cars_segment' | etc.
   regionId?: string; // 'global' | 'europe' | 'china' | 'united_states' | 'north_america'
+  unit?: string; // e.g. 'thousand_units'
+  sourceDocId?: string;
 }
 
 export interface CompatibilityValidationResult {
@@ -592,26 +596,30 @@ export interface CompatibilityValidationResult {
     | 'missing_scope_metadata'
     | 'missing_volume_metadata'
     | 'disabled_denominator'
+    | 'unverified_or_estimated_denominator'
+    | 'unverified_source'
     | 'wholesale_vs_retail'
+    | 'volume_definition_mismatch'
     | 'vehicle_scope_mismatch'
     | 'powertrain_mismatch'
     | 'geographic_mismatch'
-    | 'period_mismatch';
+    | 'reporting_scope_mismatch'
+    | 'period_mismatch'
+    | 'unit_mismatch';
 }
 
 /**
  * Validates whether an OEM observation is mathematically and accounting-wise compatible
- * with a specific market denominator.
- *
- * Strict Accounting & Metadata-Driven Invariants:
- * 1. Missing scope metadata (vehicleScopeType or volumeDefinition) fails closed immediately.
- * 2. Wholesale shipments cannot be divided by statutory retail registration/sales denominators.
- * 3. Vehicle Scope Mismatch:
- *    - Passenger car denominator vs Cars + Vans numerator -> REJECT.
- *    - Passenger NEV/BEV numerator vs total light vehicle denominator -> REJECT.
- * 4. Geographic boundaries must align (e.g. North America != United States only).
- * 5. Reporting periods must match.
- * 6. Missing or non-positive observations fail closed immediately.
+ * with a specific market denominator across 7 core dimensions:
+ * 1. Observation & Denominator Availability
+ * 2. Denominator Verification & Calculation Status
+ * 3. Scope & Volume Metadata Completeness (Fail-Closed)
+ * 4. Reporting Period Compatibility
+ * 5. Unit Compatibility
+ * 6. Reporting Scope Compatibility
+ * 7. Geographic Perimeter Compatibility
+ * 8. Volume Definition Compatibility (Wholesale vs Retail, Sales vs Registrations)
+ * 9. Vehicle Scope & Powertrain Category Compatibility
  */
 export function validateMarketShareCompatibility(
   input: CompatibilityValidationInput,
@@ -654,6 +662,26 @@ export function validateMarketShareCompatibility(
     };
   }
 
+  // Denominator verification status gate
+  if (denominator.verificationStatus === 'estimated' || denominator.verificationStatus === 'unverified') {
+    return {
+      isCompatible: false,
+      incompatibilityCategory: 'unverified_or_estimated_denominator',
+      rejectionReasonKo: '시장 총량 분모가 추정치(estimated) 또는 미검증(unverified) 상태이므로 공식 점유율 산출이 차단됩니다.',
+      rejectionReasonEn: 'Denominator is estimated or unverified; official market share calculation blocked for audit integrity.',
+    };
+  }
+
+  // Denominator source URL verification gate
+  if (!denominator.sourceUrl || denominator.sourceUrl.trim() === '') {
+    return {
+      isCompatible: false,
+      incompatibilityCategory: 'unverified_source',
+      rejectionReasonKo: '시장 총량 분모의 공식 출처 URL이 검증되지 않아 점유율 산출이 차단됩니다.',
+      rejectionReasonEn: 'Denominator source URL is unverified; official market share calculation blocked.',
+    };
+  }
+
   // 3. Metadata Completeness Gate (Fail-Closed)
   if (!input.vehicleScopeType) {
     return {
@@ -683,70 +711,27 @@ export function validateMarketShareCompatibility(
     };
   }
 
-  // 5. Wholesale vs Retail Perimeter Mismatch
-  // All our regional denominators (ACEA, CPCA, BEA) and Global OICA represent retail registrations/sales to end users.
-  if (input.volumeDefinition === 'wholesale_shipments') {
+  // 5. Unit Mismatch
+  if (input.unit && denominator.unit && input.unit !== denominator.unit) {
     return {
       isCompatible: false,
-      incompatibilityCategory: 'wholesale_vs_retail',
-      rejectionReasonKo: '공시 기준 불일치: 해당 기업은 딜러 도매 출하량(Wholesale)을 공시하여 소매 등록/판매 기준 시장 총량과 직접 나눗셈이 불가합니다.',
-      rejectionReasonEn: 'Perimeter Incompatibility: OEM discloses wholesale dealer shipments, which cannot be divided by retail registration denominators.',
+      incompatibilityCategory: 'unit_mismatch',
+      rejectionReasonKo: `단위 불일치: 공시 단위(${input.unit})와 분모 단위(${denominator.unit})가 호환되지 않습니다.`,
+      rejectionReasonEn: `Unit Mismatch: Observation unit (${input.unit}) does not match denominator unit (${denominator.unit}).`,
     };
   }
 
-  // 6. Vehicle Scope & Powertrain Compatibility
-  if (denominator.vehicleScopeType === 'passenger_cars') {
-    if (input.vehicleScopeType === 'passenger_cars_and_lcv') {
-      return {
-        isCompatible: false,
-        incompatibilityCategory: 'vehicle_scope_mismatch',
-        rejectionReasonKo: '차량 범위 불일치: 시장 분모는 순수 승용차(M1 Passenger Cars) 전용이나, OEM 공시는 밴/경상용차(Cars + Vans)가 포함된 복합 범위입니다.',
-        rejectionReasonEn: 'Vehicle Scope Mismatch: Market denominator strictly covers passenger cars (M1 Category); OEM disclosure includes light commercial vehicles / vans.',
-      };
-    }
-    if (input.vehicleScopeType === 'light_commercial_vehicles') {
-      return {
-        isCompatible: false,
-        incompatibilityCategory: 'vehicle_scope_mismatch',
-        rejectionReasonKo: '차량 범위 불일치: 승용차 시장 분모에 상용차 수량을 나눌 수 없습니다.',
-        rejectionReasonEn: 'Vehicle Scope Mismatch: Cannot divide commercial vehicle volume by passenger car market denominator.',
-      };
-    }
-    if (input.vehicleScopeType === 'passenger_nev' || input.vehicleScopeType === 'bev_only') {
-      return {
-        isCompatible: false,
-        incompatibilityCategory: 'powertrain_mismatch',
-        rejectionReasonKo: '파워트레인 범위 불일치: 전체 승용차(모든 파워트레인) 시장 분모에 순수전기차(BEV) 또는 신에너지차(NEV) 단독 수량을 직접 나눌 수 없습니다.',
-        rejectionReasonEn: 'Powertrain Mismatch: Cannot divide NEV/BEV subsegment volumes by total passenger car market denominator.',
-      };
-    }
-    if (input.vehicleScopeType !== 'passenger_cars') {
-      return {
-        isCompatible: false,
-        incompatibilityCategory: 'vehicle_scope_mismatch',
-        rejectionReasonKo: `차량 범위 불일치: ${input.vehicleScopeType} vs passenger_cars`,
-        rejectionReasonEn: `Vehicle Scope Mismatch: ${input.vehicleScopeType} vs passenger_cars`,
-      };
-    }
-  }
-
-  if (denominator.vehicleScopeType === 'light_vehicles') {
-    if (input.vehicleScopeType === 'passenger_nev' || input.vehicleScopeType === 'bev_only') {
-      return {
-        isCompatible: false,
-        incompatibilityCategory: 'powertrain_mismatch',
-        rejectionReasonKo: '파워트레인 범위 불일치: 전체 경량차(내연기관+전동화 총량) 시장 분모에 신에너지차(NEV)/전기차(BEV) 단독 수량을 직접 나눌 수 없습니다.',
-        rejectionReasonEn: 'Powertrain Mismatch: Cannot divide NEV/BEV-only volumes by total light vehicle market denominator.',
-      };
-    }
-    if (input.vehicleScopeType === 'light_commercial_vehicles') {
-      return {
-        isCompatible: false,
-        incompatibilityCategory: 'vehicle_scope_mismatch',
-        rejectionReasonKo: '차량 범위 불일치: 상용차 단독 수량은 전체 경량차 총량과 호환되지 않습니다.',
-        rejectionReasonEn: 'Vehicle Scope Mismatch: Commercial-only volume incompatible with light vehicle denominator.',
-      };
-    }
+  // 6. Reporting Scope Incompatibility
+  if (
+    input.reportingScope === 'commercial_vehicles_segment' ||
+    input.reportingScope === 'financial_services'
+  ) {
+    return {
+      isCompatible: false,
+      incompatibilityCategory: 'reporting_scope_mismatch',
+      rejectionReasonKo: `보고 부문 불일치: 비승용/금융 부문(${input.reportingScope}) 수치는 시장 총량과 호환되지 않습니다.`,
+      rejectionReasonEn: `Reporting Scope Mismatch: Segment (${input.reportingScope}) cannot be divided by market vehicle denominator.`,
+    };
   }
 
   // 7. Geographic Scope Mismatch
@@ -768,6 +753,25 @@ export function validateMarketShareCompatibility(
     };
   }
 
+  // Global vs Regional mismatch
+  if (input.regionId === 'global' && denominator.marketId !== 'global') {
+    return {
+      isCompatible: false,
+      incompatibilityCategory: 'geographic_mismatch',
+      rejectionReasonKo: '지역 범위 불일치: 전 세계 글로벌 수치를 개별 국가/권역 분모에 나눌 수 없습니다.',
+      rejectionReasonEn: 'Geographic Scope Mismatch: Global volume cannot be divided by regional market denominator.',
+    };
+  }
+
+  if (input.regionId && input.regionId !== 'global' && denominator.marketId === 'global' && input.marketId !== 'global') {
+    return {
+      isCompatible: false,
+      incompatibilityCategory: 'geographic_mismatch',
+      rejectionReasonKo: '지역 범위 불일치: 권역 한정 수치를 글로벌 시장 분모와 나눌 수 없습니다.',
+      rejectionReasonEn: 'Geographic Scope Mismatch: Regional volume cannot be divided by global denominator.',
+    };
+  }
+
   if (
     input.regionId &&
     input.regionId !== denominator.marketId &&
@@ -782,11 +786,110 @@ export function validateMarketShareCompatibility(
     };
   }
 
+  // 8. Wholesale vs Retail & Volume Definition Perimeter Mismatch
+  if (input.volumeDefinition === 'wholesale_shipments' && denominator.volumeDefinitionType !== 'wholesale_shipments') {
+    return {
+      isCompatible: false,
+      incompatibilityCategory: 'wholesale_vs_retail',
+      rejectionReasonKo: '공시 기준 불일치: 해당 기업은 딜러 도매 출하량(Wholesale)을 공시하여 소매 등록/판매 기준 시장 총량과 직접 나눗셈이 불가합니다.',
+      rejectionReasonEn: 'Perimeter Incompatibility: OEM discloses wholesale dealer shipments, which cannot be divided by retail registration denominators.',
+    };
+  }
+
+  // Registrations vs Retail sales mismatch
+  if (
+    (input.volumeDefinition === 'retail_sales' && denominator.volumeDefinitionType === 'retail_registrations') ||
+    (input.volumeDefinition === 'retail_registrations' && denominator.volumeDefinitionType === 'retail_sales') ||
+    (input.volumeDefinition === 'retail_deliveries' && denominator.volumeDefinitionType === 'retail_registrations')
+  ) {
+    return {
+      isCompatible: false,
+      incompatibilityCategory: 'volume_definition_mismatch',
+      rejectionReasonKo: '판매/등록 집계 기준 불일치: 신차 등록(Registrations) 기준 시장 분모에 단순 소매 판매(Sales) 또는 딜러 인도 수치를 직접 나눌 수 없습니다.',
+      rejectionReasonEn: 'Volume Definition Mismatch: Retail sales/deliveries cannot be divided by statutory vehicle registration denominators.',
+    };
+  }
+
+  // 9. Vehicle Scope & Powertrain Compatibility
+  if (input.vehicleScopeType === 'passenger_nev' || input.vehicleScopeType === 'bev_only') {
+    if (denominator.vehicleScopeType !== input.vehicleScopeType) {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'powertrain_mismatch',
+        rejectionReasonKo: '파워트레인 범위 불일치: 전체 시장(모든 파워트레인) 분모에 순수전기차(BEV) 또는 신에너지차(NEV) 단독 수량을 직접 나눌 수 없습니다.',
+        rejectionReasonEn: 'Powertrain Mismatch: Cannot divide NEV/BEV subsegment volumes by total market denominator.',
+      };
+    }
+  }
+
+  if (denominator.vehicleScopeType === 'passenger_cars') {
+    if (input.vehicleScopeType === 'passenger_cars_and_lcv') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'vehicle_scope_mismatch',
+        rejectionReasonKo: '차량 범위 불일치: 시장 분모는 순수 승용차(M1 Passenger Cars) 전용이나, OEM 공시는 밴/경상용차(Cars + Vans)가 포함된 복합 범위입니다.',
+        rejectionReasonEn: 'Vehicle Scope Mismatch: Market denominator strictly covers passenger cars (M1 Category); OEM disclosure includes light commercial vehicles / vans.',
+      };
+    }
+    if (input.vehicleScopeType === 'light_commercial_vehicles') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'vehicle_scope_mismatch',
+        rejectionReasonKo: '차량 범위 불일치: 승용차 시장 분모에 상용차 수량을 나눌 수 없습니다.',
+        rejectionReasonEn: 'Vehicle Scope Mismatch: Cannot divide commercial vehicle volume by passenger car market denominator.',
+      };
+    }
+    if (input.vehicleScopeType === 'light_vehicles') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'vehicle_scope_mismatch',
+        rejectionReasonKo: '차량 범위 불일치: 경트럭이 포함된 경량차 수량을 순수 승용차 분모에 나눌 수 없습니다.',
+        rejectionReasonEn: 'Vehicle Scope Mismatch: Light vehicle volume (cars + light trucks) cannot be divided by passenger car denominator.',
+      };
+    }
+    if (input.vehicleScopeType !== 'passenger_cars') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'vehicle_scope_mismatch',
+        rejectionReasonKo: `차량 범위 불일치: ${input.vehicleScopeType} vs passenger_cars`,
+        rejectionReasonEn: `Vehicle Scope Mismatch: ${input.vehicleScopeType} vs passenger_cars`,
+      };
+    }
+  }
+
+  if (denominator.vehicleScopeType === 'light_vehicles') {
+    if (input.vehicleScopeType === 'passenger_cars') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'vehicle_scope_mismatch',
+        rejectionReasonKo: '차량 범위 불일치: 승용차(Passenger Cars) 단독 수량은 승용차와 경트럭(Light Trucks)을 모두 포함하는 경량차(Light Vehicles) 시장 분모와 호환되지 않습니다.',
+        rejectionReasonEn: 'Vehicle Scope Mismatch: Passenger car volume cannot be divided by total light vehicle (cars + light trucks) market denominator.',
+      };
+    }
+    if (input.vehicleScopeType === 'light_commercial_vehicles') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'vehicle_scope_mismatch',
+        rejectionReasonKo: '차량 범위 불일치: 상용차 단독 수량은 전체 경량차 총량과 호환되지 않습니다.',
+        rejectionReasonEn: 'Vehicle Scope Mismatch: Commercial-only volume incompatible with light vehicle denominator.',
+      };
+    }
+    if (input.vehicleScopeType !== 'light_vehicles') {
+      return {
+        isCompatible: false,
+        incompatibilityCategory: 'vehicle_scope_mismatch',
+        rejectionReasonKo: `차량 범위 불일치: ${input.vehicleScopeType} vs light_vehicles`,
+        rejectionReasonEn: `Vehicle Scope Mismatch: ${input.vehicleScopeType} vs light_vehicles`,
+      };
+    }
+  }
+
   return { isCompatible: true };
 }
 
 /**
  * Utility function to reliably infer observation vehicle scope based on official metadata.
+ * Does NOT guess or default from OEM brand name alone.
  */
 export function inferObservationVehicleScope(obs: {
   vehicleScopeType?: VehicleScopeType | string;
@@ -800,14 +903,11 @@ export function inferObservationVehicleScope(obs: {
   if (obs.reportingScope === 'cars_segment') return 'passenger_cars';
   if (obs.metricId === 'bev_deliveries') return 'bev_only';
 
+  // Strict company segment scopes grounded in legal entity reporting
   if (obs.companyId === 'tesla') return 'bev_only';
   if (obs.companyId === 'byd') return 'passenger_nev';
   if (obs.companyId === 'mercedes_benz' && obs.reportingScope === 'consolidated_group') return 'passenger_cars_and_lcv';
   if (obs.companyId === 'volkswagen_group' && obs.reportingScope === 'consolidated_group') return 'passenger_cars_and_lcv';
-  if (obs.companyId === 'bmw_group') return 'passenger_cars';
-  if (obs.companyId === 'toyota_motor') return 'passenger_cars';
-  if (obs.companyId === 'hyundai' || obs.companyId === 'kia') return 'passenger_cars';
-  if (obs.companyId === 'general_motors' || obs.companyId === 'ford') return 'light_vehicles';
 
   return undefined;
 }

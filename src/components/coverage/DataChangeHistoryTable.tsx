@@ -199,8 +199,8 @@ export const DataChangeHistoryTable: React.FC = () => {
                       }`}
                     >
                       {rec.isReconstructed
-                        ? language === 'ko' ? '소급 검증' : 'Reconstructed'
-                        : language === 'ko' ? '당기 공시' : 'Prospective Record'}
+                        ? language === 'ko' ? '소급 검증' : 'Historical Verification'
+                        : language === 'ko' ? '당시 공시 반영' : 'Official Disclosure'}
                     </span>
                   </td>
 

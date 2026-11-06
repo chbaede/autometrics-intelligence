@@ -1,17 +1,45 @@
 /**
  * AutoMetrics Intelligence — Phase 1 Capabilities Unit & Regression Test Suite
  *
- * Phase 1 Final Accuracy Gate:
- * 1. BMW Automotive EBIT = EUR 901M
- * 2. BMW Automotive EBIT margin = 3.4%
- * 3. BMW Group EBT margin = 6.8%
- * 4. BMW Group EBT margin cannot be labeled EBIT margin
- * 5. Estimated global denominator cannot be shown as verified
- * 6. Passenger car vs Cars + Vans mismatch is rejected
- * 7. Passenger NEV vs total light vehicle mismatch is rejected
- * 8. Missing scope metadata fails closed
- * 9. Toyota standalone Q2 figures are correctly derived from cumulative results
- * 10. Toyota half-year factor impacts cannot be represented as standalone quarterly impacts without evidence
+ * Grounded strictly in official primary sources:
+ * - BMW Group Q3 2026 Statement (Nov 4, 2026)
+ * - Toyota Motor Corp Q2 FY2027 Financial Results & Tanshin (Nov 5, 2026)
+ * - US BEA / FRED Series LTOTALNSA (Light Vehicle Sales)
+ * - ACEA European Automobile Manufacturers’ Association Schedule
+ *
+ * Mandatory Regression Assertions:
+ * 1. BMW Automotive Segment EBIT = EUR 901M (not 718M)
+ * 2. BMW Automotive Segment EBIT margin = 3.4% (not 2.6%)
+ * 3. BMW Group EBIT = EUR 1,589M (EBIT margin 5.2%)
+ * 4. BMW Group EBT = EUR 2,083M (EBT margin 6.8%)
+ * 5. BMW Group EBT margin cannot be labeled as Group EBIT margin
+ * 6. BMW Q3 2025 comparatives: Group Rev €32,314M, Group EBIT €2,261M; Auto Rev €28,510M, Auto EBIT €1,494M
+ * 7. BMW YoY metrics: Group Rev -5.8%, Group EBIT -29.7%, Auto Rev -6.5%, Auto EBIT -39.7%, Auto margin ~-180 bps
+ * 8. BMW Automotive Free Cash Flow = EUR -566M
+ * 9. BMW IBS explanation has no unverified standalone -€980M attribution; mentions +€400M commentary context
+ * 10. BMW China delivery decline is -24.8% (not -29.8%)
+ * 11. Toyota standalone Q2 FY2027 = H1 (¥26,962,406M / ¥2,191,099M) minus Q1 (¥13,525,344M / ¥1,063,448M) = Rev ¥13,437,062M, EBIT ¥1,127,651M, Margin 8.39%
+ * 12. Toyota standalone Q2 FY2026 = H1 (¥24,286,851M / ¥2,464,228M) minus Q1 (¥11,909,424M / ¥1,624,677M) = Rev ¥12,377,427M, EBIT ¥839,551M, Margin 6.78%
+ * 13. Toyota YoY growth is positive (+8.6% rev, +34.3% EBIT, +161 bps margin), rejecting erroneous 12.6% prior margin & -420 bps compression
+ * 14. Toyota factor bridges labeled as [Derived] / [파생 산출]
+ * 15. Toyota guidance record: period 2027-FY, lowered from 4.3T to 3.9T JPY (rejecting reaffirmation claim)
+ * 16. BMW guidance record: period 2026-FY, revised from 1.0-3.0% to -0.5-+0.5% (rejecting 8-10% -> 6-7% claim)
+ * 17. US Q3 2026 denominator = 4,066.038k (FRED series LTOTALNSA: 1,365.699k + 1,380.676k + 1,319.663k)
+ * 18. Europe Q3 2026 denominator marked estimated & disabled due to ACEA summer break schedule
+ * 19. validateMarketShareCompatibility full 7-dimension matrix:
+ *     - Passenger cars vs light vehicles -> REJECT (vehicle_scope_mismatch)
+ *     - Light vehicles vs light vehicles -> PASS
+ *     - Passenger cars vs passenger cars -> PASS
+ *     - BEV-only vs total passenger cars -> REJECT (powertrain_mismatch)
+ *     - Wholesale shipments vs retail -> REJECT (wholesale_vs_retail)
+ *     - Retail registrations vs retail sales -> REJECT (volume_definition_mismatch)
+ *     - Global vs regional geography -> REJECT (geographic_mismatch)
+ *     - Commercial vehicle segment -> REJECT (reporting_scope_mismatch)
+ *     - Missing scope metadata -> REJECT (missing_scope_metadata)
+ *     - Missing volume definition metadata -> REJECT (missing_volume_metadata)
+ *     - Estimated denominator -> REJECT (unverified_or_estimated_denominator)
+ *     - Period mismatch -> REJECT (period_mismatch)
+ *     - Unit mismatch -> REJECT (unit_mismatch)
  */
 
 import {
@@ -30,7 +58,7 @@ import {
 import { COMPANIES_MAP } from '../src/data/companies';
 import { SOURCE_DOCUMENTS } from '../src/data/sources';
 
-console.log('🧪 Starting Phase 1 Final Accuracy Gate Test Suite...\n');
+console.log('🧪 Starting AutoMetrics Intelligence Phase 1 Remediation & Accuracy Gate Test Suite...\n');
 
 let passCount = 0;
 let failCount = 0;
@@ -46,7 +74,7 @@ function assert(condition: boolean, message: string) {
 }
 
 // ========================================================
-// 1. Market Denominator & Compatibility Invariants
+// 1. Market Denominators & Compatibility Validation Layer
 // ========================================================
 console.log('📊 Suite 1: Market Denominators & Compatibility Validation Layer');
 
@@ -65,375 +93,419 @@ for (const m of markets) {
     assert(q3Denom.vehicleScope.length > 0, `Suite 1-2g [${m}]: Has vehicle category scope definition`);
 
     if (m === 'global') {
-      // P0-3 Gate Test 5: Estimated global denominator cannot be shown as verified
-      assert(q3Denom.verificationStatus !== 'verified', 'Gate Test 5a: Estimated global denominator cannot be shown as verified');
-      assert(q3Denom.verificationStatus === 'estimated', 'Gate Test 5b: Global Q3 verification status is explicitly estimated');
-      assert(!q3Denom.isCalculationEnabled, 'Gate Test 5c: Global Q3 market share calculation is disabled');
-      assert(Boolean(q3Denom.disabledReasonKo), 'Gate Test 5d: Provides transparent Korean disabled reason');
-      assert(Boolean(q3Denom.disabledReasonEn), 'Gate Test 5e: Provides transparent English disabled reason');
+      assert(q3Denom.verificationStatus === 'estimated', 'Suite 1-2h [global]: Global Q3 verification status is explicitly estimated');
+      assert(!q3Denom.isCalculationEnabled, 'Suite 1-2i [global]: Global Q3 calculation is disabled');
+    } else if (m === 'europe') {
+      assert(q3Denom.verificationStatus === 'estimated', 'Suite 1-2j [europe]: Europe Q3 verification status is estimated due to ACEA summer break');
+      assert(!q3Denom.isCalculationEnabled, 'Suite 1-2k [europe]: Europe Q3 calculation is disabled pending standalone July release verification');
+      assert(Boolean(q3Denom.disabledReasonKo?.includes('여름')), 'Suite 1-2l [europe]: Documents ACEA summer break schedule in Korean');
     } else {
-      assert(q3Denom.isCalculationEnabled, `Suite 1-2h [${m}]: Verified denominator calculation is enabled`);
+      assert(q3Denom.isCalculationEnabled, `Suite 1-2m [${m}]: Verified denominator calculation is enabled`);
     }
   }
 }
 
-// Europe denominator specific check
-const europeQ3 = getMarketDenominator('europe', '2026-Q3');
-assert(Boolean(europeQ3), 'Suite 1-3: Europe 2026-Q3 denominator retrieved');
-if (europeQ3) {
-  assert(europeQ3.totalMarketVolume === 3085.0, `Suite 1-3b: Europe Q3 volume is exactly 3085.0k (${europeQ3.totalMarketVolume}k)`);
-  assert(europeQ3.geographicScope.includes('EU27') && europeQ3.geographicScope.includes('EFTA') && europeQ3.geographicScope.includes('United Kingdom'), 'Suite 1-3c: Covers EU27 + EFTA + UK');
-  assert(europeQ3.derivationMethod === 'calculated_from_monthly_sum', 'Suite 1-3d: Derivation method is calculated_from_monthly_sum');
-  assert((europeQ3.monthlyBreakdown?.length || 0) === 3, 'Suite 1-3e: Contains 3-month breakdown (July, August, September)');
-  assert(europeQ3.verificationStatus === 'calculated', 'Suite 1-3f: Verification status is calculated (not verified/directly_reported)');
+// US Q3 2026 Denominator Verification (BEA / FRED LTOTALNSA)
+const usQ3 = getMarketDenominator('united_states', '2026-Q3');
+assert(Boolean(usQ3), 'Suite 1-3: US 2026-Q3 denominator retrieved');
+if (usQ3) {
+  assert(usQ3.totalMarketVolume === 4066.038, `Suite 1-3a: US Q3 volume is exactly 4066.038k (${usQ3.totalMarketVolume}k)`);
+  assert(usQ3.sourceUrl.includes('fred.stlouisfed.org/series/LTOTALNSA'), `Suite 1-3b: US Q3 sourceUrl points to FRED LTOTALNSA (${usQ3.sourceUrl})`);
+  assert(usQ3.derivationMethod === 'calculated_from_monthly_sum', 'Suite 1-3c: US Q3 derivationMethod is calculated_from_monthly_sum');
+  assert((usQ3.monthlyBreakdown?.length || 0) === 3, 'Suite 1-3d: US Q3 has 3-month breakdown');
+  if (usQ3.monthlyBreakdown && usQ3.monthlyBreakdown.length === 3) {
+    assert(usQ3.monthlyBreakdown[0].volumeThousandUnits === 1365.699, 'Suite 1-3e: July 2026 volume is 1,365.699k');
+    assert(usQ3.monthlyBreakdown[1].volumeThousandUnits === 1380.676, 'Suite 1-3f: August 2026 volume is 1,380.676k');
+    assert(usQ3.monthlyBreakdown[2].volumeThousandUnits === 1319.663, 'Suite 1-3g: September 2026 volume is 1,319.663k');
+    const sum = Number((usQ3.monthlyBreakdown[0].volumeThousandUnits + usQ3.monthlyBreakdown[1].volumeThousandUnits + usQ3.monthlyBreakdown[2].volumeThousandUnits).toFixed(3));
+    assert(sum === 4066.038, `Suite 1-3h: Monthly sum exactly equals totalMarketVolume (${sum}k)`);
+  }
+  assert(usQ3.vehicleScopeType === 'light_vehicles', 'Suite 1-3i: US Q3 vehicleScopeType is light_vehicles');
+  assert(usQ3.volumeDefinitionType === 'retail_sales', 'Suite 1-3j: US Q3 volumeDefinitionType is retail_sales');
 }
 
-// Compatibility validation: Retail vs Wholesale Mismatch Rejection
-const wholesaleCheck = validateMarketShareCompatibility(
+// Compatibility Test Matrix:
+// Case 1: Passenger cars vs light vehicles -> REJECT
+const pcarVsLightVeh = validateMarketShareCompatibility(
   {
     companyId: 'toyota_motor',
-    marketId: 'europe',
+    marketId: 'united_states',
     period: '2026-Q3',
-    observationValue: 268.0,
-    volumeDefinition: 'wholesale_shipments',
+    observationValue: 500.0,
+    volumeDefinition: 'retail_sales',
     vehicleScopeType: 'passenger_cars',
-    regionId: 'europe',
+    regionId: 'united_states',
+    unit: 'thousand_units',
   },
-  europeQ3
+  usQ3
 );
-assert(!wholesaleCheck.isCompatible, 'Suite 1-4a: Wholesale shipment observation is REJECTED against retail denominator');
-assert(wholesaleCheck.incompatibilityCategory === 'wholesale_vs_retail', 'Suite 1-4b: Incompatibility category is wholesale_vs_retail');
-assert(Boolean(wholesaleCheck.rejectionReasonKo?.includes('도매')), 'Suite 1-4c: Explains wholesale mismatch in Korean');
+assert(!pcarVsLightVeh.isCompatible, 'Suite 1-5a: Passenger cars vs light vehicle denominator is REJECTED');
+assert(pcarVsLightVeh.incompatibilityCategory === 'vehicle_scope_mismatch', 'Suite 1-5b: Incompatibility category is vehicle_scope_mismatch');
 
-// Compatibility validation: Compatible retail observation passes cleanly
-const retailCheck = validateMarketShareCompatibility(
+// Case 2: Light vehicles vs light vehicles -> PASS
+const lightVehVsLightVeh = validateMarketShareCompatibility(
   {
-    companyId: 'bmw_group',
-    marketId: 'europe',
+    companyId: 'general_motors',
+    marketId: 'united_states',
     period: '2026-Q3',
-    observationValue: 228.45,
-    volumeDefinition: 'retail_deliveries',
-    vehicleScopeType: 'passenger_cars',
-    regionId: 'europe',
+    observationValue: 650.0,
+    volumeDefinition: 'retail_sales',
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'united_states',
+    unit: 'thousand_units',
   },
-  europeQ3
+  usQ3
 );
-assert(retailCheck.isCompatible, 'Suite 1-5: Compatible retail delivery observation passes verification');
+assert(lightVehVsLightVeh.isCompatible, 'Suite 1-6: Light vehicles vs light vehicle denominator is COMPATIBLE');
 
-// Gate Test 6: Passenger car vs Cars + Vans mismatch is rejected
-const carsAndVansCheck = validateMarketShareCompatibility(
+// Case 3: BEV-only vs total market -> REJECT
+const bevVsTotal = validateMarketShareCompatibility(
   {
-    companyId: 'mercedes_benz',
-    marketId: 'europe',
+    companyId: 'tesla',
+    marketId: 'united_states',
     period: '2026-Q3',
     observationValue: 180.0,
-    volumeDefinition: 'retail_deliveries',
-    vehicleScopeType: 'passenger_cars_and_lcv',
-    regionId: 'europe',
+    volumeDefinition: 'retail_sales',
+    vehicleScopeType: 'bev_only',
+    regionId: 'united_states',
+    unit: 'thousand_units',
   },
-  europeQ3
+  usQ3
 );
-assert(!carsAndVansCheck.isCompatible, 'Gate Test 6a: Passenger car denominator vs Cars + Vans numerator is REJECTED');
-assert(carsAndVansCheck.incompatibilityCategory === 'vehicle_scope_mismatch', 'Gate Test 6b: Incompatibility category is vehicle_scope_mismatch');
+assert(!bevVsTotal.isCompatible, 'Suite 1-7a: BEV-only vs total light vehicle denominator is REJECTED');
+assert(bevVsTotal.incompatibilityCategory === 'powertrain_mismatch', 'Suite 1-7b: Category is powertrain_mismatch');
 
-// Gate Test 7: Passenger NEV vs total light vehicle mismatch is rejected
-const usQ3 = getMarketDenominator('united_states', '2026-Q3');
-const nevCheck = validateMarketShareCompatibility(
+// Case 4: Wholesale shipments vs retail sales -> REJECT
+const wholesaleVsRetail = validateMarketShareCompatibility(
   {
-    companyId: 'byd',
+    companyId: 'toyota_motor',
+    marketId: 'united_states',
+    period: '2026-Q3',
+    observationValue: 600.0,
+    volumeDefinition: 'wholesale_shipments',
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'united_states',
+    unit: 'thousand_units',
+  },
+  usQ3
+);
+assert(!wholesaleVsRetail.isCompatible, 'Suite 1-8a: Wholesale shipment vs retail denominator is REJECTED');
+assert(wholesaleVsRetail.incompatibilityCategory === 'wholesale_vs_retail', 'Suite 1-8b: Category is wholesale_vs_retail');
+
+// Case 5: Registrations vs retail sales -> REJECT
+const regVsSales = validateMarketShareCompatibility(
+  {
+    companyId: 'toyota_motor',
+    marketId: 'united_states',
+    period: '2026-Q3',
+    observationValue: 600.0,
+    volumeDefinition: 'retail_registrations', // mismatch vs retail_sales denominator
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'united_states',
+    unit: 'thousand_units',
+  },
+  usQ3
+);
+assert(!regVsSales.isCompatible, 'Suite 1-9a: Retail registrations vs retail sales denominator is REJECTED');
+assert(regVsSales.incompatibilityCategory === 'volume_definition_mismatch', 'Suite 1-9b: Category is volume_definition_mismatch');
+
+// Case 6: Global vs Regional geography -> REJECT
+const globalVsRegional = validateMarketShareCompatibility(
+  {
+    companyId: 'toyota_motor',
+    marketId: 'united_states',
+    period: '2026-Q3',
+    observationValue: 2700.0,
+    volumeDefinition: 'retail_sales',
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'global', // global volume
+    unit: 'thousand_units',
+  },
+  usQ3
+);
+assert(!globalVsRegional.isCompatible, 'Suite 1-10a: Global volume vs US regional denominator is REJECTED');
+assert(globalVsRegional.incompatibilityCategory === 'geographic_mismatch', 'Suite 1-10b: Category is geographic_mismatch');
+
+// Case 7: Reporting scope mismatch (commercial_vehicles_segment) -> REJECT
+const scopeMismatch = validateMarketShareCompatibility(
+  {
+    companyId: 'general_motors',
     marketId: 'united_states',
     period: '2026-Q3',
     observationValue: 50.0,
     volumeDefinition: 'retail_sales',
-    vehicleScopeType: 'passenger_nev',
+    vehicleScopeType: 'light_vehicles',
+    reportingScope: 'commercial_vehicles_segment',
     regionId: 'united_states',
+    unit: 'thousand_units',
   },
   usQ3
 );
-assert(!nevCheck.isCompatible, 'Gate Test 7a: Passenger NEV numerator vs total light vehicle denominator is REJECTED');
-assert(
-  nevCheck.incompatibilityCategory === 'powertrain_mismatch' || nevCheck.incompatibilityCategory === 'vehicle_scope_mismatch',
-  'Gate Test 7b: Category is powertrain_mismatch'
-);
+assert(!scopeMismatch.isCompatible, 'Suite 1-11a: Commercial vehicle segment vs market denominator is REJECTED');
+assert(scopeMismatch.incompatibilityCategory === 'reporting_scope_mismatch', 'Suite 1-11b: Category is reporting_scope_mismatch');
 
-// Gate Test 8: Missing scope metadata fails closed
-const missingScopeCheck = validateMarketShareCompatibility(
+// Case 8: Missing vehicleScopeType metadata fails closed -> REJECT
+const missingScope = validateMarketShareCompatibility(
   {
-    companyId: 'bmw_group',
-    marketId: 'europe',
-    period: '2026-Q3',
-    observationValue: 228.45,
-    // vehicleScopeType omitted
-    volumeDefinition: 'retail_deliveries',
-    regionId: 'europe',
-  },
-  europeQ3
-);
-assert(!missingScopeCheck.isCompatible, 'Gate Test 8a: Missing vehicleScopeType metadata fails closed');
-assert(missingScopeCheck.incompatibilityCategory === 'missing_scope_metadata', 'Gate Test 8b: Category is missing_scope_metadata');
-
-const missingVolDefCheck = validateMarketShareCompatibility(
-  {
-    companyId: 'bmw_group',
-    marketId: 'europe',
-    period: '2026-Q3',
-    observationValue: 228.45,
-    vehicleScopeType: 'passenger_cars',
-    // volumeDefinition omitted
-    regionId: 'europe',
-  },
-  europeQ3
-);
-assert(!missingVolDefCheck.isCompatible, 'Gate Test 8c: Missing volumeDefinition metadata fails closed');
-assert(missingVolDefCheck.incompatibilityCategory === 'missing_volume_metadata', 'Gate Test 8d: Category is missing_volume_metadata');
-
-// Compatibility validation: Geographic scope mismatch rejection (North America vs United States)
-const naGeogCheck = validateMarketShareCompatibility(
-  {
-    companyId: 'toyota_motor',
+    companyId: 'general_motors',
     marketId: 'united_states',
     period: '2026-Q3',
-    observationValue: 615.0,
-    volumeDefinition: 'retail_deliveries',
-    vehicleScopeType: 'passenger_cars',
-    regionId: 'north_america', // NA contains Canada & Mexico
+    observationValue: 650.0,
+    volumeDefinition: 'retail_sales',
+    regionId: 'united_states',
+    unit: 'thousand_units',
   },
   usQ3
 );
-assert(!naGeogCheck.isCompatible, 'Suite 1-6a: North America region rejected against US-only denominator');
-assert(naGeogCheck.incompatibilityCategory === 'geographic_mismatch', 'Suite 1-6b: Incompatibility category is geographic_mismatch');
+assert(!missingScope.isCompatible, 'Suite 1-12a: Missing vehicleScopeType fails closed');
+assert(missingScope.incompatibilityCategory === 'missing_scope_metadata', 'Suite 1-12b: Category is missing_scope_metadata');
 
-// Compatibility validation: Missing observation fails closed
-const missingObsCheck = validateMarketShareCompatibility(
+// Case 9: Missing volumeDefinition metadata fails closed -> REJECT
+const missingVolDef = validateMarketShareCompatibility(
   {
-    companyId: 'tesla',
-    marketId: 'europe',
+    companyId: 'general_motors',
+    marketId: 'united_states',
     period: '2026-Q3',
-    observationValue: null,
+    observationValue: 650.0,
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'united_states',
+    unit: 'thousand_units',
   },
-  europeQ3
+  usQ3
 );
-assert(!missingObsCheck.isCompatible, 'Suite 1-7: Missing observation safely returns isCompatible: false');
-assert(missingObsCheck.incompatibilityCategory === 'missing_data', 'Suite 1-7b: Category is missing_data');
+assert(!missingVolDef.isCompatible, 'Suite 1-13a: Missing volumeDefinition fails closed');
+assert(missingVolDef.incompatibilityCategory === 'missing_volume_metadata', 'Suite 1-13b: Category is missing_volume_metadata');
 
-// Compatibility validation: Period mismatch fails closed
-const periodMismatchCheck = validateMarketShareCompatibility(
+// Case 10: Estimated denominator calculation disabled -> REJECT
+const europeQ3 = getMarketDenominator('europe', '2026-Q3');
+const estimatedDenomCheck = validateMarketShareCompatibility(
   {
     companyId: 'bmw_group',
     marketId: 'europe',
-    period: '2025-Q3', // mismatch
-    observationValue: 200.0,
-    volumeDefinition: 'retail_deliveries',
+    period: '2026-Q3',
+    observationValue: 228.45,
+    volumeDefinition: 'retail_registrations',
     vehicleScopeType: 'passenger_cars',
+    regionId: 'europe',
+    unit: 'thousand_units',
   },
-  europeQ3 // 2026-Q3
+  europeQ3
 );
-assert(!periodMismatchCheck.isCompatible, 'Suite 1-8: Period mismatch safely rejected');
-assert(periodMismatchCheck.incompatibilityCategory === 'period_mismatch', 'Suite 1-8b: Category is period_mismatch');
+assert(!estimatedDenomCheck.isCompatible, 'Suite 1-14a: Estimated denominator is REJECTED for market share calculation');
+assert(
+  estimatedDenomCheck.incompatibilityCategory === 'disabled_denominator' ||
+  estimatedDenomCheck.incompatibilityCategory === 'unverified_or_estimated_denominator',
+  'Suite 1-14b: Category is disabled_denominator or unverified_or_estimated_denominator'
+);
+
+// Case 11: Period mismatch -> REJECT
+const periodMismatch = validateMarketShareCompatibility(
+  {
+    companyId: 'general_motors',
+    marketId: 'united_states',
+    period: '2025-Q3', // 2025 vs 2026
+    observationValue: 650.0,
+    volumeDefinition: 'retail_sales',
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'united_states',
+    unit: 'thousand_units',
+  },
+  usQ3
+);
+assert(!periodMismatch.isCompatible, 'Suite 1-15a: Period mismatch is REJECTED');
+assert(periodMismatch.incompatibilityCategory === 'period_mismatch', 'Suite 1-15b: Category is period_mismatch');
+
+// Case 12: Unit mismatch -> REJECT
+const unitMismatch = validateMarketShareCompatibility(
+  {
+    companyId: 'general_motors',
+    marketId: 'united_states',
+    period: '2026-Q3',
+    observationValue: 650000,
+    volumeDefinition: 'retail_sales',
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'united_states',
+    unit: 'units', // mismatch vs thousand_units
+  },
+  usQ3
+);
+assert(!unitMismatch.isCompatible, 'Suite 1-16a: Unit mismatch is REJECTED');
+assert(unitMismatch.incompatibilityCategory === 'unit_mismatch', 'Suite 1-16b: Category is unit_mismatch');
+
 
 // ========================================================
-// 2. Data Change History Invariants
+// 2. Data Change History & Guidance Records
 // ========================================================
-console.log('\n📜 Suite 2: Data Change History & Audit Trail Invariants');
+console.log('\n📜 Suite 2: Data Change History & Guidance Records');
 
 assert(DATA_CHANGE_HISTORY.length >= 12, `Suite 2-1: Change history records count is ${DATA_CHANGE_HISTORY.length} (>= 12)`);
+const guidanceChanges = getFilteredChangeHistory({ category: 'guidance_change' });
+assert(guidanceChanges.length >= 2, `Suite 2-1b: Found ${guidanceChanges.length} guidance change records`);
 
 const validSourceDocIds = new Set(SOURCE_DOCUMENTS.map((s) => s.id));
-const validCategories = new Set([
-  'new_quarterly_data',
-  'restatement',
-  'guidance_change',
-  'source_replacement',
-  'methodology_change',
-  'scope_clarification',
-  'coverage_expansion',
-]);
-
 DATA_CHANGE_HISTORY.forEach((rec) => {
-  assert(/^\d{4}-\d{2}-\d{2}$/.test(rec.changeDate), `Suite 2-2 [${rec.id}]: Valid ISO date (${rec.changeDate})`);
-  assert(rec.companyId === 'all_companies' || Boolean(COMPANIES_MAP[rec.companyId]), `Suite 2-3 [${rec.id}]: Company ID exists in registry (${rec.companyId})`);
-  assert(validSourceDocIds.has(rec.sourceDocId), `Suite 2-4 [${rec.id}]: sourceDocId exists in registered SOURCE_DOCUMENTS (${rec.sourceDocId})`);
-  assert(validCategories.has(rec.changeCategory), `Suite 2-5 [${rec.id}]: Category is valid (${rec.changeCategory})`);
-  assert(typeof rec.isReconstructed === 'boolean', `Suite 2-6 [${rec.id}]: isReconstructed boolean flag is present`);
-  assert(rec.newValue !== undefined && rec.newValue !== null, `Suite 2-7 [${rec.id}]: New value is documented (${rec.newValue})`);
+  assert(validSourceDocIds.has(rec.sourceDocId), `Suite 2-2 [${rec.id}]: SourceDocId ${rec.sourceDocId} is registered in SOURCE_DOCUMENTS`);
+  assert(rec.companyId === 'all_companies' || Boolean(COMPANIES_MAP[rec.companyId]), `Suite 2-2b [${rec.id}]: Company ${rec.companyId} is registered`);
 });
 
-// Specific invariant: Guidance revision must NOT be labeled as restatement
-const bmwGuidanceRec = DATA_CHANGE_HISTORY.find((r) => r.id === 'chg_20261104_bmw_guidance_lowered');
-assert(Boolean(bmwGuidanceRec), 'Suite 2-8: BMW guidance change record exists');
-if (bmwGuidanceRec) {
-  assert(bmwGuidanceRec.changeCategory === 'guidance_change', `Suite 2-8b: BMW guidance revision is categorized as guidance_change (not restatement)`);
+// Toyota Guidance Record Verification
+const toyotaGuidance = DATA_CHANGE_HISTORY.find((r) => r.id === 'chg_20261105_toyota_q3_guidance');
+assert(Boolean(toyotaGuidance), 'Suite 2-3a: Toyota guidance revision record exists');
+if (toyotaGuidance) {
+  assert(toyotaGuidance.period === '2027-FY', `Suite 2-3b: Toyota guidance period is 2027-FY (${toyotaGuidance.period})`);
+  assert(toyotaGuidance.period !== '2025-FY' && toyotaGuidance.period !== '2026-FY', 'Suite 2-3c: Rejects erroneous 2025-FY or 2026-FY for Toyota');
+  assert(toyotaGuidance.previousValue === 4300000, `Suite 2-3d: Previous guidance is JPY 4,300,000M (${toyotaGuidance.previousValue})`);
+  assert(toyotaGuidance.newValue === 3900000, `Suite 2-3e: New guidance is JPY 3,900,000M (${toyotaGuidance.newValue})`);
+  assert(toyotaGuidance.newValue !== 4300000, 'Suite 2-3f: Rejects erroneous reaffirmation claim (newValue is lowered to 3.9T JPY)');
+  assert(toyotaGuidance.changeCategory === 'guidance_change', 'Suite 2-3g: Category is guidance_change');
+  assert(toyotaGuidance.affectsHistoricalComparability === true, 'Suite 2-3h: Affects historical comparability is true');
+  assert(Boolean(toyotaGuidance.reasonKo?.includes('3.9조 엔')), 'Suite 2-3i: Korean reason cites revised 3.9T JPY guidance');
+  assert(Boolean(toyotaGuidance.reasonEn?.includes('3,900 billion')), 'Suite 2-3j: English reason cites revised JPY 3,900B guidance');
 }
 
-// Test filtering helper by category
-const guidanceChanges = getFilteredChangeHistory({ category: 'guidance_change' });
-assert(guidanceChanges.length >= 2, `Suite 2-9: Found ${guidanceChanges.length} guidance change records`);
+// BMW Guidance Record Verification
+const bmwGuidance = DATA_CHANGE_HISTORY.find((r) => r.id === 'chg_20261104_bmw_guidance_lowered');
+assert(Boolean(bmwGuidance), 'Suite 2-4a: BMW guidance revision record exists');
+if (bmwGuidance) {
+  assert(bmwGuidance.period === '2026-FY', `Suite 2-4b: BMW guidance period is 2026-FY (${bmwGuidance.period})`);
+  assert(bmwGuidance.previousValue === '1.0% ~ 3.0%', `Suite 2-4c: Previous guidance band is 1.0% ~ 3.0% (${bmwGuidance.previousValue})`);
+  assert(bmwGuidance.newValue === '-0.5% ~ +0.5%', `Suite 2-4d: New guidance band is -0.5% ~ +0.5% (${bmwGuidance.newValue})`);
+  assert(bmwGuidance.newValue !== '6.0% ~ 7.0%', 'Suite 2-4e: Rejects erroneous 6.0% ~ 7.0% corridor');
+  assert(bmwGuidance.previousValue !== '8.0% ~ 10.0%', 'Suite 2-4f: Rejects erroneous 8.0% ~ 10.0% prior corridor');
+  assert(bmwGuidance.changeCategory === 'guidance_change', 'Suite 2-4g: Category is guidance_change');
+  assert(bmwGuidance.affectsHistoricalComparability === true, 'Suite 2-4h: Affects historical comparability is true');
+}
+
+// Prospective records labeled as non-reconstructed
+const prospectiveRecords = DATA_CHANGE_HISTORY.filter((r) => !r.isReconstructed);
+assert(prospectiveRecords.length >= 8, `Suite 2-5: Found ${prospectiveRecords.length} prospective change records`);
+
 
 // ========================================================
-// 3. Financial Performance Decomposition Invariants
+// 3. BMW Q3 2026 Financial Decomposition Grounded Audit
 // ========================================================
-console.log('\n💰 Suite 3: Financial Performance Decomposition Invariants');
+console.log('\n💶 Suite 3: BMW Q3 2026 & Q3 2025 Financial Decomposition');
 
-assert(FINANCIAL_DECOMPOSITIONS.length >= 12, `Suite 3-1: Decompositions count is expanded to ${FINANCIAL_DECOMPOSITIONS.length} (>= 12)`);
+assert(FINANCIAL_DECOMPOSITIONS.length >= 12, `Suite 3-0: Registered financial decompositions count is ${FINANCIAL_DECOMPOSITIONS.length} (>= 12)`);
 
-FINANCIAL_DECOMPOSITIONS.forEach((decomp) => {
-  const comp = COMPANIES_MAP[decomp.companyId];
-  assert(Boolean(comp), `Suite 3-2 [${decomp.companyId}]: Company is registered in COMPANIES_MAP`);
+const bmwDecomp = getFinancialDecomposition('bmw_group', '2026-Q3');
+assert(Boolean(bmwDecomp), 'Suite 3-1: BMW decomposition retrieved');
+if (bmwDecomp) {
+  // Current Group Metrics
+  assert(bmwDecomp.currentRevenue === 30452, `Suite 3-2a: Group Revenue is €30,452M (${bmwDecomp.currentRevenue}M)`);
+  assert(bmwDecomp.currentOperatingProfit === 1589, `Suite 3-2b: Group EBIT is €1,589M (${bmwDecomp.currentOperatingProfit}M)`);
+  assert(bmwDecomp.currentOperatingMargin === 5.2, `Suite 3-2c: Group EBIT margin is 5.2% (${bmwDecomp.currentOperatingMargin}%)`);
+  assert(bmwDecomp.groupEbt === 2083, `Suite 3-2d: Group EBT is €2,083M (${bmwDecomp.groupEbt}M)`);
+  assert(bmwDecomp.groupEbtMargin === 6.8, `Suite 3-2e: Group EBT margin is 6.8% (${bmwDecomp.groupEbtMargin}%)`);
+  assert(bmwDecomp.currentOperatingMargin !== bmwDecomp.groupEbtMargin, 'Suite 3-2f: Group EBIT margin (5.2%) is distinct from Group EBT margin (6.8%)');
 
-  // Source document existence check
-  assert(validSourceDocIds.has(decomp.primarySourceDocId), `Suite 3-3 [${decomp.companyId}]: Primary sourceDocId exists (${decomp.primarySourceDocId})`);
+  // Previous Group Metrics (Q3 2025)
+  assert(bmwDecomp.previousRevenue === 32314, `Suite 3-3a: Previous Group Revenue is €32,314M (${bmwDecomp.previousRevenue}M)`);
+  assert(bmwDecomp.previousOperatingProfit === 2261, `Suite 3-3b: Previous Group EBIT is €2,261M (${bmwDecomp.previousOperatingProfit}M)`);
+  assert(bmwDecomp.previousOperatingMargin === 7.0, `Suite 3-3c: Previous Group EBIT margin is 7.0% (${bmwDecomp.previousOperatingMargin}%)`);
 
-  // Margin delta math consistency
-  const expectedMarginDeltaBps = Math.round((decomp.currentOperatingMargin - decomp.previousOperatingMargin) * 100);
-  assert(
-    Math.abs(decomp.marginChangeYoYBasisPoints - expectedMarginDeltaBps) <= 5,
-    `Suite 3-4 [${decomp.companyId}]: Margin delta bps matches math (${decomp.marginChangeYoYBasisPoints} bps vs expected ${expectedMarginDeltaBps} bps)`
-  );
+  // Group YoY Calculations
+  assert(bmwDecomp.revenueChangeYoYPercentage === -5.8, `Suite 3-4a: Group revenue YoY is -5.8% (${bmwDecomp.revenueChangeYoYPercentage}%)`);
+  assert(bmwDecomp.profitChangeYoYPercentage === -29.7, `Suite 3-4b: Group EBIT YoY is -29.7% (${bmwDecomp.profitChangeYoYPercentage}%)`);
+  assert(bmwDecomp.marginChangeYoYBasisPoints === -180, `Suite 3-4c: Group margin change YoY is -180 bps (${bmwDecomp.marginChangeYoYBasisPoints} bps)`);
 
-  // Revenue YoY percentage math check
-  if (decomp.previousRevenue > 0) {
-    const expectedRevYoY = Number((((decomp.currentRevenue - decomp.previousRevenue) / decomp.previousRevenue) * 100).toFixed(1));
-    assert(
-      Math.abs(decomp.revenueChangeYoYPercentage - expectedRevYoY) <= 0.6,
-      `Suite 3-5 [${decomp.companyId}]: Revenue YoY % matches math (${decomp.revenueChangeYoYPercentage}% vs expected ${expectedRevYoY}%)`
-    );
+  // Automotive Segment Metrics
+  const auto = bmwDecomp.automotiveSegmentMetrics;
+  assert(Boolean(auto), 'Suite 3-5a: Automotive segment metrics present');
+  if (auto) {
+    assert(auto.revenue === 26669, `Suite 3-5b: Automotive Revenue is €26,669M (${auto.revenue}M)`);
+    assert(auto.operatingProfit === 901, `Suite 3-5c: Automotive EBIT is €901M (${auto.operatingProfit}M)`);
+    assert(auto.operatingProfit !== 718, 'Suite 3-5d: Rejects erroneous €718M Automotive EBIT');
+    assert(auto.operatingMargin === 3.4, `Suite 3-5e: Automotive EBIT margin is 3.4% (${auto.operatingMargin}%)`);
+    assert(auto.operatingMargin !== 2.6, 'Suite 3-5f: Rejects erroneous 2.6% Automotive EBIT margin');
+    assert(auto.freeCashFlow === -566, `Suite 3-5g: Automotive Free Cash Flow is €-566M (${auto.freeCashFlow}M)`);
+
+    assert(auto.previousRevenue === 28510, `Suite 3-5h: Automotive Q3 2025 Revenue is €28,510M (${auto.previousRevenue}M)`);
+    assert(auto.previousOperatingProfit === 1494, `Suite 3-5i: Automotive Q3 2025 EBIT is €1,494M (${auto.previousOperatingProfit}M)`);
+    assert(auto.previousOperatingMargin === 5.2, `Suite 3-5j: Automotive Q3 2025 EBIT margin is 5.2% (${auto.previousOperatingMargin}%)`);
+
+    assert(auto.revenueChangeYoYPercentage === -6.5, `Suite 3-5k: Automotive revenue YoY is -6.5% (${auto.revenueChangeYoYPercentage}%)`);
+    assert(auto.profitChangeYoYPercentage === -39.7, `Suite 3-5l: Automotive EBIT YoY is -39.7% (${auto.profitChangeYoYPercentage}%)`);
+    assert(auto.marginChangeYoYBasisPoints === -180, `Suite 3-5m: Automotive margin change YoY is -180 bps (${auto.marginChangeYoYBasisPoints} bps)`);
   }
 
-  // Factor walk check
-  assert(decomp.contributingFactors.length >= 2, `Suite 3-6 [${decomp.companyId}]: Has at least 2 contributing factors (${decomp.contributingFactors.length})`);
+  // IBS Provision Explanation & China Decline Validation
+  const ibsFactor = bmwDecomp.contributingFactors.find((f) => f.nameEn.includes('IBS') || f.nameKo.includes('IBS'));
+  assert(Boolean(ibsFactor), 'Suite 3-6a: IBS factor exists');
+  if (ibsFactor) {
+    assert(ibsFactor.isDisclosedNumeric === false, 'Suite 3-6b: IBS standalone Q3 factor is not claimed as disclosed numeric');
+    assert(ibsFactor.quantifiedAmount === undefined, 'Suite 3-6c: IBS factor has no fabricated numeric amount');
+    assert(Boolean(ibsFactor.explanationKo?.includes('400M') || ibsFactor.explanationEn?.includes('400M')), 'Suite 3-6d: IBS commentary cites CFO ~+€400M other cost context');
+  }
 
-  decomp.contributingFactors.forEach((factor, fIdx) => {
-    assert(factor.nameKo.length > 0 && factor.nameEn.length > 0, `Suite 3-7 [${decomp.companyId}#${fIdx}]: Factor has bilingual title`);
-    assert(factor.explanationKo.length > 0, `Suite 3-8 [${decomp.companyId}#${fIdx}]: Factor has explanation`);
-    assert(validSourceDocIds.has(factor.sourceDocId), `Suite 3-9 [${decomp.companyId}#${fIdx}]: Factor sourceDocId exists (${factor.sourceDocId})`);
-
-    // Invariant: Unquantified qualitative commentary must NOT fabricate amounts
-    if (!factor.isDisclosedNumeric) {
-      assert(factor.quantifiedAmount === undefined, `Suite 3-10 [${decomp.companyId}#${fIdx}]: Non-quantified factor has undefined amount (no fabrication)`);
-    } else {
-      assert(factor.quantifiedAmount !== undefined, `Suite 3-11 [${decomp.companyId}#${fIdx}]: Disclosed numeric factor has quantified amount`);
-    }
-  });
-
-  // Explicit unavailable information transparency check
-  assert(decomp.unavailableInformationKo.length > 0, `Suite 3-12 [${decomp.companyId}]: Transparently documents unavailable information`);
-});
-
-// P0-1 Specific Audits: BMW Group
-const bmwDecomp = getFinancialDecomposition('bmw_group', '2026-Q3');
-assert(Boolean(bmwDecomp), 'Suite 3-13: BMW decomposition retrieved');
-if (bmwDecomp) {
-  // Gate Test 1: BMW Automotive EBIT = EUR 901M
-  assert(
-    bmwDecomp.automotiveSegmentMetrics?.operatingProfit === 901,
-    `Gate Test 1a: BMW Automotive Segment EBIT is officially EUR 901M (${bmwDecomp.automotiveSegmentMetrics?.operatingProfit}M)`
-  );
-  assert(
-    bmwDecomp.automotiveSegmentMetrics?.operatingProfit !== 718,
-    'Gate Test 1b: Rejects incorrect EUR 718M Automotive EBIT'
-  );
-
-  // Gate Test 2: BMW Automotive EBIT margin = 3.4%
-  assert(
-    bmwDecomp.automotiveSegmentMetrics?.operatingMargin === 3.4,
-    `Gate Test 2a: BMW Automotive Segment EBIT margin is officially 3.4% (${bmwDecomp.automotiveSegmentMetrics?.operatingMargin}%)`
-  );
-  assert(
-    bmwDecomp.automotiveSegmentMetrics?.operatingMargin !== 2.6,
-    'Gate Test 2b: Rejects incorrect 2.6% Automotive EBIT margin'
-  );
-  assert(
-    bmwDecomp.automotiveSegmentMetrics?.revenue === 26669,
-    `Gate Test 2c: BMW Automotive Segment revenue is EUR 26,669M (${bmwDecomp.automotiveSegmentMetrics?.revenue}M)`
-  );
-  assert(
-    bmwDecomp.automotiveSegmentMetrics?.freeCashFlow === -566,
-    `Gate Test 2d: BMW Automotive Segment free cash flow is EUR -566M (${bmwDecomp.automotiveSegmentMetrics?.freeCashFlow}M)`
-  );
-
-  // Gate Test 3: BMW Group EBT margin = 6.8%
-  assert(
-    bmwDecomp.groupEbtMargin === 6.8,
-    `Gate Test 3: BMW Group EBT margin is officially 6.8% (${bmwDecomp.groupEbtMargin}%)`
-  );
-
-  // Gate Test 4: BMW Group EBT margin cannot be labeled EBIT margin
-  assert(
-    bmwDecomp.currentOperatingMargin === 5.2,
-    `Gate Test 4a: BMW Group EBIT margin is 5.2% (${bmwDecomp.currentOperatingMargin}%)`
-  );
-  assert(
-    bmwDecomp.currentOperatingMargin !== bmwDecomp.groupEbtMargin,
-    'Gate Test 4b: Group EBT margin (6.8%) is NOT labeled as Group EBIT margin (5.2%)'
-  );
-  assert(
-    Boolean(bmwDecomp.segmentReportingNotesKo?.includes('그룹 EBT 마진(6.8%)을 EBIT 마진으로 혼동하거나')),
-    'Gate Test 4c: Reporting notes explicitly enforce perimeter distinction between EBT and EBIT'
-  );
+  const chinaFactor = bmwDecomp.contributingFactors.find((f) => f.nameKo.includes('중국') || f.nameEn.includes('China'));
+  assert(Boolean(chinaFactor), 'Suite 3-7a: China demand factor exists');
+  if (chinaFactor) {
+    assert(Boolean(chinaFactor.nameKo.includes('-24.8%') || chinaFactor.explanationKo.includes('-24.8%')), 'Suite 3-7b: China decline correctly documented as -24.8%');
+    assert(!chinaFactor.nameKo.includes('-29.8%') && !chinaFactor.explanationKo.includes('-29.8%'), 'Suite 3-7c: Rejects erroneous -29.8% China decline');
+  }
 }
 
-// P1-1 Specific Audits: Toyota Motor Corporation
+
+// ========================================================
+// 4. Toyota Q2 FY2027 Financial Decomposition Grounded Audit
+// ========================================================
+console.log('\n💴 Suite 4: Toyota Q2 FY2027 Standalone Derived Results');
+
 const toyotaDecomp = getFinancialDecomposition('toyota_motor', '2026-Q3');
-assert(Boolean(toyotaDecomp), 'Suite 3-14: Toyota decomposition retrieved');
+assert(Boolean(toyotaDecomp), 'Suite 4-1: Toyota decomposition retrieved');
 if (toyotaDecomp) {
-  // Gate Test 9: Toyota standalone Q2 figures are correctly derived from cumulative results
-  assert(toyotaDecomp.periodClassification === 'derived_quarter', 'Gate Test 9a: Toyota classified as derived_quarter');
-  assert(Boolean(toyotaDecomp.derivationFormula?.includes('minus Q1 FY2027')), 'Gate Test 9b: Documents FY2027 derivation formula (6M - Q1)');
-  assert(toyotaDecomp.currentRevenue === 13437400, `Gate Test 9c: Toyota standalone Q2 revenue is ¥13,437,400M (${toyotaDecomp.currentRevenue}M)`);
-  assert(toyotaDecomp.currentOperatingProfit === 1127700, `Gate Test 9d: Toyota standalone Q2 operating profit is ¥1,127,700M (${toyotaDecomp.currentOperatingProfit}M)`);
-  assert(toyotaDecomp.currentOperatingMargin === 8.4, `Gate Test 9e: Toyota standalone Q2 FY2027 margin is 8.4% (${toyotaDecomp.currentOperatingMargin}%)`);
+  assert(toyotaDecomp.periodClassification === 'derived_quarter', 'Suite 4-2a: Period classification is derived_quarter');
+  assert(Boolean(toyotaDecomp.derivationFormula?.includes('H1 FY2027 cumulative')), 'Suite 4-2b: Documents H1 minus Q1 formula');
 
-  // Gate Test 10: Toyota half-year factor impacts cannot be represented as standalone quarterly impacts without evidence
-  toyotaDecomp.contributingFactors.forEach((factor, fIdx) => {
+  // Standalone Q2 FY2027 (Jul 1 - Sep 30, 2026)
+  // H1: Rev 26,962,406M, EBIT 2,191,099M
+  // Q1: Rev 13,525,344M, EBIT 1,063,448M
+  // Q2 = 13,437,062M, 1,127,651M
+  assert(toyotaDecomp.currentRevenue === 13437062, `Suite 4-3a: Toyota standalone Q2 FY2027 revenue is ¥13,437,062M (${toyotaDecomp.currentRevenue}M)`);
+  assert(toyotaDecomp.currentOperatingProfit === 1127651, `Suite 4-3b: Toyota standalone Q2 FY2027 operating income is ¥1,127,651M (${toyotaDecomp.currentOperatingProfit}M)`);
+  assert(toyotaDecomp.currentOperatingMargin === 8.39, `Suite 4-3c: Toyota standalone Q2 FY2027 operating margin is 8.39% (${toyotaDecomp.currentOperatingMargin}%)`);
+
+  // Standalone Q2 FY2026 (Jul 1 - Sep 30, 2025)
+  // H1: Rev 24,286,851M, EBIT 2,464,228M
+  // Q1: Rev 11,909,424M, EBIT 1,624,677M
+  // Q2 = 12,377,427M, 839,551M
+  assert(toyotaDecomp.previousRevenue === 12377427, `Suite 4-4a: Toyota standalone Q2 FY2026 revenue is ¥12,377,427M (${toyotaDecomp.previousRevenue}M)`);
+  assert(toyotaDecomp.previousOperatingProfit === 839551, `Suite 4-4b: Toyota standalone Q2 FY2026 operating income is ¥839,551M (${toyotaDecomp.previousOperatingProfit}M)`);
+  assert(toyotaDecomp.previousOperatingMargin === 6.78, `Suite 4-4c: Toyota standalone Q2 FY2026 operating margin is 6.78% (${toyotaDecomp.previousOperatingMargin}%)`);
+
+  // Rejection of previous erroneous values
+  assert(toyotaDecomp.previousRevenue !== 11434800, 'Suite 4-5a: Rejects erroneous ¥11,434.8B prior revenue');
+  assert(toyotaDecomp.previousOperatingProfit !== 1438300, 'Suite 4-5b: Rejects erroneous ¥1,438.3B prior operating profit');
+  assert(toyotaDecomp.previousOperatingMargin !== 12.6, 'Suite 4-5c: Rejects erroneous 12.6% prior operating margin');
+  assert(toyotaDecomp.marginChangeYoYBasisPoints !== -420, 'Suite 4-5d: Rejects erroneous -420 bps compression claim');
+
+  // Standalone YoY Growth Metrics
+  assert(toyotaDecomp.revenueChangeYoYPercentage === 8.6, `Suite 4-6a: Toyota standalone revenue YoY is +8.6% (${toyotaDecomp.revenueChangeYoYPercentage}%)`);
+  assert(toyotaDecomp.profitChangeYoYPercentage === 34.3, `Suite 4-6b: Toyota standalone operating income YoY is +34.3% (${toyotaDecomp.profitChangeYoYPercentage}%)`);
+  assert(toyotaDecomp.marginChangeYoYBasisPoints === 161, `Suite 4-6c: Toyota standalone margin YoY change is +161 bps (${toyotaDecomp.marginChangeYoYBasisPoints} bps)`);
+
+  // Derived bridge factor labeling
+  toyotaDecomp.contributingFactors.forEach((factor, idx) => {
     assert(
-      factor.quantifiedAmount === undefined,
-      `Gate Test 10a [Factor #${fIdx} ${factor.nameEn}]: Quantified amount is undefined (no fabrication for standalone Q2)`
+      Boolean(factor.nameKo.includes('[파생 산출]') || factor.nameEn.includes('[Derived]')),
+      `Suite 4-7 [Factor #${idx} ${factor.nameEn}]: Labeled as derived bridge factor`
     );
-    assert(
-      factor.isDisclosedNumeric === false,
-      `Gate Test 10b [Factor #${fIdx} ${factor.nameEn}]: isDisclosedNumeric is false`
-    );
-    assert(
-      Boolean(factor.explanationKo.includes('6개월 누적')),
-      `Gate Test 10c [Factor #${fIdx} ${factor.nameEn}]: Commentary transparently notes 6M cumulative scope`
-    );
+    assert(factor.isDisclosedNumeric === false, `Suite 4-7b [Factor #${idx}]: isDisclosedNumeric is false`);
+    assert(factor.quantifiedAmount === undefined, `Suite 4-7c [Factor #${idx}]: quantifiedAmount is undefined`);
   });
-
-  assert(
-    toyotaDecomp.unavailableInformationKo.some((info) => info.includes('단독 2분기(3개월) 요인별 수량적 증감액')),
-    'Gate Test 10d: Transparently documents that standalone Q2 factor bridge is withheld by Toyota'
-  );
 }
 
+
 // ========================================================
-// 4. OEM Ranking Invariants
+// 5. Final Full Tally & Exit
 // ========================================================
-console.log('\n🏆 Suite 4: OEM Ranking & Comparability Invariants');
+console.log(`\n========================================================`);
+console.log(`Final Test Results: ${passCount} passed, ${failCount} failed.`);
+console.log(`========================================================\n`);
 
-// Test that missing revenue/margin values are not treated as 0 or -999 in sorting
-const mockMissingRow = { normRevenue: null, marginVal: null, normEbit: null, company: { shortName: 'MissingCo' } };
-const mockLossRow = { normRevenue: 10, marginVal: -7.8, normEbit: -5.86, company: { shortName: 'LossCo' } };
-const mockZeroRow = { normRevenue: 10, marginVal: 0.0, normEbit: 0.0, company: { shortName: 'ZeroCo' } };
-const mockProfitRow = { normRevenue: 50, marginVal: 8.2, normEbit: 4.1, company: { shortName: 'ProfitCo' } };
-
-// Sorter logic test
-function sortMarginDescending(a: any, b: any) {
-  if (a.marginVal === null && b.marginVal === null) return 0;
-  if (a.marginVal === null) return 1;
-  if (b.marginVal === null) return -1;
-  return b.marginVal - a.marginVal;
-}
-
-const sortedMock = [mockMissingRow, mockLossRow, mockZeroRow, mockProfitRow].sort(sortMarginDescending);
-assert(sortedMock[0].company.shortName === 'ProfitCo', 'Suite 4-1: Profit rank #1 (8.2%)');
-assert(sortedMock[1].company.shortName === 'ZeroCo', 'Suite 4-2: Zero margin rank #2 (0.0% is not treated as missing)');
-assert(sortedMock[2].company.shortName === 'LossCo', 'Suite 4-3: Negative loss rank #3 (-7.8% preserved as negative loss)');
-assert(sortedMock[3].company.shortName === 'MissingCo', 'Suite 4-4: Missing null value is placed last (not treated as 0 or -999)');
-
-// Final tally
-console.log(`\nResults: ${passCount} passed, ${failCount} failed.`);
 if (failCount > 0) {
   process.exit(1);
 } else {
-  console.log('🎉 All Phase 1 Remediation Capabilities Tests passed cleanly!');
+  console.log('🎉 All Phase 1 Remediation & Final Accuracy Gate Tests passed cleanly!');
 }

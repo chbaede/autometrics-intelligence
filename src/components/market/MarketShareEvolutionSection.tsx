@@ -104,6 +104,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
           vehicleScopeType,
           reportingScope,
           regionId,
+          unit: 'thousand_units',
         },
         currentDenominator
       );
@@ -153,6 +154,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
               volumeDefinition: prevVolDef,
               vehicleScopeType: prevVehicleScope,
               regionId: selectedMarketId,
+              unit: 'thousand_units',
             },
             prevDenominator
           );
