@@ -96,11 +96,16 @@ for (const m of markets) {
       assert(q3Denom.verificationStatus === 'estimated', 'Suite 1-2h [global]: Global Q3 verification status is explicitly estimated');
       assert(!q3Denom.isCalculationEnabled, 'Suite 1-2i [global]: Global Q3 calculation is disabled');
     } else if (m === 'europe') {
-      assert(q3Denom.verificationStatus === 'estimated', 'Suite 1-2j [europe]: Europe Q3 verification status is estimated due to ACEA summer break');
-      assert(!q3Denom.isCalculationEnabled, 'Suite 1-2k [europe]: Europe Q3 calculation is disabled pending standalone July release verification');
-      assert(Boolean(q3Denom.disabledReasonKo?.includes('여름')), 'Suite 1-2l [europe]: Documents ACEA summer break schedule in Korean');
+      assert(q3Denom.verificationStatus === 'calculated', 'Suite 1-2j [europe]: Europe Q3 verification status is calculated from monthly sum');
+      assert(q3Denom.isCalculationEnabled, 'Suite 1-2k [europe]: Europe Q3 calculation is enabled with stated derived basis');
+      assert(q3Denom.totalMarketVolume === 3323.957, `Suite 1-2l [europe]: Europe Q3 volume is 3323.957k (${q3Denom.totalMarketVolume}k)`);
+    } else if (m === 'china') {
+      assert(q3Denom.verificationStatus === 'calculated', 'Suite 1-2m [china]: China Q3 verification status is calculated from CPCA monthly retail');
+      assert(q3Denom.isCalculationEnabled, 'Suite 1-2n [china]: China Q3 calculation is enabled');
+      assert(q3Denom.totalMarketVolume === 4620.0, `Suite 1-2o [china]: China Q3 volume is 4,620.0k (${q3Denom.totalMarketVolume}k)`);
+      assert(q3Denom.totalMarketVolume !== 5910.0, 'Suite 1-2p [china]: Rejects erroneous 5,910k wholesale/mixed figure');
     } else {
-      assert(q3Denom.isCalculationEnabled, `Suite 1-2m [${m}]: Verified denominator calculation is enabled`);
+      assert(q3Denom.isCalculationEnabled, `Suite 1-2q [${m}]: Verified denominator calculation is enabled`);
     }
   }
 }
@@ -276,27 +281,46 @@ const missingVolDef = validateMarketShareCompatibility(
 assert(!missingVolDef.isCompatible, 'Suite 1-13a: Missing volumeDefinition fails closed');
 assert(missingVolDef.incompatibilityCategory === 'missing_volume_metadata', 'Suite 1-13b: Category is missing_volume_metadata');
 
-// Case 10: Estimated denominator calculation disabled -> REJECT
-const europeQ3 = getMarketDenominator('europe', '2026-Q3');
+// Case 10: Estimated denominator calculation disabled without allowEstimatedDenominator -> REJECT
+const globalQ3 = getMarketDenominator('global', '2026-Q3');
 const estimatedDenomCheck = validateMarketShareCompatibility(
   {
     companyId: 'bmw_group',
-    marketId: 'europe',
+    marketId: 'global',
     period: '2026-Q3',
-    observationValue: 228.45,
+    observationValue: 600.0,
     volumeDefinition: 'retail_registrations',
-    vehicleScopeType: 'passenger_cars',
-    regionId: 'europe',
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'global',
     unit: 'thousand_units',
   },
-  europeQ3
+  globalQ3
 );
-assert(!estimatedDenomCheck.isCompatible, 'Suite 1-14a: Estimated denominator is REJECTED for market share calculation');
+assert(!estimatedDenomCheck.isCompatible, 'Suite 1-14a: Estimated denominator is REJECTED when allowEstimatedDenominator is not set');
 assert(
   estimatedDenomCheck.incompatibilityCategory === 'disabled_denominator' ||
   estimatedDenomCheck.incompatibilityCategory === 'unverified_or_estimated_denominator',
   'Suite 1-14b: Category is disabled_denominator or unverified_or_estimated_denominator'
 );
+
+// Case 10b: Estimated denominator with allowEstimatedDenominator: true -> ALLOWS with explicit transparency
+const estimatedAllowedCheck = validateMarketShareCompatibility(
+  {
+    companyId: 'bmw_group',
+    marketId: 'global',
+    period: '2026-Q3',
+    observationValue: 600.0,
+    volumeDefinition: 'retail_registrations',
+    vehicleScopeType: 'light_vehicles',
+    regionId: 'global',
+    unit: 'thousand_units',
+    allowEstimatedDenominator: true,
+  },
+  globalQ3
+);
+assert(estimatedAllowedCheck.isCompatible, 'Suite 1-14c: Estimated denominator is permitted when allowEstimatedDenominator is true');
+assert(estimatedAllowedCheck.classification === 'estimated', 'Suite 1-14d: Classification is explicitly estimated');
+assert(estimatedAllowedCheck.isEstimatedBasis === true, 'Suite 1-14e: isEstimatedBasis is true');
 
 // Case 11: Period mismatch -> REJECT
 const periodMismatch = validateMarketShareCompatibility(
@@ -354,13 +378,15 @@ assert(Boolean(toyotaGuidance), 'Suite 2-3a: Toyota guidance revision record exi
 if (toyotaGuidance) {
   assert(toyotaGuidance.period === '2027-FY', `Suite 2-3b: Toyota guidance period is 2027-FY (${toyotaGuidance.period})`);
   assert(toyotaGuidance.period !== '2025-FY' && toyotaGuidance.period !== '2026-FY', 'Suite 2-3c: Rejects erroneous 2025-FY or 2026-FY for Toyota');
-  assert(toyotaGuidance.previousValue === 4300000, `Suite 2-3d: Previous guidance is JPY 4,300,000M (${toyotaGuidance.previousValue})`);
+  assert(toyotaGuidance.previousValue === 3400000, `Suite 2-3d: Previous guidance is JPY 3,400,000M (${toyotaGuidance.previousValue})`);
   assert(toyotaGuidance.newValue === 3900000, `Suite 2-3e: New guidance is JPY 3,900,000M (${toyotaGuidance.newValue})`);
-  assert(toyotaGuidance.newValue !== 4300000, 'Suite 2-3f: Rejects erroneous reaffirmation claim (newValue is lowered to 3.9T JPY)');
-  assert(toyotaGuidance.changeCategory === 'guidance_change', 'Suite 2-3g: Category is guidance_change');
-  assert(toyotaGuidance.affectsHistoricalComparability === true, 'Suite 2-3h: Affects historical comparability is true');
-  assert(Boolean(toyotaGuidance.reasonKo?.includes('3.9조 엔')), 'Suite 2-3i: Korean reason cites revised 3.9T JPY guidance');
-  assert(Boolean(toyotaGuidance.reasonEn?.includes('3,900 billion')), 'Suite 2-3j: English reason cites revised JPY 3,900B guidance');
+  assert(toyotaGuidance.previousValue !== 4300000, 'Suite 2-3f: Rejects erroneous 4.3T prior guidance');
+  assert(toyotaGuidance.newValue !== 3400000, 'Suite 2-3g: Rejects unchanged guidance');
+  assert(toyotaGuidance.changeCategory === 'guidance_change', 'Suite 2-3h: Category is guidance_change');
+  assert(toyotaGuidance.affectsHistoricalComparability === true, 'Suite 2-3i: Affects historical comparability is true');
+  assert(Boolean(toyotaGuidance.reasonKo?.includes('3.9조 엔')), 'Suite 2-3j: Korean reason cites revised 3.9T JPY guidance');
+  assert(Boolean(toyotaGuidance.reasonEn?.includes('3,900 billion')), 'Suite 2-3k: English reason cites revised JPY 3,900B guidance');
+  assert(Boolean(toyotaGuidance.reasonKo?.includes('상향') || toyotaGuidance.reasonEn?.includes('raised')), 'Suite 2-3l: Cites upward revision (raised) of guidance');
 }
 
 // BMW Guidance Record Verification
@@ -374,6 +400,9 @@ if (bmwGuidance) {
   assert(bmwGuidance.previousValue !== '8.0% ~ 10.0%', 'Suite 2-4f: Rejects erroneous 8.0% ~ 10.0% prior corridor');
   assert(bmwGuidance.changeCategory === 'guidance_change', 'Suite 2-4g: Category is guidance_change');
   assert(bmwGuidance.affectsHistoricalComparability === true, 'Suite 2-4h: Affects historical comparability is true');
+  assert(Boolean(bmwGuidance.reasonKo?.includes('2.5%p') || bmwGuidance.reasonEn?.includes('2.5 pp')), 'Suite 2-4i: Cites ~2.5 pp portfolio/structural impact');
+  assert(Boolean(bmwGuidance.reasonKo?.includes('1.25%p') || bmwGuidance.reasonEn?.includes('1.25 pp')), 'Suite 2-4j: Cites ~1.25 pp tariff impact');
+  assert(Boolean(bmwGuidance.reasonKo?.includes('1.2%p') || bmwGuidance.reasonEn?.includes('1.2 pp')), 'Suite 2-4k: Cites ~1.2 pp BBA PPA impact');
 }
 
 // Prospective records labeled as non-reconstructed
@@ -485,20 +514,97 @@ if (toyotaDecomp) {
   assert(toyotaDecomp.profitChangeYoYPercentage === 34.3, `Suite 4-6b: Toyota standalone operating income YoY is +34.3% (${toyotaDecomp.profitChangeYoYPercentage}%)`);
   assert(toyotaDecomp.marginChangeYoYBasisPoints === 161, `Suite 4-6c: Toyota standalone margin YoY change is +161 bps (${toyotaDecomp.marginChangeYoYBasisPoints} bps)`);
 
-  // Derived bridge factor labeling
+  // Derived bridge factor labeling & classifications
   toyotaDecomp.contributingFactors.forEach((factor, idx) => {
     assert(
-      Boolean(factor.nameKo.includes('[파생 산출]') || factor.nameEn.includes('[Derived]')),
+      Boolean(factor.nameKo.includes('[파생 산출]') || factor.nameKo.includes('[파생 해석]') || factor.nameEn.includes('[Derived]')),
       `Suite 4-7 [Factor #${idx} ${factor.nameEn}]: Labeled as derived bridge factor`
     );
     assert(factor.isDisclosedNumeric === false, `Suite 4-7b [Factor #${idx}]: isDisclosedNumeric is false`);
     assert(factor.quantifiedAmount === undefined, `Suite 4-7c [Factor #${idx}]: quantifiedAmount is undefined`);
+    assert(factor.classification === 'analyst_interpretation', `Suite 4-7d [Factor #${idx}]: classification is analyst_interpretation`);
   });
+
+  // Toyota Accounting Metadata & Exact Subtraction Inputs Verification
+  assert(toyotaDecomp.accountingStandard === 'J_GAAP', 'Suite 4-8a: Toyota accountingStandard is J_GAAP');
+  assert(toyotaDecomp.operatingProfitMetricName === 'Operating Income (営業利益, J-GAAP)', 'Suite 4-8b: Toyota operatingProfitMetricName is Operating Income (営業利益, J-GAAP)');
+  assert(toyotaDecomp.profitMetricClassification === 'derived_operating_income', 'Suite 4-8c: Toyota profitMetricClassification is derived_operating_income');
+
+  assert(Boolean(toyotaDecomp.derivationInputs), 'Suite 4-9a: Toyota derivationInputs object exists');
+  if (toyotaDecomp.derivationInputs) {
+    const d = toyotaDecomp.derivationInputs;
+    assert(d.currentH1CumulativeRevenue === 26962462, `Suite 4-9b: Current H1 cumulative revenue is ¥26,962,462M (${d.currentH1CumulativeRevenue}M)`);
+    assert(d.currentH1CumulativeOperatingProfit === 2191124, `Suite 4-9c: Current H1 cumulative operating income is ¥2,191,124M (${d.currentH1CumulativeOperatingProfit}M)`);
+    assert(d.currentQ1Revenue === 13525400, `Suite 4-9d: Current Q1 revenue is ¥13,525,400M (${d.currentQ1Revenue}M)`);
+    assert(d.currentQ1OperatingProfit === 1063473, `Suite 4-9e: Current Q1 operating income is ¥1,063,473M (${d.currentQ1OperatingProfit}M)`);
+    assert(d.previousH1CumulativeRevenue === 24630753, `Suite 4-9f: Prior H1 cumulative revenue is ¥24,630,753M (${d.previousH1CumulativeRevenue}M)`);
+    assert(d.previousH1CumulativeOperatingProfit === 2005692, `Suite 4-9g: Prior H1 cumulative operating income is ¥2,005,692M (${d.previousH1CumulativeOperatingProfit}M)`);
+    assert(d.previousQ1Revenue === 12253326, `Suite 4-9h: Prior Q1 revenue is ¥12,253,326M (${d.previousQ1Revenue}M)`);
+    assert(d.previousQ1OperatingProfit === 1166141, `Suite 4-9i: Prior Q1 operating income is ¥1,166,141M (${d.previousQ1OperatingProfit}M)`);
+
+    // Exact subtraction formula verification
+    const derivedCurrentRev = d.currentH1CumulativeRevenue - d.currentQ1Revenue;
+    const derivedCurrentEbit = d.currentH1CumulativeOperatingProfit - d.currentQ1OperatingProfit;
+    const derivedPriorRev = d.previousH1CumulativeRevenue - d.previousQ1Revenue;
+    const derivedPriorEbit = d.previousH1CumulativeOperatingProfit - d.previousQ1OperatingProfit;
+
+    assert(derivedCurrentRev === toyotaDecomp.currentRevenue, `Suite 4-10a: H1 minus Q1 revenue exactly equals currentRevenue (${derivedCurrentRev})`);
+    assert(derivedCurrentEbit === toyotaDecomp.currentOperatingProfit, `Suite 4-10b: H1 minus Q1 EBIT exactly equals currentOperatingProfit (${derivedCurrentEbit})`);
+    assert(derivedPriorRev === toyotaDecomp.previousRevenue, `Suite 4-10c: Prior H1 minus Q1 revenue exactly equals previousRevenue (${derivedPriorRev})`);
+    assert(derivedPriorEbit === toyotaDecomp.previousOperatingProfit, `Suite 4-10d: Prior H1 minus Q1 EBIT exactly equals previousOperatingProfit (${derivedPriorEbit})`);
+  }
 }
 
 
 // ========================================================
-// 5. Final Full Tally & Exit
+// 5. Audit of All 13 OEMs in FINANCIAL_DECOMPOSITIONS
+// ========================================================
+console.log('\n🏛️ Suite 5: Audit of All 13 OEMs in FINANCIAL_DECOMPOSITIONS');
+
+assert(FINANCIAL_DECOMPOSITIONS.length === 13, `Suite 5-1: Exact count of registered OEM decompositions is 13 (${FINANCIAL_DECOMPOSITIONS.length})`);
+
+const validAccountingStandards = ['IFRS', 'US_GAAP', 'J_GAAP', 'K_IFRS', 'CAS'];
+const validProfitMetricClassifications = [
+  'statutory_operating_income',
+  'statutory_ebit',
+  'adjusted_operating_income',
+  'adjusted_ebit',
+  'derived_operating_income',
+];
+const validFactorClassifications = [
+  'officially_reported',
+  'derived',
+  'estimated',
+  'proxy',
+  'analyst_interpretation',
+  'unverified',
+];
+
+FINANCIAL_DECOMPOSITIONS.forEach((decomp) => {
+  assert(
+    Boolean(decomp.accountingStandard && validAccountingStandards.includes(decomp.accountingStandard)),
+    `Suite 5-2 [${decomp.companyId}]: Has valid accountingStandard (${decomp.accountingStandard})`
+  );
+  assert(
+    typeof decomp.operatingProfitMetricName === 'string' && decomp.operatingProfitMetricName.trim().length > 0,
+    `Suite 5-3 [${decomp.companyId}]: Has documented operatingProfitMetricName (${decomp.operatingProfitMetricName})`
+  );
+  assert(
+    Boolean(decomp.profitMetricClassification && validProfitMetricClassifications.includes(decomp.profitMetricClassification)),
+    `Suite 5-4 [${decomp.companyId}]: Has valid profitMetricClassification (${decomp.profitMetricClassification})`
+  );
+
+  decomp.contributingFactors.forEach((factor, fIdx) => {
+    assert(
+      Boolean(factor.classification && validFactorClassifications.includes(factor.classification)),
+      `Suite 5-5 [${decomp.companyId} Factor #${fIdx}]: Has valid factor classification (${factor.classification})`
+    );
+  });
+});
+
+
+// ========================================================
+// 6. Final Full Tally & Exit
 // ========================================================
 console.log(`\n========================================================`);
 console.log(`Final Test Results: ${passCount} passed, ${failCount} failed.`);

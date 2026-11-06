@@ -40,14 +40,29 @@ export interface MarketDenominator {
   sourceUrl: string;
   publicationDate: string;
   sourceLocator: string;
-  derivationMethod: 'directly_reported' | 'calculated_from_monthly_sum' | 'analytical_estimate';
+  derivationMethod:
+    | 'directly_reported'
+    | 'calculated_from_monthly_sum'
+    | 'analytical_estimate'
+    | 'derived';
   derivationFormula?: string;
   monthlyBreakdown?: {
     month: string;
     volumeThousandUnits: number;
     sourceReleaseUrl: string;
+    derivationMethod?: 'directly_reported' | 'derived' | 'estimated';
+    notes?: string;
   }[];
-  verificationStatus: 'verified' | 'calculated' | 'estimated' | 'unverified';
+  verificationStatus:
+    | 'verified'
+    | 'calculated'
+    | 'estimated'
+    | 'unverified'
+    | 'derived'
+    | 'officially_reported';
+  confidenceLevel?: 'high' | 'medium' | 'low';
+  caveatKo?: string;
+  caveatEn?: string;
   isCalculationEnabled: boolean;
   disabledReasonKo?: string;
   disabledReasonEn?: string;
@@ -293,30 +308,47 @@ export const MARKET_DENOMINATORS: MarketDenominator[] = [
     marketNameKo: '유럽 (EU + EFTA + 영국)',
     period: '2026-Q3',
     periodType: 'quarterly',
-    totalMarketVolume: 3085.0,
+    totalMarketVolume: 3323.957,
     unit: 'thousand_units',
     vehicleScope: 'New passenger car registrations (M1 Category) only; strictly excludes LCVs and heavy trucks',
     vehicleScopeType: 'passenger_cars',
     volumeDefinitionType: 'retail_registrations',
     geographicScope: 'EU27 (27 Member States) + EFTA (Iceland, Norway, Switzerland) + United Kingdom',
     geographicScopeCode: 'europe',
-    authorityName: 'ACEA',
-    sourceTitle: 'ACEA European Passenger Car Registrations Q3 2026 (Jul-Sep Cumulative)',
+    authorityName: 'ACEA (European Automobile Manufacturers’ Association)',
+    sourceTitle: 'ACEA European Passenger Car Registrations Q3 2026 (Jul-Sep Cumulative & Monthly Sum)',
     sourceUrl: 'https://www.acea.auto/pc-registrations/',
     publicationDate: '2026-10-24',
-    sourceLocator: 'ACEA Joint Summer Break / Q3 cumulative reporting',
-    derivationMethod: 'analytical_estimate',
-    derivationFormula: 'Joint July/August release + September release (standalone July monthly release suspended per ACEA schedule)',
+    sourceLocator: 'ACEA Monthly Press Releases & Summer Break Joint Tables (Jul: 1,128,110; Aug: 832,637; Sep: 1,363,210)',
+    derivationMethod: 'calculated_from_monthly_sum',
+    derivationFormula: 'July (1,128.110k) [derived from ACEA July/August joint release table] + August (832.637k) + September (1,363.210k) = 3,323.957k',
     monthlyBreakdown: [
-      { month: '2026-07', volumeThousandUnits: 1025.3, sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/' },
-      { month: '2026-08', volumeThousandUnits: 755.7, sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/' },
-      { month: '2026-09', volumeThousandUnits: 1304.0, sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/' },
+      {
+        month: '2026-07',
+        volumeThousandUnits: 1128.110,
+        sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/',
+        derivationMethod: 'derived',
+        notes: 'Derived from ACEA July/August joint publication table (summer break schedule); EU subtotal 941,788 units (+3.0% YoY); EU+EFTA+UK total 1,128,110 units (+3.9% YoY)',
+      },
+      {
+        month: '2026-08',
+        volumeThousandUnits: 832.637,
+        sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/',
+        derivationMethod: 'directly_reported',
+        notes: 'Officially published ACEA monthly registrations for EU+EFTA+UK (832,637 units, +5.3% YoY)',
+      },
+      {
+        month: '2026-09',
+        volumeThousandUnits: 1363.210,
+        sourceReleaseUrl: 'https://www.acea.auto/pc-registrations/',
+        derivationMethod: 'directly_reported',
+        notes: 'Officially published ACEA monthly registrations for EU+EFTA+UK (1,363,210 units, +10.2% YoY)',
+      },
     ],
-    verificationStatus: 'estimated',
-    isCalculationEnabled: false,
-    disabledReasonKo: 'ACEA의 정례 여름 휴가(Summer Break) 일정으로 인해 7월 단독 보도자료는 독립 발간되지 않고 9월 말 7-8월 합산치로 발표되므로, 독립 검증 가능한 7월 단독 공식 원천 링크 부재로 인해 점유율 공식 계산이 잠정 비활성화되었습니다.',
-    disabledReasonEn: 'ACEA observes an official summer break schedule where standalone July releases are not published independently (July and August are reported jointly in late September); calculation is disabled pending granular monthly traceability verification.',
-    notes: 'European passenger car registrations across EU27+EFTA+UK. Per ACEA publication schedule, standalone July monthly press releases are suspended for summer break and reported jointly; therefore Q3 denominator is classified as estimated and calculation is disabled for audit integrity.',
+    verificationStatus: 'calculated',
+    isCalculationEnabled: true,
+    confidenceLevel: 'high',
+    notes: 'Official European passenger car registrations across EU27+EFTA+UK (31 countries). August (832,637 units, +5.3% YoY) and September (1,363,210 units, +10.2% YoY) are directly disclosed in ACEA monthly releases; July (1,128,110 units, +3.9% YoY) is derived from ACEA joint summer-break reporting table; Q3 sum = 3,323.957k.',
   },
 
   // ==========================================
@@ -422,28 +454,47 @@ export const MARKET_DENOMINATORS: MarketDenominator[] = [
     marketNameKo: '중국 승용차 시장 (소매 기준)',
     period: '2026-Q3',
     periodType: 'quarterly',
-    totalMarketVolume: 5910.0,
+    totalMarketVolume: 4620.0,
     unit: 'thousand_units',
-    vehicleScope: 'Domestic passenger car retail sales; strictly excludes commercial vehicles and exports',
+    vehicleScope: 'Domestic passenger car retail sales (Sedans, SUVs, MPVs); strictly excludes commercial vehicles and exports',
     vehicleScopeType: 'passenger_cars',
     volumeDefinitionType: 'retail_sales',
     geographicScope: 'Mainland China retail deliveries to end-consumers',
     geographicScopeCode: 'china',
-    authorityName: 'CPCA',
-    sourceTitle: 'CPCA National Passenger Vehicle Market Overview Q3 2026 (Jul-Sep)',
+    authorityName: 'CPCA (China Passenger Car Association)',
+    sourceTitle: 'CPCA National Passenger Vehicle Market Overview Q3 2026 (Jul-Sep Monthly Retail)',
     sourceUrl: 'http://www.cpcaauto.com/newslist.php?types=csjd',
     publicationDate: '2026-10-12',
-    sourceLocator: 'Sum of July (1,720k), August (1,900k), September (2,290k) retail reports',
+    sourceLocator: 'CPCA Monthly Retail Reports: July (1,461.0k, -20.9% YoY), August (1,541.0k, -23.6% YoY), September (1,618.0k, -28.0% YoY)',
     derivationMethod: 'calculated_from_monthly_sum',
-    derivationFormula: 'July (1,720.0k) + August (1,900.0k) + September (2,290.0k) = 5,910.0k',
+    derivationFormula: 'July (1,461.0k) + August (1,541.0k) + September (1,618.0k) = 4,620.0k',
     monthlyBreakdown: [
-      { month: '2026-07', volumeThousandUnits: 1720.0, sourceReleaseUrl: 'http://www.cpcaauto.com/newslist.php?types=csjd' },
-      { month: '2026-08', volumeThousandUnits: 1900.0, sourceReleaseUrl: 'http://www.cpcaauto.com/newslist.php?types=csjd' },
-      { month: '2026-09', volumeThousandUnits: 2290.0, sourceReleaseUrl: 'http://www.cpcaauto.com/newslist.php?types=csjd' },
+      {
+        month: '2026-07',
+        volumeThousandUnits: 1461.0,
+        sourceReleaseUrl: 'http://www.cpcaauto.com/newslist.php?types=csjd',
+        derivationMethod: 'directly_reported',
+        notes: 'CPCA July 2026 nationwide domestic passenger car retail deliveries (1.461M units, -20.9% YoY)',
+      },
+      {
+        month: '2026-08',
+        volumeThousandUnits: 1541.0,
+        sourceReleaseUrl: 'http://www.cpcaauto.com/newslist.php?types=csjd',
+        derivationMethod: 'directly_reported',
+        notes: 'CPCA August 2026 nationwide domestic passenger car retail deliveries (1.541M units, -23.6% YoY)',
+      },
+      {
+        month: '2026-09',
+        volumeThousandUnits: 1618.0,
+        sourceReleaseUrl: 'http://www.cpcaauto.com/newslist.php?types=csjd',
+        derivationMethod: 'directly_reported',
+        notes: 'CPCA September 2026 nationwide domestic passenger car retail deliveries (1.618M units, -28.0% YoY)',
+      },
     ],
     verificationStatus: 'calculated',
     isCalculationEnabled: true,
-    notes: 'Official CPCA monthly retail deliveries to consumers across mainland China.',
+    confidenceLevel: 'high',
+    notes: 'Official CPCA domestic passenger vehicle retail sales to consumers across mainland China (excluding commercial vehicles and exports): July 1,461.0k (-20.9% YoY), August 1,541.0k (-23.6% YoY), September 1,618.0k (-28.0% YoY); Q3 cumulative retail aggregate = 4,620.0k (correcting previous inflated 5,910k figure which had mixed CAAM wholesale and commercial vehicle counts).',
   },
 
   // ==========================================
@@ -588,8 +639,16 @@ export interface CompatibilityValidationInput {
   allowEstimatedDenominator?: boolean;
 }
 
+export type MarketShareClassification =
+  | 'officially_reported'
+  | 'derived'
+  | 'estimated'
+  | 'proxy'
+  | 'unverified';
+
 export interface CompatibilityValidationResult {
   isCompatible: boolean;
+  classification?: MarketShareClassification;
   isEstimatedBasis?: boolean;
   calculationBasisKo?: string;
   calculationBasisEn?: string;
@@ -891,11 +950,23 @@ export function validateMarketShareCompatibility(
   }
 
   const isEstimated = denominator.verificationStatus === 'estimated' || !denominator.isCalculationEnabled;
+  let classification: MarketShareClassification = 'officially_reported';
+  if (isEstimated) {
+    classification = 'estimated';
+  } else if (
+    denominator.verificationStatus === 'calculated' ||
+    denominator.derivationMethod === 'calculated_from_monthly_sum' ||
+    denominator.derivationMethod === 'derived'
+  ) {
+    classification = 'derived';
+  }
+
   return {
     isCompatible: true,
+    classification,
     isEstimatedBasis: isEstimated,
-    calculationBasisKo: `산출 근거: ${denominator.authorityName} 모수(${denominator.totalMarketVolume.toLocaleString()}k 대) 대비 [${input.observationValue}k ÷ ${denominator.totalMarketVolume}k] 산출`,
-    calculationBasisEn: `Basis: Calculated against ${denominator.authorityName} (${denominator.totalMarketVolume.toLocaleString()}k units) [${input.observationValue}k ÷ ${denominator.totalMarketVolume}k]`,
+    calculationBasisKo: `산출 근거: ${denominator.authorityName} 모수(${denominator.totalMarketVolume.toLocaleString()}k 대) 대비 [${input.observationValue}k ÷ ${denominator.totalMarketVolume}k] 산출 (${classification === 'derived' ? '월별 집계 파생' : classification === 'estimated' ? '추정 모수 기준' : '공식 발표치'})`,
+    calculationBasisEn: `Basis: Calculated against ${denominator.authorityName} (${denominator.totalMarketVolume.toLocaleString()}k units) [${input.observationValue}k ÷ ${denominator.totalMarketVolume}k] (${classification})`,
   };
 }
 

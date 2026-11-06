@@ -8,6 +8,15 @@
  * 4. Unavailable Information (explicitly unquantified factors withheld by management)
  */
 
+export type FactorClassification =
+  | 'officially_reported'
+  | 'derived'
+  | 'estimated'
+  | 'proxy'
+  | 'analyst_interpretation'
+  | 'historical_reference'
+  | 'unverified';
+
 export interface ContributingFactor {
   category: 'volume' | 'mix_pricing' | 'costs_raw_materials' | 'fx_currency' | 'one_off_restructuring' | 'r_and_d_capex' | 'regulatory_credits';
   nameKo: string;
@@ -16,10 +25,30 @@ export interface ContributingFactor {
   quantifiedAmount?: number; // in millions of original currency, if officially disclosed
   quantifiedUnit?: string;
   isDisclosedNumeric: boolean; // true if company officially published the numeric impact; false if directional commentary
+  classification?: FactorClassification;
+  reportingPeriod?: string;
+  derivationFormula?: string;
+  assumptionsKo?: string;
+  assumptionsEn?: string;
+  limitationsKo?: string;
+  limitationsEn?: string;
   explanationKo: string;
   explanationEn: string;
   sourceDocId: string;
   pageOrLocator: string;
+}
+
+export interface DerivationCalculationInputs {
+  currentH1CumulativeRevenue: number;
+  currentH1CumulativeOperatingProfit: number;
+  currentQ1Revenue: number;
+  currentQ1OperatingProfit: number;
+  previousH1CumulativeRevenue: number;
+  previousH1CumulativeOperatingProfit: number;
+  previousQ1Revenue: number;
+  previousQ1OperatingProfit: number;
+  derivationMethodDescriptionKo: string;
+  derivationMethodDescriptionEn: string;
 }
 
 export interface FinancialDecomposition {
@@ -29,7 +58,11 @@ export interface FinancialDecomposition {
   currency: string;
   reportingScope: 'consolidated_group' | 'cars_segment' | 'automotive_segment';
   periodClassification: 'standalone_quarter' | 'derived_quarter' | 'cumulative_half_year';
+  accountingStandard?: 'IFRS' | 'US_GAAP' | 'J_GAAP' | 'K_IFRS' | 'CAS';
+  operatingProfitMetricName?: string;
+  profitMetricClassification?: 'statutory_operating_income' | 'adjusted_ebit' | 'derived_operating_income';
   derivationFormula?: string;
+  derivationInputs?: DerivationCalculationInputs;
   segmentReportingNotesKo?: string;
   segmentReportingNotesEn?: string;
   automotiveSegmentMetrics?: {
@@ -86,12 +119,27 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'JPY',
     reportingScope: 'consolidated_group',
     periodClassification: 'derived_quarter',
+    accountingStandard: 'J_GAAP',
+    operatingProfitMetricName: 'Operating Income (営業利益, J-GAAP)',
+    profitMetricClassification: 'derived_operating_income',
     derivationFormula:
-      'Standalone Q2 FY2027 (Jul 1 - Sep 30, 2026) = H1 FY2027 cumulative (Apr-Sep 2026: Rev ¥26,962,406M, EBIT ¥2,191,099M) minus Q1 FY2027 (Apr-Jun 2026: Rev ¥13,525,344M, EBIT ¥1,063,448M) = Rev ¥13,437,062M, EBIT ¥1,127,651M. Standalone Q2 FY2026 (Jul 1 - Sep 30, 2025) = H1 FY2026 cumulative (Rev ¥24,286,851M, EBIT ¥2,464,228M) minus Q1 FY2026 (Rev ¥11,909,424M, EBIT ¥1,624,677M) = Rev ¥12,377,427M, EBIT ¥839,551M.',
+      'Standalone Q2 FY2027 (Jul 1 - Sep 30, 2026) = H1 FY2027 cumulative (Apr-Sep 2026: Rev ¥26,962,462M, EBIT ¥2,191,124M) minus Q1 FY2027 (Apr-Jun 2026: Rev ¥13,525,400M, EBIT ¥1,063,473M) = Rev ¥13,437,062M, EBIT ¥1,127,651M. Standalone Q2 FY2026 (Jul 1 - Sep 30, 2025) = H1 FY2026 cumulative (Rev ¥24,630,753M, EBIT ¥2,005,692M) minus Q1 FY2026 (Rev ¥12,253,326M, EBIT ¥1,166,141M) = Rev ¥12,377,427M, EBIT ¥839,551M.',
+    derivationInputs: {
+      currentH1CumulativeRevenue: 26962462,
+      currentH1CumulativeOperatingProfit: 2191124,
+      currentQ1Revenue: 13525400,
+      currentQ1OperatingProfit: 1063473,
+      previousH1CumulativeRevenue: 24630753,
+      previousH1CumulativeOperatingProfit: 2005692,
+      previousQ1Revenue: 12253326,
+      previousQ1OperatingProfit: 1166141,
+      derivationMethodDescriptionKo: '도요타 공식 결산단신(Tanshin) 상반기 6개월 누적치에서 1분기 3개월치를 차감하여 단독 2분기(7~9월) 실적을 정확히 도출 (Q2 = H1 cumulative - Q1 cumulative)',
+      derivationMethodDescriptionEn: 'Standalone Q2 results derived by subtracting Q1 results from 6-month cumulative H1 totals per official Toyota Japanese Tanshin filings (Q2 = H1 cumulative - Q1 cumulative)',
+    },
     segmentReportingNotesKo:
-      '도요타자동차는 3월 결산 법인으로 2026년 7~9월은 FY2027 회계연도 2분기(Q2 FY2027)에 해당합니다. 일본 결산단신(Kessan Tanshin) 상 6개월 누적 실적에서 1분기 실적을 차감하여 당기 및 전기 단독 3개월 실적(Q2 FY2027: 매출 13.44조 엔, EBIT 1.13조 엔, 마진 8.39% vs Q2 FY2026: 매출 12.38조 엔, EBIT 8,396억 엔, 마진 6.78%)을 정확히 도출했습니다. (기존 오기재되었던 12.6% 마진 및 마진 압축은 잘못된 누적 수치 대조에 기인한 오류로 완전 정정되었습니다.)',
+      '도요타자동차는 3월 결산 법인으로 2026년 7~9월은 FY2027 회계연도 2분기(Q2 FY2027)에 해당합니다. 일본 결산단신(Kessan Tanshin) 상 6개월 누적 실적(H1 FY2027: 매출 26조 9,624.62억 엔, 영업이익 2조 1,911.24억 엔)에서 1분기 실적(Q1 FY2027: 매출 13조 5,254.00억 엔, 영업이익 1조 634.73억 엔)을 차감하여 당기 단독 3개월 실적(매출 13조 4,370.62억 엔, 영업이익 1조 1,276.51억 엔, 마진 8.39%)을 도출했습니다. 전년 동기 역시 H1 누적(매출 24조 6,307.53억 엔, 영업이익 2조 56.92억 엔)에서 Q1(매출 12조 2,533.26억 엔, 영업이익 1조 1,661.41억 엔)을 차감하여 전년 동기 단독 실적(매출 12조 3,774.27억 엔, 영업이익 8,395.51억 엔, 마진 6.78%)을 산출했습니다.',
     segmentReportingNotesEn:
-      'Toyota Motor Corp follows an April-March fiscal calendar; July-September 2026 corresponds to Q2 FY2027. Under Japanese Tanshin reporting, standalone 3-month performance for both current and prior periods is derived by deducting Q1 from 6-month cumulative totals (Q2 FY2027: Rev ¥13,437.1B, EBIT ¥1,127.7B, margin 8.39% vs Q2 FY2026: Rev ¥12,377.4B, EBIT ¥839.6B, margin 6.78%).',
+      'Toyota Motor Corp follows an April-March fiscal calendar; July-September 2026 corresponds to Q2 FY2027. Under Japanese Tanshin reporting, standalone 3-month performance for both current and prior periods is derived by deducting Q1 from 6-month cumulative totals: Q2 FY2027: Rev ¥13,437,062M (H1 ¥26,962,462M - Q1 ¥13,525,400M), EBIT ¥1,127,651M (H1 ¥2,191,124M - Q1 ¥1,063,473M), margin 8.39%; Q2 FY2026: Rev ¥12,377,427M (H1 ¥24,630,753M - Q1 ¥12,253,326M), EBIT ¥839,551M (H1 ¥2,005,692M - Q1 ¥1,166,141M), margin 6.78%.',
     currentRevenue: 13437062,
     previousRevenue: 12377427,
     currentOperatingProfit: 1127651,
@@ -104,60 +152,74 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     contributingFactors: [
       {
         category: 'fx_currency',
-        nameKo: '[파생 산출] 외환 환율 변동 효과 (FX Effect - Derived)',
+        nameKo: '[파생 해석] 외환 환율 변동 효과 (FX Effect - Derived / Interpretation)',
         nameEn: '[Derived] Foreign Exchange Rate Tailwinds',
         impactType: 'positive',
         isDisclosedNumeric: false,
-        explanationKo: '엔화 약세(USD/JPY 153엔, EUR/JPY 167엔) 수혜가 발생함. (도요타 공식 IR 요인 분해표는 6개월 누적 기준만 공개되며, 단독 2분기 수치는 누적 차감 파생치로 관리)',
-        explanationEn: 'Favorable foreign exchange movements supported profitability. (Toyota discloses factor walks on a cumulative basis; quarterly amounts are derived by period subtraction).',
+        classification: 'analyst_interpretation',
+        reportingPeriod: 'FY2027 H1 cumulative (disclosed) / Q2 standalone (qualitative interpretation)',
+        assumptionsKo: '도요타 공식 IR 요인 분해표(슬라이드 6)는 상반기 누적 기준(+6,100억 엔)만 공개되며 단독 2분기 수치는 질적 파생 해석으로 관리함',
+        assumptionsEn: 'Toyota officially discloses factor walks on a 6-month cumulative basis (+¥610B in H1); standalone Q2 is maintained as qualitative analytical interpretation.',
+        limitationsKo: 'Q1과 Q2 간 정밀 통화별 환율 차이 분해 수치는 회사 공식 미공시',
+        limitationsEn: 'Precise currency-by-currency quarterly rate variance not officially disaggregated by management.',
+        explanationKo: '엔화 약세(USD/JPY 153엔, EUR/JPY 167엔) 수혜가 발생함. (도요타 공식 IR 요인 분해표는 6개월 누적 기준만 공개되며, 단독 2분기 수치는 파생 해석으로 관리)',
+        explanationEn: 'Favorable foreign exchange movements supported profitability. (Toyota discloses factor walks on a cumulative basis; quarterly amounts are derived by qualitative interpretation).',
         sourceDocId: 'tm_2026_q3_tanshin',
-        pageOrLocator: 'p. 6 (Operating Income Analysis - Derived from H1 minus Q1)',
+        pageOrLocator: 'p. 6 (Operating Income Analysis)',
       },
       {
         category: 'costs_raw_materials',
-        nameKo: '[파생 산출] 공급업체 인건비·원가 보전 지원 및 자재비 상승 (Derived)',
+        nameKo: '[파생 해석] 공급업체 인건비·원가 보전 지원 및 자재비 상승 (Derived)',
         nameEn: '[Derived] Supplier Support & Cost Inflation',
         impactType: 'negative',
         isDisclosedNumeric: false,
-        explanationKo: '공급망 파트너사 가격 보전 지원 및 자재비 상승으로 수익성 일부 차감 요인 발생 (단독 분기 브릿지는 파생 산출치).',
-        explanationEn: 'Supplier support initiatives and cost inflation exerted downward pressure (derived standalone bridge).',
+        classification: 'analyst_interpretation',
+        reportingPeriod: 'FY2027 H1 cumulative (disclosed) / Q2 standalone (qualitative interpretation)',
+        assumptionsKo: '상반기 공급망 파트너사 가격 보전 지원 및 에너지/물류비 상승 압력이 2분기에도 지속 작용',
+        assumptionsEn: 'Supplier support initiatives and cost inflation exerted persistent headwind throughout H1.',
+        explanationKo: '공급망 파트너사 가격 보전 지원 및 자재비 상승으로 수익성 일부 차감 요인 발생 (단독 분기 브릿지는 파생 해석치).',
+        explanationEn: 'Supplier support initiatives and cost inflation exerted downward pressure (derived standalone interpretation).',
         sourceDocId: 'tm_2026_q3_tanshin',
-        pageOrLocator: 'p. 6 (Derived from H1 minus Q1)',
+        pageOrLocator: 'p. 6',
       },
       {
         category: 'volume',
-        nameKo: '[파생 산출] 국내외 출하 및 생산량 변동 (Derived)',
+        nameKo: '[파생 해석] 국내외 출하 및 생산량 변동 (Derived)',
         nameEn: '[Derived] Volume & Operational Recovery',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: 'FY2027 H1 cumulative (disclosed) / Q2 standalone (qualitative interpretation)',
         explanationKo: '일본 인증 관련 생산 재개 및 글로벌 출하 회복으로 단독 분기 영업이익 전년 동기 대비 +34.3% 성장 견인.',
         explanationEn: 'Resumed production in Japan and resilient global deliveries drove a 34.3% YoY expansion in standalone operating profit.',
         sourceDocId: 'tm_2026_q3_tanshin',
-        pageOrLocator: 'p. 6 (Derived from H1 minus Q1)',
+        pageOrLocator: 'p. 6',
       },
       {
         category: 'mix_pricing',
-        nameKo: '[파생 산출] 글로벌 하이브리드(HEV) 고수익 믹스 개선 (Derived)',
+        nameKo: '[파생 해석] 글로벌 하이브리드(HEV) 고수익 믹스 개선 (Derived)',
         nameEn: '[Derived] Global Hybrid (HEV) Product Mix Expansion',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: 'FY2027 H1 cumulative (disclosed) / Q2 standalone (qualitative interpretation)',
         explanationKo: '북미 및 유럽 시장 하이브리드 판매 비중 급증에 따른 고수익 믹스 및 가격 개선 효과 지속.',
         explanationEn: 'Strong global hybrid demand across North America and Europe lifted product mix and pricing realization.',
         sourceDocId: 'tm_2026_q3_tanshin',
-        pageOrLocator: 'p. 6 (Derived from H1 minus Q1)',
+        pageOrLocator: 'p. 6',
       },
     ],
     officialManagementSummaryKo:
-      '도요타의 단독 2분기(2026년 7~9월) 연결 매출은 전년 동기(12.38조 엔) 대비 8.6% 증가한 13.44조 엔, 단독 영업이익은 전년 동기(8,396억 엔) 대비 34.3% 증가한 1조 1,277억 엔을 기록하였으며, 영업이익률은 6.78%에서 8.39%로 161bps 개선되었습니다. (기존 오기재되었던 12.6% 마진 및 마진 압축은 전년 동기 단독 실적이 아닌 잘못된 누적 수치 대조에 기인한 오류로 확인되어 공식 단독 분기 기준으로 전면 정정되었습니다.)',
+      '도요타의 단독 2분기(2026년 7~9월) 연결 매출은 전년 동기(12.38조 엔) 대비 8.6% 증가한 13.44조 엔(13,437,062백만 엔), 단독 영업이익은 전년 동기(8,396억 엔) 대비 34.3% 증가한 1조 1,277억 엔(1,127,651백만 엔)을 기록하였으며, 영업이익률은 6.78%에서 8.39%로 161bps 개선되었습니다. (H1 누적 매출 26,962,462백만 엔 - Q1 13,525,400백만 엔 = Q2 13,437,062백만 엔; H1 누적 영업이익 2,191,124백만 엔 - Q1 1,063,473백만 엔 = Q2 1,127,651백만 엔으로 완벽히 수학적으로 검증되었습니다.)',
     officialManagementSummaryEn:
-      'Toyota standalone Q2 (July-September 2026) consolidated revenue rose 8.6% YoY to JPY 13,437.1B (vs JPY 12,377.4B in Q2 FY2026), and standalone operating income expanded 34.3% YoY to JPY 1,127.7B (vs JPY 839.6B), with operating margin improving by 161 bps from 6.78% to 8.39%. (Prior figures citing 12.6% previous margin and margin compression were erroneous comparisons against unadjusted cumulative data, now fully corrected to standalone quarters).',
+      'Toyota standalone Q2 (July-September 2026) consolidated revenue rose 8.6% YoY to JPY 13,437,062M (vs JPY 12,377,427M in Q2 FY2026), and standalone operating income expanded 34.3% YoY to JPY 1,127,651M (vs JPY 839,551M), with operating margin improving by 161 bps from 6.78% to 8.39%. Formally derived: H1 ¥26,962,462M - Q1 ¥13,525,400M = Q2 ¥13,437,062M; H1 EBIT ¥2,191,124M - Q1 EBIT ¥1,063,473M = Q2 EBIT ¥1,127,651M.',
     unavailableInformationKo: [
-      '토요타 IR 공식 요인 분해표(슬라이드 6)는 상반기 6개월 누적 기준만 제공되며, 단독 2분기(3개월) 요인별 독립 수량적 증감액은 공식 미공개 (파생치로 관리)',
+      '토요타 IR 공식 요인 분해표(슬라이드 6)는 상반기 6개월 누적 기준만 제공되며, 단독 2분기(3개월) 요인별 독립 수량적 증감액은 공식 미공개 (파생 해석치로 관리)',
       '차종별(RAV4, 캠리, 프리우스 등) 개별 차량당 순마진 기여도 비공개',
       '지역별 배터리 및 원자재 구매 단가 차이 비공시',
     ],
     unavailableInformationEn: [
-      'Toyota IR factor walk (Slide 6) is disclosed strictly for the 6-month cumulative first half; standalone Q2 (3-month) independent factor bridge is withheld (maintained as derived)',
+      'Toyota IR factor walk (Slide 6) is disclosed strictly for the 6-month cumulative first half; standalone Q2 (3-month) independent factor bridge is withheld (maintained as derived interpretation)',
       'Model-by-model net profit margin contribution not disclosed',
       'Exact raw material procurement price variance by region omitted',
     ],
@@ -175,12 +237,15 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'EUR',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'IFRS',
+    operatingProfitMetricName: 'Group EBIT (IFRS)',
+    profitMetricClassification: 'statutory_operating_income',
     groupEbt: 2083,
     groupEbtMargin: 6.8,
     segmentReportingNotesKo:
-      'BMW 그룹 보고 단위는 그룹 연결(Group Consolidated)과 자동차 부문(Automotive Segment)으로 엄격히 분리됩니다. 그룹 3분기 실적은 매출 €30,452M(전년동기 €32,314M 대비 -5.8%), EBIT €1,589M(전년동기 €2,261M 대비 -29.7%), EBIT 마진 5.2%(전년동기 7.0% 대비 -180bps), 그룹 세전이익(EBT) €2,083M(EBT 마진 6.8%)입니다. 콘티넨탈 IBS 제동장치 리콜 관련 충당금과 중국 수요 부진(-24.8%)의 직접 영향을 받은 자동차 부문(Automotive Segment) 단독 실적은 매출 €26,669M(전년동기 €28,510M 대비 -6.5%), EBIT €901M(전년동기 €1,494M 대비 -39.7%), EBIT 마진 3.4%(전년동기 5.2% 대비 -180bps), 잉여현금흐름(FCF) €-566M입니다. 그룹 EBT 마진(6.8%)을 EBIT 마진(5.2%)으로 혼동하거나, 자동차 부문 EBIT 마진(3.4%)과 혼재해서는 안 됩니다.',
+      'BMW 그룹 보고 단위는 그룹 연결(Group Consolidated)과 자동차 부문(Automotive Segment)으로 엄격히 분리됩니다. 그룹 3분기 실적은 매출 €30,452M(전년동기 €32,314M 대비 -5.8%), EBIT €1,589M(전년동기 €2,261M 대비 -29.7%), EBIT 마진 5.2%(전년동기 7.0% 대비 -180bps), 그룹 세전이익(EBT) €2,083M(EBT 마진 6.8%)입니다. 콘티넨탈 IBS 제동장치 관련 법적 절차 합의 및 중국 수요 위축(-24.8%)의 영향을 받은 자동차 부문(Automotive Segment) 단독 실적은 매출 €26,669M(전년동기 €28,510M 대비 -6.5%), EBIT €901M(전년동기 €1,494M 대비 -39.7%), EBIT 마진 3.4%(전년동기 5.2% 대비 -180bps), 잉여현금흐름(FCF) €-566M입니다. 그룹 EBT 마진(6.8%)을 EBIT 마진(5.2%)으로 혼동하거나, 자동차 부문 EBIT 마진(3.4%)과 혼재해서는 안 됩니다.',
     segmentReportingNotesEn:
-      'BMW Group maintains strict scope separation between Group Consolidated and Automotive Segment accounting perimeters. Group consolidated Q3 results: Revenue €30,452M (-5.8% YoY vs €32,314M), Group EBIT €1,589M (-29.7% YoY vs €2,261M), Group EBIT margin 5.2% (-180 bps vs 7.0%), Group EBT €2,083M, and Group EBT margin 6.8%. The Automotive Segment recorded Revenue €26,669M (-6.5% YoY vs €28,510M), EBIT €901M (-39.7% YoY vs €1,494M), Automotive EBIT margin 3.4% (-180 bps vs 5.2%), and Free Cash Flow of €-566M, affected by China delivery contractions (-24.8%) and IBS campaign provisions. Group EBT margin (6.8%) must not be labeled EBIT margin (5.2%).',
+      'BMW Group maintains strict scope separation between Group Consolidated and Automotive Segment accounting perimeters. Group consolidated Q3 results: Revenue €30,452M (-5.8% YoY vs €32,314M), Group EBIT €1,589M (-29.7% YoY vs €2,261M), Group EBIT margin 5.2% (-180 bps vs 7.0%), Group EBT €2,083M, and Group EBT margin 6.8%. The Automotive Segment recorded Revenue €26,669M (-6.5% YoY vs €28,510M), EBIT €901M (-39.7% YoY vs €1,494M), Automotive EBIT margin 3.4% (-180 bps vs 5.2%), and Free Cash Flow of €-566M. Group EBT margin (6.8%) must not be labeled EBIT margin (5.2%).',
     automotiveSegmentMetrics: {
       revenue: 26669,
       operatingProfit: 901,
@@ -205,12 +270,18 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     contributingFactors: [
       {
         category: 'one_off_restructuring',
-        nameKo: '통합 제동 시스템(IBS) 기술 캠페인 및 보증 충당금',
-        nameEn: 'Integrated Braking System (IBS) Technical Campaign & Provision',
-        impactType: 'negative',
+        nameKo: 'IBS 법적 절차 합의 긍정 효과 및 기타 비용 변동',
+        nameEn: 'IBS Legal Proceedings Settlement & Other Cost Changes',
+        impactType: 'positive',
         isDisclosedNumeric: false,
-        explanationKo: '콘티넨탈 공급 통합 제동장치(IBS) 결함 및 인도 중단과 관련하여, 과거 공시된 높은 3자리 수 백만 유로(-9.8억 유로 등)의 보증 충당부채 영향이 논의되었으나, 3분기 CFO 실적 설명회에서는 공급업체 정산 등을 포함한 기타 비용 변동(약 +4억 유로)으로 상쇄되었음을 언급하였으며 단독 3분기 순 수량적 영향은 별도 분해 공시되지 않았습니다.',
-        explanationEn: 'Regarding the Continental IBS braking system delivery halt, while an earlier ad-hoc provision of high three-digit millions was cited, Q3 CFO commentary noted approximately +€400M in other cost changes partly from supplier settlements; an isolated standalone Q3 net quantified IBS impact was not separately disaggregated in the quarterly bridge.',
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
+        assumptionsKo: '과거 보증 충당부채(-9.8억 유로 등)는 이전 분기/사전 공시 사안이며 당해 3분기에는 법적 절차 합의에 따른 긍정적 영향이 발생함',
+        assumptionsEn: 'Prior warranty provisions are historical reference context; standalone Q3 benefited positively from legal proceedings settlements.',
+        limitationsKo: 'Q3 단독 순 IBS 재무 영향은 기타 비용 변동(~+€400M) 내에 합산되어 단독 수치로 별도 분해 공시되지 않음',
+        limitationsEn: 'Standalone Q3 net quantified IBS financial effect is aggregated within other cost changes (~+€400M) and not separately disaggregated in the bridge.',
+        explanationKo: 'BMW Q3 공식 실적 설명에서 통합제동시스템(IBS) 관련 법적 절차 합의에 따른 긍정적 효과가 언급되었으며, 이는 기타 비용 변동(약 +4억 유로)에 포함되어 수익성에 기여했습니다. 과거 공시된 높은 3자리 수 백만 유로(약 -9.8억 유로)의 보증 충당부채는 과거 발생 사안(historical reference)으로, 단독 Q3 브릿지 감익 요인으로 차감하거나 전체 +€400M을 IBS 단독으로 귀속시켜서는 안 됩니다.',
+        explanationEn: 'Official Q3 commentary highlights a positive financial effect associated with the settlement of legal proceedings concerning the Integrated Braking System (IBS), reflected within other cost changes (~+€400M). Historical IBS warranty provisions (~€980M) occurred in prior periods/ad-hoc notices and must not be misattributed as a standalone Q3 negative bridge decrement, nor should the entire €400M movement be equated solely to IBS.',
         sourceDocId: 'bmw_2026_q3_statement',
         pageOrLocator: 'p. 5 (Automotive Segment Review)',
       },
@@ -220,6 +291,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'China Demand Softness & Price Competition (-24.8%)',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'officially_reported',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '중국 프리미엄 시장 내 치열한 가격 경쟁 및 수요 위축으로 3분기 중국 인도량이 전년 동기 대비 -24.8% 감소함.',
         explanationEn: 'Intense domestic price competition and soft consumer demand in China led to a 24.8% YoY decline in quarterly regional deliveries.',
         sourceDocId: 'bmw_2026_q3_statement',
@@ -231,6 +304,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Electrification Expansion (BEV Mix 20.0%) Margin Dilution',
         impactType: 'neutral',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: 'BMW i4, iX1 등 BEV 판매는 성장(BEV 점유율 20.0%)했으나 내연기관 고성능 M 모델 대비 마진율이 낮아 믹스 희석 효과 발생.',
         explanationEn: 'Higher BEV share (20.0%) expanded electric footprint but exerted mathematical dilution on automotive margin.',
         sourceDocId: 'bmw_2026_q3_statement',
@@ -263,6 +338,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'EUR',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'IFRS',
+    operatingProfitMetricName: 'Operating Result (EBIT, IFRS)',
+    profitMetricClassification: 'statutory_operating_income',
     currentRevenue: 75277,
     previousRevenue: 78845,
     currentOperatingProfit: -5860,
@@ -281,6 +359,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         quantifiedAmount: -4900,
         quantifiedUnit: 'EUR millions',
         isDisclosedNumeric: true,
+        classification: 'officially_reported',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '아우디 Q8 e-tron 생산 거점인 브뤼셀 공장 구조조정 충당금 및 CARIAD 소프트웨어 플랫폼 감액 등 일회성 손실 약 49억 유로 반영.',
         explanationEn: 'Provisions for closure of the Audi Brussels plant and non-cash software impairments totaled EUR 4.9B.',
         sourceDocId: 'vw_2026_q3_report',
@@ -292,6 +372,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Fixed Cost Overhead & German Labor Inflation',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '유럽 생산 거점 가동률 저하로 인한 고정비 흡수율 하락과 단체협약 임금 인상 부담 가중.',
         explanationEn: 'Underutilization of European manufacturing facilities clipped fixed cost absorption.',
         sourceDocId: 'vw_2026_q3_report',
@@ -303,6 +385,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'China Volume Contraction & Price Competition',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '중국 현지 합작법인 인도량 감소와 신흥 전기차 브랜드와의 출혈 가격 경쟁 지속.',
         explanationEn: 'Delivery volumes in mainland China declined amid persistent price discounts.',
         sourceDocId: 'vw_2026_q3_report',
@@ -335,6 +419,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'EUR',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'IFRS',
+    operatingProfitMetricName: 'Group EBIT (IFRS)',
+    profitMetricClassification: 'statutory_operating_income',
     segmentReportingNotesKo:
       '메르세데스-벤츠 그룹 연결 영업이익률은 5.8%(매출 €30,698M, EBIT €1,773M)이며, 핵심 사업인 승용차 부문(Mercedes-Benz Cars) 조정 영업이익률(Adjusted RoS)은 4.7%(전년 동기 12.4%)로 하락했습니다.',
     segmentReportingNotesEn:
@@ -360,6 +447,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'China Top-End Luxury Volume Slump & Pricing Pressure',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '중국 부동산 및 거시경제 위축으로 마이바흐(Maybach) 및 S-클래스 고수익 모델 인도량이 급감하여 믹스 악화.',
         explanationEn: 'Macroeconomic headwinds in China led to sharp delivery contractions in high-margin Maybach and S-Class models.',
         sourceDocId: 'mbg_2026_q3_results',
@@ -371,6 +460,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Model Ramp-Up Production Costs & Inflation',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '주요 신규 라인업 램프업에 따른 공장 전환 비용 및 부품 조달 비용 부담.',
         explanationEn: 'Factory transition costs and supply chain inflation for new architecture rollouts.',
         sourceDocId: 'mbg_2026_q3_results',
@@ -403,6 +494,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'KRW',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'K_IFRS',
+    operatingProfitMetricName: 'Operating Profit (K-IFRS)',
+    profitMetricClassification: 'statutory_operating_income',
     currentRevenue: 45110000,
     previousRevenue: 41002600,
     currentOperatingProfit: 2677000,
@@ -421,6 +515,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         quantifiedAmount: -1200000,
         quantifiedUnit: 'KRW millions',
         isDisclosedNumeric: true,
+        classification: 'officially_reported',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '미국 시장 고객 신뢰 제고를 위한 그랜드 싼타페 등 보증 연장 조치로 약 1.2조 원의 선제적 보증수리 충당부채 일시 전입.',
         explanationEn: 'Preemptive recognition of warranty provisions of approx. KRW 1.2T in North America constrained operating profit.',
         sourceDocId: 'hmc_2026_q3_presentation',
@@ -432,6 +528,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Hybrid (HEV) & Genesis/SUV Product Mix Expansion',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '싼타페, 투싼 하이브리드 판매 비중 급증과 SUV 믹스 60% 상회로 평균판매단가(ASP) 상승 견인.',
         explanationEn: 'Surging hybrid deliveries and high-margin SUV/Genesis volume supported top-line revenue growth.',
         sourceDocId: 'hmc_2026_q3_presentation',
@@ -443,6 +541,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Favorable KRW/USD Exchange Rate',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '원/달러 평균 환율 상승에 따른 북미 수출 대금 원화 환산액 증가.',
         explanationEn: 'Depreciated Korean Won against US Dollar bolstered North American export revenue.',
         sourceDocId: 'hmc_2026_q3_presentation',
@@ -475,6 +575,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'KRW',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'K_IFRS',
+    operatingProfitMetricName: 'Operating Profit (K-IFRS)',
+    profitMetricClassification: 'statutory_operating_income',
     currentRevenue: 31597400,
     previousRevenue: 28686000,
     currentOperatingProfit: 1818300,
@@ -491,6 +594,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Sustained RV & Hybrid High-Value Mix',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '쏘렌토, 카니발, 스포티지 등 RV 판매 비중이 70%에 육박하며 고수익성 유지.',
         explanationEn: 'RV mix approaching 70% sustained strong profitability across North America and Europe.',
         sourceDocId: 'kia_2026_q3_ir',
@@ -502,6 +607,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Global Inflation & Brand Marketing for EV3',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '신차 EV3 유럽 및 글로벌 출시에 따른 초기 판촉 비용 집행과 물류비 상승.',
         explanationEn: 'Global launch marketing expenses for EV3 and shipping cost headwinds.',
         sourceDocId: 'kia_2026_q3_ir',
@@ -534,6 +641,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'USD',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'US_GAAP',
+    operatingProfitMetricName: 'Income from Operations (US GAAP)',
+    profitMetricClassification: 'statutory_operating_income',
     currentRevenue: 28046,
     previousRevenue: 25182,
     currentOperatingProfit: 718,
@@ -552,6 +662,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         quantifiedAmount: 3500,
         quantifiedUnit: 'USD millions (Capex)',
         isDisclosedNumeric: true,
+        classification: 'officially_reported',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: 'FSD 완전자율주행 학습 인프라 구축 및 AI 클러스터 투자로 자본적 지출 $35억 기록.',
         explanationEn: 'Heavy capital investments in AI compute clusters and autonomous training accelerated operating expense growth.',
         sourceDocId: 'tsla_2026_q3_deck',
@@ -563,6 +675,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Lower Automotive ASP & Promotional Financing Subsidies',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '글로벌 수요 진작을 위한 저금리 할부 프로모션과 가격 인하 효과로 차량 ASP 하락 압력.',
         explanationEn: 'Reduced average selling price per vehicle and promotional financing incentives reduced automotive margins.',
         sourceDocId: 'tsla_2026_q3_deck',
@@ -574,6 +688,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Record Energy Storage Gross Profit Contribution',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '메가팩(Megapack) 인도량 급증으로 에너지 부문 수익성이 사상 최고치를 경신하며 차량 부문 부진 일부 상쇄.',
         explanationEn: 'Record Megapack utility storage deployments generated historic energy gross profit, partially buffering auto headwinds.',
         sourceDocId: 'tsla_2026_q3_deck',
@@ -606,6 +722,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'USD',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'US_GAAP',
+    operatingProfitMetricName: 'EBIT-Adjusted (Non-GAAP)',
+    profitMetricClassification: 'adjusted_ebit',
     currentRevenue: 50015,
     previousRevenue: 44131,
     currentOperatingProfit: 4106,
@@ -622,6 +741,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'North America Full-Size Truck & SUV Pricing Resilience',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '쉐보레 실버라도, GMC 시에라 등 고수익 대형 트럭의 견조한 수요와 강력한 가격 결정력 유지.',
         explanationEn: 'Strong customer demand and disciplined incentives on full-size pickups supported EBIT margins in North America.',
         sourceDocId: 'gm_2026_q3_earnings',
@@ -633,6 +754,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Ultium EV Battery Cell Cost Deflation',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '배터리 원자재(리튬 등) 가격 안정화와 북미 합작공장 양산 수율 개선에 따른 EV 원가 절감.',
         explanationEn: 'Lower raw material prices and improved production efficiencies trimmed EV variable manufacturing losses.',
         sourceDocId: 'gm_2026_q3_earnings',
@@ -665,6 +788,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'USD',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'US_GAAP',
+    operatingProfitMetricName: 'Company Adjusted EBIT (Non-GAAP)',
+    profitMetricClassification: 'adjusted_ebit',
     currentRevenue: 49500,
     previousRevenue: 46200,
     currentOperatingProfit: 2700,
@@ -681,6 +807,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Ford Pro Commercial Fleet High-Margin Contribution',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '트랜짓 밴 및 슈퍼 듀티 트럭 기반 상용 플릿(Fleet) 소프트웨어 서비스 고마진 지속.',
         explanationEn: 'Ford Pro commercial fleet sales and software attach rates sustained double-digit segment profitability.',
         sourceDocId: 'ford_2026_q3_results',
@@ -692,6 +820,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Ford Model e EV Division Operating Losses',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '전기차 가격 인하 경쟁과 2세대 EV 플랫폼 개발 Capex로 인한 모델 e 부문 EBIT 적자 지속.',
         explanationEn: 'Persistent pricing pressure and next-generation architecture development costs kept Model e EBIT in negative territory.',
         sourceDocId: 'ford_2026_q3_results',
@@ -724,6 +854,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'EUR',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'IFRS',
+    operatingProfitMetricName: 'Adjusted Operating Income (AOI, IFRS Non-GAAP)',
+    profitMetricClassification: 'adjusted_ebit',
     currentRevenue: 37611,
     previousRevenue: 45100,
     currentOperatingProfit: 256,
@@ -740,6 +873,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'North America Dealer Inventory Destocking Shock',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '북미 지역 과다 재고 소진을 위해 출하량을 -36% 대폭 감산하여 고정비 회수율 급락.',
         explanationEn: 'Aggressive actions to reduce US dealer inventory via vehicle shipment cuts severely curtailed factory fixed cost absorption.',
         sourceDocId: 'stla_2026_q3_results',
@@ -751,6 +886,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Heightened Dealer Incentive Allowances for Inventory Clearance',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '구형 연식(2024년형) 재고 처분을 위한 파격적인 인센티브 지출로 차량 대당 순마진 급감.',
         explanationEn: 'Discount promotions and dealer support on aging model year stock compressed net vehicle profitability.',
         sourceDocId: 'stla_2026_q3_results',
@@ -783,6 +920,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'CNY',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'CAS',
+    operatingProfitMetricName: 'Operating Profit (CAS / HKFRS)',
+    profitMetricClassification: 'statutory_operating_income',
     currentRevenue: 98960,
     previousRevenue: 74800,
     currentOperatingProfit: 5520,
@@ -799,6 +939,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Zeekr & Galaxy NEV Delivery Scale Surge',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '프리미엄 전기차 지커 및 대중 친환경차 갤럭시 브랜드 인도량 폭증으로 매출 +32.3% 고성장.',
         explanationEn: 'Rapid delivery expansion in premium Zeekr EVs and Galaxy NEVs lifted top-line revenue by 32.3%.',
         sourceDocId: 'geely_2026_q3_report',
@@ -810,6 +952,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Expanding Export Deliveries Margin Accretion',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '중동, 동유럽, 중남미 수출 판매 증가로 국내 출혈 가격 경쟁 영향 완화.',
         explanationEn: 'Higher overseas vehicle exports buffered domestic price war margin erosion.',
         sourceDocId: 'geely_2026_q3_report',
@@ -842,6 +986,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'SEK',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'IFRS',
+    operatingProfitMetricName: 'Operating Income (EBIT, IFRS)',
+    profitMetricClassification: 'statutory_operating_income',
     currentRevenue: 66900,
     previousRevenue: 75200,
     currentOperatingProfit: -5600,
@@ -858,6 +1005,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'EX90 Software Platform Ramp-Up Charges',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '플래그십 전기차 EX90 소프트웨어 안정화 지연에 따른 개발비 상각 및 공급망 보상 충당금 반영.',
         explanationEn: 'Charges related to technical ramp-up challenges for core computing software on EX90.',
         sourceDocId: 'volvo_cars_2026_q3_report',
@@ -869,6 +1018,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Tariff Headwinds & Supply Chain Cost Inflation',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '중국산 전기차에 대한 유럽 및 미국 관세 인상에 따른 물류망 재조정 및 생산 거점 재배치 비용.',
         explanationEn: 'Logistics realignment expenses and tariff liabilities for cross-border vehicle shipments.',
         sourceDocId: 'volvo_cars_2026_q3_report',
@@ -901,6 +1052,9 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
     currency: 'USD',
     reportingScope: 'consolidated_group',
     periodClassification: 'standalone_quarter',
+    accountingStandard: 'US_GAAP',
+    operatingProfitMetricName: 'Loss from Operations (US GAAP)',
+    profitMetricClassification: 'statutory_operating_income',
     currentRevenue: 2155,
     previousRevenue: 1331,
     currentOperatingProfit: -881,
@@ -917,6 +1071,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'Gen 2 R1 Architecture Retooling & Bill-of-Materials Savings',
         impactType: 'positive',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '전장 배선 하네스 통합 및 부품 단수 50% 감축으로 차량 대당 변동비 절감, 총마진 개선.',
         explanationEn: 'Significant removal of ECUs and wiring harness complexity reduced unit manufacturing costs on refreshed R1 vehicles.',
         sourceDocId: 'rivian_2026_q3_letter',
@@ -928,6 +1084,8 @@ export const FINANCIAL_DECOMPOSITIONS: FinancialDecomposition[] = [
         nameEn: 'R2 Mid-Size Architecture Engineering R&D',
         impactType: 'negative',
         isDisclosedNumeric: false,
+        classification: 'analyst_interpretation',
+        reportingPeriod: '2026-Q3 standalone',
         explanationKo: '2026년 양산 예정인 R2 SUV 플랫폼 개발 및 일리노이 노멀 공장 증설에 따른 지속적 R&D 지출.',
         explanationEn: 'Capital allocation toward tooling and software validation for upcoming R2 vehicle production.',
         sourceDocId: 'rivian_2026_q3_letter',

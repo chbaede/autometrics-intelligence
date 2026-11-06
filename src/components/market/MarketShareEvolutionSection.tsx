@@ -179,6 +179,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
         unavailableReason,
         sourceDocId,
         isCompatible,
+        classification: compatCheck.classification ?? (compatCheck.isEstimatedBasis ? 'estimated' : 'officially_reported'),
         isEstimatedBasis: compatCheck.isEstimatedBasis ?? false,
         calculationBasis: language === 'ko' ? compatCheck.calculationBasisKo : compatCheck.calculationBasisEn,
         incompatibilityCategory: compatCheck.incompatibilityCategory,
@@ -510,11 +511,21 @@ export const MarketShareEvolutionSection: React.FC = () => {
                   {/* Status & Caveat */}
                   <td className="py-3 px-3 text-center">
                     {isCompatible ? (
-                      row.isEstimatedBasis ? (
+                      row.classification === 'estimated' || row.isEstimatedBasis ? (
+                        <div className="inline-flex flex-col items-center">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>{language === 'ko' ? '추정 모수 (Estimated)' : 'Estimated Base'}</span>
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            {currentDenominator?.authorityName.split('/')[0]}
+                          </span>
+                        </div>
+                      ) : row.classification === 'derived' ? (
                         <div className="inline-flex flex-col items-center">
                           <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
                             <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>{language === 'ko' ? '산출 근거 명시' : 'Basis Disclosed'}</span>
+                            <span>{language === 'ko' ? '파생 산출 (Derived)' : 'Derived'}</span>
                           </span>
                           <span className="text-[9px] text-slate-400 font-mono">
                             {currentDenominator?.authorityName.split('/')[0]}
@@ -523,7 +534,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{language === 'ko' ? '검증 완료' : 'Verified'}</span>
+                          <span>{language === 'ko' ? '공식 산출 (Official)' : 'Official'}</span>
                         </span>
                       )
                     ) : (
