@@ -56,7 +56,6 @@ export const COMPANIES_REGISTRY: Company[] = [
     hqCountry: 'Germany',
     hqCity: 'Wolfsburg',
     region: 'europe',
-    logoUrl: 'https://images.unsplash.com/photo-1541348263662-e0c8de4259ba?auto=format&fit=crop&w=120&q=80',
     website: 'https://www.volkswagen-group.com',
     irUrl: 'https://www.volkswagen-group.com/en/investors-15766',
     financialResultsUrl: 'https://www.volkswagen-group.com/en/financial-reports-18134',

@@ -4093,6 +4093,101 @@ export function validateSourceContentFixtures(
   };
 }
 
+export interface FutureDatedValidationResult {
+  valid: boolean;
+  errors: {
+    targetId: string;
+    code: string;
+    detail: string;
+  }[];
+}
+
+/**
+ * Validates that no official reporting data is future-dated relative to the dataset verification date.
+ * - An official reporting period must have actually ended before publication and verification date.
+ * - Source document publicationDate must be on or before the dataset verification date.
+ * - Future periods must be classified as estimates, projections, or forecasts, never actual results.
+ * - Supports December 31 and March 31 fiscal year-end entities.
+ */
+export function validateNoFutureDatedOfficialData(
+  sourceDocs: SourceDocument[],
+  observations: MetricObservation[],
+  verificationDateStr = '2026-11-07'
+): FutureDatedValidationResult {
+  const errors: { targetId: string; code: string; detail: string }[] = [];
+  const verificationDate = new Date(verificationDateStr);
+
+  const MARCH_FY_COMPANIES = new Set(['toyota_motor', 'honda_motor', 'nissan_motor']);
+
+  function getPeriodEndDate(period: string, companyId?: string): Date | null {
+    const isMarch = companyId ? MARCH_FY_COMPANIES.has(companyId) : false;
+    const match = period.match(/^(\d{4})-(Q[1-4]|FY)$/);
+    if (!match) return null;
+    const year = parseInt(match[1], 10);
+    const pType = match[2];
+
+    if (pType === 'Q1') {
+      return new Date(Date.UTC(year, 2, 31)); // March 31
+    } else if (pType === 'Q2') {
+      return new Date(Date.UTC(year, 5, 30)); // June 30
+    } else if (pType === 'Q3') {
+      return new Date(Date.UTC(year, 8, 30)); // Sept 30
+    } else if (pType === 'Q4') {
+      return new Date(Date.UTC(year, 11, 31)); // Dec 31
+    } else if (pType === 'FY') {
+      if (isMarch) {
+        return new Date(Date.UTC(year, 2, 31)); // March 31
+      } else {
+        return new Date(Date.UTC(year, 11, 31)); // Dec 31
+      }
+    }
+    return null;
+  }
+
+  // 1. Validate Source Documents
+  for (const doc of sourceDocs) {
+    const pubDate = new Date(doc.publicationDate);
+    if (pubDate > verificationDate) {
+      errors.push({
+        targetId: doc.id,
+        code: 'FUTURE_SOURCE_PUBLICATION_DATE',
+        detail: `Source document ${doc.id} has publication date ${doc.publicationDate} which is after verification date ${verificationDateStr}.`,
+      });
+    }
+
+    const periodEndDate = getPeriodEndDate(doc.period, doc.companyId);
+    if (periodEndDate) {
+      const isActualReport = doc.docType !== 'guidance_update';
+      if (isActualReport && periodEndDate > pubDate) {
+        errors.push({
+          targetId: doc.id,
+          code: 'PERIOD_ENDS_AFTER_PUBLICATION',
+          detail: `Source document ${doc.id} for period ${doc.period} was published on ${doc.publicationDate} before period actually ended (${periodEndDate.toISOString().slice(0, 10)}).`,
+        });
+      }
+    }
+  }
+
+  // 2. Validate Observations
+  for (const obs of observations) {
+    const periodEndDate = getPeriodEndDate(obs.period, obs.companyId);
+    if (periodEndDate && periodEndDate > verificationDate) {
+      if (obs.valueType === 'reported' || obs.valueType === 'derived') {
+        errors.push({
+          targetId: obs.id,
+          code: 'FUTURE_PERIOD_CLAIMED_AS_REPORTED',
+          detail: `Observation ${obs.id} claims valueType '${obs.valueType}' for period ${obs.period} which has not ended by verification date ${verificationDateStr}.`,
+        });
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
 // Re-export performance claim audit functions and types
 export {
   validatePerformanceClaim,

@@ -1,9 +1,9 @@
 # AutoMetrics Intelligence — Complete Data Audit & Financial Accuracy Investigation Report
 
 **Status**: Current (Generated)  
-**Generated At**: 2026-11-06T22:06:58.668Z  
-**Audited Source Commit SHA**: b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a  
-**Report Generation Commit SHA**: b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a  
+**Generated At**: 2026-11-06T23:27:01.600Z  
+**Audited Source Commit SHA**: 6356423a708f604763feb1dc40e6d998a7470635  
+**Report Generation Commit SHA**: 6356423a708f604763feb1dc40e6d998a7470635  
 **Working Tree State**: dirty  
 **Audit Engine Version**: 3.2.0  
 **Data Registry Version**: 1.0.0  
@@ -104,7 +104,7 @@ The AutoMetrics audit engine strictly distinguishes 9 distinct verification and 
 | `npm run audit-data` | 0 | **PASS** | ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
 | `npm run audit-data -- --strict` | 1 | **EXPECTED POLICY FAILURE** | ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
 | `npm run lint` | 0 | **PASS** | > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | 0 | **PASS** | dist/assets/SEO-DyymDeZc.js                           468.21 kB │ gzip: 50.59 kB ✓ built in 1.54s |
+| `npm run build` | 0 | **PASS** | dist/assets/SEO-BZkYkZdw.js                           468.21 kB │ gzip: 50.51 kB ✓ built in 1.65s |
 
 ---
 
@@ -147,8 +147,8 @@ The 8 review findings represent legitimate, documented automotive reporting peri
 ---
 
 ### Audit Execution Metadata & Provenance
-- **Audited Source Commit SHA**: `b0377b1d3c49b0f62d3b9add0dc5fa846c0ee65a`
-- **Generated at**: `2026-11-06T22:06:58.668Z`
+- **Audited Source Commit SHA**: `6356423a708f604763feb1dc40e6d998a7470635`
+- **Generated at**: `2026-11-06T23:27:01.600Z`
 - **Source claim validation**: `PASS`
 - **Data audit**: `PASS`
 - **Audit Scope & Provenance Policy**: The Audited Source Commit SHA binds to the authoritative data registry and verification engine state verified during the audit run. When independent, unrelated features (such as presentation-layer chart widgets or styling) are committed, this audit SHA remains specifically tied to the audited data state and is not automatically repointed to HEAD without re-auditing data integrity.

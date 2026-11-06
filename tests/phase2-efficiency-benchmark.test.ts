@@ -35,7 +35,9 @@ import {
   OEM_KOREAN_NAMES,
 } from '../src/utils/efficiencyCalculations';
 import { SOURCE_DOCUMENTS } from '../src/data/sources';
+import { METRIC_OBSERVATIONS } from '../src/data/observations';
 import { COMPANIES_REGISTRY } from '../src/data/companies';
+import { validateNoFutureDatedOfficialData } from '../src/utils/metricCalculations';
 
 const REQUIRED_16_OEM_IDS = [
   'toyota_motor',
@@ -315,7 +317,31 @@ assert(getOEMDisplayName('geely', 'Geely', 'ko') === '지리자동차', 'Geely K
 assert(getOEMDisplayName('toyota_motor', 'Toyota', 'ko') === '토요타', 'Toyota Korean name is "토요타"');
 assert(getOEMDisplayName('kia', 'Kia', 'ko') === '기아', 'Kia Korean name is "기아"');
 assert(getOEMDisplayName('hyundai_motor', 'Hyundai', 'ko') === '현대자동차', 'Hyundai Korean name is "현대자동차"');
-console.log('   ✓ Zero Chinese/Kanji characters confirmed across all 16 OEMs in Korean mode.');
+console.log('   ✓ Zero Chinese/Kanji characters confirmed across all 16 OEMs in Korean mode.\n');
+
+// 11. Prevent Future-Dated Official Data & Validate Japanese FY Convention Accuracy
+console.log('11. Validating zero future-dated official data & Japanese fiscal year convention integrity...');
+const futureDatedValidation = validateNoFutureDatedOfficialData(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS, '2026-11-07');
+assert(futureDatedValidation.valid, `Future dated validation failed: ${JSON.stringify(futureDatedValidation.errors)}`);
+
+// Confirm Toyota, Honda, Nissan 2026-LTM-est do not claim future quarters
+const tm2026 = getCompanyEfficiencyRecord('toyota_motor', '2026-LTM-est');
+assert(tm2026 !== undefined, 'Toyota 2026-LTM-est must exist');
+assert(!tm2026!.reportedInputDetails!.reportedPeriod.includes('9M'), 'Toyota 2026-LTM-est must NOT claim FY2027 9M as 9M has not ended');
+assert(tm2026!.reportedInputDetails!.reportedPeriod.includes('H1'), 'Toyota 2026-LTM-est must be based on FY2027 H1 (6M ended Sept 30)');
+assert(tm2026!.reportedInputDetails!.annualizationFactor === 2, 'Toyota H1 annualization factor must be 2.0');
+
+const honda2026 = getCompanyEfficiencyRecord('honda_motor', '2026-LTM-est');
+assert(honda2026 !== undefined, 'Honda 2026-LTM-est must exist');
+assert(honda2026!.reportedInputDetails!.reportedPeriod.includes('FY2027 Q1'), 'Honda 2026-LTM-est must be based on FY2027 Q1 (ended June 30, 2026)');
+assert(honda2026!.reportedInputDetails!.annualizationFactor === 4, 'Honda Q1 annualization factor must be 4.0');
+
+const nissan2026 = getCompanyEfficiencyRecord('nissan_motor', '2026-LTM-est');
+assert(nissan2026 !== undefined, 'Nissan 2026-LTM-est must exist');
+assert(nissan2026!.reportedInputDetails!.reportedPeriod.includes('FY2027 Q1'), 'Nissan 2026-LTM-est must be based on FY2027 Q1 (ended June 30, 2026)');
+assert(nissan2026!.reportedInputDetails!.annualizationFactor === 4, 'Nissan Q1 annualization factor must be 4.0');
+
+console.log('   ✓ Zero future-dated official data confirmed across December & March FY entities.');
 
 console.log('\n=============================================================');
 console.log('ALL PHASE 2 COST & EFFICIENCY BENCHMARK TESTS PASSED (100%)');

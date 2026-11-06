@@ -515,7 +515,14 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                 {/* Company Name */}
                 <div className="w-32 sm:w-44 shrink-0 flex items-center gap-2 truncate">
                   {item.logoUrl ? (
-                    <img src={item.logoUrl} alt={item.name} className="w-4 h-4 object-contain shrink-0" />
+                    <img
+                      src={item.logoUrl}
+                      alt={item.name}
+                      className="w-4 h-4 object-contain shrink-0"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
                   ) : (
                     <div className="w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" />
                   )}
@@ -677,7 +684,14 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                         className="flex items-center gap-2 group font-bold text-slate-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400"
                       >
                         {rec.company?.logoUrl ? (
-                          <img src={rec.company.logoUrl} alt={rec.companyName} className="w-4 h-4 object-contain shrink-0" />
+                          <img
+                            src={rec.company.logoUrl}
+                            alt={rec.companyName}
+                            className="w-4 h-4 object-contain shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
                         ) : (
                           <div className="w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" />
                         )}

@@ -5,7 +5,13 @@ import { SOURCE_DOCUMENTS, SOURCES_MAP } from '../src/data/sources';
 import { GUIDANCE_OBSERVATIONS } from '../src/data/guidance';
 import { REGIONAL_OBSERVATIONS } from '../src/data/regionalObservations';
 
-import { getDimensionalObservationKey, validateSourceClaims, validateSourceContentFixtures, validateMetricLabelSemantics } from '../src/utils/metricCalculations';
+import {
+  getDimensionalObservationKey,
+  validateSourceClaims,
+  validateSourceContentFixtures,
+  validateMetricLabelSemantics,
+  validateNoFutureDatedOfficialData,
+} from '../src/utils/metricCalculations';
 import { DETERMINISTIC_SOURCE_CONTENT_FIXTURES } from '../src/data/scopeExceptions';
 
 console.log('🚀 Running AutoMetrics Data Ingestion & Strict Integrity Validator...\n');
@@ -66,6 +72,15 @@ const fixtureValResult = validateSourceContentFixtures(DETERMINISTIC_SOURCE_CONT
 if (!fixtureValResult.valid) {
   for (const err of fixtureValResult.errors) {
     console.error(`❌ Source Content Fixture Error (${err.code}): ${err.detail}`);
+    errorCount++;
+  }
+}
+
+// Run future-dated official data validator (P0 Data Integrity Gate)
+const futureDatedValResult = validateNoFutureDatedOfficialData(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS, '2026-11-07');
+if (!futureDatedValResult.valid) {
+  for (const err of futureDatedValResult.errors) {
+    console.error(`❌ Future-Dated Official Data Error (${err.code}) for [${err.targetId}]: ${err.detail}`);
     errorCount++;
   }
 }
