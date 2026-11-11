@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 6356423a708f604763feb1dc40e6d998a7470635  
-**Report Generation Commit:** 6356423a708f604763feb1dc40e6d998a7470635  
+**Audited Source Commit:** 264f78f77be54c9734e531708df5fd4b86e59cce  
+**Report Generation Commit:** 264f78f77be54c9734e531708df5fd4b86e59cce  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-06T23:27:01.600Z  
+**Generated:** 2026-11-11T09:26:00.806Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -24,7 +24,7 @@
 | `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
 | `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
 | `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/SEO-BZkYkZdw.js                           468.21 kB │ gzip: 50.51 kB ✓ built in 1.65s |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/SEO-BZkYkZdw.js                           468.21 kB │ gzip: 50.51 kB ✓ built in 1.87s |
 
 ---
 
