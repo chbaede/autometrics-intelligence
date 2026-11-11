@@ -93,8 +93,13 @@ export const CompanyEfficiencyCard: React.FC<CompanyEfficiencyCardProps> = ({ co
           <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white font-mono">
             {formatEfficiencyCurrency(displayRevEmp, targetCurrency, language, 'employee')}
           </div>
-          <div className="text-[10px] text-slate-400 font-mono">
-            {record.headcount.toLocaleString()} {language === 'ko' ? '명 기준' : 'headcount'}
+          <div className="text-[10px] text-slate-400 font-sans">
+            <span className="font-mono">{record.headcount.toLocaleString()}</span>
+            {language === 'ko' ? '명 (' : ' emp ('}
+            {record.periodType === 'ltm_estimate'
+              ? (language === 'ko' ? '2026 추정/최신공시' : '2026 Est.')
+              : (language === 'ko' ? `${record.period.slice(0, 4)}년 말 공시` : `${record.period.slice(0, 4)} Year-End`)}
+            )
           </div>
         </div>
 

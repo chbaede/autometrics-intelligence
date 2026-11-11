@@ -375,12 +375,12 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
             <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-0.5 leading-relaxed">
               <span className="font-bold">
-                {language === 'ko' ? '2026년 잠정 연환산(LTM) 추정치 안내:' : 'Interim 2026 LTM Analytical Estimate:'}
+                {language === 'ko' ? '2026년 잠정 연환산(LTM) 실적 및 임직원수 기준 시점 안내:' : 'Interim 2026 LTM Analytical Estimate & Headcount Reference:'}
               </span>{' '}
               <span>
                 {language === 'ko'
-                  ? '2026-LTM-est 데이터는 2026년 1, 2, 3분기 공식 공시 데이터(인도량, 매출, 영업이익)를 바탕으로 연환산하여 도출한 분석 추정치입니다. 기업별 연간 사업보고서 및 결산단신이 공식 발표되는 즉시 공식 확정치로 업데이트됩니다.'
-                  : 'The 2026-LTM-est metrics are interim analytical estimates derived from officially disclosed Q1, Q2, and Q3 cumulative results. They will be updated to audited full-year values once annual filings become available.'}
+                  ? '2026-LTM-est 실적(매출, 영업이익, 출하량)은 2026년 1~3분기 공식 공시 데이터를 연환산(Annualized)한 수치입니다. 주요 완성차 제조사는 분기보고서에 임직원 총수를 정례 공시하지 않으므로, 2026년 임직원수는 최신 공식 사업보고서(2024~2025년 말)를 기준으로 2026년 3분기 누적 공시·신규 거점 가동·인력 효율화 계획을 반영한 분석 추정치입니다. 연간 결산 사업보고서가 공식 발표되는 즉시 공식 확정치로 갱신됩니다.'
+                  : 'The 2026-LTM-est financial metrics are annualized from Q1-Q3 reported figures. Because global automakers only report consolidated workforce in full-year annual filings (10-K/20-F), 2026 headcounts reflect analytical estimates based on the latest 2024-2025 audited baselines and 9M restructuring announcements. Figures will update once audited annual reports are released.'}
               </span>
             </div>
           </div>
@@ -614,6 +614,11 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                     <span>{language === 'ko' ? '임직원수' : 'Workforce'}</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
+                  <div className="text-[10px] text-slate-400 font-normal">
+                    {activePeriod === '2026-LTM-est'
+                      ? (language === 'ko' ? '(2026 추정 / 최신공시)' : '(2026 Est./Latest)')
+                      : (language === 'ko' ? `(${activePeriod.slice(0, 4)}년 말 공시)` : `(${activePeriod.slice(0, 4)} Year-End)`)}
+                  </div>
                 </th>
                 <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white text-right" onClick={() => handleSort('revenuePerEmployee')}>
                   <div className="flex items-center justify-end gap-1">
@@ -707,8 +712,16 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                     </td>
 
                     {/* Headcount */}
-                    <td className="py-3 px-3 text-right text-slate-700 dark:text-slate-300 font-mono">
-                      {rec.headcount.toLocaleString()}
+                    <td className="py-3 px-3 text-right font-mono">
+                      <div className="text-slate-800 dark:text-slate-200 font-semibold">
+                        {rec.headcount.toLocaleString()}
+                        <span className="text-[11px] text-slate-400 font-sans ml-0.5">{language === 'ko' ? '명' : ''}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-sans">
+                        {rec.periodType === 'ltm_estimate'
+                          ? (language === 'ko' ? '2026 추정(최신 공시 기반)' : '2026 Est. (Latest)')
+                          : (language === 'ko' ? `${rec.period.slice(0, 4)}년 말 공시` : `${rec.period.slice(0, 4)} Year-End`)}
+                      </div>
                     </td>
 
                     {/* Rev / Emp */}
@@ -788,6 +801,19 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Headcount Reference & Period Clarification Note */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <Info className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
+          <div className="leading-relaxed">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">
+              {language === 'ko' ? '임직원수 기준 시점 안내:' : 'Headcount Reference Period Guidance:'}
+            </span>{' '}
+            {language === 'ko'
+              ? '글로벌 완성차 제조사는 연결 기준 임직원수를 정기 분기보고서(10-Q/분기보고서)에 정례 공시하지 않으며 연간 사업보고서(10-K, 20-F, 결산단신)를 통해 연 1회 확정 공시합니다. 따라서 2026년 임직원수는 가장 최근 공시된 2024~2025년 말 공식 기준에 2026년 3분기 누적 공시(9M), 신규 생산 거점 가동(현대차 HMGMA 등), 글로벌 인력 효율화 발표를 반영한 분석 추정치이며, 연간 사업보고서 공시 시 확정치로 갱신됩니다.'
+              : 'Global OEMs do not report consolidated headcount on a quarterly basis, disclosing full-year workforce only in annual reports (10-K/20-F). Consequently, 2026 headcounts are analytical estimates combining latest 2024-2025 official filings with 9M 2026 disclosures, new plant ramp-ups, and restructuring plans. Figures will update once audited annual reports are released.'}
+          </div>
         </div>
       </div>
 
