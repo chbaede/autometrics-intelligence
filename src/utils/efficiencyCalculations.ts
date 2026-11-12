@@ -219,12 +219,21 @@ export function formatEfficiencyCurrency(
   const sign = isNeg ? '-' : '';
 
   if (currency === 'KRW') {
-    if (abs >= 100_000_000) {
-      const eok = (abs / 100_000_000).toFixed(1);
-      return `${sign}₩${eok}억 ${unitLabel}`;
+    if (language === 'ko') {
+      if (abs >= 100_000_000) {
+        const eok = (abs / 100_000_000).toFixed(1);
+        return `${sign}₩${eok}억 ${unitLabel}`;
+      }
+      const man = Math.round(abs / 10_000).toLocaleString();
+      return `${sign}₩${man}만 ${unitLabel}`;
     }
-    const man = Math.round(abs / 10_000).toLocaleString();
-    return `${sign}₩${man}만 ${unitLabel}`;
+    if (abs >= 1_000_000_000) {
+      return `${sign}₩${(abs / 1_000_000_000).toFixed(2)}B ${unitLabel}`;
+    }
+    if (abs >= 1_000_000) {
+      return `${sign}₩${(abs / 1_000_000).toFixed(1)}M ${unitLabel}`;
+    }
+    return `${sign}₩${Math.round(abs / 1_000).toLocaleString()}k ${unitLabel}`;
   }
 
   if (currency === 'USD') {

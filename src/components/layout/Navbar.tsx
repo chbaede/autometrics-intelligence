@@ -57,7 +57,7 @@ export const Navbar: React.FC = () => {
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
               </span>
               <span className="font-mono font-medium tracking-tight">
-                {language === 'ko' ? '2026.11.05 최신 업데이트' : 'Updated Nov 5, 2026'}
+                {language === 'ko' ? '2026.11.12 최신 업데이트' : 'Updated Nov 12, 2026'}
               </span>
             </div>
           </div>
@@ -118,7 +118,11 @@ export const Navbar: React.FC = () => {
           <button
             onClick={toggleTheme}
             className="w-8.5 h-8.5 rounded-lg text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/80 dark:hover:bg-slate-800/80 border border-slate-200/70 dark:border-slate-800/70 transition flex items-center justify-center"
-            title={theme === 'dark' ? '라이트 모드로 전환 (Light Mode)' : '다크 모드로 전환 (Dark Mode)'}
+            title={
+              language === 'ko'
+                ? theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'
+                : theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'
+            }
             aria-label="Toggle Theme"
           >
             {theme === 'dark' ? (

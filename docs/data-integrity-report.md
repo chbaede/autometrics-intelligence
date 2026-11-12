@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b  
-**Report Generation Commit:** 2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b  
+**Audited Source Commit:** 12e61a983dd3b77cf262a85cbc3f1634884ef0e6  
+**Report Generation Commit:** 12e61a983dd3b77cf262a85cbc3f1634884ef0e6  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-12T12:17:39.631Z  
+**Generated:** 2026-11-12T12:37:36.672Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -19,12 +19,12 @@
 |---------|--------|
 | `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
 | `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 401 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
-| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 205 source claims across 39 documents match registered observations and document perimeters. ℹ️  Note: This confir |
+| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 207 source claims across 39 documents match registered observations and document perimeters. ℹ️  Note: This confir |
 | `npm test` | ✅ PASS (exit 0): ALL PHASE 2 COST & EFFICIENCY BENCHMARK TESTS PASSED (100%) ============================================================= |
 | `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
 | `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
 | `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/SEO-D4SlGSl9.js                           485.74 kB │ gzip: 53.03 kB ✓ built in 2.13s |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/SEO-C8akjCcr.js                           487.83 kB │ gzip: 53.44 kB ✓ built in 1.93s |
 
 ---
 
@@ -34,20 +34,20 @@
 |----------|-------|
 | Registered Automakers | 16 |
 | Metric Definitions | 17 |
-| Financial & Volume Observations | 490 |
+| Financial & Volume Observations | 492 |
 | Primary Source Documents | 101 |
 | Documents with Source Claims | 39 |
 | Forward-Looking Guidance Items | 20 |
 | Regional Delivery Observations | 401 |
-| Source Claims Audited | 205 |
+| Source Claims Audited | 207 |
 
 ---
 
 ## Audit Summary
 
 ### Source Claims Verification
-- Total Source Claims: **205** across **39** source documents
-- Claims Audited: **205**
+- Total Source Claims: **207** across **39** source documents
+- Claims Audited: **207**
 - Mismatches: **0**
 - Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
 

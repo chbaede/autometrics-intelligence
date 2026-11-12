@@ -690,7 +690,7 @@ export const StockEarningsCorrelationChart: React.FC<StockEarningsCorrelationCha
                       : 'fill-slate-400 dark:fill-slate-500'
                   }`}
                 >
-                  {pt.isScheduled ? `${shortDate}(예정)` : shortDate}
+                  {pt.isScheduled ? `${shortDate}${language === 'ko' ? '(예정)' : ' (Est.)'}` : shortDate}
                 </text>
 
                 {/* Stock Price Point & Label */}

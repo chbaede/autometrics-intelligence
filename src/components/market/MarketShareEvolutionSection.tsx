@@ -297,7 +297,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                 {renderStatusBadge(currentDenominator)}
               </div>
               <p className="text-slate-500 dark:text-slate-400 leading-normal">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">범위:</span> {currentDenominator.vehicleScope} • <span className="font-semibold text-slate-700 dark:text-slate-300">지역:</span> {currentDenominator.geographicScope}
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{language === 'ko' ? '범위:' : 'Scope:'}</span> {currentDenominator.vehicleScope} • <span className="font-semibold text-slate-700 dark:text-slate-300">{language === 'ko' ? '지역:' : 'Region:'}</span> {currentDenominator.geographicScope}
               </p>
               {currentDenominator.derivationFormula && (
                 <p className="text-[11px] text-blue-600 dark:text-blue-400 font-mono">
@@ -305,7 +305,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                 </p>
               )}
               <p className="text-[11px] text-slate-400 font-mono">
-                출처 원문: {currentDenominator.sourceTitle} ({currentDenominator.sourceLocator})
+                {language === 'ko' ? '출처 원문:' : 'Primary Source:'} {currentDenominator.sourceTitle} ({currentDenominator.sourceLocator})
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -314,7 +314,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                   {language === 'ko' ? '공식 전체 시장 모수' : 'Total Market Denominator'}
                 </span>
                 <span className="text-base font-extrabold font-mono text-brand-600 dark:text-brand-400">
-                  {(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M 대
+                  {(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M {language === 'ko' ? '대' : 'units'}
                   <span className="text-xs text-slate-400 font-normal ml-1">
                     ({Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k)
                   </span>
@@ -360,7 +360,9 @@ export const MarketShareEvolutionSection: React.FC = () => {
               </p>
               <div className="flex items-center gap-3 pt-0.5 flex-wrap font-mono text-[11px]">
                 <span className="text-blue-600 dark:text-blue-400 font-semibold bg-blue-500/10 px-2 py-0.5 rounded">
-                  {language === 'ko' ? '산출 공식:' : 'Formula:'} [제조사 공시 인도량(k) ÷ {Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k] × 100
+                  {language === 'ko'
+                    ? `산출 공식: [제조사 공시 인도량(k) ÷ ${Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k] × 100`
+                    : `Formula: [OEM Deliveries(k) ÷ ${Math.round(currentDenominator.totalMarketVolume).toLocaleString()}k] × 100`}
                 </span>
                 {currentDenominator.derivationFormula && (
                   <span className="text-slate-500 dark:text-slate-400">
@@ -413,7 +415,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                         </span>
                         {row.volumeDefinition === 'wholesale_shipments' && (
                           <span className="text-[9px] font-mono font-bold px-1 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                            도매(Wholesale)
+                            {language === 'ko' ? '도매(Wholesale)' : 'Wholesale'}
                           </span>
                         )}
                       </div>
@@ -428,8 +430,8 @@ export const MarketShareEvolutionSection: React.FC = () => {
                     {row.numeratorVolume !== null ? (
                       <span className="font-bold text-slate-900 dark:text-slate-100">
                         {row.numeratorVolume >= 1000
-                          ? `${(row.numeratorVolume / 1000).toFixed(2)}M 대`
-                          : `${Math.round(row.numeratorVolume).toLocaleString()}k 대`}
+                          ? `${(row.numeratorVolume / 1000).toFixed(2)}M ${language === 'ko' ? '대' : 'units'}`
+                          : `${Math.round(row.numeratorVolume).toLocaleString()}k ${language === 'ko' ? '대' : 'units'}`}
                       </span>
                     ) : (
                       <span className="text-slate-400 font-mono">-</span>
@@ -439,7 +441,7 @@ export const MarketShareEvolutionSection: React.FC = () => {
                   {/* Denominator */}
                   <td className="py-3 px-3 text-right font-mono text-slate-500">
                     {currentDenominator
-                      ? `${(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M 대`
+                      ? `${(currentDenominator.totalMarketVolume / 1000).toFixed(2)}M ${language === 'ko' ? '대' : 'units'}`
                       : '-'}
                   </td>
 

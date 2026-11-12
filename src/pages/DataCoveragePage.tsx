@@ -313,14 +313,13 @@ export const DataCoveragePage: React.FC = () => {
                 const hasNet = obs.some((o) => o.metricId === 'net_income');
 
                 // Determine applicability
-                const isByd = c.id === 'byd';
                 const isScheduled = freshness.status === 'scheduled';
 
                 const renderCell = (present: boolean, notApplicable = false) => {
                   if (isScheduled) return <span className="text-slate-400 font-mono text-[11px]">⏳</span>;
                   if (notApplicable) return <span className="text-slate-400 font-mono text-[10px]">⊘ N/A</span>;
                   if (present) return <span className="text-emerald-600 font-bold text-xs">✓</span>;
-                  return <span className="text-amber-500 font-semibold text-[11px]">⚠ 미반영</span>;
+                  return <span className="text-amber-500 font-semibold text-[11px]">{language === 'ko' ? '⚠ 미반영' : '⚠ Pending'}</span>;
                 };
 
                 return (
@@ -348,8 +347,8 @@ export const DataCoveragePage: React.FC = () => {
                     </td>
                     <td className="py-2.5 px-3 text-center">{renderCell(hasDel)}</td>
                     <td className="py-2.5 px-3 text-center">{renderCell(hasRev)}</td>
-                    <td className="py-2.5 px-3 text-center">{renderCell(hasEbit, isByd)}</td>
-                    <td className="py-2.5 px-3 text-center">{renderCell(hasMargin, isByd)}</td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasEbit)}</td>
+                    <td className="py-2.5 px-3 text-center">{renderCell(hasMargin)}</td>
                     <td className="py-2.5 px-3 text-center">{renderCell(hasBev)}</td>
                     <td className="py-2.5 px-3 text-center">{renderCell(hasNet, !['byd', 'kia'].includes(c.id))}</td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold">

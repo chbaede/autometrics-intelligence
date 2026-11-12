@@ -6081,7 +6081,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
 {
   // 1. Original observations are never deleted from METRIC_OBSERVATIONS
   const totalObsCount = METRIC_OBSERVATIONS.length;
-  check(totalObsCount === 490, 'Test 218a: Total metric observations preserved intact (490: 393 historical + 97 in 2026-Q3)');
+  check(totalObsCount === 492, 'Test 218a: Total metric observations preserved intact (492: 393 historical + 99 in 2026-Q3)');
 
   const rivianObs = METRIC_OBSERVATIONS.filter(o => o.companyId === 'rivian');
   check(rivianObs.length > 0, 'Test 218b: Rivian observations remain present in dataset');
@@ -6546,7 +6546,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const revMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'revenue');
   const ebitMetrics = METRIC_OBSERVATIONS.filter(o => o.metricId === 'operating_income');
   check(revMetrics.length === 81, 'Test 225l: Exactly 81 revenue observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 16 in 2026-Q3)');
-  check(ebitMetrics.length === 80, 'Test 225m: Exactly 80 operating_income observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 15 in 2026-Q3, BYD reports net_income)');
+  check(ebitMetrics.length === 81, 'Test 225m: Exactly 81 operating_income observations (16 companies x 4 historical periods + 1 Kia 2025-Q3 + 16 in 2026-Q3 incl. BYD 9M-1H derived)');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8125,7 +8125,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   const dynamicAuditData = buildAuditReportData();
   check(dynamicAuditData.findings.blocking === 0, 'Test 237i-1: Dynamic audit report has 0 blocking findings');
   check(dynamicAuditData.findings.review === 8, 'Test 237i-2: Dynamic audit report review findings dynamically computed as 8');
-  check(dynamicAuditData.counts.sourceClaims === 205, 'Test 237i-3: Exactly 205 verified source claims audited (added 10 Honda & Nissan Q3 2026 claims)');
+  check(dynamicAuditData.counts.sourceClaims === 207, 'Test 237i-3: Exactly 207 verified source claims audited (incl. BYD Q3 derived EBIT & margin claims)');
   check(dynamicAuditData.counts.documentsWithSourceClaims === 39, 'Test 237i-4: Exactly 39 documents with source claims');
 }
 
@@ -8151,7 +8151,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(volvoDoc?.officialUrl === 'https://www.volvocars.com/intl/media/press-releases/4291EEEC7003CDC6/', 'Test 238e: Volvo Cars Q3 official URL is primary media press release');
 
   const bydDoc = SOURCE_DOCUMENTS.find((s) => s.id === 'byd_2026_q3_interim');
-  check(bydDoc?.officialUrl === 'https://www.hkexnews.hk/listedco/listconews/sehk/2026/1029/2026102900388.pdf', 'Test 238f: BYD Q3 official URL is primary HKEX filing PDF');
+  check(bydDoc?.officialUrl === 'https://www1.hkexnews.hk/listedco/listconews/sehk/2026/1029/2026102900816.pdf', 'Test 238f: BYD Q3 official URL is primary HKEX filing PDF');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -8304,7 +8304,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   console.log('--- TEST 242: BYD 2026-Q3 Net Income Semantics & Operating Margin Exclusion ---');
 
   const bydQ3Obs = METRIC_OBSERVATIONS.filter((o) => o.companyId === 'byd' && o.period === '2026-Q3');
-  check(bydQ3Obs.length === 5, 'Test 242a: BYD 2026-Q3 has exactly 5 observations (del, bev, bev_share, rev, net_income)');
+  check(bydQ3Obs.length === 7, 'Test 242a: BYD 2026-Q3 has 7 observations (del, bev, bev_share, rev, operating_income, operating_margin, net_income)');
 
   const bydNetIncome = bydQ3Obs.find((o) => o.metricId === 'net_income');
   check(bydNetIncome !== undefined, 'Test 242b: BYD 2026-Q3 net_income observation exists');
@@ -8315,10 +8315,10 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   check(Boolean(bydNetIncome?.originalLabel?.includes('归属于上市公司股东的净利润')), 'Test 242g: BYD 2026-Q3 net_income preserves verbatim Chinese CASBE label');
 
   const bydOperatingIncome = bydQ3Obs.find((o) => o.metricId === 'operating_income');
-  check(bydOperatingIncome === undefined, 'Test 242h: BYD 2026-Q3 operating_income is strictly omitted (not reported under CASBE)');
+  check(bydOperatingIncome?.value === 12268.17 && bydOperatingIncome?.valueType === 'derived', 'Test 242h: BYD 2026-Q3 operating_income is RMB 12,268.17M derived via 9M minus 1H CASBE statements');
 
   const bydOperatingMargin = bydQ3Obs.find((o) => o.metricId === 'operating_margin');
-  check(bydOperatingMargin === undefined, 'Test 242i: BYD 2026-Q3 operating_margin is strictly omitted (cannot derive from net income)');
+  check(bydOperatingMargin?.value === 5.5 && bydOperatingMargin?.valueType === 'derived', 'Test 242i: BYD 2026-Q3 operating_margin is 5.5% derived from operating_income / revenue');
 
   // Regression: validateMarginTriplet must fail when net_income is passed as profit numerator
   const mockRev: MetricObservation = {
@@ -8384,7 +8384,7 @@ function makeObs(overrides: Partial<MetricObservation>): MetricObservation {
   console.log('--- TEST 243: Evidence Locator Completeness for 2026-Q3 Observations ---');
 
   const q3Obs = METRIC_OBSERVATIONS.filter((o) => o.period === '2026-Q3');
-  check(q3Obs.length === 97, 'Test 243a: Exactly 97 observations in 2026-Q3 dataset (added Honda + Nissan Q3 observations)');
+  check(q3Obs.length === 99, 'Test 243a: Exactly 99 observations in 2026-Q3 dataset (incl. BYD Q3 derived EBIT & margin)');
 
   // Verify that all 53 observations have valid locators (page number or web tableReference) and labels
   let missingLocator = 0;

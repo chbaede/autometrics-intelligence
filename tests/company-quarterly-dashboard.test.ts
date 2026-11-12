@@ -210,12 +210,12 @@ assert(bydDriver!.summaryEn.includes('1,323,070 units'), 'BYD English summary st
 assert(!bydDriver!.headlineKo.includes('+120%'), 'BYD headline does NOT contain unverified +120% export claim');
 assert(!bydDriver!.headlineEn.includes('+120%'), 'BYD English headline does NOT contain unverified +120% export claim');
 
-// Observations check: CASBE net profit preserved, no operating income fabricated
+// Observations check: CASBE net profit preserved + operating income derived from 9M - 1H CASBE statements
 const bydObs = getObservationsByCompany('byd');
 const bydQ3Net = bydObs.find((o) => o.period === '2026-Q3' && o.metricId === 'net_income');
 const bydQ3Op = bydObs.find((o) => o.period === '2026-Q3' && o.metricId === 'operating_income');
 assert(bydQ3Net?.value === 10020, 'BYD Q3 net income observation is exactly RMB 10,020M');
-assert(bydQ3Op === undefined, 'BYD Q3 operating income is undefined (fail-closed under CASBE)');
+assert(bydQ3Op?.value === 12268.17 && bydQ3Op?.valueType === 'derived', 'BYD Q3 operating income is RMB 12,268.17M derived from 9M minus 1H CASBE statements');
 
 // =========================================================================
 // Suite 5: Volkswagen Group Q3 Special Items vs 9M Disaggregation (P0)

@@ -26,11 +26,11 @@ export const FinancialDecompositionCard: React.FC = () => {
   const formatCurrency = (val: number, curr: string) => {
     if (curr === 'KRW') {
       const tril = val / 1000000;
-      return `₩${tril.toFixed(1)}조`;
+      return language === 'ko' ? `₩${tril.toFixed(1)}조` : `₩${tril.toFixed(2)}T`;
     }
     if (curr === 'JPY') {
       const tril = val / 1000000;
-      return `¥${tril.toFixed(2)}조`;
+      return language === 'ko' ? `¥${tril.toFixed(2)}조` : `¥${tril.toFixed(2)}T`;
     }
     if (curr === 'EUR') {
       return `€${(val / 1000).toFixed(1)}B`;
@@ -332,40 +332,48 @@ export const FinancialDecompositionCard: React.FC = () => {
           {/* 1. Reported Facts */}
           <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1">
             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
-              1. 공식 공시 팩트 (Reported Facts)
+              {language === 'ko' ? '1. 공식 공시 팩트 (Reported Facts)' : '1. Reported Facts'}
             </span>
             <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-              매출, 연결 영업이익, 인도량, 승용 부문 RoS 등 공시 원문에 공식 기재된 확정 수치.
+              {language === 'ko'
+                ? '매출, 연결 영업이익, 인도량, 승용 부문 RoS 등 공시 원문에 공식 기재된 확정 수치.'
+                : 'Audited or officially reported figures from primary IR filings (revenue, EBIT, deliveries, segment RoS).'}
             </p>
           </div>
 
           {/* 2. Calculated Metrics */}
           <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1">
             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-              2. 산출 지표 (Calculated Metrics)
+              {language === 'ko' ? '2. 산출 지표 (Calculated Metrics)' : '2. Calculated Metrics'}
             </span>
             <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-              YoY 증감률, 마진 bps 변화, 통화 환산 등 검증된 수식으로 투명하게 도출된 파생 지표.
+              {language === 'ko'
+                ? 'YoY 증감률, 마진 bps 변화, 통화 환산 등 검증된 수식으로 투명하게 도출된 파생 지표.'
+                : 'Derived metrics transparently computed via reproducible formulas (YoY deltas, bps changes, FX conversions).'}
             </p>
           </div>
 
           {/* 3. Analytical Interpretation */}
           <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1">
             <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
-              3. 공식 경영진 코멘터리 (Interpretation)
+              {language === 'ko' ? '3. 공식 경영진 코멘터리 (Interpretation)' : '3. Management Commentary'}
             </span>
             <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-              어닝스 콜 및 실적 보고서에서 경영진이 공식 지목한 변동 원인 및 전략적 설명.
+              {language === 'ko'
+                ? '어닝스 콜 및 실적 보고서에서 경영진이 공식 지목한 변동 원인 및 전략적 설명.'
+                : 'Official earnings drivers and strategic context cited by management in filings and earnings calls.'}
             </p>
           </div>
 
           {/* 4. Unavailable Information */}
           <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1">
             <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
-              4. 미공시 정보 (Unavailable Info)
+              {language === 'ko' ? '4. 미공시 정보 (Unavailable Info)' : '4. Unavailable Info'}
             </span>
             <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-              임의 추정하지 않고 명시적으로 비워둔 항목 (차종별 단독 마진, 공급사 구상권 등).
+              {language === 'ko'
+                ? '임의 추정하지 않고 명시적으로 비워둔 항목 (차종별 단독 마진, 공급사 구상권 등).'
+                : 'Explicitly undisclosed elements left unfabricated (e.g., model-level margins, supplier recovery details).'}
             </p>
           </div>
         </div>

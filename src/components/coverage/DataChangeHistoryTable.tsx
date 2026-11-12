@@ -207,7 +207,7 @@ export const DataChangeHistoryTable: React.FC = () => {
                   {/* OEM */}
                   <td className="py-3 px-3 font-medium">
                     <span className="font-bold text-slate-900 dark:text-slate-100">
-                      {comp ? comp.name : rec.companyId === 'all_companies' ? '전체 공통 (All OEMs)' : rec.companyId}
+                      {comp ? comp.name : rec.companyId === 'all_companies' ? (language === 'ko' ? '전체 공통 (All OEMs)' : 'All OEMs') : rec.companyId}
                     </span>
                   </td>
 
@@ -232,7 +232,7 @@ export const DataChangeHistoryTable: React.FC = () => {
                   <td className="py-3 px-3 font-mono text-[11px]">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-slate-400 line-through">
-                        {rec.previousValue !== null ? String(rec.previousValue) : '신규(New)'}
+                        {rec.previousValue !== null ? String(rec.previousValue) : (language === 'ko' ? '신규(New)' : 'New')}
                       </span>
                       <ArrowRight className="w-3 h-3 text-slate-400" />
                       <span className="font-bold text-brand-600 dark:text-brand-400">

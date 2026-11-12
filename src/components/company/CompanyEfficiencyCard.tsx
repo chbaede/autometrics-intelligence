@@ -77,7 +77,7 @@ export const CompanyEfficiencyCard: React.FC<CompanyEfficiencyCardProps> = ({ co
             <ShieldCheck className="w-3 h-3 text-emerald-500" />
           )}
           <span>
-            {record.period} {record.fiscalYearEnd.includes('Mar') ? '(3월 결산)' : ''}
+            {record.period} {record.fiscalYearEnd.includes('Mar') ? (language === 'ko' ? '(3월 결산)' : '(Mar FY)') : ''}
           </span>
         </div>
       </div>

@@ -241,7 +241,7 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
-                KRW (조 원)
+                KRW ({language === 'ko' ? '조 원' : '₩T'})
               </button>
               <button
                 onClick={() => setCurrencyMode('USD')}
@@ -478,7 +478,7 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                         </span>
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
+                      <span className="text-slate-400 font-mono" title={language === 'ko' ? '해당 분기 미공시' : 'Not disclosed for this period'}>N/A</span>
                     )}
                   </td>
 
@@ -491,17 +491,17 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                           onClick={() => row.revenueObs && onSelectObservation?.(row.revenueObs)}
                         >
                           {currencyMode === 'KRW'
-                            ? `₩${row.normRevenue >= 10 ? row.normRevenue.toFixed(1) : row.normRevenue.toFixed(2)}조`
+                            ? `₩${row.normRevenue >= 10 ? row.normRevenue.toFixed(1) : row.normRevenue.toFixed(2)}${language === 'ko' ? '조' : 'T'}`
                             : `$${row.normRevenue >= 10 ? row.normRevenue.toFixed(1) : row.normRevenue.toFixed(2)}B`}
                         </span>
                         {row.revenueObs?.value !== undefined && row.revenueObs.value !== null && (
                           <span className="text-[10px] text-slate-400">
-                            {formatOriginalCurrencyCompact(row.revenueObs.value, row.company.reportingCurrency)}
+                            {formatOriginalCurrencyCompact(row.revenueObs.value, row.company.reportingCurrency, language)}
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
+                      <span className="text-slate-400 font-mono" title={language === 'ko' ? '해당 분기 미공시' : 'Not disclosed for this period'}>N/A</span>
                     )}
                   </td>
 
@@ -518,17 +518,17 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                           onClick={() => row.ebitObs && onSelectObservation?.(row.ebitObs)}
                         >
                           {currencyMode === 'KRW'
-                            ? `${row.normEbit < 0 ? '-' : ''}₩${Math.abs(row.normEbit).toFixed(2)}조`
+                            ? `${row.normEbit < 0 ? '-' : ''}₩${Math.abs(row.normEbit).toFixed(2)}${language === 'ko' ? '조' : 'T'}`
                             : `${row.normEbit < 0 ? '-' : ''}$${Math.abs(row.normEbit).toFixed(2)}B`}
                         </span>
                         {row.ebitObs?.value !== undefined && row.ebitObs.value !== null && (
                           <span className="text-[10px] text-slate-400">
-                            {formatOriginalCurrencyCompact(row.ebitObs.value, row.company.reportingCurrency)}
+                            {formatOriginalCurrencyCompact(row.ebitObs.value, row.company.reportingCurrency, language)}
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
+                      <span className="text-slate-400 font-mono" title={language === 'ko' ? '해당 분기 미공시' : 'Not disclosed for this period'}>N/A</span>
                     )}
                   </td>
 
@@ -557,7 +557,7 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
+                      <span className="text-slate-400 font-mono" title={language === 'ko' ? '해당 분기 미공시' : 'Not disclosed for this period'}>N/A</span>
                     )}
                   </td>
 
@@ -571,7 +571,7 @@ export const OEMCompetitiveLeaderboard: React.FC<OEMCompetitiveLeaderboardProps>
                         {row.bevVal}%
                       </span>
                     ) : (
-                      <span className="text-slate-400 font-mono" title="해당 분기 미공시">N/A</span>
+                      <span className="text-slate-400 font-mono" title={language === 'ko' ? '해당 분기 미공시' : 'Not disclosed for this period'}>N/A</span>
                     )}
                   </td>
 
@@ -623,9 +623,11 @@ function matchesVolumeFilter(obs: MetricObservation | undefined, _metricId: stri
   return obs.volumeDefinition === filter;
 }
 
-function formatOriginalCurrencyCompact(val: number, currency: string): string {
+function formatOriginalCurrencyCompact(val: number, currency: string, language: string): string {
   if (currency === 'KRW') {
-    return `${(val / 1_000_000).toFixed(1)}조`;
+    return language === 'ko'
+      ? `${(val / 1_000_000).toFixed(1)}조`
+      : `₩${(val / 1_000_000).toFixed(2)}T`;
   }
   if (currency === 'JPY') {
     return `¥${(val / 1_000).toFixed(1)}B`;

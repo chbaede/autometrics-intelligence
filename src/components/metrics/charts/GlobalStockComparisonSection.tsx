@@ -679,7 +679,7 @@ export const GlobalStockComparisonSection: React.FC<GlobalStockComparisonSection
                       >
                         {chgFrom24Q1 !== null
                           ? `${chgFrom24Q1 >= 0 ? '+' : ''}${chgFrom24Q1.toFixed(1)}%`
-                          : '예정'}
+                          : (language === 'ko' ? '예정' : 'Sched.')}
                       </span>
                     </div>
                     <div className="flex items-baseline justify-between text-[10px] text-slate-500 mt-1">

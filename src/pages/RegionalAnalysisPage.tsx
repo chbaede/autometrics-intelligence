@@ -178,7 +178,7 @@ export const RegionalAnalysisPage: React.FC = () => {
             {topOemComp?.name || '-'}
           </div>
           <div className="text-[11px] text-slate-500 font-mono">
-            {topOem ? `${formatMetricValue(topOem.value, 'thousand_units')} (${((topOem.value / (totalVolume || 1)) * 100).toFixed(1)}% 점유)` : '-'}
+            {topOem ? `${formatMetricValue(topOem.value, 'thousand_units')} (${((topOem.value / (totalVolume || 1)) * 100).toFixed(1)}% ${language === 'ko' ? '점유' : 'share'})` : '-'}
           </div>
         </div>
 

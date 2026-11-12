@@ -343,7 +343,7 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                KRW (원화 억/만)
+                {language === 'ko' ? 'KRW (원화 억/만)' : 'KRW (₩B / ₩M)'}
               </button>
               <button
                 onClick={() => setCurrencyMode('USD')}
@@ -705,7 +705,7 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
                         </span>
                         {rec.fiscalYearEnd.includes('Mar') && (
                           <span className="text-[9px] px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
-                            3월 결산
+                            {language === 'ko' ? '3월 결산' : 'Mar FY'}
                           </span>
                         )}
                       </Link>
@@ -839,41 +839,73 @@ export const OEMCostEfficiencyBenchmark: React.FC<OEMCostEfficiencyBenchmarkProp
             <div className="space-y-3.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white">
-                  1. 직원 1인당 매출 및 영업이익 (Revenue & Operating Profit per Employee)
+                  {language === 'ko'
+                    ? '1. 직원 1인당 매출 및 영업이익 (Revenue & Operating Profit per Employee)'
+                    : '1. Revenue & Operating Profit per Employee'}
                 </div>
-                <div>산식: 매출액 ÷ 총 임직원수 / 영업이익 ÷ 총 임직원수</div>
+                <div>
+                  {language === 'ko'
+                    ? '산식: 매출액 ÷ 총 임직원수 / 영업이익 ÷ 총 임직원수'
+                    : 'Formula: Consolidated Revenue ÷ Total Headcount / Consolidated EBIT ÷ Total Headcount'}
+                </div>
                 <div className="text-[11px] text-slate-400">
-                  설명: 각 사의 공식 연말 또는 연평균 재직 인원수(Headcount)를 기준으로 산출합니다. 외주 비율이 높거나 부품 조달을 외부에서 주로 수행하는 기업은 인당 생산성 수치가 높게 나타날 수 있습니다.
+                  {language === 'ko'
+                    ? '설명: 각 사의 공식 연말 또는 연평균 재직 인원수(Headcount)를 기준으로 산출합니다. 외주 비율이 높거나 부품 조달을 외부에서 주로 수행하는 기업은 인당 생산성 수치가 높게 나타날 수 있습니다.'
+                    : 'Basis: Derived using official year-end or average consolidated headcount. Asset-light OEMs with higher component outsourcing naturally exhibit higher revenue per employee.'}
                 </div>
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white">
-                  2. 차량 1대당 매출 및 영업이익 (Revenue & Operating Profit per Vehicle)
+                  {language === 'ko'
+                    ? '2. 차량 1대당 매출 및 영업이익 (Revenue & Operating Profit per Vehicle)'
+                    : '2. Revenue & Operating Profit per Vehicle'}
                 </div>
-                <div>산식: 자동차 부문 매출액 ÷ 출하/인도량 / 자동차 부문 영업이익 ÷ 출하/인도량</div>
+                <div>
+                  {language === 'ko'
+                    ? '산식: 자동차 부문 매출액 ÷ 출하/인도량 / 자동차 부문 영업이익 ÷ 출하/인도량'
+                    : 'Formula: Automotive Segment Revenue ÷ Deliveries / Automotive EBIT ÷ Deliveries'}
+                </div>
                 <div className="text-[11px] text-slate-400">
-                  설명: 금융 서비스 자회사를 제외한 순수 자동차 부문 매출과 이익을 우선 사용하며, 부문 분리가 공시되지 않는 기업(테슬라, 리비안 등)은 그룹 수치를 프록시로 명시하여 표기합니다.
+                  {language === 'ko'
+                    ? '설명: 금융 서비스 자회사를 제외한 순수 자동차 부문 매출과 이익을 우선 사용하며, 부문 분리가 공시되지 않는 기업(테슬라, 리비안 등)은 그룹 수치를 프록시로 명시하여 표기합니다.'
+                    : 'Basis: Prioritizes pure Automotive segment revenue and EBIT excluding financial services; where unsegmented (e.g., Tesla, Rivian), consolidated group totals are explicitly flagged as proxies.'}
                 </div>
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white">
-                  3. R&D 집약도 및 CapEx 집약도 (R&D & CapEx Intensity)
+                  {language === 'ko'
+                    ? '3. R&D 집약도 및 CapEx 집약도 (R&D & CapEx Intensity)'
+                    : '3. R&D & CapEx Intensity (% of Revenue)'}
                 </div>
-                <div>산식: R&D 투자액 ÷ 총매출 × 100 (%) / 설비투자(CapEx) ÷ 총매출 × 100 (%)</div>
+                <div>
+                  {language === 'ko'
+                    ? '산식: R&D 투자액 ÷ 총매출 × 100 (%) / 설비투자(CapEx) ÷ 총매출 × 100 (%)'
+                    : 'Formula: R&D Expenditure ÷ Total Revenue × 100 (%) / CapEx ÷ Total Revenue × 100 (%)'}
+                </div>
                 <div className="text-[11px] text-slate-400">
-                  설명: IFRS(개발비 자본화 허용)와 US-GAAP(전액 당기비용화 원칙) 간 회계 차이가 존재하며, 각 사의 공식 현금흐름표 및 주석 공시를 일관되게 적용하였습니다.
+                  {language === 'ko'
+                    ? '설명: IFRS(개발비 자본화 허용)와 US-GAAP(전액 당기비용화 원칙) 간 회계 차이가 존재하며, 각 사의 공식 현금흐름표 및 주석 공시를 일관되게 적용하였습니다.'
+                    : 'Basis: IFRS permits partial R&D capitalization whereas US-GAAP expenses R&D as incurred; all inputs are extracted consistently from official cash flow statements and financial footnotes.'}
                 </div>
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white">
-                  4. CapEx 대비 매출 배수 (Revenue per Unit of CapEx)
+                  {language === 'ko'
+                    ? '4. CapEx 대비 매출 배수 (Revenue per Unit of CapEx)'
+                    : '4. Revenue per Unit of CapEx (CapEx Multiple)'}
                 </div>
-                <div>산식: 총매출 ÷ 설비투자액(CapEx)</div>
+                <div>
+                  {language === 'ko'
+                    ? '산식: 총매출 ÷ 설비투자액(CapEx)'
+                    : 'Formula: Consolidated Revenue ÷ Capital Expenditure (CapEx)'}
+                </div>
                 <div className="text-[11px] text-slate-400">
-                  설명: 1달러 또는 1원의 설비투자가 창출하는 매출의 규모를 나타내는 기술적(descriptive) 비율이며, 투자 수익률(ROIC)의 절대적 증거는 아닙니다.
+                  {language === 'ko'
+                    ? '설명: 1달러 또는 1원의 설비투자가 창출하는 매출의 규모를 나타내는 기술적(descriptive) 비율이며, 투자 수익률(ROIC)의 절대적 증거는 아닙니다.'
+                    : 'Basis: Descriptive ratio measuring current-period revenue generated per currency unit of capital expenditure; it does not represent multi-year return on invested capital (ROIC).'}
                 </div>
               </div>
             </div>

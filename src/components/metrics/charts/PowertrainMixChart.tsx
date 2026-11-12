@@ -159,7 +159,7 @@ export const PowertrainMixChart: React.FC<PowertrainMixChartProps> = ({
                     title={
                       hasPHEVDisclosed
                         ? `ICE / HEV: ${(item.totalDeliveries - item.bevVolume - phevVol).toFixed(1)}k units (${icePct.toFixed(1)}%)`
-                        : `ICE / HEV (PHEV 미구분 포함): ${(item.totalDeliveries - item.bevVolume).toFixed(1)}k units (${icePct.toFixed(1)}%)`
+                        : `${language === 'ko' ? 'ICE / HEV (PHEV 미구분 포함)' : 'ICE / HEV (incl. unsplit PHEV)'}: ${(item.totalDeliveries - item.bevVolume).toFixed(1)}k units (${icePct.toFixed(1)}%)`
                     }
                   >
                     {icePct >= 18 ? (

@@ -39,6 +39,23 @@ export interface DataChangeRecord {
 }
 
 export const DATA_CHANGE_HISTORY: DataChangeRecord[] = [
+  {
+    id: 'chg_20261112_byd_q3_ebit',
+    changeDate: '2026-11-12',
+    companyId: 'byd',
+    metricId: 'operating_income',
+    period: '2026-Q3',
+    changeCategory: 'coverage_expansion',
+    previousValue: null,
+    newValue: 12268.17,
+    unit: 'CNY Millions',
+    reasonKo: 'BYD 공식 HKEX 2026년 3분기 보고서(2026102900816.pdf p.15)의 9M 누적 영업이익(27,011.74M 위안)에서 2026년 반기보고서(2026082801633.pdf p.64)의 1H 영업이익(14,743.58M 위안)을 차감하여 Q3 단독 영업이익(12,268.17M 위안) 및 영업이익률(5.5%)을 투명하게 산출·반영하고 원문 PDF 링크를 정정함.',
+    reasonEn: 'Derived Q3 2026 CASBE operating profit (RMB 12,268.17M) and margin (5.5%) by subtracting 1H 2026 operating profit (RMB 14,743.58M, Interim Report p. 64) from 9M 2026 operating profit (RMB 27,011.74M, Q3 Report p. 15); updated primary HKEX PDF URL to 2026102900816.pdf.',
+    sourceDocId: 'byd_2026_q3_interim',
+    pageOrLocator: 'Page 15 (9M CASBE Consolidated Income Statement) & 1H Report Page 64',
+    affectsHistoricalComparability: false,
+    isReconstructed: false,
+  },
   // Honda & Nissan 2026-Q3 (FY2027 Q2 / FY2026 Q2) Official Disclosures & Reconciliations
   {
     id: 'chg_20261110_honda_q3_ebit',
