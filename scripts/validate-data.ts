@@ -77,7 +77,7 @@ if (!fixtureValResult.valid) {
 }
 
 // Run future-dated official data validator (P0 Data Integrity Gate)
-const futureDatedValResult = validateNoFutureDatedOfficialData(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS, '2026-11-07');
+const futureDatedValResult = validateNoFutureDatedOfficialData(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS, '2026-11-12');
 if (!futureDatedValResult.valid) {
   for (const err of futureDatedValResult.errors) {
     console.error(`❌ Future-Dated Official Data Error (${err.code}) for [${err.targetId}]: ${err.detail}`);

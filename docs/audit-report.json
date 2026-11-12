@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-11T09:26:00.806Z",
-  "sourceCommitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-  "executionCommitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-  "reportGenerationCommitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
+  "generatedAt": "2026-11-12T12:17:39.631Z",
+  "sourceCommitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+  "executionCommitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+  "reportGenerationCommitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
   "dataRegistryVersion": "1.0.0",
   "auditEngineVersion": "3.2.0",
   "workingTreeStatus": "dirty",
@@ -21,26 +21,26 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 typecheck > tsc --noEmit",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:38.518Z"
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:16.896Z"
     },
     {
       "command": "npm run validate-data",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "🗺️  Total Regional Observations: 389 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:41.785Z"
+      "summary": "🗺️  Total Regional Observations: 401 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected.",
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:20.567Z"
     },
     {
       "command": "npm run validate-source-claims",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "✨ Internal consistency validation passed: All 195 source claims across 37 documents match registered observations and document perimeters. ℹ️  Note: This confir",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:42.232Z"
+      "summary": "✨ Internal consistency validation passed: All 205 source claims across 39 documents match registered observations and document perimeters. ℹ️  Note: This confir",
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:21.059Z"
     },
     {
       "command": "npm test",
@@ -48,8 +48,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "ALL PHASE 2 COST & EFFICIENCY BENCHMARK TESTS PASSED (100%) =============================================================",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:42.645Z"
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:21.467Z"
     },
     {
       "command": "npm run audit-data",
@@ -57,8 +57,8 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:50.934Z"
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:29.060Z"
     },
     {
       "command": "npm run audit-data -- --strict",
@@ -66,8 +66,8 @@
       "exitCode": 1,
       "status": "EXPECTED_POLICY_FAILURE",
       "summary": "═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings.",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:51.930Z"
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:30.061Z"
     },
     {
       "command": "npm run lint",
@@ -75,30 +75,30 @@
       "exitCode": 0,
       "status": "PASS",
       "summary": "> autometrics-intelligence@1.0.0 lint > eslint src/",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:52.892Z"
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:31.182Z"
     },
     {
       "command": "npm run build",
       "executed": true,
       "exitCode": 0,
       "status": "PASS",
-      "summary": "dist/assets/SEO-BZkYkZdw.js                           468.21 kB │ gzip: 50.51 kB ✓ built in 1.87s",
-      "commitSha": "264f78f77be54c9734e531708df5fd4b86e59cce",
-      "executedAt": "2026-11-11T09:25:55.126Z"
+      "summary": "dist/assets/SEO-D4SlGSl9.js                           485.74 kB │ gzip: 53.03 kB ✓ built in 2.13s",
+      "commitSha": "2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b",
+      "executedAt": "2026-11-12T12:17:33.466Z"
     }
   ],
   "counts": {
     "companies": 16,
-    "observations": 478,
-    "regionalObservations": 389,
+    "observations": 490,
+    "regionalObservations": 401,
     "guidance": 20,
-    "sourceDocuments": 99,
-    "documentsWithSourceClaims": 37,
-    "sourceClaims": 195
+    "sourceDocuments": 101,
+    "documentsWithSourceClaims": 39,
+    "sourceClaims": 205
   },
   "sourceClaimValidation": {
-    "checked": 195,
+    "checked": 205,
     "mismatches": 0
   },
   "fixtureValidation": {

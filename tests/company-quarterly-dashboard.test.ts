@@ -89,12 +89,11 @@ const REPORTED_Q3_OEMS = [
   'geely',
   'bmw_group',
   'toyota_motor',
-];
-
-const SCHEDULED_Q3_OEMS = [
   'honda_motor',
   'nissan_motor',
 ];
+
+const SCHEDULED_Q3_OEMS: string[] = [];
 
 // =========================================================================
 // Suite 1: Period Resolution Logic for All 16 Automakers
@@ -2058,25 +2057,14 @@ function runSuite16() {
     assert(f.hasObservationsForPeriod === true, `Suite 16a-5 [${id}]: hasObservationsForPeriod is true`);
   }
 
-  // 2. All 2 scheduled OEMs receive scheduled
-  const scheduledMap: Record<string, string> = {
-    nissan_motor: '2026-11-07',
-    honda_motor: '2026-11-08',
-  };
-
-  for (const [id, expectedDate] of Object.entries(scheduledMap)) {
-    const f = getCompanyDataFreshness(id, '2026-Q3');
-    assert(f.status === 'scheduled', `Suite 16b-1 [${id}]: status is scheduled`);
-    assert(f.scheduledDate === expectedDate, `Suite 16b-2 [${id}]: scheduledDate is ${expectedDate}`);
-    assert(f.hasObservationsForPeriod === false, `Suite 16b-3 [${id}]: hasObservationsForPeriod is strictly false`);
-    assert(f.sourcePublishedAt === undefined, `Suite 16b-4 [${id}]: sourcePublishedAt is undefined (no fabrication)`);
-  }
+  // 2. All 0 scheduled OEMs remain in 2026-Q3
+  assert(SCHEDULED_Q3_OEMS.length === 0, 'Suite 16b-1: Zero OEMs remain pending/scheduled in 2026-Q3');
 
   // 3. Reporting Season Summary
   const summary = getReportingSeasonSummary('2026-Q3');
   assert(summary.totalCompanies === 16, 'Suite 16c-1: Total registered OEMs in summary is 16');
-  assert(summary.reportedCount === 14, 'Suite 16c-2: Exactly 14 reported OEMs in 2026-Q3 season');
-  assert(summary.scheduledCount === 2, 'Suite 16c-3: Exactly 2 scheduled pending OEMs in 2026-Q3 season');
+  assert(summary.reportedCount === 16, 'Suite 16c-2: Exactly 16 reported OEMs in 2026-Q3 season');
+  assert(summary.scheduledCount === 0, 'Suite 16c-3: Exactly 0 scheduled pending OEMs in 2026-Q3 season');
   assert(summary.unconfirmedCount === 0, 'Suite 16c-4: 0 unconfirmed OEMs in 2026-Q3 season');
 }
 
@@ -2086,11 +2074,11 @@ function runSuite16() {
 function runSuite17() {
   console.log('\n--- Suite 17: Universal 2026 Q3 Freshness, Required Metrics & Provenance Invariants ---');
 
-  // 1. All 14 reported OEMs have 100% required metrics coverage
+  // 1. All 16 reported OEMs have 100% required metrics coverage
   const reportedIds = [
     'tesla', 'volkswagen_group', 'general_motors', 'ford', 'hyundai_motor',
     'mercedes_benz', 'stellantis', 'byd', 'volvo_cars', 'kia', 'rivian', 'geely',
-    'bmw_group', 'toyota_motor',
+    'bmw_group', 'toyota_motor', 'honda_motor', 'nissan_motor',
   ];
 
   for (const id of reportedIds) {
@@ -2201,10 +2189,10 @@ function runSuite18() {
   const noConflict = detectCompanySourceConflict('kia', '2026-Q3');
   assert(noConflict.hasConflict === false, 'Suite 18-6a: Clean repository has no source conflict for Kia 2026-Q3');
 
-  // 7. Partial collection -> returns partial
-  const testPartialCoverage = getCompanyDataFreshness('nissan_motor', '2026-Q3');
+  // 7. Unreported future period -> never claims verified_official
+  const testPartialCoverage = getCompanyDataFreshness('nissan_motor', '2099-Q4');
   assert(
-    testPartialCoverage.status === 'scheduled' || testPartialCoverage.status === 'partial' || testPartialCoverage.status === 'not_yet_published',
+    testPartialCoverage.status !== 'verified_official' && testPartialCoverage.status === 'unconfirmed',
     'Suite 18-7: Unreported period does not claim verified_official'
   );
 
@@ -2216,9 +2204,9 @@ function runSuite18() {
   assert(freshnessKia.calculatedAt === '2026-11-01', 'Suite 18-8d: Calculated date is 2026-11-01');
 
   // An observation without explicit dates preserves undefined in freshness (no fallback to lastChecked)
-  const nissanFreshness = getCompanyDataFreshness('nissan_motor', '2026-Q3');
-  assert(nissanFreshness.dataUpdatedAt === undefined, 'Suite 18-8e: Unreported OEM dataUpdatedAt is undefined (no fallback fabrication)');
-  assert(nissanFreshness.calculatedAt === undefined, 'Suite 18-8f: Unreported OEM calculatedAt is undefined (no fallback fabrication)');
+  const unreportedFreshness = getCompanyDataFreshness('nissan_motor', '2099-Q4');
+  assert(unreportedFreshness.dataUpdatedAt === undefined, 'Suite 18-8e: Unreported period dataUpdatedAt is undefined (no fallback fabrication)');
+  assert(unreportedFreshness.calculatedAt === undefined, 'Suite 18-8f: Unreported period calculatedAt is undefined (no fallback fabrication)');
 
   // 9. Kia 2025 and 2026 data regression
   // 9a. 2026-Q3: input observation IDs and derivation formula

@@ -98,6 +98,9 @@ export function getCompanyRequiredMetrics(companyId: string): string[] {
     case 'mercedes_benz':
     case 'stellantis':
     case 'volvo_cars':
+    case 'toyota_motor':
+    case 'honda_motor':
+    case 'nissan_motor':
       // Major global OEM standard core: global volume, revenue, operating income/EBIT, operating margin
       return ['deliveries_global', 'revenue', 'operating_income', 'operating_margin'];
     default:

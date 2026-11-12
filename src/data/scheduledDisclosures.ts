@@ -18,26 +18,7 @@ export interface ScheduledDisclosure {
   notesEn: string;
 }
 
-export const SCHEDULED_DISCLOSURES: ScheduledDisclosure[] = [
-  {
-    companyId: 'nissan_motor',
-    period: '2026-Q3',
-    scheduledDate: '2026-11-07',
-    scheduledDateKo: '2026년 11월 7일 (공시 예정)',
-    scheduledDateEn: 'Nov 7, 2026 (Scheduled)',
-    notesKo: '닛산 자동차 FY2027 2분기(CY2026 3분기 / 상반기) 결산 발표 예정',
-    notesEn: 'Nissan Motor FY2027 Q2 (CY2026 Q3 / H1) Financial Results scheduled for Nov 7, 2026',
-  },
-  {
-    companyId: 'honda_motor',
-    period: '2026-Q3',
-    scheduledDate: '2026-11-08',
-    scheduledDateKo: '2026년 11월 8일 (공시 예정)',
-    scheduledDateEn: 'Nov 8, 2026 (Scheduled)',
-    notesKo: '혼다 기연공업 FY2027 2분기(CY2026 3분기) 결산 발표 예정',
-    notesEn: 'Honda Motor FY2027 Q2 (CY2026 Q3) Financial Results scheduled for Nov 8, 2026',
-  },
-];
+export const SCHEDULED_DISCLOSURES: ScheduledDisclosure[] = [];
 
 export function getScheduledDisclosure(companyId: string, period: string): ScheduledDisclosure | undefined {
   return SCHEDULED_DISCLOSURES.find((s) => s.companyId === companyId && s.period === period);

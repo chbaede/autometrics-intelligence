@@ -557,11 +557,11 @@ if (toyotaDecomp) {
 
 
 // ========================================================
-// 5. Audit of All 13 OEMs in FINANCIAL_DECOMPOSITIONS
+// 5. Audit of All 15 OEMs in FINANCIAL_DECOMPOSITIONS
 // ========================================================
-console.log('\n🏛️ Suite 5: Audit of All 13 OEMs in FINANCIAL_DECOMPOSITIONS');
+console.log('\n🏛️ Suite 5: Audit of All 15 OEMs in FINANCIAL_DECOMPOSITIONS');
 
-assert(FINANCIAL_DECOMPOSITIONS.length === 13, `Suite 5-1: Exact count of registered OEM decompositions is 13 (${FINANCIAL_DECOMPOSITIONS.length})`);
+assert(FINANCIAL_DECOMPOSITIONS.length === 15, `Suite 5-1: Exact count of registered OEM decompositions is 15 (${FINANCIAL_DECOMPOSITIONS.length})`);
 
 const validAccountingStandards = ['IFRS', 'US_GAAP', 'J_GAAP', 'K_IFRS', 'CAS'];
 const validProfitMetricClassifications = [

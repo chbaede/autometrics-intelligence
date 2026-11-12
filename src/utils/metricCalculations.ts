@@ -4112,7 +4112,7 @@ export interface FutureDatedValidationResult {
 export function validateNoFutureDatedOfficialData(
   sourceDocs: SourceDocument[],
   observations: MetricObservation[],
-  verificationDateStr = '2026-11-07'
+  verificationDateStr = '2026-11-12'
 ): FutureDatedValidationResult {
   const errors: { targetId: string; code: string; detail: string }[] = [];
   const verificationDate = new Date(verificationDateStr);

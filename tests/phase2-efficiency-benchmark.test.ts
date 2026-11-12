@@ -321,7 +321,7 @@ console.log('   ✓ Zero Chinese/Kanji characters confirmed across all 16 OEMs i
 
 // 11. Prevent Future-Dated Official Data & Validate Japanese FY Convention Accuracy
 console.log('11. Validating zero future-dated official data & Japanese fiscal year convention integrity...');
-const futureDatedValidation = validateNoFutureDatedOfficialData(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS, '2026-11-07');
+const futureDatedValidation = validateNoFutureDatedOfficialData(SOURCE_DOCUMENTS, METRIC_OBSERVATIONS, '2026-11-12');
 assert(futureDatedValidation.valid, `Future dated validation failed: ${JSON.stringify(futureDatedValidation.errors)}`);
 
 // Confirm Toyota, Honda, Nissan 2026-LTM-est do not claim future quarters
@@ -333,13 +333,13 @@ assert(tm2026!.reportedInputDetails!.annualizationFactor === 2, 'Toyota H1 annua
 
 const honda2026 = getCompanyEfficiencyRecord('honda_motor', '2026-LTM-est');
 assert(honda2026 !== undefined, 'Honda 2026-LTM-est must exist');
-assert(honda2026!.reportedInputDetails!.reportedPeriod.includes('FY2027 Q1'), 'Honda 2026-LTM-est must be based on FY2027 Q1 (ended June 30, 2026)');
-assert(honda2026!.reportedInputDetails!.annualizationFactor === 4, 'Honda Q1 annualization factor must be 4.0');
+assert(honda2026!.reportedInputDetails!.reportedPeriod.includes('H1'), 'Honda 2026-LTM-est must be based on FY2027 H1 (6M ended Sept 30, 2026)');
+assert(honda2026!.reportedInputDetails!.annualizationFactor === 2, 'Honda H1 annualization factor must be 2.0');
 
 const nissan2026 = getCompanyEfficiencyRecord('nissan_motor', '2026-LTM-est');
 assert(nissan2026 !== undefined, 'Nissan 2026-LTM-est must exist');
-assert(nissan2026!.reportedInputDetails!.reportedPeriod.includes('FY2027 Q1'), 'Nissan 2026-LTM-est must be based on FY2027 Q1 (ended June 30, 2026)');
-assert(nissan2026!.reportedInputDetails!.annualizationFactor === 4, 'Nissan Q1 annualization factor must be 4.0');
+assert(nissan2026!.reportedInputDetails!.reportedPeriod.includes('H1'), 'Nissan 2026-LTM-est must be based on FY2026 H1 (6M ended Sept 30, 2026)');
+assert(nissan2026!.reportedInputDetails!.annualizationFactor === 2, 'Nissan H1 annualization factor must be 2.0');
 
 console.log('   ✓ Zero future-dated official data confirmed across December & March FY entities.');
 

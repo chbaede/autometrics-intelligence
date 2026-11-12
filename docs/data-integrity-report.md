@@ -2,12 +2,12 @@
 
 ## Audit Status
 
-**Audited Source Commit:** 264f78f77be54c9734e531708df5fd4b86e59cce  
-**Report Generation Commit:** 264f78f77be54c9734e531708df5fd4b86e59cce  
+**Audited Source Commit:** 2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b  
+**Report Generation Commit:** 2b61955c5b3f8f82c5a76a5d6d72faeaca91fe3b  
 **Working Tree:** dirty  
 **Audit Engine:** 3.2.0  
 **Data Registry:** 1.0.0  
-**Generated:** 2026-11-11T09:26:00.806Z  
+**Generated:** 2026-11-12T12:17:39.631Z  
 **Node.js:** v22.21.1  
 **Branch:** main
 
@@ -18,13 +18,13 @@
 | Command | Result |
 |---------|--------|
 | `npm run typecheck` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 typecheck > tsc --noEmit |
-| `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 389 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
-| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 195 source claims across 37 documents match registered observations and document perimeters. ℹ️  Note: This confir |
+| `npm run validate-data` | ✅ PASS (exit 0): 🗺️  Total Regional Observations: 401 ✨ Strict Data Validation Succeeded! Zero integrity or metadata errors detected. |
+| `npm run validate-source-claims` | ✅ PASS (exit 0): ✨ Internal consistency validation passed: All 205 source claims across 39 documents match registered observations and document perimeters. ℹ️  Note: This confir |
 | `npm test` | ✅ PASS (exit 0): ALL PHASE 2 COST & EFFICIENCY BENCHMARK TESTS PASSED (100%) ============================================================= |
 | `npm run audit-data` | ✅ PASS (exit 0): ═════════════════════════════════════════════════════════════════════════════ ✨ Scope-Safe Audit Passed with 0 blocking errors. (0 evidence-backed documented ex |
 | `npm run audit-data -- --strict` | ⚠️ EXPECTED POLICY FAILURE (exit 1): ═════════════════════════════════════════════════════════════════════════════ ⚠️ Strict mode failed with 8 review findings. |
 | `npm run lint` | ✅ PASS (exit 0): > autometrics-intelligence@1.0.0 lint > eslint src/ |
-| `npm run build` | ✅ PASS (exit 0): dist/assets/SEO-BZkYkZdw.js                           468.21 kB │ gzip: 50.51 kB ✓ built in 1.87s |
+| `npm run build` | ✅ PASS (exit 0): dist/assets/SEO-D4SlGSl9.js                           485.74 kB │ gzip: 53.03 kB ✓ built in 2.13s |
 
 ---
 
@@ -34,20 +34,20 @@
 |----------|-------|
 | Registered Automakers | 16 |
 | Metric Definitions | 17 |
-| Financial & Volume Observations | 478 |
-| Primary Source Documents | 99 |
-| Documents with Source Claims | 37 |
+| Financial & Volume Observations | 490 |
+| Primary Source Documents | 101 |
+| Documents with Source Claims | 39 |
 | Forward-Looking Guidance Items | 20 |
-| Regional Delivery Observations | 389 |
-| Source Claims Audited | 195 |
+| Regional Delivery Observations | 401 |
+| Source Claims Audited | 205 |
 
 ---
 
 ## Audit Summary
 
 ### Source Claims Verification
-- Total Source Claims: **195** across **37** source documents
-- Claims Audited: **195**
+- Total Source Claims: **205** across **39** source documents
+- Claims Audited: **205**
 - Mismatches: **0**
 - Consistency Rate: **100% consistent** (internal claim-to-observation schema consistency; live source verification evaluated by IR audit pipeline)
 
